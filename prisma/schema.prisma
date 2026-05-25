@@ -1,0 +1,182 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Rol {
+  id       Int       @id @default(autoincrement())
+  nombre   String    @unique
+  usuarios Usuario[]
+
+  @@map("roles")
+}
+
+model Usuario {
+  id            Int              @id @default(autoincrement())
+  username      String           @unique
+  passwordHash  String           @map("password_hash")
+  rolId         Int              @map("rol_id")
+  rol           Rol              @relation(fields: [rolId], references: [id])
+  empleado      Empleado?
+  ventas        Venta[]
+  cajas         Caja[]
+  compras       Compra[]
+  movimientos   MovimientoCaja[]
+
+  @@map("usuarios")
+}
+
+model Empleado {
+  id        Int      @id @default(autoincrement())
+  nombre    String
+  apellido  String
+  cargo     String
+  usuarioId Int?     @unique @map("usuario_id")
+  usuario   Usuario? @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  activo    Boolean  @default(true)
+
+  @@map("empleados")
+}
+
+model Cliente {
+  id        Int     @id @default(autoincrement())
+  nombre    String
+  dni       String  @unique
+  telefono  String?
+  direccion String?
+  email     String?
+  ventas    Venta[]
+
+  @@map("clientes")
+}
+
+model Proveedor {
+  id        Int        @id @default(autoincrement())
+  nombre    String
+  telefono  String?
+  direccion String?
+  email     String?
+  cuit      String     @unique
+  productos Producto[]
+  compras   Compra[]
+
+  @@map("proveedores")
+}
+
+model Categoria {
+  id        Int        @id @default(autoincrement())
+  nombre    String     @unique
+  productos Producto[]
+
+  @@map("categorias")
+}
+
+model Producto {
+  id             Int             @id @default(autoincrement())
+  nombre         String
+  categoriaId    Int             @map("categoria_id")
+  categoria      Categoria       @relation(fields: [categoriaId], references: [id])
+  precioCompra   Float           @map("precio_compra")
+  precioVenta    Float           @map("precio_venta")
+  cantidad       Int             @default(0)
+  stockMinimo    Int             @default(0) @map("stock_minimo")
+  proveedorId    Int             @map("proveedor_id")
+  proveedor      Proveedor       @relation(fields: [proveedorId], references: [id])
+  activo         Boolean         @default(true)
+  detallesVenta  DetalleVenta[]
+  detallesCompra DetalleCompra[]
+
+  @@map("productos")
+}
+
+model Venta {
+  id             Int            @id @default(autoincrement())
+  clienteId      Int            @map("cliente_id")
+  cliente        Cliente        @relation(fields: [clienteId], references: [id])
+  usuarioId      Int            @map("usuario_id")
+  usuario        Usuario        @relation(fields: [usuarioId], references: [id])
+  total          Float          @default(0.0)
+  fecha          DateTime       @default(now())
+  detalles       DetalleVenta[]
+  movimientos    MovimientoCaja[]
+
+  @@map("ventas")
+}
+
+model DetalleVenta {
+  id             Int      @id @default(autoincrement())
+  ventaId        Int      @map("venta_id")
+  venta          Venta    @relation(fields: [ventaId], references: [id], onDelete: Cascade)
+  productoId     Int      @map("producto_id")
+  producto       Producto @relation(fields: [productoId], references: [id])
+  cantidad       Int
+  precioUnitario Float    @map("precio_unitario")
+  subtotal       Float
+
+  @@map("detalle_ventas")
+}
+
+model Caja {
+  id            Int              @id @default(autoincrement())
+  usuarioId     Int              @map("usuario_id")
+  usuario       Usuario          @relation(fields: [usuarioId], references: [id])
+  fechaApertura DateTime         @default(now()) @map("fecha_apertura")
+  fechaCierre   DateTime?        @map("fecha_cierre")
+  montoInicial  Float            @map("monto_inicial")
+  totalVentas   Float            @default(0.0) @map("total_ventas")
+  estado        String           @default("ABIERTA") // "ABIERTA" o "CERRADA"
+  movimientos   MovimientoCaja[]
+
+  @@map("cajas")
+}
+
+model MovimientoCaja {
+  id          Int      @id @default(autoincrement())
+  cajaId      Int      @map("caja_id")
+  caja        Caja     @relation(fields: [cajaId], references: [id], onDelete: Cascade)
+  usuarioId   Int      @map("usuario_id")
+  usuario     Usuario  @relation(fields: [usuarioId], references: [id])
+  ventaId     Int?     @map("venta_id")
+  venta       Venta?   @relation(fields: [ventaId], references: [id])
+  compraId    Int?     @map("compra_id")
+  compra      Compra?  @relation(fields: [compraId], references: [id])
+  tipo        String   // "INGRESO" o "EGRESO"
+  monto       Float
+  descripcion String
+  fecha       DateTime @default(now())
+
+  @@map("movimientos_caja")
+}
+
+model Compra {
+  id          Int             @id @default(autoincrement())
+  proveedorId Int             @map("proveedor_id")
+  proveedor   Proveedor       @relation(fields: [proveedorId], references: [id])
+  usuarioId   Int             @map("usuario_id")
+  usuario     Usuario         @relation(fields: [usuarioId], references: [id])
+  total       Float           @default(0.0)
+  fecha       DateTime        @default(now())
+  detalles    DetalleCompra[]
+  movimientos MovimientoCaja[]
+
+  @@map("compras")
+}
+
+model DetalleCompra {
+  id            Int      @id @default(autoincrement())
+  compraId      Int      @map("compra_id")
+  compra        Compra   @relation(fields: [compraId], references: [id], onDelete: Cascade)
+  productoId    Int      @map("producto_id")
+  producto      Producto @relation(fields: [productoId], references: [id])
+  cantidad      Int
+  costoUnitario Float    @map("costo_unitario")
+  subtotal      Float
+
+  @@map("detalle_compras")
+}
