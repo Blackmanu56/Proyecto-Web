@@ -1,21 +1,25 @@
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
 
+const adapter = new PrismaPg({
+  connectionString: process.env.DATABASE_URL!,
+});
+
 const prisma = new PrismaClient({
-  log: ["query"],
+  adapter,
 });
 
 async function main() {
   console.log("Iniciando el sembrado de la base de datos (Seed)...");
 
-  // 1. Roles
+  // 1. Roles (nuevos roles según requisitos de tesis)
   console.log("Sembrando Roles...");
   const roles = [
     { nombre: "ADMINISTRADOR" },
-    { nombre: "CAJERO" },
-    { nombre: "VENDEDOR" },
-    { nombre: "EMPLEADO" },
+    { nombre: "ENCARGADO_VENTAS" },
+    { nombre: "ENCARGADO_STOCK" },
   ];
 
   const dbRoles = [];
@@ -29,24 +33,29 @@ async function main() {
   }
 
   const adminRole = dbRoles.find((r) => r.nombre === "ADMINISTRADOR")!;
-  const sellerRole = dbRoles.find((r) => r.nombre === "VENDEDOR")!;
-  const cashierRole = dbRoles.find((r) => r.nombre === "CAJERO")!;
+  const ventasRole = dbRoles.find((r) => r.nombre === "ENCARGADO_VENTAS")!;
+  const stockRole = dbRoles.find((r) => r.nombre === "ENCARGADO_STOCK")!;
 
-  // 2. Usuarios Administradores
-  console.log("Sembrando Usuarios Administrativos...");
+  // 2. Usuarios
+  console.log("Sembrando Usuarios...");
   const passwordHash = bcrypt.hashSync("1234", 10);
-  
-  const rootUser = await prisma.usuario.upsert({
-    where: { username: "root" },
+
+  // Usuario administrador principal
+  const adminUser = await prisma.usuario.upsert({
+    where: { username: "admin" },
     update: {},
     create: {
-      username: "root",
+      username: "admin",
       passwordHash: passwordHash,
+      nombreCompleto: "Administrador General",
+      dni: "00000001",
+      correo: "admin@chopperrepuestos.com",
+      telefono: "3764000001",
       rolId: adminRole.id,
     },
   });
 
-  // Asociar empleado al usuario root
+  // Asociar empleado al admin
   await prisma.empleado.upsert({
     where: { id: 1 },
     update: {},
@@ -55,33 +64,38 @@ async function main() {
       nombre: "Administrador",
       apellido: "General",
       cargo: "Gerente",
-      usuarioId: rootUser.id,
-      activo: true,
-    },
-  });
-
-  // Usuario admin (solicitado por el usuario)
-  const adminUser = await prisma.usuario.upsert({
-    where: { username: "admin" },
-    update: {},
-    create: {
-      username: "admin",
-      passwordHash: passwordHash, // contraseña: 1234
-      rolId: adminRole.id,
-    },
-  });
-
-  // Asociar empleado al usuario admin
-  await prisma.empleado.upsert({
-    where: { id: 2 },
-    update: {},
-    create: {
-      id: 2,
-      nombre: "Admin",
-      apellido: "Sistema",
-      cargo: "Administrador",
       usuarioId: adminUser.id,
       activo: true,
+    },
+  });
+
+  // Usuario encargado de ventas (demo)
+  await prisma.usuario.upsert({
+    where: { username: "ventas" },
+    update: {},
+    create: {
+      username: "ventas",
+      passwordHash: passwordHash,
+      nombreCompleto: "Carlos López",
+      dni: "35123456",
+      correo: "carlos@chopperrepuestos.com",
+      telefono: "3764555001",
+      rolId: ventasRole.id,
+    },
+  });
+
+  // Usuario encargado de stock (demo)
+  await prisma.usuario.upsert({
+    where: { username: "stock" },
+    update: {},
+    create: {
+      username: "stock",
+      passwordHash: passwordHash,
+      nombreCompleto: "María García",
+      dni: "36789012",
+      correo: "maria@chopperrepuestos.com",
+      telefono: "3764555002",
+      rolId: stockRole.id,
     },
   });
 
@@ -225,6 +239,12 @@ async function main() {
   }
 
   console.log("Sembrado finalizado exitosamente!");
+  console.log("─────────────────────────────────");
+  console.log("Usuarios creados:");
+  console.log("  admin / 1234 (ADMINISTRADOR)");
+  console.log("  ventas / 1234 (ENCARGADO_VENTAS)");
+  console.log("  stock / 1234 (ENCARGADO_STOCK)");
+  console.log("─────────────────────────────────");
 }
 
 main()

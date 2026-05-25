@@ -12,22 +12,29 @@ datasource db {
 model Rol {
   id       Int       @id @default(autoincrement())
   nombre   String    @unique
+  permisos String?
   usuarios Usuario[]
 
   @@map("roles")
 }
 
 model Usuario {
-  id            Int              @id @default(autoincrement())
-  username      String           @unique
-  passwordHash  String           @map("password_hash")
-  rolId         Int              @map("rol_id")
-  rol           Rol              @relation(fields: [rolId], references: [id])
-  empleado      Empleado?
-  ventas        Venta[]
-  cajas         Caja[]
-  compras       Compra[]
-  movimientos   MovimientoCaja[]
+  id              Int              @id @default(autoincrement())
+  username        String           @unique
+  passwordHash    String           @map("password_hash")
+  nombreCompleto  String           @map("nombre_completo")
+  dni             String           @unique
+  correo          String?          @map("correo")
+  telefono        String?
+  activo          Boolean          @default(true)
+  creadoEn        DateTime         @default(now()) @map("creado_en")
+  rolId           Int              @map("rol_id")
+  rol             Rol              @relation(fields: [rolId], references: [id])
+  empleado        Empleado?
+  ventas          Venta[]
+  cajas           Caja[]
+  compras         Compra[]
+  movimientos     MovimientoCaja[]
 
   @@map("usuarios")
 }

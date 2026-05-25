@@ -25,11 +25,15 @@ async function main() {
     update: {
       passwordHash,
       rolId: adminRole.id,
+      nombreCompleto: "Administrador General",
+      dni: "00000001",
     },
     create: {
       username: "admin",
       passwordHash,
       rolId: adminRole.id,
+      nombreCompleto: "Administrador General",
+      dni: "00000001",
     },
   });
 

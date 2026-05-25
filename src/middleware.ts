@@ -7,14 +7,14 @@ const key = new TextEncoder().encode(JWT_SECRET);
 
 // Definimos las rutas protegidas y sus permisos mínimos
 const protectedRoutes = [
-  { path: "/dashboard", roles: ["ADMINISTRADOR", "CAJERO", "VENDEDOR", "EMPLEADO"] },
-  { path: "/productos", roles: ["ADMINISTRADOR", "EMPLEADO", "VENDEDOR"] },
-  { path: "/ventas", roles: ["ADMINISTRADOR", "VENDEDOR", "CAJERO"] },
-  { path: "/caja", roles: ["ADMINISTRADOR", "CAJERO"] },
-  { path: "/clientes", roles: ["ADMINISTRADOR", "VENDEDOR"] },
-  { path: "/proveedores", roles: ["ADMINISTRADOR", "EMPLEADO"] },
+  { path: "/dashboard", roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS", "ENCARGADO_STOCK"] },
+  { path: "/productos", roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS", "ENCARGADO_STOCK"] },
+  { path: "/ventas", roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS"] },
+  { path: "/caja", roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS"] },
+  { path: "/clientes", roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS"] },
+  { path: "/proveedores", roles: ["ADMINISTRADOR", "ENCARGADO_STOCK"] },
   { path: "/empleados", roles: ["ADMINISTRADOR"] },
-  { path: "/informes", roles: ["ADMINISTRADOR"] },
+  { path: "/informes", roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS", "ENCARGADO_STOCK"] },
 ];
 
 export async function middleware(request: NextRequest) {

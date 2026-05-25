@@ -32,14 +32,14 @@ export default function Navbar({ user }: NavbarProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const menuItems = [
-    { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard, roles: ["ADMINISTRADOR", "CAJERO", "VENDEDOR", "EMPLEADO"] },
-    { name: "Productos", path: "/productos", icon: Package, roles: ["ADMINISTRADOR", "EMPLEADO", "VENDEDOR"] },
-    { name: "Ventas", path: "/ventas", icon: ShoppingCart, roles: ["ADMINISTRADOR", "VENDEDOR", "CAJERO"] },
-    { name: "Caja", path: "/caja", icon: Coins, roles: ["ADMINISTRADOR", "CAJERO"] },
-    { name: "Clientes", path: "/clientes", icon: Users, roles: ["ADMINISTRADOR", "VENDEDOR"] },
-    { name: "Proveedores", path: "/proveedores", icon: Truck, roles: ["ADMINISTRADOR", "EMPLEADO"] },
-    { name: "Empleados", path: "/empleados", icon: UserCheck, roles: ["ADMINISTRADOR"] },
-    { name: "Informes", path: "/informes", icon: BarChart3, roles: ["ADMINISTRADOR"] },
+    { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard, roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS", "ENCARGADO_STOCK"] },
+    { name: "Productos", path: "/productos", icon: Package, roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS", "ENCARGADO_STOCK"] },
+    { name: "Ventas", path: "/ventas", icon: ShoppingCart, roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS"] },
+    { name: "Caja", path: "/caja", icon: Coins, roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS"] },
+    { name: "Clientes", path: "/clientes", icon: Users, roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS"] },
+    { name: "Proveedores", path: "/proveedores", icon: Truck, roles: ["ADMINISTRADOR", "ENCARGADO_STOCK"] },
+    { name: "Usuarios", path: "/empleados", icon: UserCheck, roles: ["ADMINISTRADOR"] },
+    { name: "Informes", path: "/informes", icon: BarChart3, roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS", "ENCARGADO_STOCK"] },
   ];
 
   const handleLogout = async () => {

@@ -46,7 +46,12 @@ export async function loginAction(
       return { error: "Usuario o contraseña incorrectos" };
     }
 
-    // Verificar si el empleado está activo
+    // Verificar si el usuario está activo (baja lógica)
+    if (!user.activo) {
+      return { error: "Este usuario ha sido dado de baja del sistema. Contacte al administrador." };
+    }
+
+    // Verificar si el empleado está activo (compatibilidad)
     if (user.empleado && !user.empleado.activo) {
       return { error: "Este usuario ha sido desactivado del sistema" };
     }
