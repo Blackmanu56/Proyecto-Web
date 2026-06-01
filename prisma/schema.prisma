@@ -70,14 +70,17 @@ model Cliente {
 }
 
 model Proveedor {
-  id        Int        @id @default(autoincrement())
-  nombre    String
-  telefono  String?
-  direccion String?
-  email     String?
-  cuit      String     @unique
-  productos Producto[]
-  compras   Compra[]
+  id                  Int        @id @default(autoincrement())
+  nombre              String
+  contactoResponsable String?    @map("contacto_responsable")
+  telefono            String?
+  direccion           String?
+  email               String?
+  cuit                String     @unique
+  activo              Boolean    @default(true)
+  creadoEn            DateTime   @default(now()) @map("creado_en")
+  productos           Producto[]
+  compras             Compra[]
 
   @@map("proveedores")
 }
