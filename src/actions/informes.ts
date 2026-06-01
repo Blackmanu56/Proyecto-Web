@@ -309,6 +309,7 @@ export interface ReportFilters {
   metodoPago?: string;
   estado?: string;
   rol?: string;
+  tipo?: string;
   conDiferencia?: boolean;
 }
 
@@ -962,6 +963,7 @@ export async function getAuditoriaReport(filters: ReportFilters = {}): Promise<P
 
     const where: any = { ...dateFilter };
     if (filters.usuarioId) where.usuarioId = filters.usuarioId;
+    if (filters.tipo) where.tipo = filters.tipo;
     if (filters.search) {
       where.OR = [
         { descripcion: { contains: filters.search, mode: "insensitive" } },

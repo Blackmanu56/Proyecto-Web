@@ -44,10 +44,10 @@ Chain strategy: feature-branch-chain
 
 ## Phase 4: Pestañas Nuevas
 
-- [ ] 4.1 Crear `src/components/reports/ClientesReport.tsx`: +6 StatCards, filtros, +5 tablas, +3 charts
-- [ ] 4.2 Crear `src/components/reports/ProveedoresReport.tsx`: +6 StatCards, filtros, +5 tablas, +3 charts
-- [ ] 4.3 Crear `src/components/reports/FinanzasReport.tsx`: +6 StatCards, filtros, +5 tablas, +4 charts
-- [ ] 4.4 Crear `src/components/reports/AuditoriaReport.tsx`: +4 StatCards, filtros, +1 tabla eventos con detalle JSON expandible
+- [x] 4.1 Crear `src/components/reports/ClientesReport.tsx`: +6 StatCards, filtros, +5 tablas, +3 charts
+- [x] 4.2 Crear `src/components/reports/ProveedoresReport.tsx`: +6 StatCards, filtros, +5 tablas, +3 charts
+- [x] 4.3 Crear `src/components/reports/FinanzasReport.tsx`: +6 StatCards, filtros, +5 tablas, +4 charts
+- [x] 4.4 Crear `src/components/reports/AuditoriaReport.tsx`: +4 StatCards, filtros, +1 tabla eventos con detalle JSON expandible
 
 ## Phase 5: Integración
 
