@@ -1,0 +1,169 @@
+/* ═══════════════════════════════════════════════════════════════
+   Report Print Styles — SGI-Repuestos
+   ═══════════════════════════════════════════════════════════════
+   Escondé el chrome de la UI (navbar, botones, filtros) y
+   mostrá solo el contenido del reporte al imprimir/PDF.
+   ═══════════════════════════════════════════════════════════════ */
+
+@media print {
+  /* ── Ocultar chrome de navegación ─────────────────────────── */
+  nav,
+  .navbar,
+  .sidebar,
+  footer,
+  button,
+  .print\:hidden,
+  [class*="print:hidden"] {
+    display: none !important;
+  }
+
+  /* ── Forzar fondo blanco y texto negro (ahorro de tinta) ──── */
+  html,
+  body,
+  main,
+  .main,
+  [class*="bg-slate"],
+  [class*="bg-gray"],
+  [class*="bg-indigo"],
+  [class*="bg-emerald"],
+  [class*="bg-rose"],
+  [class*="bg-amber"],
+  [class*="bg-sky"],
+  [class*="bg-purple"],
+  [class*="bg-slate-900"],
+  [class*="bg-slate-950"],
+  [class*="bg-slate-800"] {
+    background: #ffffff !important;
+    color: #1e293b !important;
+  }
+
+  /* ── Mostrar elementos marcados solo para impresión ────────── */
+  .print\:block {
+    display: block !important;
+  }
+
+  .hidden.print\:block {
+    display: block !important;
+  }
+
+  /* ── Forzar texto oscuro en todos los elementos ────────────── */
+  h1, h2, h3, h4, h5, h6,
+  p, span, div, td, th, li, label,
+  .text-white,
+  .text-slate-100,
+  .text-slate-200,
+  .text-slate-300,
+  .text-slate-400 {
+    color: #1e293b !important;
+  }
+
+  /* ── Colores de acento específicos ─────────────────────────── */
+  .text-emerald-400,
+  .text-emerald-500 {
+    color: #059669 !important;
+  }
+
+  .text-rose-400 {
+    color: #dc2626 !important;
+  }
+
+  /* ── Repetir cabeceras de tabla en cada página ─────────────── */
+  table thead {
+    display: table-header-group;
+  }
+
+  table tbody {
+    display: table-row-group;
+  }
+
+  /* ── Evitar saltos de página dentro de elementos ───────────── */
+  .StatCard,
+  .stat-card,
+  [class*="StatCard"],
+  .chart-wrapper,
+  [class*="ChartWrapper"],
+  .grid,
+  .kpi-grid,
+  tr,
+  th,
+  td,
+  .report-section {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* ── Control de saltos de página ──────────────────────────── */
+  h2, h3, h4 {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  /* ── Forzar bordes visibles en tablas ──────────────────────── */
+  table,
+  th,
+  td,
+  [class*="border-slate"],
+  [class*="border-gray"] {
+    border-color: #cbd5e1 !important;
+  }
+
+  th,
+  [class*="bg-slate-900/80"],
+  [class*="print:bg-gray-100"] {
+    background: #f1f5f9 !important;
+    color: #1e293b !important;
+  }
+
+  /* ── Ajustar padding y márgenes ────────────────────────────── */
+  .max-w-7xl {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .space-y-6,
+  .space-y-4,
+  .space-y-2 {
+    margin: 0 !important;
+  }
+
+  /* ── Hacer que el contenido ocupe todo el ancho ────────────── */
+  .flex-1 {
+    padding: 0 !important;
+  }
+
+  .p-6,
+  .p-4,
+  .p-3,
+  .p-2 {
+    padding: 4px !important;
+  }
+
+  .gap-3,
+  .gap-4 {
+    gap: 4px !important;
+  }
+
+  /* ── Charts: ocultar sombras/efectos para impresión ────────── */
+  .recharts-surface {
+    background: transparent !important;
+  }
+
+  .recharts-default-tooltip {
+    display: none !important;
+  }
+
+  /* ── Tamaño de fuente reducido para impresión ──────────────── */
+  body,
+  p,
+  span,
+  td,
+  th,
+  div {
+    font-size: 10pt !important;
+  }
+
+  h1 { font-size: 18pt !important; }
+  h2 { font-size: 14pt !important; }
+  h3 { font-size: 12pt !important; }
+}

@@ -51,13 +51,13 @@ Chain strategy: feature-branch-chain
 
 ## Phase 5: Integración
 
-- [ ] 5.1 Modificar `src/app/informes/page.tsx`: +initialData nuevos reports, +getClientesDistinct(), +getMetodosPago()
-- [ ] 5.2 Modificar `src/components/reports/InformesTabs.tsx`: +4 tabs lazy, +tipos TabId, +TAB_META, permisos
-- [ ] 5.3 Crear `src/components/reports/report.css`: @media print que oculta chrome, repite thead, muestra título/filtros/KPIs/tablas
+- [x] 5.1 Modificar `src/app/informes/page.tsx`: +initialData nuevos reports, +getClientesDistinct(), +getMetodosPago()
+- [x] 5.2 Modificar `src/components/reports/InformesTabs.tsx`: +4 tabs lazy, +tipos TabId, +TAB_META, permisos
+- [x] 5.3 Crear `src/components/reports/report.css`: @media print que oculta chrome, repite thead, muestra título/filtros/KPIs/tablas
 
 ## Phase 6: Verificación
 
-- [ ] 6.1 Ejecutar `next build` y corregir errores TS/dependencias
+- [x] 6.1 Ejecutar `next build` y corregir errores TS/dependencias
 - [ ] 6.2 Verificar visual: 8 tabs con KPIs, filtros, tablas, charts sin errores
 - [ ] 6.3 Verificar export: print oculta chrome, PDF descarga, Excel multi-sheet descarga
 - [ ] 6.4 Verificar regresión: Dashboard y pestañas originales intactos

@@ -1,19 +1,41 @@
 "use client";
 
 import React, { useState } from "react";
-import { BarChart3, Wallet, Package, Users } from "lucide-react";
+import dynamic from "next/dynamic";
+import "./report.css";
+import { BarChart3, Wallet, Package, Users, UserCheck, Building, Landmark, Shield } from "lucide-react";
 import VentasReport from "./VentasReport";
 import CierresReport from "./CierresReport";
 import ProductosReport from "./ProductosReport";
 import EmpleadosReport from "./EmpleadosReport";
 
-type TabId = "ventas" | "cierres" | "productos" | "empleados";
+const ClientesReport = dynamic(() => import("./ClientesReport"), {
+  loading: () => <div className="text-center py-12 text-slate-400 text-sm">Cargando Clientes...</div>,
+});
+
+const ProveedoresReport = dynamic(() => import("./ProveedoresReport"), {
+  loading: () => <div className="text-center py-12 text-slate-400 text-sm">Cargando Proveedores...</div>,
+});
+
+const FinanzasReport = dynamic(() => import("./FinanzasReport"), {
+  loading: () => <div className="text-center py-12 text-slate-400 text-sm">Cargando Finanzas...</div>,
+});
+
+const AuditoriaReport = dynamic(() => import("./AuditoriaReport"), {
+  loading: () => <div className="text-center py-12 text-slate-400 text-sm">Cargando Auditoría...</div>,
+});
+
+type TabId = "ventas" | "cierres" | "productos" | "empleados" | "clientes" | "proveedores" | "finanzas" | "auditoria";
 
 const ALLOWED_TABS: Record<TabId, string[]> = {
   ventas: ["ADMINISTRADOR", "ENCARGADO_VENTAS"],
   cierres: ["ADMINISTRADOR", "ENCARGADO_VENTAS"],
   productos: ["ADMINISTRADOR", "ENCARGADO_VENTAS", "ENCARGADO_STOCK"],
   empleados: ["ADMINISTRADOR"],
+  clientes: ["ADMINISTRADOR", "ENCARGADO_VENTAS"],
+  proveedores: ["ADMINISTRADOR", "ENCARGADO_VENTAS"],
+  finanzas: ["ADMINISTRADOR", "ENCARGADO_VENTAS"],
+  auditoria: ["ADMINISTRADOR"],
 };
 
 const TAB_META: Record<TabId, { label: string; icon: React.ReactNode }> = {
@@ -21,6 +43,10 @@ const TAB_META: Record<TabId, { label: string; icon: React.ReactNode }> = {
   cierres: { label: "Cierres de Caja", icon: <Wallet size={16} /> },
   productos: { label: "Productos", icon: <Package size={16} /> },
   empleados: { label: "Empleados", icon: <Users size={16} /> },
+  clientes: { label: "Clientes", icon: <UserCheck size={16} /> },
+  proveedores: { label: "Proveedores", icon: <Building size={16} /> },
+  finanzas: { label: "Finanzas", icon: <Landmark size={16} /> },
+  auditoria: { label: "Auditoría", icon: <Shield size={16} /> },
 };
 
 interface Props {
@@ -28,9 +54,15 @@ interface Props {
   initialCierres: any;
   initialProductos: any;
   initialEmpleados: any;
+  initialClientes?: any;
+  initialProveedores?: any;
+  initialFinanzas?: any;
+  initialAuditoria?: any;
   usuarios: any[];
   categorias: any[];
   proveedores: any[];
+  clientesDistinct?: any[];
+  metodosPago?: any[];
   userRole: string;
 }
 
@@ -39,9 +71,15 @@ export default function InformesTabs({
   initialCierres,
   initialProductos,
   initialEmpleados,
+  initialClientes,
+  initialProveedores,
+  initialFinanzas,
+  initialAuditoria,
   usuarios,
   categorias,
   proveedores,
+  clientesDistinct,
+  metodosPago,
   userRole,
 }: Props) {
   const availableTabs = (Object.keys(ALLOWED_TABS) as TabId[]).filter(
@@ -80,6 +118,34 @@ export default function InformesTabs({
         return (
           <EmpleadosReport
             initialData={initialEmpleados}
+            userRole={userRole}
+          />
+        );
+      case "clientes":
+        return (
+          <ClientesReport
+            initialData={initialClientes}
+            userRole={userRole}
+          />
+        );
+      case "proveedores":
+        return (
+          <ProveedoresReport
+            initialData={initialProveedores}
+            userRole={userRole}
+          />
+        );
+      case "finanzas":
+        return (
+          <FinanzasReport
+            initialData={initialFinanzas}
+            userRole={userRole}
+          />
+        );
+      case "auditoria":
+        return (
+          <AuditoriaReport
+            initialData={initialAuditoria}
             userRole={userRole}
           />
         );

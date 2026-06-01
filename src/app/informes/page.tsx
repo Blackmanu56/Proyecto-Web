@@ -1,7 +1,17 @@
 import React from "react";
 import { getSession } from "@/lib/auth.server";
-import { getReporteVentas, getReporteCierres, getReporteProductos, getReporteEmpleados, getUsuariosActivos } from "@/actions/informes";
-import { getCategorias, getProveedores } from "@/actions/auxiliares";
+import {
+  getReporteVentas,
+  getReporteCierres,
+  getReporteProductos,
+  getReporteEmpleados,
+  getClientesReport,
+  getProveedoresReport,
+  getFinanzasReport,
+  getAuditoriaReport,
+  getUsuariosActivos,
+} from "@/actions/informes";
+import { getCategorias, getProveedores, getClientesDistinct, getMetodosPago } from "@/actions/auxiliares";
 import InformesTabs from "@/components/reports/InformesTabs";
 import { BarChart3 } from "lucide-react";
 import { redirect } from "next/navigation";
@@ -14,16 +24,25 @@ export default async function InformesPage() {
   const hoy = new Date();
   const hoyStr = hoy.toISOString().split("T")[0];
 
-  const [ventasData, cierresData, productosData, empleadosData, usuarios, categorias, proveedores] =
-    await Promise.all([
-      getReporteVentas(hoyStr, hoyStr),
-      getReporteCierres(hoyStr, hoyStr),
-      getReporteProductos(),
-      getReporteEmpleados(hoyStr, hoyStr),
-      getUsuariosActivos(),
-      getCategorias(),
-      getProveedores(),
-    ]);
+  const [
+    ventasData, cierresData, productosData, empleadosData,
+    clientesData, proveedoresData, finanzasData, auditoriaData,
+    usuarios, categorias, proveedores, clientesDistinct, metodosPago,
+  ] = await Promise.all([
+    getReporteVentas(hoyStr, hoyStr),
+    getReporteCierres(hoyStr, hoyStr),
+    getReporteProductos(),
+    getReporteEmpleados(hoyStr, hoyStr),
+    getClientesReport({ fechaDesde: hoyStr, fechaHasta: hoyStr, page: 1, limit: 50 }),
+    getProveedoresReport({ page: 1, limit: 50 }),
+    getFinanzasReport({ fechaDesde: hoyStr, fechaHasta: hoyStr }),
+    getAuditoriaReport({ page: 1, limit: 50 }),
+    getUsuariosActivos(),
+    getCategorias(),
+    getProveedores(),
+    getClientesDistinct(),
+    getMetodosPago(),
+  ]);
 
   return (
     <div className="flex-1 bg-slate-950 p-6 md:p-8">
@@ -51,9 +70,15 @@ export default async function InformesPage() {
           initialCierres={cierresData}
           initialProductos={productosData}
           initialEmpleados={empleadosData}
+          initialClientes={clientesData}
+          initialProveedores={proveedoresData}
+          initialFinanzas={finanzasData}
+          initialAuditoria={auditoriaData}
           usuarios={usuarios}
           categorias={categorias}
           proveedores={proveedores}
+          clientesDistinct={clientesDistinct}
+          metodosPago={metodosPago}
           userRole={userRole}
         />
       </div>
