@@ -37,6 +37,7 @@ model Usuario {
   cajas             Caja[]
   compras           Compra[]
   movimientos       MovimientoCaja[]
+  auditoriaEventos  AuditoriaEvent[]
 
   @@map("usuarios")
 }
@@ -108,17 +109,17 @@ model Producto {
 }
 
 model Venta {
-  id            Int              @id @default(autoincrement())
-  clienteId     Int              @map("cliente_id")
-  cliente       Cliente          @relation(fields: [clienteId], references: [id])
-  usuarioId     Int              @map("usuario_id")
-  usuario       Usuario          @relation(fields: [usuarioId], references: [id])
-  total         Float            @default(0.0)
-  fecha         DateTime         @default(now())
-  metodoPago    String?          @map("metodo_pago")
-  estado        String           @default("COMPLETADA")
-  detalles      DetalleVenta[]
-  movimientos   MovimientoCaja[]
+  id          Int              @id @default(autoincrement())
+  clienteId   Int              @map("cliente_id")
+  cliente     Cliente          @relation(fields: [clienteId], references: [id])
+  usuarioId   Int              @map("usuario_id")
+  usuario     Usuario          @relation(fields: [usuarioId], references: [id])
+  total       Float            @default(0.0)
+  fecha       DateTime         @default(now())
+  metodoPago  String?          @map("metodo_pago")
+  estado      String           @default("COMPLETADA")
+  detalles    DetalleVenta[]
+  movimientos MovimientoCaja[]
 
   @@map("ventas")
 }
@@ -171,15 +172,15 @@ model MovimientoCaja {
 }
 
 model Compra {
-  id             Int              @id @default(autoincrement())
-  proveedorId    Int              @map("proveedor_id")
-  proveedor      Proveedor        @relation(fields: [proveedorId], references: [id])
-  usuarioId      Int              @map("usuario_id")
-  usuario        Usuario          @relation(fields: [usuarioId], references: [id])
-  total          Float            @default(0.0)
-  fecha          DateTime         @default(now())
-  detalles       DetalleCompra[]
-  movimientos    MovimientoCaja[]
+  id          Int              @id @default(autoincrement())
+  proveedorId Int              @map("proveedor_id")
+  proveedor   Proveedor        @relation(fields: [proveedorId], references: [id])
+  usuarioId   Int              @map("usuario_id")
+  usuario     Usuario          @relation(fields: [usuarioId], references: [id])
+  total       Float            @default(0.0)
+  fecha       DateTime         @default(now())
+  detalles    DetalleCompra[]
+  movimientos MovimientoCaja[]
 
   @@map("compras")
 }
@@ -195,4 +196,30 @@ model DetalleCompra {
   subtotal      Float
 
   @@map("detalle_compras")
+}
+
+enum TipoEvento {
+  LOGIN
+  LOGOUT
+  CREACION
+  ACTUALIZACION
+  ELIMINACION
+  EXPORTACION
+  OTRO
+
+  @@map("tipo_evento")
+}
+
+model AuditoriaEvent {
+  id          Int        @id @default(autoincrement())
+  tipo        TipoEvento
+  descripcion String
+  usuarioId   Int?
+  usuario     Usuario?   @relation(fields: [usuarioId], references: [id])
+  entidad     String?
+  entidadId   Int?
+  metadata    Json?
+  createdAt   DateTime   @default(now()) @map("created_at")
+
+  @@map("auditoria_eventos")
 }

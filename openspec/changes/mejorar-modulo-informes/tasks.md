@@ -21,18 +21,18 @@ Chain strategy: feature-branch-chain
 
 ## Phase 1: Foundation
 
-- [ ] 1.1 Crear `src/components/ui/StatCard.tsx` con props KpiCardData
-- [ ] 1.2 Crear `src/components/ui/ChartWrapper.tsx` con tema oscuro Recharts
-- [ ] 1.3 Crear `src/components/ui/DataTable.tsx` con paginación server-side (limit 50)
-- [ ] 1.4 Crear `src/components/ui/ExportButtons.tsx` con botones Imprimir/PDF/Excel
-- [ ] 1.5 Crear `src/hooks/useReport.ts` con estado filters + search + loading
-- [ ] 1.6 Crear `src/hooks/useExport.ts` con export print/pdf/xlsx dinámico
-- [ ] 1.7 Agregar modelo `AuditoriaEvent` + enum `TipoEvento` en `prisma/schema.prisma`
-- [ ] 1.8 Agregar `html2canvas`, `jspdf`, `xlsx` en `package.json`
+- [x] 1.1 Crear `src/components/ui/StatCard.tsx` con props KpiCardData
+- [x] 1.2 Crear `src/components/ui/ChartWrapper.tsx` con tema oscuro Recharts
+- [x] 1.3 Crear `src/components/ui/DataTable.tsx` con paginación server-side (limit 50)
+- [x] 1.4 Crear `src/components/ui/ExportButtons.tsx` con botones Imprimir/PDF/Excel
+- [x] 1.5 Crear `src/hooks/useReport.ts` con estado filters + search + loading
+- [x] 1.6 Crear `src/hooks/useExport.ts` con export print/pdf/xlsx dinámico
+- [x] 1.7 Agregar modelo `AuditoriaEvent` + enum `TipoEvento` en `prisma/schema.prisma`
+- [x] 1.8 Agregar `html2canvas`, `jspdf`, `xlsx` en `package.json`
 
 ## Phase 2: Server Actions
 
-- [ ] 2.1 Agregar ~20 funciones de consulta en `src/actions/informes.ts` (Clientes, Proveedores, Finanzas, Auditoría, ventas por producto/categoría/cliente/vendedor, top/bottom, cierres movimientos/diferencias, rentabilidad/reposición/sin-mov, ranking vendedores/actividad, ganancias, frecuencias, stock bajo) con tipos PaginatedResult y ReportFilters
+- [x] 2.1 Agregar ~20 funciones de consulta en `src/actions/informes.ts` (Clientes, Proveedores, Finanzas, Auditoría, ventas por producto/categoría/cliente/vendedor, top/bottom, cierres movimientos/diferencias, rentabilidad/reposición/sin-mov, ranking vendedores/actividad, ganancias, frecuencias, stock bajo) con tipos PaginatedResult y ReportFilters
 
 ## Phase 3: Pestañas Existentes Mejoradas
 

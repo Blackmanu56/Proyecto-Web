@@ -293,6 +293,35 @@ export type ReporteProducto = {
   totalIngresado: number;
 };
 
+// ─── Tipos compartidos para las nuevas server actions ─────────────────
+
+export interface ReportFilters {
+  fechaDesde?: string;
+  fechaHasta?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+  usuarioId?: number;
+  clienteId?: number;
+  productoId?: number;
+  categoriaId?: number;
+  proveedorId?: number;
+  metodoPago?: string;
+  estado?: string;
+  rol?: string;
+  conDiferencia?: boolean;
+}
+
+export interface PaginatedResult<T> {
+  data: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+// ─── Fin tipos compartidos ────────────────────────────────────────────
+
 export type ReporteEmpleado = {
   usuarioId: number;
   nombreCompleto: string;
@@ -714,5 +743,1009 @@ export async function getUsuariosActivos() {
   } catch (error) {
     console.error("Error en getUsuariosActivos:", error);
     return [];
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// NUEVAS SERVER ACTIONS (Phase 2)
+// ═══════════════════════════════════════════════════════════════
+
+// ─── Helpers ─────────────────────────────────────────────────
+
+function buildDateFilter(fechaDesde?: string, fechaHasta?: string, field: string = "fecha") {
+  const filter: any = {};
+  if (fechaDesde || fechaHasta) {
+    filter[field] = {};
+    if (fechaDesde) filter[field].gte = new Date(fechaDesde);
+    if (fechaHasta) {
+      const hasta = new Date(fechaHasta);
+      hasta.setHours(23, 59, 59, 999);
+      filter[field].lte = hasta;
+    }
+  }
+  return filter;
+}
+
+function paginate(page: number = 1, limit: number = 50): { skip: number; take: number } {
+  const safeLimit = Math.min(Math.max(limit, 1), 100);
+  return { skip: (page - 1) * safeLimit, take: safeLimit };
+}
+
+// ─── 10. REPORTE CLIENTES ────────────────────────────────────
+
+export async function getClientesReport(filters: ReportFilters = {}): Promise<PaginatedResult<{
+  id: number; nombre: string; dni: string; totalGastado: number; frecuencia: number;
+  ultimaCompra: string | null; cantidadCompras: number;
+}>> {
+  try {
+    const page = filters.page || 1;
+    const { skip, take } = paginate(page);
+    const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta, "fecha");
+
+    const clientes = await prisma.cliente.findMany({
+      where: { activo: true },
+      include: {
+        ventas: {
+          where: dateFilter.fecha ? { fecha: dateFilter.fecha } : undefined,
+          select: { id: true, total: true, fecha: true },
+        },
+      },
+      orderBy: { nombre: "asc" },
+      skip,
+      take,
+    });
+
+    const total = await prisma.cliente.count({ where: { activo: true } });
+
+    const data = clientes.map((c) => {
+      const totalGastado = c.ventas.reduce((sum, v) => sum + v.total, 0);
+      const fechas = c.ventas.map((v) => v.fecha).sort((a, b) => a.getTime() - b.getTime());
+      const frecuencia = fechas.length > 1
+        ? (fechas[fechas.length - 1].getTime() - fechas[0].getTime()) / (fechas.length - 1) / 86400000
+        : 0;
+
+      return {
+        id: c.id,
+        nombre: c.nombre,
+        dni: c.dni,
+        totalGastado,
+        frecuencia: Math.round(frecuencia),
+        ultimaCompra: fechas.length > 0
+          ? fechas[fechas.length - 1].toLocaleDateString("es-AR")
+          : null,
+        cantidadCompras: c.ventas.length,
+      };
+    });
+
+    return { data, total, page, pageSize: take, totalPages: Math.ceil(total / take) };
+  } catch (error) {
+    console.error("Error en getClientesReport:", error);
+    return { data: [], total: 0, page: 1, pageSize: 50, totalPages: 0 };
+  }
+}
+
+// ─── 11. REPORTE PROVEEDORES ─────────────────────────────────
+
+export async function getProveedoresReport(filters: ReportFilters = {}): Promise<PaginatedResult<{
+  id: number; nombre: string; cuit: string; productosCount: number;
+  valorStock: number; stockBajoCount: number; ultimaCompra: string | null;
+}>> {
+  try {
+    const page = filters.page || 1;
+    const { skip, take } = paginate(page);
+
+    const whereProveedor: any = {};
+    if (filters.proveedorId) whereProveedor.id = filters.proveedorId;
+    if (filters.categoriaId) {
+      whereProveedor.productos = { some: { categoriaId: filters.categoriaId } };
+    }
+
+    const proveedores = await prisma.proveedor.findMany({
+      where: whereProveedor,
+      include: {
+        productos: {
+          include: { categoria: { select: { nombre: true } } },
+        },
+        compras: {
+          orderBy: { fecha: "desc" },
+          take: 1,
+          select: { fecha: true },
+        },
+      },
+      orderBy: { nombre: "asc" },
+      skip,
+      take,
+    });
+
+    const total = await prisma.proveedor.count({ where: whereProveedor });
+
+    const data = proveedores.map((p) => {
+      const productosFiltrados = filters.categoriaId
+        ? p.productos.filter((prod) => prod.categoriaId === filters.categoriaId)
+        : p.productos;
+
+      return {
+        id: p.id,
+        nombre: p.nombre,
+        cuit: p.cuit,
+        productosCount: productosFiltrados.length,
+        valorStock: productosFiltrados.reduce((sum, prod) => sum + prod.precioCompra * prod.cantidad, 0),
+        stockBajoCount: productosFiltrados.filter((prod) => prod.cantidad < prod.stockMinimo).length,
+        ultimaCompra: p.compras[0]?.fecha.toLocaleDateString("es-AR") ?? null,
+      };
+    });
+
+    return { data, total, page, pageSize: take, totalPages: Math.ceil(total / take) };
+  } catch (error) {
+    console.error("Error en getProveedoresReport:", error);
+    return { data: [], total: 0, page: 1, pageSize: 50, totalPages: 0 };
+  }
+}
+
+// ─── 12. REPORTE FINANZAS ────────────────────────────────────
+
+export async function getFinanzasReport(filters: ReportFilters = {}): Promise<{
+  totalVendido: number; costos: number; gananciaBruta: number; margen: number;
+  ventasPorDia: { fecha: string; venta: number; costo: number }[];
+  metodosPago: { metodo: string; total: number; cantidad: number }[];
+}> {
+  try {
+    const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta);
+
+    const whereVenta: any = { ...dateFilter };
+    if (filters.categoriaId) whereVenta.detalles = { some: { producto: { categoriaId: filters.categoriaId } } };
+    if (filters.productoId) whereVenta.detalles = { some: { productoId: filters.productoId } };
+    if (filters.usuarioId) whereVenta.usuarioId = filters.usuarioId;
+
+    const ventas = await prisma.venta.findMany({
+      where: whereVenta,
+      include: {
+        detalles: {
+          include: { producto: { select: { precioCompra: true } } },
+        },
+      },
+      orderBy: { fecha: "asc" },
+    });
+
+    let totalVendido = 0;
+    let costos = 0;
+    const ventasPorDiaMap: Record<string, { venta: number; costo: number }> = {};
+    const metodosPagoMap: Record<string, { total: number; cantidad: number }> = {};
+
+    for (const v of ventas) {
+      totalVendido += v.total;
+      const dia = v.fecha.toLocaleDateString("es-AR");
+      if (!ventasPorDiaMap[dia]) ventasPorDiaMap[dia] = { venta: 0, costo: 0 };
+      ventasPorDiaMap[dia].venta += v.total;
+
+      let ventaCostos = 0;
+      for (const d of v.detalles) {
+        ventaCostos += d.cantidad * d.producto.precioCompra;
+      }
+      costos += ventaCostos;
+      ventasPorDiaMap[dia].costo += ventaCostos;
+
+      const mp = v.metodoPago || "OTRO";
+      if (!metodosPagoMap[mp]) metodosPagoMap[mp] = { total: 0, cantidad: 0 };
+      metodosPagoMap[mp].total += v.total;
+      metodosPagoMap[mp].cantidad += 1;
+    }
+
+    const gananciaBruta = totalVendido - costos;
+    const margen = totalVendido > 0 ? Math.min((gananciaBruta / totalVendido) * 100, 100) : 0;
+
+    return {
+      totalVendido,
+      costos,
+      gananciaBruta,
+      margen: Math.round(margen * 100) / 100,
+      ventasPorDia: Object.entries(ventasPorDiaMap).map(([fecha, vals]) => ({ fecha, ...vals })),
+      metodosPago: Object.entries(metodosPagoMap).map(([metodo, vals]) => ({ metodo, ...vals })),
+    };
+  } catch (error) {
+    console.error("Error en getFinanzasReport:", error);
+    return { totalVendido: 0, costos: 0, gananciaBruta: 0, margen: 0, ventasPorDia: [], metodosPago: [] };
+  }
+}
+
+// ─── 13. AUDITORÍA ───────────────────────────────────────────
+
+export async function getAuditoriaReport(filters: ReportFilters = {}): Promise<PaginatedResult<{
+  id: number; fecha: string; tipo: string; descripcion: string;
+  usuario: string | null; entidad: string | null; entidadId: number | null;
+  metadata: unknown;
+}>> {
+  try {
+    const page = filters.page || 1;
+    const { skip, take } = paginate(page);
+    const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta, "createdAt");
+
+    const where: any = { ...dateFilter };
+    if (filters.usuarioId) where.usuarioId = filters.usuarioId;
+    if (filters.search) {
+      where.OR = [
+        { descripcion: { contains: filters.search, mode: "insensitive" } },
+        { entidad: { contains: filters.search, mode: "insensitive" } },
+      ];
+    }
+
+    // Try to get from AuditoriaEvent table
+    try {
+      const [events, total] = await Promise.all([
+        prisma.auditoriaEvent.findMany({
+          where,
+          include: { usuario: { select: { username: true } } },
+          orderBy: { createdAt: "desc" },
+          skip,
+          take,
+        }),
+        prisma.auditoriaEvent.count({ where }),
+      ]);
+
+      const data = events.map((e) => ({
+        id: e.id,
+        fecha: e.createdAt.toLocaleDateString("es-AR") + " " + e.createdAt.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }),
+        tipo: e.tipo,
+        descripcion: e.descripcion,
+        usuario: e.usuario?.username ?? null,
+        entidad: e.entidad,
+        entidadId: e.entidadId,
+        metadata: e.metadata,
+      }));
+
+      return { data, total, page, pageSize: take, totalPages: Math.ceil(total / take) };
+    } catch {
+      // AuditoriaEvent table may not exist yet — return empty
+      return { data: [], total: 0, page: 1, pageSize: take, totalPages: 0 };
+    }
+  } catch (error) {
+    console.error("Error en getAuditoriaReport:", error);
+    return { data: [], total: 0, page: 1, pageSize: 50, totalPages: 0 };
+  }
+}
+
+// ─── 14. VENTAS POR PRODUCTO ─────────────────────────────────
+
+export async function getVentasPorProducto(filters: ReportFilters = {}): Promise<PaginatedResult<{
+  productoId: number; producto: string; categoria: string; cantidad: number;
+  subtotal: number; ganancia: number;
+}>> {
+  try {
+    const page = filters.page || 1;
+    const { skip, take } = paginate(page);
+    const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta);
+
+    const whereDetalle: any = {};
+    if (dateFilter.fecha) whereDetalle.venta = { fecha: dateFilter.fecha };
+    if (filters.categoriaId) whereDetalle.producto = { categoriaId: filters.categoriaId };
+    if (filters.productoId) whereDetalle.productoId = filters.productoId;
+
+    const detalles = await prisma.detalleVenta.findMany({
+      where: whereDetalle,
+      include: {
+        producto: { select: { nombre: true, precioCompra: true, categoria: { select: { nombre: true } } } },
+      },
+    });
+
+    const agrupado: Record<number, { producto: string; categoria: string; cantidad: number; subtotal: number; ganancia: number }> = {};
+
+    for (const d of detalles) {
+      if (!agrupado[d.productoId]) {
+        agrupado[d.productoId] = {
+          producto: d.producto.nombre,
+          categoria: d.producto.categoria.nombre,
+          cantidad: 0,
+          subtotal: 0,
+          ganancia: 0,
+        };
+      }
+      agrupado[d.productoId].cantidad += d.cantidad;
+      agrupado[d.productoId].subtotal += d.subtotal;
+      agrupado[d.productoId].ganancia += d.subtotal - (d.cantidad * d.producto.precioCompra);
+    }
+
+    const sorted = Object.entries(agrupado)
+      .map(([productoId, val]) => ({ productoId: Number(productoId), ...val }))
+      .sort((a, b) => b.subtotal - a.subtotal);
+
+    const total = sorted.length;
+    const data = sorted.slice(skip, skip + take);
+
+    return { data, total, page, pageSize: take, totalPages: Math.ceil(total / take) };
+  } catch (error) {
+    console.error("Error en getVentasPorProducto:", error);
+    return { data: [], total: 0, page: 1, pageSize: 50, totalPages: 0 };
+  }
+}
+
+// ─── 15. VENTAS POR CATEGORÍA ────────────────────────────────
+
+export async function getVentasPorCategoria(filters: ReportFilters = {}): Promise<{
+  data: { categoria: string; cantidad: number; subtotal: number; ganancia: number }[];
+  total: number;
+}> {
+  try {
+    const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta);
+    const whereDetalle: any = {};
+    if (dateFilter.fecha) whereDetalle.venta = { fecha: dateFilter.fecha };
+
+    const detalles = await prisma.detalleVenta.findMany({
+      where: whereDetalle,
+      include: {
+        producto: { select: { nombre: true, precioCompra: true, categoria: { select: { nombre: true } } } },
+      },
+    });
+
+    const agrupado: Record<string, { cantidad: number; subtotal: number; ganancia: number }> = {};
+    for (const d of detalles) {
+      const cat = d.producto.categoria.nombre;
+      if (!agrupado[cat]) agrupado[cat] = { cantidad: 0, subtotal: 0, ganancia: 0 };
+      agrupado[cat].cantidad += d.cantidad;
+      agrupado[cat].subtotal += d.subtotal;
+      agrupado[cat].ganancia += d.subtotal - (d.cantidad * d.producto.precioCompra);
+    }
+
+    const data = Object.entries(agrupado)
+      .map(([categoria, vals]) => ({ categoria, ...vals }))
+      .sort((a, b) => b.subtotal - a.subtotal);
+
+    return { data, total: data.length };
+  } catch (error) {
+    console.error("Error en getVentasPorCategoria:", error);
+    return { data: [], total: 0 };
+  }
+}
+
+// ─── 16. VENTAS POR CLIENTE ──────────────────────────────────
+
+export async function getVentasPorCliente(filters: ReportFilters = {}): Promise<PaginatedResult<{
+  clienteId: number; cliente: string; cantidad: number; total: number;
+}>> {
+  try {
+    const page = filters.page || 1;
+    const { skip, take } = paginate(page);
+    const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta);
+
+    const whereVenta: any = { ...dateFilter };
+    if (filters.clienteId) whereVenta.clienteId = filters.clienteId;
+
+    const ventas = await prisma.venta.findMany({
+      where: whereVenta,
+      include: { cliente: { select: { nombre: true } } },
+    });
+
+    const agrupado: Record<number, { cliente: string; cantidad: number; total: number }> = {};
+    for (const v of ventas) {
+      if (!agrupado[v.clienteId]) {
+        agrupado[v.clienteId] = { cliente: v.cliente.nombre, cantidad: 0, total: 0 };
+      }
+      agrupado[v.clienteId].cantidad += 1;
+      agrupado[v.clienteId].total += v.total;
+    }
+
+    const sorted = Object.entries(agrupado)
+      .map(([clienteId, vals]) => ({ clienteId: Number(clienteId), ...vals }))
+      .sort((a, b) => b.total - a.total);
+
+    const total = sorted.length;
+    const data = sorted.slice(skip, skip + take);
+
+    return { data, total, page, pageSize: take, totalPages: Math.ceil(total / take) };
+  } catch (error) {
+    console.error("Error en getVentasPorCliente:", error);
+    return { data: [], total: 0, page: 1, pageSize: 50, totalPages: 0 };
+  }
+}
+
+// ─── 17. VENTAS POR VENDEDOR + COMISIONES ────────────────────
+
+export async function getVentasPorVendedorComision(filters: ReportFilters = {}): Promise<PaginatedResult<{
+  usuarioId: number; vendedor: string; cantidadVentas: number; totalVendido: number;
+  comision: number;
+}>> {
+  try {
+    const page = filters.page || 1;
+    const { skip, take } = paginate(page);
+    const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta);
+
+    const whereVenta: any = { ...dateFilter };
+    if (filters.usuarioId) whereVenta.usuarioId = filters.usuarioId;
+
+    const ventas = await prisma.venta.findMany({
+      where: whereVenta,
+      include: { usuario: { select: { nombreCompleto: true } } },
+    });
+
+    const agrupado: Record<number, { vendedor: string; cantidadVentas: number; totalVendido: number }> = {};
+    for (const v of ventas) {
+      if (!agrupado[v.usuarioId]) {
+        agrupado[v.usuarioId] = { vendedor: v.usuario.nombreCompleto, cantidadVentas: 0, totalVendido: 0 };
+      }
+      agrupado[v.usuarioId].cantidadVentas += 1;
+      agrupado[v.usuarioId].totalVendido += v.total;
+    }
+
+    const sorted = Object.entries(agrupado)
+      .map(([usuarioId, vals]) => ({
+        usuarioId: Number(usuarioId),
+        ...vals,
+        comision: Math.round(vals.totalVendido * 0.05 * 100) / 100, // 5% commission
+      }))
+      .sort((a, b) => b.totalVendido - a.totalVendido);
+
+    const total = sorted.length;
+    const data = sorted.slice(skip, skip + take);
+
+    return { data, total, page, pageSize: take, totalPages: Math.ceil(total / take) };
+  } catch (error) {
+    console.error("Error en getVentasPorVendedorComision:", error);
+    return { data: [], total: 0, page: 1, pageSize: 50, totalPages: 0 };
+  }
+}
+
+// ─── 18. TOP PRODUCTOS ───────────────────────────────────────
+
+export async function getTopProductos(filters: ReportFilters = {}, limit: number = 10): Promise<{
+  data: { productoId: number; producto: string; categoria: string; cantidad: number; ingreso: number }[];
+  total: number;
+}> {
+  try {
+    const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta);
+    const whereDetalle: any = {};
+    if (dateFilter.fecha) whereDetalle.venta = { fecha: dateFilter.fecha };
+    if (filters.categoriaId) whereDetalle.producto = { categoriaId: filters.categoriaId };
+    if (filters.productoId) whereDetalle.productoId = filters.productoId;
+
+    const detalles = await prisma.detalleVenta.findMany({
+      where: whereDetalle,
+      include: {
+        producto: { select: { nombre: true, categoria: { select: { nombre: true } } } },
+      },
+    });
+
+    const agrupado: Record<number, { producto: string; categoria: string; cantidad: number; ingreso: number }> = {};
+    for (const d of detalles) {
+      if (!agrupado[d.productoId]) {
+        agrupado[d.productoId] = {
+          producto: d.producto.nombre,
+          categoria: d.producto.categoria.nombre,
+          cantidad: 0,
+          ingreso: 0,
+        };
+      }
+      agrupado[d.productoId].cantidad += d.cantidad;
+      agrupado[d.productoId].ingreso += d.subtotal;
+    }
+
+    const sorted = Object.entries(agrupado)
+      .map(([productoId, vals]) => ({ productoId: Number(productoId), ...vals }))
+      .sort((a, b) => b.cantidad - a.cantidad)
+      .slice(0, limit);
+
+    return { data: sorted, total: sorted.length };
+  } catch (error) {
+    console.error("Error en getTopProductos:", error);
+    return { data: [], total: 0 };
+  }
+}
+
+// ─── 19. BOTTOM PRODUCTOS ────────────────────────────────────
+
+export async function getBottomProductos(filters: ReportFilters = {}, limit: number = 10): Promise<{
+  data: { productoId: number; producto: string; categoria: string; cantidad: number; ingreso: number }[];
+  total: number;
+}> {
+  try {
+    const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta);
+    const whereDetalle: any = {};
+    if (dateFilter.fecha) whereDetalle.venta = { fecha: dateFilter.fecha };
+
+    const detalles = await prisma.detalleVenta.findMany({
+      where: whereDetalle,
+      include: {
+        producto: { select: { nombre: true, categoria: { select: { nombre: true } } } },
+      },
+    });
+
+    const agrupado: Record<number, { producto: string; categoria: string; cantidad: number; ingreso: number }> = {};
+    for (const d of detalles) {
+      if (!agrupado[d.productoId]) {
+        agrupado[d.productoId] = {
+          producto: d.producto.nombre,
+          categoria: d.producto.categoria.nombre,
+          cantidad: 0,
+          ingreso: 0,
+        };
+      }
+      agrupado[d.productoId].cantidad += d.cantidad;
+      agrupado[d.productoId].ingreso += d.subtotal;
+    }
+
+    const sorted = Object.entries(agrupado)
+      .map(([productoId, vals]) => ({ productoId: Number(productoId), ...vals }))
+      .filter((p) => p.cantidad > 0)
+      .sort((a, b) => a.cantidad - b.cantidad)
+      .slice(0, limit);
+
+    return { data: sorted, total: sorted.length };
+  } catch (error) {
+    console.error("Error en getBottomProductos:", error);
+    return { data: [], total: 0 };
+  }
+}
+
+// ─── 20. CIERRES MOVIMIENTOS ─────────────────────────────────
+
+export async function getCierresMovimientos(filters: ReportFilters = {}): Promise<PaginatedResult<{
+  id: number; cajaId: number; tipo: string; monto: number;
+  descripcion: string; fecha: string; usuario: string;
+}>> {
+  try {
+    const page = filters.page || 1;
+    const { skip, take } = paginate(page);
+    const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta);
+
+    const where: any = { ...dateFilter };
+    if (filters.usuarioId) where.usuarioId = filters.usuarioId;
+
+    const [movimientos, total] = await Promise.all([
+      prisma.movimientoCaja.findMany({
+        where,
+        include: { usuario: { select: { username: true } } },
+        orderBy: { fecha: "desc" },
+        skip,
+        take,
+      }),
+      prisma.movimientoCaja.count({ where }),
+    ]);
+
+    const data = movimientos.map((m) => ({
+      id: m.id,
+      cajaId: m.cajaId,
+      tipo: m.tipo,
+      monto: m.monto,
+      descripcion: m.descripcion,
+      fecha: m.fecha.toLocaleDateString("es-AR") + " " + m.fecha.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }),
+      usuario: m.usuario.username,
+    }));
+
+    return { data, total, page, pageSize: take, totalPages: Math.ceil(total / take) };
+  } catch (error) {
+    console.error("Error en getCierresMovimientos:", error);
+    return { data: [], total: 0, page: 1, pageSize: 50, totalPages: 0 };
+  }
+}
+
+// ─── 21. CIERRES DIFERENCIAS ─────────────────────────────────
+
+export async function getCierresDiferencias(filters: ReportFilters = {}): Promise<PaginatedResult<{
+  id: number; usuario: string; fechaApertura: string; fechaCierre: string | null;
+  totalEsperado: number; totalContado: number | null; diferencia: number | null;
+}>> {
+  try {
+    const page = filters.page || 1;
+    const { skip, take } = paginate(page);
+    const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta, "fechaApertura");
+
+    const where: any = { ...dateFilter, NOT: { totalContado: null } };
+    if (filters.usuarioId) where.usuarioId = filters.usuarioId;
+
+    const cajas = await prisma.caja.findMany({
+      where,
+      include: { usuario: { select: { username: true } } },
+      orderBy: { fechaApertura: "desc" },
+    });
+
+    const withDiff = cajas
+      .map((c) => {
+        const totalEsperado = c.montoInicial + c.totalVentas;
+        const diferencia = c.totalContado !== null ? c.totalContado - totalEsperado : null;
+        return {
+          id: c.id,
+          usuario: c.usuario.username,
+          fechaApertura: c.fechaApertura.toLocaleDateString("es-AR") + " " + c.fechaApertura.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }),
+          fechaCierre: c.fechaCierre
+            ? c.fechaCierre.toLocaleDateString("es-AR") + " " + c.fechaCierre.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })
+            : null,
+          totalEsperado,
+          totalContado: c.totalContado,
+          diferencia,
+        };
+      })
+      .filter((c) => filters.conDiferencia ? c.diferencia !== 0 : true)
+      .sort((a, b) => Math.abs(b.diferencia ?? 0) - Math.abs(a.diferencia ?? 0));
+
+    const total = withDiff.length;
+    const data = withDiff.slice(skip, skip + take);
+
+    return { data, total, page, pageSize: take, totalPages: Math.ceil(total / take) };
+  } catch (error) {
+    console.error("Error en getCierresDiferencias:", error);
+    return { data: [], total: 0, page: 1, pageSize: 50, totalPages: 0 };
+  }
+}
+
+// ─── 22. RENTABILIDAD PRODUCTOS ──────────────────────────────
+
+export async function getRentabilidadProductos(filters: ReportFilters = {}): Promise<PaginatedResult<{
+  id: number; producto: string; categoria: string; precioCompra: number;
+  precioVenta: number; margen: number; margenPorc: number; vendido: number;
+}>> {
+  try {
+    const page = filters.page || 1;
+    const { skip, take } = paginate(page);
+
+    const whereProducto: any = { activo: true };
+    if (filters.categoriaId) whereProducto.categoriaId = filters.categoriaId;
+    if (filters.proveedorId) whereProducto.proveedorId = filters.proveedorId;
+
+    const [productos, total] = await Promise.all([
+      prisma.producto.findMany({
+        where: whereProducto,
+        include: {
+          categoria: { select: { nombre: true } },
+          detalleVentas: { select: { cantidad: true } },
+        },
+        orderBy: { nombre: "asc" },
+        skip,
+        take,
+      }),
+      prisma.producto.count({ where: whereProducto }),
+    ]);
+
+    const data = productos.map((p) => {
+      const margen = p.precioVenta - p.precioCompra;
+      const margenPorc = p.precioCompra > 0 ? (margen / p.precioCompra) * 100 : 100;
+      return {
+        id: p.id,
+        producto: p.nombre,
+        categoria: p.categoria.nombre,
+        precioCompra: p.precioCompra,
+        precioVenta: p.precioVenta,
+        margen,
+        margenPorc: Math.round(margenPorc * 100) / 100,
+        vendido: p.detalleVentas.reduce((sum, d) => sum + d.cantidad, 0),
+      };
+    });
+
+    return { data, total, page, pageSize: take, totalPages: Math.ceil(total / take) };
+  } catch (error) {
+    console.error("Error en getRentabilidadProductos:", error);
+    return { data: [], total: 0, page: 1, pageSize: 50, totalPages: 0 };
+  }
+}
+
+// ─── 23. REPOSICIÓN PRODUCTOS ────────────────────────────────
+
+export async function getReposicionProductos(): Promise<{
+  data: { id: number; producto: string; stockActual: number; stockMinimo: number;
+           proveedor: string; sugerencia: number }[];
+  total: number;
+}> {
+  try {
+    const productos = await prisma.producto.findMany({
+      where: {
+        activo: true,
+        cantidad: { lte: prisma.producto.fields.stockMinimo },
+      },
+      include: { proveedor: { select: { nombre: true } } },
+      orderBy: { cantidad: "asc" },
+    });
+
+    const data = productos.map((p) => ({
+      id: p.id,
+      producto: p.nombre,
+      stockActual: p.cantidad,
+      stockMinimo: p.stockMinimo,
+      proveedor: p.proveedor.nombre,
+      sugerencia: Math.max(p.stockMinimo * 2 - p.cantidad, 10),
+    }));
+
+    return { data, total: data.length };
+  } catch (error) {
+    console.error("Error en getReposicionProductos:", error);
+    return { data: [], total: 0 };
+  }
+}
+
+// ─── 24. SIN MOVIMIENTO PRODUCTOS ────────────────────────────
+
+export async function getSinMovimientoProductos(filters: ReportFilters = {}): Promise<PaginatedResult<{
+  id: number; producto: string; categoria: string; stockActual: number;
+  precioVenta: number; ultimaVenta: string | null;
+}>> {
+  try {
+    const page = filters.page || 1;
+    const { skip, take } = paginate(page);
+
+    const whereProducto: any = { activo: true };
+    if (filters.categoriaId) whereProducto.categoriaId = filters.categoriaId;
+    if (filters.proveedorId) whereProducto.proveedorId = filters.proveedorId;
+
+    const productos = await prisma.producto.findMany({
+      where: whereProducto,
+      include: {
+        categoria: { select: { nombre: true } },
+        detalleVentas: {
+          orderBy: { id: "desc" },
+          take: 1,
+          include: { venta: { select: { fecha: true } } },
+        },
+      },
+      orderBy: { nombre: "asc" },
+    });
+
+    const sinMovimiento = productos.filter((p) => p.detalleVentas.length === 0);
+    const total = sinMovimiento.length;
+    const data = sinMovimiento.slice(skip, skip + take).map((p) => ({
+      id: p.id,
+      producto: p.nombre,
+      categoria: p.categoria.nombre,
+      stockActual: p.cantidad,
+      precioVenta: p.precioVenta,
+      ultimaVenta: null,
+    }));
+
+    return { data, total, page, pageSize: take, totalPages: Math.ceil(total / take) };
+  } catch (error) {
+    console.error("Error en getSinMovimientoProductos:", error);
+    return { data: [], total: 0, page: 1, pageSize: 50, totalPages: 0 };
+  }
+}
+
+// ─── 25. RANKING VENDEDORES ──────────────────────────────────
+
+export async function getRankingVendedores(filters: ReportFilters = {}): Promise<{
+  data: { usuarioId: number; vendedor: string; rol: string; ventas: number;
+           totalVendido: number; promedioVenta: number }[];
+  total: number;
+}> {
+  try {
+    const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta);
+
+    const whereUsuario: any = { activo: true };
+    if (filters.rol) whereUsuario.rol = { nombre: filters.rol };
+    if (filters.usuarioId) whereUsuario.id = filters.usuarioId;
+
+    const whereVentas: any = { ...dateFilter };
+
+    const usuarios = await prisma.usuario.findMany({
+      where: whereUsuario,
+      include: {
+        rol: { select: { nombre: true } },
+        ventas: {
+          where: whereVentas,
+          select: { total: true },
+        },
+      },
+      orderBy: { nombreCompleto: "asc" },
+    });
+
+    const data = usuarios
+      .map((u) => ({
+        usuarioId: u.id,
+        vendedor: u.nombreCompleto,
+        rol: u.rol.nombre,
+        ventas: u.ventas.length,
+        totalVendido: u.ventas.reduce((sum, v) => sum + v.total, 0),
+        promedioVenta: u.ventas.length > 0
+          ? Math.round((u.ventas.reduce((sum, v) => sum + v.total, 0) / u.ventas.length) * 100) / 100
+          : 0,
+      }))
+      .sort((a, b) => b.totalVendido - a.totalVendido);
+
+    return { data, total: data.length };
+  } catch (error) {
+    console.error("Error en getRankingVendedores:", error);
+    return { data: [], total: 0 };
+  }
+}
+
+// ─── 26. ACTIVIDAD RECIENTE VENDEDORES ───────────────────────
+
+export async function getActividadRecienteVendedores(): Promise<{
+  data: { usuarioId: number; vendedor: string; ultimaVenta: string | null;
+           ultimoCierre: string | null; ventasHoy: number; ventasSemana: number }[];
+  total: number;
+}> {
+  try {
+    const ahora = new Date();
+    const hoyInicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+    const semanaAtras = new Date(ahora.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    const usuarios = await prisma.usuario.findMany({
+      where: { activo: true },
+      include: {
+        ventas: {
+          orderBy: { fecha: "desc" },
+          take: 1,
+          select: { fecha: true },
+        },
+        cajas: {
+          orderBy: { fechaCierre: "desc" },
+          take: 1,
+          select: { fechaCierre: true },
+        },
+        _count: {
+          select: {
+            ventas: {
+              where: { fecha: { gte: hoyInicio } },
+            },
+          },
+        },
+      },
+    });
+
+    const data = usuarios.map((u) => {
+      const ventasSemana = u.ventas.filter(
+        (v) => v.fecha >= semanaAtras
+      ).length;
+
+      return {
+        usuarioId: u.id,
+        vendedor: u.nombreCompleto,
+        ultimaVenta: u.ventas[0]?.fecha
+          ? u.ventas[0].fecha.toLocaleDateString("es-AR") + " " + u.ventas[0].fecha.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })
+          : null,
+        ultimoCierre: u.cajas[0]?.fechaCierre
+          ? u.cajas[0].fechaCierre.toLocaleDateString("es-AR") + " " + u.cajas[0].fechaCierre.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })
+          : null,
+        ventasHoy: u._count.ventas,
+        ventasSemana,
+      };
+    });
+
+    return { data, total: data.length };
+  } catch (error) {
+    console.error("Error en getActividadRecienteVendedores:", error);
+    return { data: [], total: 0 };
+  }
+}
+
+// ─── 27. GANANCIAS POR PERÍODO ───────────────────────────────
+
+export async function getGananciasPeriodo(filters: ReportFilters = {}): Promise<{
+  data: { periodo: string; venta: number; costo: number; ganancia: number }[];
+  total: number;
+}> {
+  try {
+    const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta);
+
+    const ventas = await prisma.venta.findMany({
+      where: dateFilter,
+      include: {
+        detalles: {
+          include: { producto: { select: { precioCompra: true } } },
+        },
+      },
+      orderBy: { fecha: "asc" },
+    });
+
+    const agrupado: Record<string, { venta: number; costo: number }> = {};
+    const agruparPor = filters.search || "dia"; // dia | semana | mes
+
+    for (const v of ventas) {
+      let periodo: string;
+      if (agruparPor === "mes") {
+        periodo = v.fecha.toLocaleDateString("es-AR", { month: "short", year: "2-digit" });
+      } else if (agruparPor === "semana") {
+        const inicioSemana = new Date(v.fecha);
+        inicioSemana.setDate(inicioSemana.getDate() - inicioSemana.getDay());
+        periodo = inicioSemana.toLocaleDateString("es-AR");
+      } else {
+        periodo = v.fecha.toLocaleDateString("es-AR");
+      }
+
+      if (!agrupado[periodo]) agrupado[periodo] = { venta: 0, costo: 0 };
+      agrupado[periodo].venta += v.total;
+      agrupado[periodo].costo += v.detalles.reduce((s, d) => s + d.cantidad * d.producto.precioCompra, 0);
+    }
+
+    const data = Object.entries(agrupado)
+      .map(([periodo, vals]) => ({
+        periodo,
+        ...vals,
+        ganancia: vals.venta - vals.costo,
+      }))
+      .sort((a, b) => a.periodo.localeCompare(b.periodo));
+
+    return { data, total: data.length };
+  } catch (error) {
+    console.error("Error en getGananciasPeriodo:", error);
+    return { data: [], total: 0 };
+  }
+}
+
+// ─── 28. FRECUENCIA COMPRAS CLIENTE ──────────────────────────
+
+export async function getFrecuenciaComprasCliente(): Promise<{
+  data: { clienteId: number; cliente: string; cantidadCompras: number;
+           frecuenciaDias: number; categoria: string }[];
+  total: number;
+}> {
+  try {
+    const clientes = await prisma.cliente.findMany({
+      where: { activo: true, ventas: { some: {} } },
+      include: {
+        ventas: {
+          select: { fecha: true, total: true },
+          orderBy: { fecha: "asc" },
+        },
+      },
+    });
+
+    const data = clientes.map((c) => {
+      const fechas = c.ventas.map((v) => v.fecha);
+      const frecuenciaDias = fechas.length > 1
+        ? (fechas[fechas.length - 1].getTime() - fechas[0].getTime()) / (fechas.length - 1) / 86400000
+        : 0;
+
+      let categoria = "Nuevo";
+      if (frecuenciaDias <= 7) categoria = "Frecuente";
+      else if (frecuenciaDias <= 30) categoria = "Regular";
+      else if (frecuenciaDias <= 90) categoria = "Ocasional";
+      else categoria = "Inactivo";
+
+      return {
+        clienteId: c.id,
+        cliente: c.nombre,
+        cantidadCompras: c.ventas.length,
+        frecuenciaDias: Math.round(frecuenciaDias),
+        categoria,
+      };
+    }).sort((a, b) => a.frecuenciaDias - b.frecuenciaDias);
+
+    return { data, total: data.length };
+  } catch (error) {
+    console.error("Error en getFrecuenciaComprasCliente:", error);
+    return { data: [], total: 0 };
+  }
+}
+
+// ─── 29. STOCK BAJO ──────────────────────────────────────────
+
+export async function getStockBajo(filters: ReportFilters = {}): Promise<PaginatedResult<{
+  id: number; producto: string; categoria: string; stockActual: number;
+  stockMinimo: number; proveedor: string; precioVenta: number;
+}>> {
+  try {
+    const page = filters.page || 1;
+    const { skip, take } = paginate(page);
+
+    const where: any = {
+      activo: true,
+      cantidad: { lte: prisma.producto.fields.stockMinimo },
+    };
+    if (filters.proveedorId) where.proveedorId = filters.proveedorId;
+    if (filters.categoriaId) where.categoriaId = filters.categoriaId;
+
+    const [productos, total] = await Promise.all([
+      prisma.producto.findMany({
+        where,
+        include: {
+          categoria: { select: { nombre: true } },
+          proveedor: { select: { nombre: true } },
+        },
+        orderBy: { cantidad: "asc" },
+        skip,
+        take,
+      }),
+      prisma.producto.count({ where }),
+    ]);
+
+    const data = productos.map((p) => ({
+      id: p.id,
+      producto: p.nombre,
+      categoria: p.categoria.nombre,
+      stockActual: p.cantidad,
+      stockMinimo: p.stockMinimo,
+      proveedor: p.proveedor.nombre,
+      precioVenta: p.precioVenta,
+    }));
+
+    return { data, total, page, pageSize: take, totalPages: Math.ceil(total / take) };
+  } catch (error) {
+    console.error("Error en getStockBajo:", error);
+    return { data: [], total: 0, page: 1, pageSize: 50, totalPages: 0 };
   }
 }
