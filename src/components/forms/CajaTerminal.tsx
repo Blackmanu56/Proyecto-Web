@@ -33,6 +33,8 @@ interface Movimiento {
   descripcion: string;
   fecha: Date;
   usuario: { username: string };
+  ventaId?: number | null;
+  compraId?: number | null;
 }
 
 interface CajaActiva {
@@ -144,6 +146,38 @@ export default function CajaTerminal({
   const saldoActual = cajaActiva
     ? cajaActiva.montoInicial + cajaActiva.totalVentas
     : 0;
+
+  // ─── Libro Diario Table Calculations ────────────────────────────
+  const movimientosOrdenados = cajaActiva
+    ? [...cajaActiva.movimientos].sort(
+        (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
+      )
+    : [];
+
+  let runningSaldo = 0;
+  const movimientosConSaldo = movimientosOrdenados.map((mov, idx) => {
+    if (mov.tipo === "INGRESO") {
+      runningSaldo += mov.monto;
+    } else {
+      runningSaldo -= mov.monto;
+    }
+    return {
+      ...mov,
+      itemNumber: idx + 1,
+      saldoAcumulado: runningSaldo,
+    };
+  });
+
+  // Calculate totals for the footer
+  const totalIngresos = movimientosOrdenados
+    .filter((m) => m.tipo === "INGRESO")
+    .reduce((sum, m) => sum + m.monto, 0);
+
+  const totalEgresos = movimientosOrdenados
+    .filter((m) => m.tipo === "EGRESO")
+    .reduce((sum, m) => sum + m.monto, 0);
+
+  const saldoFinalCalculado = totalIngresos - totalEgresos;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -271,7 +305,7 @@ export default function CajaTerminal({
               </button>
             </div>
 
-            {/* 3. Feed de Movimientos Recientes */}
+            {/* 3. Libro Diario - Control de Caja (Rediseño Tabular) */}
             <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 rounded-3xl p-5 space-y-4">
               <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
                 <div className="flex items-center space-x-2 text-indigo-400">
@@ -281,43 +315,116 @@ export default function CajaTerminal({
                 <span className="text-[10px] text-slate-500 font-semibold uppercase">{cajaActiva.movimientos.length} operaciones</span>
               </div>
 
-              <div className="space-y-3 overflow-y-auto max-h-96 pr-1">
-                {cajaActiva.movimientos.length === 0 ? (
-                  <p className="text-center py-12 text-xs text-slate-600">No se registran movimientos en este turno.</p>
-                ) : (
-                  cajaActiva.movimientos.map(mov => {
-                    const isIncome = mov.tipo === "INGRESO";
-                    return (
-                      <div
-                        key={mov.id}
-                        className="p-3 bg-slate-950/40 border border-slate-850 rounded-xl flex items-center justify-between text-xs"
-                      >
-                        <div className="flex items-center space-x-3 max-w-[70%]">
-                          <div className={`p-2 rounded-lg ${
-                            isIncome ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
-                          }`}>
-                            {isIncome ? <PlusCircle size={14} /> : <MinusCircle size={14} />}
-                          </div>
-                          <div>
-                            <p className="font-semibold text-white truncate">{mov.descripcion}</p>
-                            <p className="text-[10px] text-slate-500 mt-0.5">
-                              {formatDate(mov.fecha)} · Por {mov.usuario.username}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className={`font-bold font-mono ${
-                            isIncome ? "text-emerald-400" : "text-red-400"
-                          }`}>
-                            {isIncome ? "+" : "-"}{formatCurrency(mov.monto)}
-                          </p>
-                          <p className="text-[9px] text-slate-500 mt-0.5 font-semibold uppercase">{mov.tipo}</p>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
+              {cajaActiva.movimientos.length === 0 ? (
+                <p className="text-center py-12 text-xs text-slate-600">No se registran movimientos en este turno.</p>
+              ) : (
+                <div className="space-y-4">
+                  {/* Table Wrapper with scroll */}
+                  <div className="overflow-x-auto rounded-xl border border-slate-850 bg-slate-950/20 max-h-96 overflow-y-auto">
+                    <table className="w-full text-[11px] text-left border-collapse">
+                      <thead className="bg-slate-950/60 text-slate-500 uppercase font-semibold text-[9px] tracking-wider border-b border-slate-850 sticky top-0 z-10">
+                        <tr>
+                          <th className="py-2.5 px-3 text-center w-12">ID</th>
+                          <th className="py-2.5 px-3">Fecha</th>
+                          <th className="py-2.5 px-3">Hora</th>
+                          <th className="py-2.5 px-3">Descripción</th>
+                          <th className="py-2.5 px-3 text-center">Tipo</th>
+                          <th className="py-2.5 px-3">Usuario</th>
+                          <th className="py-2.5 px-3 text-right">Ingreso</th>
+                          <th className="py-2.5 px-3 text-right">Egreso</th>
+                          <th className="py-2.5 px-3 text-right">Saldo</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-850/60 font-mono">
+                        {movimientosConSaldo.map((mov) => {
+                          const isIncome = mov.tipo === "INGRESO";
+                          const d = new Date(mov.fecha);
+                          const fechaStr = d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" });
+                          const horaStr = d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+
+                          // Determinar el tipo de operación y su estilo
+                          let tipoOperacion = "VENTA";
+                          let badgeStyle = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+
+                          const descLower = mov.descripcion.toLowerCase();
+
+                          if (descLower.startsWith("saldo inicial de apertura")) {
+                            tipoOperacion = "APERTURA";
+                            badgeStyle = "bg-blue-500/10 text-blue-400 border-blue-500/20";
+                          } else if (descLower.startsWith("cierre de caja") || descLower.includes("cierre")) {
+                            tipoOperacion = "CIERRE";
+                            badgeStyle = "bg-purple-500/10 text-purple-400 border-purple-500/20";
+                          } else if (descLower.startsWith("gasto:") || mov.descripcion.startsWith("Gasto:")) {
+                            tipoOperacion = "GASTO";
+                            badgeStyle = "bg-red-500/10 text-red-400 border-red-500/20";
+                          } else if (descLower.startsWith("stock inicial") || descLower.includes("stock inicial")) {
+                            tipoOperacion = "REPOSICIÓN";
+                            badgeStyle = "bg-orange-500/10 text-orange-400 border-orange-500/20";
+                          } else if (descLower.startsWith("reposición") || mov.compraId) {
+                            tipoOperacion = "COMPRA";
+                            badgeStyle = "bg-amber-500/10 text-amber-400 border-amber-500/20";
+                          } else if (descLower.startsWith("ajuste") || descLower.includes("ajuste")) {
+                            tipoOperacion = "AJUSTE";
+                            badgeStyle = "bg-slate-500/10 text-slate-400 border-slate-500/20";
+                          }
+
+                          return (
+                            <tr key={mov.id} className="hover:bg-slate-900/40 transition-colors">
+                              <td className="py-2 px-3 text-center text-slate-600 font-semibold">{mov.itemNumber}</td>
+                              <td className="py-2 px-3 text-slate-400">{fechaStr}</td>
+                              <td className="py-2 px-3 text-slate-500">{horaStr}</td>
+                              <td className="py-2 px-3 text-white font-sans max-w-[200px] truncate" title={mov.descripcion}>{mov.descripcion}</td>
+                              <td className="py-2 px-3 text-center">
+                                <span className={`inline-flex px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${badgeStyle}`}>
+                                  {tipoOperacion}
+                                </span>
+                              </td>
+                              <td className="py-2 px-3 text-slate-400 font-sans">@{mov.usuario.username}</td>
+                              <td className="py-2 px-3 text-right text-emerald-400 font-semibold">
+                                {isIncome ? formatCurrency(mov.monto) : "-"}
+                              </td>
+                              <td className="py-2 px-3 text-right text-red-400 font-semibold">
+                                {!isIncome ? formatCurrency(mov.monto) : "-"}
+                              </td>
+                              <td className="py-2 px-3 text-right text-slate-300 font-bold">
+                                {formatCurrency(mov.saldoAcumulado)}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Summary Pie de Tabla */}
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 p-4 rounded-xl border border-slate-850 bg-slate-950/40 text-xs">
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Movimientos</span>
+                      <span className="text-sm font-bold text-white">{movimientosOrdenados.length} Registrados</span>
+                    </div>
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Total Ingresos</span>
+                      <span className="text-sm font-extrabold text-emerald-400 font-mono">
+                        {formatCurrency(totalIngresos)}
+                      </span>
+                    </div>
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Total Egresos</span>
+                      <span className="text-sm font-extrabold text-red-400 font-mono">
+                        {formatCurrency(totalEgresos)}
+                      </span>
+                    </div>
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Saldo Final de Caja</span>
+                      <span className={`text-sm font-black font-mono ${
+                        saldoFinalCalculado >= 0 ? "text-emerald-400" : "text-red-400"
+                      }`}>
+                        {formatCurrency(saldoFinalCalculado)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

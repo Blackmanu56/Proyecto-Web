@@ -67,6 +67,7 @@ export async function loginAction(
       userId: user.id,
       username: user.username,
       role: user.rol.nombre,
+      fotoUrl: user.fotoUrl,
     });
 
     // 5. Configurar cookie

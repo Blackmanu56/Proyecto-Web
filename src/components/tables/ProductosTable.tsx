@@ -9,6 +9,8 @@ import {
   reactivarProducto
 } from "@/actions/productos";
 import { formatCurrency } from "@/lib/utils";
+import StatusFilter from "./StatusFilter";
+import type { FilterStatus } from "./StatusFilter";
 import {
   Plus,
   Search,
@@ -58,7 +60,7 @@ export default function ProductosTable({
   // Filtros y búsquedas
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
-  const [showDeleted, setShowDeleted] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>("activos");
 
   // Estados del Formulario (Agregar / Editar)
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -146,7 +148,15 @@ export default function ProductosTable({
                           p.categoria.nombre.toLowerCase().includes(search.toLowerCase());
     
     const matchesCat = catFilter === "all" || p.categoria.id === Number(catFilter);
-    const matchesStatus = p.activo === !showDeleted;
+
+    let matchesStatus = false;
+    if (filterStatus === "todos") {
+      matchesStatus = true;
+    } else if (filterStatus === "activos") {
+      matchesStatus = p.activo;
+    } else if (filterStatus === "inactivos") {
+      matchesStatus = !p.activo;
+    }
 
     return matchesSearch && matchesCat && matchesStatus;
   });
@@ -231,23 +241,11 @@ export default function ProductosTable({
 
         {/* Botones de acción */}
         <div className="flex items-center gap-3 w-full md:w-auto justify-end">
-          {/* Toggle Papelera */}
-          {userRole === "ADMINISTRADOR" && (
-            <button
-              onClick={() => setShowDeleted(!showDeleted)}
-              className={`px-4 py-2.5 rounded-xl border text-sm font-medium transition-all duration-200 flex items-center space-x-2 ${
-                showDeleted
-                  ? "bg-amber-600/10 border-amber-500/20 text-amber-400"
-                  : "bg-slate-800/40 border-slate-700/60 text-slate-300 hover:text-white"
-              }`}
-            >
-              <Trash2 size={16} />
-              <span>{showDeleted ? "Ver Activos" : "Ver Eliminados"}</span>
-            </button>
-          )}
+          {/* Filtro de estado Activo/Inactivo */}
+          <StatusFilter value={filterStatus} onChange={setFilterStatus} />
 
           {/* Agregar producto */}
-          {["ADMINISTRADOR", "EMPLEADO"].includes(userRole) && (
+          {["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(userRole) && (
             <button
               onClick={handleOpenAdd}
               className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 border border-indigo-600 hover:border-indigo-500 text-white text-sm font-semibold rounded-xl transition duration-200 flex items-center space-x-1.5 shadow-lg shadow-indigo-600/10"
@@ -330,7 +328,7 @@ export default function ProductosTable({
                         <div className="flex items-center justify-center space-x-2">
                           {p.activo ? (
                             <>
-                              {["ADMINISTRADOR", "EMPLEADO"].includes(userRole) && (
+                              {["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(userRole) && (
                                 <button
                                   onClick={() => handleEdit(p)}
                                   className="p-1.5 rounded-lg bg-slate-800/60 hover:bg-indigo-500/10 text-slate-400 hover:text-indigo-400 border border-slate-700/40 transition duration-150"
@@ -339,7 +337,7 @@ export default function ProductosTable({
                                   <Edit2 size={14} />
                                 </button>
                               )}
-                              {["ADMINISTRADOR", "EMPLEADO"].includes(userRole) && (
+                              {["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(userRole) && (
                                 <button
                                   onClick={() => handleDelete(p.id)}
                                   className="p-1.5 rounded-lg bg-slate-800/60 hover:bg-red-500/10 text-slate-400 hover:text-red-400 border border-slate-700/40 transition duration-150"

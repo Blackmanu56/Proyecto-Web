@@ -15,6 +15,7 @@ export default async function VentasPage() {
       orderBy: { nombre: "asc" },
     }),
     prisma.cliente.findMany({
+      where: { activo: true },
       orderBy: { nombre: "asc" },
     }),
   ]);

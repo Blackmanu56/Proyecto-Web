@@ -30,6 +30,7 @@ interface Client {
   id: number;
   nombre: string;
   dni: string;
+  cuit: string | null;
 }
 
 interface CartItem {
@@ -182,7 +183,8 @@ export default function VentasTerminal({ productos, clientes }: VentasTerminalPr
   // Filtrar clientes
   const filteredClients = clientes.filter(c =>
     c.nombre.toLowerCase().includes(clientSearch.toLowerCase()) ||
-    c.dni.includes(clientSearch)
+    c.dni.includes(clientSearch) ||
+    (c.cuit && c.cuit.includes(clientSearch))
   );
 
   return (
@@ -200,7 +202,7 @@ export default function VentasTerminal({ productos, clientes }: VentasTerminalPr
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
             <input
               type="text"
-              placeholder="Buscar cliente por nombre o DNI..."
+              placeholder="Buscar cliente por nombre, DNI o CUIT..."
               value={clientSearch}
               onChange={e => setClientSearch(e.target.value)}
               className="w-full pl-9 pr-4 py-2 bg-slate-950/60 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 text-xs"
@@ -223,7 +225,9 @@ export default function VentasTerminal({ productos, clientes }: VentasTerminalPr
                 >
                   <div>
                     <p className={isSelected ? "text-indigo-400" : "text-white"}>{c.nombre}</p>
-                    <p className="text-[10px] text-slate-500 mt-0.5">DNI: {c.dni}</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">
+                      DNI: {c.dni} {c.cuit ? `| CUIT: ${c.cuit}` : ""}
+                    </p>
                   </div>
                   {isSelected && <span className="text-[10px] bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20 font-bold uppercase">Seleccionado</span>}
                 </div>

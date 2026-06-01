@@ -21,12 +21,14 @@ const productoSchema = z.object({
 export async function getProductos(
   query: string = "",
   categoriaId?: number,
-  activo: boolean = true
+  activo?: boolean
 ) {
   try {
-    const whereClause: any = {
-      activo: activo,
-    };
+    const whereClause: any = {};
+
+    if (activo !== undefined) {
+      whereClause.activo = activo;
+    }
 
     if (query) {
       whereClause.OR = [
@@ -61,7 +63,7 @@ export async function getProductos(
  */
 export async function createProducto(formData: FormData) {
   const session = await getSession();
-  if (!session || !["ADMINISTRADOR", "EMPLEADO"].includes(session.role)) {
+  if (!session || !["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(session.role)) {
     throw new Error("No tiene permisos para realizar esta acción.");
   }
 
@@ -165,7 +167,7 @@ export async function createProducto(formData: FormData) {
  */
 export async function updateProducto(id: number, formData: FormData) {
   const session = await getSession();
-  if (!session || !["ADMINISTRADOR", "EMPLEADO"].includes(session.role)) {
+  if (!session || !["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(session.role)) {
     throw new Error("No tiene permisos para realizar esta acción.");
   }
 
@@ -282,7 +284,7 @@ export async function updateProducto(id: number, formData: FormData) {
  */
 export async function deleteProducto(id: number) {
   const session = await getSession();
-  if (!session || !["ADMINISTRADOR", "EMPLEADO"].includes(session.role)) {
+  if (!session || !["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(session.role)) {
     throw new Error("No tiene permisos para realizar esta acción.");
   }
 

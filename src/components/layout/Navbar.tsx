@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import Avatar from "@/components/ui/Avatar";
 
 import {
   LayoutDashboard,
@@ -16,13 +17,13 @@ import {
   LogOut,
   Menu,
   X,
-  User,
 } from "lucide-react";
 
 interface NavbarProps {
   user: {
     username: string;
     role: string;
+    fotoUrl?: string | null;
   } | null;
 }
 
@@ -92,9 +93,12 @@ export default function Navbar({ user }: NavbarProps) {
           <div className="hidden md:flex items-center space-x-4">
             {user && (
               <div className="flex items-center space-x-2.5 bg-slate-950/40 px-3 py-1.5 rounded-xl border border-slate-800">
-                <div className="p-1 rounded-lg bg-indigo-500/10 text-indigo-400">
-                  <User size={14} />
-                </div>
+                <Avatar
+                  fotoUrl={user.fotoUrl ?? null}
+                  nombreCompleto={user.username}
+                  size="sm"
+                  activo={true}
+                />
                 <div className="text-left leading-none">
                   <p className="text-xs font-semibold text-white">
                     {user.username}

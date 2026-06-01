@@ -1,6 +1,9 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useState, useTransition, useRef } from "react";
+import StatusFilter from "./StatusFilter";
+import type { FilterStatus } from "./StatusFilter";
+import Avatar from "@/components/ui/Avatar";
 import {
   Search,
   Plus,
@@ -18,6 +21,10 @@ import {
   Loader2,
   AlertTriangle,
   CheckCircle2,
+  Camera,
+  Trash2,
+  Upload,
+  ImageIcon,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────
@@ -28,6 +35,7 @@ type UsuarioConRol = {
   dni: string;
   correo: string | null;
   telefono: string | null;
+  fotoUrl: string | null;
   activo: boolean;
   creadoEn: Date;
   rol: {
@@ -44,10 +52,12 @@ type RolOption = {
 interface UsuariosTableProps {
   initialUsers: UsuarioConRol[];
   roles: RolOption[];
-  onCreateUser: (formData: FormData) => Promise<{ success?: boolean; error?: string }>;
+  onCreateUser: (formData: FormData) => Promise<{ success?: boolean; error?: string; id?: number }>;
   onUpdateUser: (id: number, formData: FormData) => Promise<{ success?: boolean; error?: string }>;
   onToggleEstado: (id: number) => Promise<{ success?: boolean; error?: string }>;
   onSearch: (query: string, soloActivos: boolean) => Promise<UsuarioConRol[]>;
+  onUploadPhoto: (userId: number, formData: FormData) => Promise<{ success?: boolean; fotoUrl?: string; error?: string }>;
+  onDeletePhoto: (userId: number) => Promise<{ success?: boolean; error?: string }>;
 }
 
 // ─── Role Permissions Map ─────────────────────────────────────────
@@ -189,10 +199,12 @@ export default function UsuariosTable({
   onUpdateUser,
   onToggleEstado,
   onSearch,
+  onUploadPhoto,
+  onDeletePhoto,
 }: UsuariosTableProps) {
   const [users, setUsers] = useState<UsuarioConRol[]>(initialUsers);
   const [searchQuery, setSearchQuery] = useState("");
-  const [showInactive, setShowInactive] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>("activos");
   const [isPending, startTransition] = useTransition();
 
   // Modal state
@@ -201,6 +213,12 @@ export default function UsuariosTable({
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Photo state
+  const [selectedPhotoFile, setSelectedPhotoFile] = useState<File | null>(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form fields
   const [selectedRolId, setSelectedRolId] = useState<number>(0);
@@ -218,19 +236,18 @@ export default function UsuariosTable({
   const handleSearch = (query: string) => {
     setSearchQuery(query);
     startTransition(async () => {
-      const results = await onSearch(query, !showInactive);
+      const results = await onSearch(query, false); // Siempre carga todos; filtro de estado se aplica client-side
       setUsers(results);
     });
   };
 
-  const handleToggleInactive = () => {
-    const newVal = !showInactive;
-    setShowInactive(newVal);
-    startTransition(async () => {
-      const results = await onSearch(searchQuery, !newVal);
-      setUsers(results);
-    });
-  };
+  // ─── Filtrado client-side por estado ─────────────────────────
+  const filteredUsers = users.filter((u) => {
+    if (filterStatus === "todos") return true;
+    if (filterStatus === "activos") return u.activo;
+    if (filterStatus === "inactivos") return !u.activo;
+    return true;
+  });
 
   // ─── Open modal ───────────────────────────────────────────────
   const openCreateModal = () => {
@@ -239,6 +256,8 @@ export default function UsuariosTable({
     setFormError(null);
     setFormSuccess(false);
     setShowPassword(false);
+    setSelectedPhotoFile(null);
+    setPhotoPreviewUrl(null);
     setModalOpen(true);
   };
 
@@ -248,6 +267,8 @@ export default function UsuariosTable({
     setFormError(null);
     setFormSuccess(false);
     setShowPassword(false);
+    setSelectedPhotoFile(null);
+    setPhotoPreviewUrl(null);
     setModalOpen(true);
   };
 
@@ -256,6 +277,8 @@ export default function UsuariosTable({
     setEditingUser(null);
     setFormError(null);
     setFormSuccess(false);
+    setSelectedPhotoFile(null);
+    setPhotoPreviewUrl(null);
   };
 
   // ─── Form submit ──────────────────────────────────────────────
@@ -283,10 +306,28 @@ export default function UsuariosTable({
     }
 
     setFormSuccess(true);
+
+    // Upload photo after create if a file was selected
+    const createResult = result as { success?: boolean; error?: string; id?: number };
+    if (!editingUser && createResult.id && selectedPhotoFile) {
+      setFormSuccess(false);
+      setFormError(null);
+      const fd = new FormData();
+      fd.set("foto", selectedPhotoFile);
+      const photoResult = await onUploadPhoto(createResult.id, fd);
+      if (photoResult.error) {
+        // Photo upload failed, but user was created — show warning
+        setFormError(`Usuario creado, pero no se pudo subir la foto: ${photoResult.error}`);
+        setIsSubmitting(false);
+        return;
+      }
+      setFormSuccess(true);
+    }
+
     setIsSubmitting(false);
 
     // Refresh the list
-    const results = await onSearch(searchQuery, !showInactive);
+    const results = await onSearch(searchQuery, false);
     setUsers(results);
 
     setTimeout(() => {
@@ -301,9 +342,82 @@ export default function UsuariosTable({
 
     const result = await onToggleEstado(userId);
     if (result.success) {
-      const results = await onSearch(searchQuery, !showInactive);
+      const results = await onSearch(searchQuery, false);
       setUsers(results);
     }
+  };
+
+  // ─── Photo handlers ────────────────────────────────────────────
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    if (file) {
+      // Validate client-side
+      const allowed = ["image/jpeg", "image/png", "image/webp"];
+      if (!allowed.includes(file.type)) {
+        setFormError("Formato no permitido. Solo JPG, PNG y WEBP.");
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        setFormError("La imagen no puede superar los 5 MB.");
+        return;
+      }
+      setSelectedPhotoFile(file);
+      setPhotoPreviewUrl(URL.createObjectURL(file));
+      setFormError(null);
+    }
+  };
+
+  const handleUploadPhotoNow = async (userId: number) => {
+    if (!selectedPhotoFile) return;
+    setPhotoUploading(true);
+    setFormError(null);
+    setFormSuccess(false);
+    const fd = new FormData();
+    fd.set("foto", selectedPhotoFile);
+    const result = await onUploadPhoto(userId, fd);
+    if (result.error) {
+      setFormError(result.error);
+      setPhotoUploading(false);
+      return;
+    }
+    // Update editingUser so modal preview shows the new photo immediately
+    const newFotoUrl = result.fotoUrl ?? null;
+    setEditingUser((prev) =>
+      prev ? { ...prev, fotoUrl: newFotoUrl } : prev
+    );
+    // Refresh user list
+    const results = await onSearch(searchQuery, false);
+    setUsers(results);
+    setSelectedPhotoFile(null);
+    setPhotoPreviewUrl(null);
+    setPhotoUploading(false);
+    setFormSuccess(true);
+  };
+
+  const handleDeletePhotoNow = async (userId: number) => {
+    setPhotoUploading(true);
+    setFormError(null);
+    setFormSuccess(false);
+    const result = await onDeletePhoto(userId);
+    if (result.error) {
+      setFormError(result.error);
+      setPhotoUploading(false);
+      return;
+    }
+    // Clear fotoUrl in editingUser so modal preview updates
+    setEditingUser((prev) =>
+      prev ? { ...prev, fotoUrl: null } : prev
+    );
+    const results = await onSearch(searchQuery, false);
+    setUsers(results);
+    setSelectedPhotoFile(null);
+    setPhotoPreviewUrl(null);
+    setPhotoUploading(false);
+    setFormSuccess(true);
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
   };
 
   // ─── Get selected role name ───────────────────────────────────
@@ -335,19 +449,8 @@ export default function UsuariosTable({
           )}
         </div>
 
-        {/* Show inactive toggle */}
-        <button
-          id="toggle-inactive"
-          onClick={handleToggleInactive}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold border transition-all duration-200 whitespace-nowrap ${
-            showInactive
-              ? "bg-amber-500/10 border-amber-500/20 text-amber-400 hover:bg-amber-500/20"
-              : "bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-slate-300"
-          }`}
-        >
-          {showInactive ? <Eye size={14} /> : <EyeOff size={14} />}
-          {showInactive ? "Mostrando todos" : "Mostrar dados de baja"}
-        </button>
+        {/* Filtro de estado Activo/Inactivo */}
+        <StatusFilter value={filterStatus} onChange={setFilterStatus} />
 
         {/* Add user button */}
         <button
@@ -436,7 +539,7 @@ export default function UsuariosTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/70">
-              {users.length === 0 ? (
+              {filteredUsers.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="text-center py-16 text-slate-500">
                     <Users size={40} className="mx-auto mb-3 opacity-30" />
@@ -449,7 +552,7 @@ export default function UsuariosTable({
                   </td>
                 </tr>
               ) : (
-                users.map((user) => (
+                filteredUsers.map((user) => (
                   <tr
                     key={user.id}
                     className={`group hover:bg-slate-800/40 transition-colors duration-150 ${
@@ -459,20 +562,12 @@ export default function UsuariosTable({
                     {/* User info */}
                     <td className="py-3.5 px-5">
                       <div className="flex items-center gap-3">
-                        <div
-                          className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${
-                            user.activo
-                              ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
-                              : "bg-slate-800 text-slate-500 border border-slate-700"
-                          }`}
-                        >
-                          {user.nombreCompleto
-                            .split(" ")
-                            .map((n) => n[0])
-                            .join("")
-                            .slice(0, 2)
-                            .toUpperCase()}
-                        </div>
+                        <Avatar
+                          fotoUrl={user.fotoUrl}
+                          nombreCompleto={user.nombreCompleto}
+                          size="md"
+                          activo={user.activo}
+                        />
                         <div>
                           <p className="font-semibold text-white text-sm leading-tight">
                             {user.nombreCompleto}
@@ -596,6 +691,99 @@ export default function UsuariosTable({
               >
                 <X size={18} />
               </button>
+            </div>
+
+            {/* ── Photo Upload Section ──────────────────────────── */}
+            <div className="p-5 border-b border-slate-800">
+              <p className="text-xs font-semibold text-slate-400 mb-3 flex items-center gap-2">
+                <Camera size={14} />
+                Foto de Perfil
+              </p>
+              <div className="flex items-center gap-4">
+                {/* Preview */}
+                <div className="relative shrink-0">
+                  {photoPreviewUrl ? (
+                    <div className="w-16 h-16 rounded-xl overflow-hidden border border-indigo-500/20">
+                      <img
+                        src={photoPreviewUrl}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ) : editingUser?.fotoUrl ? (
+                    <Avatar
+                      fotoUrl={editingUser.fotoUrl}
+                      nombreCompleto={editingUser.nombreCompleto}
+                      size="xl"
+                      activo={editingUser.activo}
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-500">
+                      <ImageIcon size={24} />
+                    </div>
+                  )}
+                  {photoUploading && (
+                    <div className="absolute inset-0 rounded-xl bg-black/50 flex items-center justify-center">
+                      <Loader2 size={20} className="animate-spin text-indigo-400" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Buttons */}
+                <div className="flex flex-col gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.webp"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={triggerFileInput}
+                      disabled={photoUploading}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-indigo-500/10 border border-slate-700 hover:border-indigo-500/20 text-xs font-medium text-slate-300 hover:text-indigo-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Upload size={12} />
+                      {selectedPhotoFile ? "Cambiar foto" : editingUser?.fotoUrl ? "Cambiar foto" : "Subir foto"}
+                    </button>
+                    {(editingUser?.fotoUrl || photoPreviewUrl) && (
+                      <button
+                        type="button"
+                        onClick={
+                          photoPreviewUrl
+                            ? () => {
+                                setSelectedPhotoFile(null);
+                                setPhotoPreviewUrl(null);
+                              }
+                            : () => handleDeletePhotoNow(editingUser!.id)
+                        }
+                        disabled={photoUploading}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-red-500/10 border border-slate-700 hover:border-red-500/20 text-xs font-medium text-slate-400 hover:text-red-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Eliminar foto"
+                      >
+                        <Trash2 size={12} />
+                        {photoPreviewUrl ? "Cancelar" : "Eliminar"}
+                      </button>
+                    )}
+                  </div>
+                  {selectedPhotoFile && editingUser && (
+                    <button
+                      type="button"
+                      onClick={() => handleUploadPhotoNow(editingUser.id)}
+                      disabled={photoUploading}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <CheckCircle2 size={12} />
+                      Guardar foto
+                    </button>
+                  )}
+                  <p className="text-[10px] text-slate-600">
+                    JPG, PNG o WEBP. Máx 5 MB.
+                  </p>
+                </div>
+              </div>
             </div>
 
             {/* Form */}

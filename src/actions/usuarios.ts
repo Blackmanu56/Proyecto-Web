@@ -12,6 +12,7 @@ export type UsuarioConRol = {
   dni: string;
   correo: string | null;
   telefono: string | null;
+  fotoUrl: string | null;
   activo: boolean;
   creadoEn: Date;
   rol: {
@@ -60,7 +61,7 @@ export async function getRoles(): Promise<RolOption[]> {
 }
 
 // Create a new user
-export async function crearUsuario(formData: FormData): Promise<{ success?: boolean; error?: string }> {
+export async function crearUsuario(formData: FormData): Promise<{ success?: boolean; error?: string; id?: number }> {
   try {
     const username = formData.get("username") as string;
     const password = formData.get("password") as string;
@@ -93,7 +94,7 @@ export async function crearUsuario(formData: FormData): Promise<{ success?: bool
     
     const passwordHash = bcrypt.hashSync(password, 10);
     
-    await prisma.usuario.create({
+    const created = await prisma.usuario.create({
       data: {
         username,
         passwordHash,
@@ -106,7 +107,8 @@ export async function crearUsuario(formData: FormData): Promise<{ success?: bool
     });
     
     revalidatePath("/empleados");
-    return { success: true };
+    revalidatePath("/informes");
+    return { success: true, id: created.id };
   } catch (error: any) {
     console.error("Error al crear usuario:", error);
     return { error: "Error interno al crear el usuario." };
@@ -167,6 +169,7 @@ export async function actualizarUsuario(id: number, formData: FormData): Promise
     });
     
     revalidatePath("/empleados");
+    revalidatePath("/informes");
     return { success: true };
   } catch (error: any) {
     console.error("Error al actualizar usuario:", error);
@@ -188,6 +191,7 @@ export async function toggleEstadoUsuario(id: number): Promise<{ success?: boole
     });
     
     revalidatePath("/empleados");
+    revalidatePath("/informes");
     return { success: true };
   } catch (error: any) {
     console.error("Error al cambiar estado:", error);

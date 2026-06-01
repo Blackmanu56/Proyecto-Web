@@ -22,11 +22,11 @@ export default async function ProductosPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const query = params.q || "";
   const catFilter = params.cat ? Number(params.cat) : undefined;
-  const activoFilter = params.status === "deleted" ? false : true;
 
   // Carga de datos simultánea en el servidor para velocidad óptima
+  // Se cargan todos los productos (activos e inactivos); el filtro de estado se aplica del lado cliente
   const [productos, categorias, proveedores] = await Promise.all([
-    getProductos(query, catFilter, activoFilter),
+    getProductos(query, catFilter, undefined),
     getCategorias(),
     getProveedores(),
   ]);

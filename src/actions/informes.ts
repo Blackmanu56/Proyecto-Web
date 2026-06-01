@@ -218,3 +218,501 @@ export async function getDashboardData(): Promise<DashboardData> {
     };
   }
 }
+
+// ═══════════════════════════════════════════════════════════════
+// REPORTES PARA EL MÓDULO DE INFORMES
+// ═══════════════════════════════════════════════════════════════
+
+// ─── Tipos compartidos ─────────────────────────────────────────────
+
+export type ReporteVenta = {
+  id: number;
+  fecha: string;
+  cliente: string;
+  usuario: string;
+  total: number;
+  cantidadProductos: number;
+};
+
+export type DetalleVentaCompleto = {
+  id: number;
+  fecha: string;
+  cliente: { id: number; nombre: string; dni: string; cuit: string | null };
+  usuario: { id: number; username: string; nombreCompleto: string };
+  total: number;
+  metodoPago: string | null;
+  estado: string;
+  detalles: {
+    id: number;
+    producto: string;
+    cantidad: number;
+    precioUnitario: number;
+    subtotal: number;
+  }[];
+};
+
+export type ReporteCierre = {
+  id: number;
+  fechaApertura: string;
+  fechaCierre: string | null;
+  usuario: string;
+  montoInicial: number;
+  totalVentas: number;
+  estado: string;
+  totalEsperado: number;
+};
+
+export type DetalleCierreCompleto = ReporteCierre & {
+  ingresos: number;
+  egresos: number;
+  gastosManuales: number;
+  diferencia: number | null;
+  totalContado: number | null;
+  movimientos: {
+    id: number;
+    tipo: string;
+    monto: number;
+    descripcion: string;
+    fecha: string;
+    usuario: string;
+    ventaId: number | null;
+  }[];
+};
+
+export type ReporteProducto = {
+  id: number;
+  nombre: string;
+  categoria: string;
+  proveedor: string;
+  precioCompra: number;
+  precioVenta: number;
+  cantidad: number;
+  stockMinimo: number;
+  activo: boolean;
+  totalVendido: number;
+  totalIngresado: number;
+};
+
+export type ReporteEmpleado = {
+  usuarioId: number;
+  nombreCompleto: string;
+  username: string;
+  fotoUrl: string | null;
+  rol: string;
+  ventasCount: number;
+  totalVendido: number;
+  cierresCount: number;
+};
+
+// ─── 1. REPORTE DE VENTAS ──────────────────────────────────────────
+
+export async function getReporteVentas(
+  fechaDesde?: string,
+  fechaHasta?: string,
+  usuarioId?: number,
+  clienteId?: number
+): Promise<{ ventas: ReporteVenta[]; totales: { cantidad: number; total: number; promedio: number } }> {
+  try {
+    const where: any = {};
+
+    if (fechaDesde || fechaHasta) {
+      where.fecha = {};
+      if (fechaDesde) where.fecha.gte = new Date(fechaDesde);
+      if (fechaHasta) {
+        const hasta = new Date(fechaHasta);
+        hasta.setHours(23, 59, 59, 999);
+        where.fecha.lte = hasta;
+      }
+    }
+    if (usuarioId) where.usuarioId = usuarioId;
+    if (clienteId) where.clienteId = clienteId;
+
+    const ventas = await prisma.venta.findMany({
+      where,
+      include: {
+        cliente: { select: { nombre: true } },
+        usuario: { select: { username: true } },
+        _count: { select: { detalles: true } },
+      },
+      orderBy: { fecha: "desc" },
+    });
+
+    const cantidadVentas = ventas.length;
+    const totalVendido = ventas.reduce((sum, v) => sum + v.total, 0);
+    const promedio = cantidadVentas > 0 ? totalVendido / cantidadVentas : 0;
+
+    return {
+      ventas: ventas.map((v) => ({
+        id: v.id,
+        fecha:
+          v.fecha.toLocaleDateString("es-AR") +
+          " " +
+          v.fecha.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }),
+        cliente: v.cliente.nombre,
+        usuario: v.usuario.username,
+        total: v.total,
+        cantidadProductos: v._count.detalles,
+      })),
+      totales: {
+        cantidad: cantidadVentas,
+        total: totalVendido,
+        promedio: Math.round(promedio * 100) / 100,
+      },
+    };
+  } catch (error) {
+    console.error("Error en getReporteVentas:", error);
+    return { ventas: [], totales: { cantidad: 0, total: 0, promedio: 0 } };
+  }
+}
+
+// ─── 2. DETALLE DE VENTA ───────────────────────────────────────────
+
+export async function getDetalleVenta(ventaId: number): Promise<DetalleVentaCompleto | null> {
+  try {
+    const venta = await prisma.venta.findUnique({
+      where: { id: ventaId },
+      include: {
+        cliente: { select: { id: true, nombre: true, dni: true, cuit: true } },
+        usuario: { select: { id: true, username: true, nombreCompleto: true } },
+        detalles: {
+          include: { producto: { select: { nombre: true } } },
+        },
+      },
+    });
+
+    if (!venta) return null;
+
+    return {
+      id: venta.id,
+      fecha:
+        venta.fecha.toLocaleDateString("es-AR") +
+        " " +
+        venta.fecha.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }),
+      cliente: venta.cliente,
+      usuario: venta.usuario,
+      total: venta.total,
+      metodoPago: venta.metodoPago,
+      estado: venta.estado,
+      detalles: venta.detalles.map((d) => ({
+        id: d.id,
+        producto: d.producto.nombre,
+        cantidad: d.cantidad,
+        precioUnitario: d.precioUnitario,
+        subtotal: d.subtotal,
+      })),
+    };
+  } catch (error) {
+    console.error("Error en getDetalleVenta:", error);
+    return null;
+  }
+}
+
+// ─── 3. REPORTE DE CIERRES DE CAJA ─────────────────────────────────
+
+export async function getReporteCierres(
+  fechaDesde?: string,
+  fechaHasta?: string,
+  usuarioId?: number,
+  estado?: string
+): Promise<ReporteCierre[]> {
+  try {
+    const where: any = {};
+
+    if (fechaDesde || fechaHasta) {
+      where.fechaApertura = {};
+      if (fechaDesde) where.fechaApertura.gte = new Date(fechaDesde);
+      if (fechaHasta) {
+        const hasta = new Date(fechaHasta);
+        hasta.setHours(23, 59, 59, 999);
+        where.fechaApertura.lte = hasta;
+      }
+    }
+    if (usuarioId) where.usuarioId = usuarioId;
+    if (estado) where.estado = estado;
+
+    const cajas = await prisma.caja.findMany({
+      where,
+      include: { usuario: { select: { username: true } } },
+      orderBy: { fechaApertura: "desc" },
+    });
+
+    return cajas.map((c) => ({
+      id: c.id,
+      fechaApertura:
+        c.fechaApertura.toLocaleDateString("es-AR") +
+        " " +
+        c.fechaApertura.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }),
+      fechaCierre: c.fechaCierre
+        ? c.fechaCierre.toLocaleDateString("es-AR") +
+          " " +
+          c.fechaCierre.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })
+        : null,
+      usuario: c.usuario.username,
+      montoInicial: c.montoInicial,
+      totalVentas: c.totalVentas,
+      estado: c.estado,
+      totalEsperado: c.montoInicial + c.totalVentas,
+    }));
+  } catch (error) {
+    console.error("Error en getReporteCierres:", error);
+    return [];
+  }
+}
+
+// ─── 4. DETALLE DE CIERRE DE CAJA ──────────────────────────────────
+
+export async function getDetalleCierre(cajaId: number): Promise<DetalleCierreCompleto | null> {
+  try {
+    const caja = await prisma.caja.findUnique({
+      where: { id: cajaId },
+      include: {
+        usuario: { select: { username: true } },
+        movimientos: {
+          include: { usuario: { select: { username: true } } },
+          orderBy: { fecha: "asc" },
+        },
+      },
+    });
+
+    if (!caja) return null;
+
+    const ingresos = caja.movimientos
+      .filter((m) => m.tipo === "INGRESO")
+      .reduce((sum, m) => sum + m.monto, 0);
+    const egresos = caja.movimientos
+      .filter((m) => m.tipo === "EGRESO")
+      .reduce((sum, m) => sum + m.monto, 0);
+
+    const totalEsperado = caja.montoInicial + caja.totalVentas;
+    const diferencia = caja.totalContado !== null ? caja.totalContado - totalEsperado : null;
+
+    return {
+      id: caja.id,
+      fechaApertura:
+        caja.fechaApertura.toLocaleDateString("es-AR") +
+        " " +
+        caja.fechaApertura.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }),
+      fechaCierre: caja.fechaCierre
+        ? caja.fechaCierre.toLocaleDateString("es-AR") +
+          " " +
+          caja.fechaCierre.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })
+        : null,
+      usuario: caja.usuario.username,
+      montoInicial: caja.montoInicial,
+      totalVentas: caja.totalVentas,
+      gastosManuales: caja.gastosManuales,
+      estado: caja.estado,
+      totalEsperado,
+      ingresos,
+      egresos,
+      diferencia,
+      totalContado: caja.totalContado,
+      movimientos: caja.movimientos.map((m) => ({
+        id: m.id,
+        tipo: m.tipo,
+        monto: m.monto,
+        descripcion: m.descripcion,
+        fecha:
+          m.fecha.toLocaleDateString("es-AR") +
+          " " +
+          m.fecha.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }),
+        usuario: m.usuario.username,
+        ventaId: m.ventaId,
+      })),
+    };
+  } catch (error) {
+    console.error("Error en getDetalleCierre:", error);
+    return null;
+  }
+}
+
+// ─── 5. REPORTE DE PRODUCTOS ───────────────────────────────────────
+
+export async function getReporteProductos(
+  categoriaId?: number,
+  proveedorId?: number,
+  activo?: boolean
+): Promise<ReporteProducto[]> {
+  try {
+    const where: any = {};
+    if (activo !== undefined) where.activo = activo;
+    if (categoriaId) where.categoriaId = categoriaId;
+    if (proveedorId) where.proveedorId = proveedorId;
+
+    const productos = await prisma.producto.findMany({
+      where,
+      include: {
+        categoria: { select: { nombre: true } },
+        proveedor: { select: { nombre: true } },
+        detalleVentas: {
+          select: { cantidad: true, subtotal: true },
+        },
+      },
+      orderBy: { nombre: "asc" },
+    });
+
+    return productos.map((p) => ({
+      id: p.id,
+      nombre: p.nombre,
+      categoria: p.categoria.nombre,
+      proveedor: p.proveedor.nombre,
+      precioCompra: p.precioCompra,
+      precioVenta: p.precioVenta,
+      cantidad: p.cantidad,
+      stockMinimo: p.stockMinimo,
+      activo: p.activo,
+      totalVendido: p.detalleVentas.reduce((sum, d) => sum + d.cantidad, 0),
+      totalIngresado: p.detalleVentas.reduce((sum, d) => sum + d.subtotal, 0),
+    }));
+  } catch (error) {
+    console.error("Error en getReporteProductos:", error);
+    return [];
+  }
+}
+
+// ─── 6. PRODUCTOS MÁS VENDIDOS ─────────────────────────────────────
+
+export async function getProductosMasVendidos(limit: number = 10): Promise<{ nombre: string; cantidad: number; ingreso: number; categoria: string }[]> {
+  try {
+    const detalles = await prisma.detalleVenta.findMany({
+      include: {
+        producto: { select: { nombre: true, categoria: { select: { nombre: true } } } },
+      },
+    });
+
+    const agrupado: { [key: number]: { nombre: string; categoria: string; cantidad: number; ingreso: number } } = {};
+    for (const d of detalles) {
+      if (!agrupado[d.productoId]) {
+        agrupado[d.productoId] = {
+          nombre: d.producto.nombre,
+          categoria: d.producto.categoria.nombre,
+          cantidad: 0,
+          ingreso: 0,
+        };
+      }
+      agrupado[d.productoId].cantidad += d.cantidad;
+      agrupado[d.productoId].ingreso += d.subtotal;
+    }
+
+    return Object.values(agrupado)
+      .sort((a, b) => b.cantidad - a.cantidad)
+      .slice(0, limit);
+  } catch (error) {
+    console.error("Error en getProductosMasVendidos:", error);
+    return [];
+  }
+}
+
+// ─── 7. PRODUCTOS CON MAYOR INGRESO ────────────────────────────────
+
+export async function getProductosMayorIngreso(limit: number = 10): Promise<{ nombre: string; cantidad: number; ingreso: number; categoria: string }[]> {
+  try {
+    const detalles = await prisma.detalleVenta.findMany({
+      include: {
+        producto: { select: { nombre: true, categoria: { select: { nombre: true } } } },
+      },
+    });
+
+    const agrupado: { [key: number]: { nombre: string; categoria: string; cantidad: number; ingreso: number } } = {};
+    for (const d of detalles) {
+      if (!agrupado[d.productoId]) {
+        agrupado[d.productoId] = {
+          nombre: d.producto.nombre,
+          categoria: d.producto.categoria.nombre,
+          cantidad: 0,
+          ingreso: 0,
+        };
+      }
+      agrupado[d.productoId].cantidad += d.cantidad;
+      agrupado[d.productoId].ingreso += d.subtotal;
+    }
+
+    return Object.values(agrupado)
+      .sort((a, b) => b.ingreso - a.ingreso)
+      .slice(0, limit);
+  } catch (error) {
+    console.error("Error en getProductosMayorIngreso:", error);
+    return [];
+  }
+}
+
+// ─── 8. REPORTE DE EMPLEADOS ───────────────────────────────────────
+
+export async function getReporteEmpleados(
+  fechaDesde?: string,
+  fechaHasta?: string
+): Promise<ReporteEmpleado[]> {
+  try {
+    const whereVentas: any = {};
+    if (fechaDesde || fechaHasta) {
+      whereVentas.fecha = {};
+      if (fechaDesde) whereVentas.fecha.gte = new Date(fechaDesde);
+      if (fechaHasta) {
+        const hasta = new Date(fechaHasta);
+        hasta.setHours(23, 59, 59, 999);
+        whereVentas.fecha.lte = hasta;
+      }
+    }
+
+    const usuarios = await prisma.usuario.findMany({
+      where: { activo: true },
+      include: {
+        rol: { select: { nombre: true } },
+        ventas: {
+          where: whereVentas,
+          select: { total: true },
+        },
+      },
+    });
+
+    const whereCierres: any = {};
+    if (fechaDesde || fechaHasta) {
+      whereCierres.fechaApertura = {};
+      if (fechaDesde) whereCierres.fechaApertura.gte = new Date(fechaDesde);
+      if (fechaHasta) {
+        const hasta = new Date(fechaHasta);
+        hasta.setHours(23, 59, 59, 999);
+        whereCierres.fechaApertura.lte = hasta;
+      }
+    }
+
+    const cierresPorUsuario: { [key: number]: number } = {};
+    const cierres = await prisma.caja.groupBy({
+      by: ["usuarioId"],
+      where: whereCierres,
+      _count: { id: true },
+    });
+    for (const c of cierres) {
+      cierresPorUsuario[c.usuarioId] = c._count.id;
+    }
+
+    return usuarios.map((u) => ({
+      usuarioId: u.id,
+      nombreCompleto: u.nombreCompleto,
+      username: u.username,
+      fotoUrl: u.fotoUrl,
+      rol: u.rol.nombre,
+      ventasCount: u.ventas.length,
+      totalVendido: u.ventas.reduce((sum, v) => sum + v.total, 0),
+      cierresCount: cierresPorUsuario[u.id] || 0,
+    }));
+  } catch (error) {
+    console.error("Error en getReporteEmpleados:", error);
+    return [];
+  }
+}
+
+// ─── 9. OBTENER USUARIOS PARA FILTROS ──────────────────────────────
+
+export async function getUsuariosActivos() {
+  try {
+    return await prisma.usuario.findMany({
+      where: { activo: true },
+      select: { id: true, username: true, nombreCompleto: true },
+      orderBy: { nombreCompleto: "asc" },
+    });
+  } catch (error) {
+    console.error("Error en getUsuariosActivos:", error);
+    return [];
+  }
+}

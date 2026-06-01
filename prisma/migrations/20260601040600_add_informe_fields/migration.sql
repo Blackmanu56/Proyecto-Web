@@ -1,0 +1,8 @@
+-- Add missing fields for Informes module
+-- ALTER TABLE ventas
+ALTER TABLE "ventas" ADD COLUMN IF NOT EXISTS "metodo_pago" TEXT;
+ALTER TABLE "ventas" ADD COLUMN IF NOT EXISTS "estado" TEXT NOT NULL DEFAULT 'COMPLETADA';
+
+-- ALTER TABLE cajas
+ALTER TABLE "cajas" ADD COLUMN IF NOT EXISTS "gastos_manuales" DOUBLE PRECISION NOT NULL DEFAULT 0.0;
+ALTER TABLE "cajas" ADD COLUMN IF NOT EXISTS "total_contado" DOUBLE PRECISION;

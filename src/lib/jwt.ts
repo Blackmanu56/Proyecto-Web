@@ -7,6 +7,7 @@ export interface TokenPayload {
   userId: number;
   username: string;
   role: string;
+  fotoUrl?: string | null;
 }
 
 /**
