@@ -36,11 +36,11 @@ Chain strategy: feature-branch-chain
 
 ## Phase 3: Pestañas Existentes Mejoradas
 
-- [ ] 3.1 Modificar `src/components/reports/VentasReport.tsx`: +7 StatCards, +4 filtros, +7 tablas paginadas, +5 charts
-- [ ] 3.2 Modificar `src/components/reports/CierresReport.tsx`: +8 StatCards, +filtros estado/diferencia, +6 tablas, +4 charts
-- [ ] 3.3 Crear `src/components/reports/SubPestanasProductos.tsx` con tabs anidadas + useTransition
-- [ ] 3.4 Modificar `src/components/reports/ProductosReport.tsx`: +4 subpestañas, +6 StatCards, +4 charts
-- [ ] 3.5 Modificar `src/components/reports/EmpleadosReport.tsx`: +7 StatCards, +filtros rol/usuario, +4 tablas, +3 charts
+- [x] 3.1 Modificar `src/components/reports/VentasReport.tsx`: +7 StatCards, +4 filtros, +7 tablas paginadas, +5 charts
+- [x] 3.2 Modificar `src/components/reports/CierresReport.tsx`: +8 StatCards, +filtros estado/diferencia, +6 tablas, +4 charts
+- [x] 3.3 Crear `src/components/reports/SubPestanasProductos.tsx` con tabs anidadas + useTransition
+- [x] 3.4 Modificar `src/components/reports/ProductosReport.tsx`: +4 subpestañas, +6 StatCards, +4 charts
+- [x] 3.5 Modificar `src/components/reports/EmpleadosReport.tsx`: +7 StatCards, +filtros rol/usuario, +4 tablas, +3 charts
 
 ## Phase 4: Pestañas Nuevas
 
