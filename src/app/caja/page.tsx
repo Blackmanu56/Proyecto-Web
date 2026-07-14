@@ -6,7 +6,7 @@ import { Coins } from "lucide-react";
 
 export default async function CajaPage() {
   const session = await getSession();
-  const userRole = session?.role || "CAJERO";
+  const userRole = session?.role || "ENCARGADO_VENTAS";
 
   // Carga de datos contables del servidor
   const [cajaActiva, historialCajas] = await Promise.all([

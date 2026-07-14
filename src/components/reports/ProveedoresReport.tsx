@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useTransition, useCallback, useMemo } from "react";
 import {
   getProveedoresReport, getReposicionProductos, getSinMovimientoProductos, getStockBajo,
 } from "@/actions/informes";
@@ -57,6 +57,7 @@ export default function ProveedoresReport({ initialData, userRole }: Props) {
   const [stockBajo, setStockBajo] = useState<any[] | null>(null);
   const [reposicion, setReposicion] = useState<any[] | null>(null);
   const [loadingSection, setLoadingSection] = useState<string | null>(null);
+  const [printSection, setPrintSection] = useState<string | null>(null);
 
   const handleSearch = useCallback(() => {
     startTransition(async () => {
@@ -76,6 +77,15 @@ export default function ProveedoresReport({ initialData, userRole }: Props) {
   }, []);
 
   const handlePrint = () => window.print();
+
+  useEffect(() => {
+    if (printSection) {
+      setTimeout(() => {
+        window.print();
+        setPrintSection(null);
+      }, 100);
+    }
+  }, [printSection]);
 
   const proveedoresFiltrados = useMemo(() => {
     let p = proveedores;
@@ -167,13 +177,29 @@ export default function ProveedoresReport({ initialData, userRole }: Props) {
         </div>
 
         {/* KPIs */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          {kpiData.map((kpi, i) => <StatCard key={i} {...kpi} />)}
+        <div className="report-section" data-section-id="kpis" data-print-active={printSection === "kpis" || null}>
+          <div className="flex items-center justify-end mb-2 print:hidden">
+            <button onClick={() => setPrintSection("kpis")}
+              className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
+              title="Imprimir esta sección">
+              <Printer size={12} />
+            </button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {kpiData.map((kpi, i) => <StatCard key={i} {...kpi} />)}
+          </div>
         </div>
 
         {/* Main table */}
-        <div className="space-y-2">
-          <h3 className="text-sm font-semibold text-slate-300">Proveedores</h3>
+        <div className="report-section" data-section-id="table" data-print-active={printSection === "table" || null}>
+          <div className="flex items-center justify-between mb-2 print:hidden">
+            <h3 className="text-sm font-semibold text-slate-300">Proveedores</h3>
+            <button onClick={() => setPrintSection("table")}
+              className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
+              title="Imprimir esta sección">
+              <Printer size={12} />
+            </button>
+          </div>
           <DataTable
             columns={[
               { header: "Nombre", accessor: "nombre" },
@@ -190,7 +216,15 @@ export default function ProveedoresReport({ initialData, userRole }: Props) {
         </div>
 
         {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="report-section" data-section-id="charts" data-print-active={printSection === "charts" || null}>
+          <div className="flex items-center justify-end mb-2 print:hidden">
+            <button onClick={() => setPrintSection("charts")}
+              className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
+              title="Imprimir esta sección">
+              <Printer size={12} />
+            </button>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <ChartWrapper title="Stock por Proveedor" height={250}>
             <RePie>
               <Pie data={pieChartData} dataKey="value" cx="50%" cy="50%" outerRadius={80} label={({ name }) => name}>
@@ -217,9 +251,18 @@ export default function ProveedoresReport({ initialData, userRole }: Props) {
             </BarChart>
           </ChartWrapper>
         </div>
+        </div>
 
         {/* Lazy Data Sections */}
-        <div className="grid grid-cols-1 gap-4">
+        <div className="report-section" data-section-id="data-sections" data-print-active={printSection === "data-sections" || null}>
+          <div className="flex items-center justify-end mb-2 print:hidden">
+            <button onClick={() => setPrintSection("data-sections")}
+              className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
+              title="Imprimir esta sección">
+              <Printer size={12} />
+            </button>
+          </div>
+          <div className="grid grid-cols-1 gap-4">
           <DataSection title="Productos sin Movimiento" loading={loadingSection === "sinmov"}
             onLoad={() => loadSection("sinmov", () => getSinMovimientoProductos({ page: 1 }).then(r => setSinMovimiento(r.data)))}
             loaded={sinMovimiento !== null}>
@@ -262,6 +305,7 @@ export default function ProveedoresReport({ initialData, userRole }: Props) {
             </DataSection>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import React, { useState, useTransition, useMemo } from "react";
+import React, { useState, useEffect, useTransition, useMemo } from "react";
 import { getReporteProductos, getProductosMasVendidos, getProductosMayorIngreso } from "@/actions/informes";
 import { formatCurrency } from "@/lib/utils";
 import {
@@ -44,6 +44,7 @@ export default function ProductosReport({ initialData, categorias, proveedores, 
   const [categoriaId, setCategoriaId] = useState<number | undefined>(undefined);
   const [proveedorId, setProveedorId] = useState<number | undefined>(undefined);
   const [topList, setTopList] = useState<any[]>([]);
+  const [printSection, setPrintSection] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const data = useMemo(() => {
@@ -83,6 +84,15 @@ export default function ProductosReport({ initialData, categorias, proveedores, 
   };
 
   const handlePrint = () => window.print();
+
+  useEffect(() => {
+    if (printSection) {
+      setTimeout(() => {
+        window.print();
+        setPrintSection(null);
+      }, 100);
+    }
+  }, [printSection]);
 
   return (
     <div className="space-y-4">
@@ -145,51 +155,77 @@ export default function ProductosReport({ initialData, categorias, proveedores, 
         </div>
 
         {/* KPIs */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          {kpis.map((kpi, i) => <StatCard key={i} {...kpi} />)}
+        <div className="report-section" data-section-id="kpis" data-print-active={printSection === "kpis" || null}>
+          <div className="flex items-center justify-end mb-2 print:hidden">
+            <button onClick={() => setPrintSection("kpis")}
+              className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
+              title="Imprimir esta sección">
+              <Printer size={12} />
+            </button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {kpis.map((kpi, i) => <StatCard key={i} {...kpi} />)}
+          </div>
         </div>
 
         {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <ChartWrapper title="Stock por Categoría" height={250}>
-            <RePie>
-              <Pie data={[]} dataKey="value" cx="50%" cy="50%" outerRadius={80} label>
-                <Cell fill={CHART_COLORS[0]} />
-              </Pie>
-            </RePie>
-          </ChartWrapper>
-          <ChartWrapper title="Top Proveedores (Valor Stock)" height={250}>
-            <BarChart data={[]}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-              <XAxis dataKey="nombre" stroke="#64748b" tick={{ fontSize: 10 }} />
-              <YAxis stroke="#64748b" tick={{ fontSize: 10 }} />
-              <Bar dataKey="valor" fill={CHART_COLORS[1]} radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ChartWrapper>
-        </div>
+        <div className="report-section" data-section-id="charts" data-print-active={printSection === "charts" || null}>
+          <div className="flex items-center justify-end mb-2 print:hidden">
+            <button onClick={() => setPrintSection("charts")}
+              className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
+              title="Imprimir esta sección">
+              <Printer size={12} />
+            </button>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <ChartWrapper title="Stock por Categoría" height={250}>
+              <RePie>
+                <Pie data={[]} dataKey="value" cx="50%" cy="50%" outerRadius={80} label>
+                  <Cell fill={CHART_COLORS[0]} />
+                </Pie>
+              </RePie>
+            </ChartWrapper>
+            <ChartWrapper title="Top Proveedores (Valor Stock)" height={250}>
+              <BarChart data={[]}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                <XAxis dataKey="nombre" stroke="#64748b" tick={{ fontSize: 10 }} />
+                <YAxis stroke="#64748b" tick={{ fontSize: 10 }} />
+                <Bar dataKey="valor" fill={CHART_COLORS[1]} radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ChartWrapper>
+          </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <ChartWrapper title="Rentabilidad por Producto" height={250}>
-            <BarChart data={topList.slice(0, 10)}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-              <XAxis dataKey="nombre" stroke="#64748b" tick={{ fontSize: 10 }} />
-              <YAxis stroke="#64748b" tick={{ fontSize: 10 }} />
-              <Bar dataKey="cantidad" fill={CHART_COLORS[3]} radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ChartWrapper>
-          <ChartWrapper title="Precios vs Costo" height={250}>
-            <BarChart data={allData.slice(0, 15)}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-              <XAxis dataKey="nombre" stroke="#64748b" tick={{ fontSize: 9 }} />
-              <YAxis stroke="#64748b" tick={{ fontSize: 10 }} />
-              <Bar dataKey="precioVenta" fill={CHART_COLORS[0]} radius={[4, 4, 0, 0]} />
-              <Bar dataKey="precioCompra" fill={CHART_COLORS[4]} radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ChartWrapper>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <ChartWrapper title="Rentabilidad por Producto" height={250}>
+              <BarChart data={topList.slice(0, 10)}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                <XAxis dataKey="nombre" stroke="#64748b" tick={{ fontSize: 10 }} />
+                <YAxis stroke="#64748b" tick={{ fontSize: 10 }} />
+                <Bar dataKey="cantidad" fill={CHART_COLORS[3]} radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ChartWrapper>
+            <ChartWrapper title="Precios vs Costo" height={250}>
+              <BarChart data={allData.slice(0, 15)}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                <XAxis dataKey="nombre" stroke="#64748b" tick={{ fontSize: 9 }} />
+                <YAxis stroke="#64748b" tick={{ fontSize: 10 }} />
+                <Bar dataKey="precioVenta" fill={CHART_COLORS[0]} radius={[4, 4, 0, 0]} />
+                <Bar dataKey="precioCompra" fill={CHART_COLORS[4]} radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ChartWrapper>
+          </div>
         </div>
 
         {/* Product list table (existing) */}
-        <div className="bg-slate-900/50 print:bg-white border border-slate-800 print:border-gray-300 rounded-xl overflow-hidden">
+        <div className="report-section" data-section-id="table" data-print-active={printSection === "table" || null}>
+          <div className="flex items-center justify-end mb-2 print:hidden">
+            <button onClick={() => setPrintSection("table")}
+              className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
+              title="Imprimir esta sección">
+              <Printer size={12} />
+            </button>
+          </div>
+          <div className="bg-slate-900/50 print:bg-white border border-slate-800 print:border-gray-300 rounded-xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -237,11 +273,21 @@ export default function ProductosReport({ initialData, categorias, proveedores, 
             </table>
           </div>
         </div>
+        </div>
 
         {/* Sub-pestañas */}
-        {viewMode === "todos" && (
-          <SubPestanasProductos categoriaId={categoriaId} proveedorId={proveedorId} />
-        )}
+        <div className="report-section" data-section-id="data-sections" data-print-active={printSection === "data-sections" || null}>
+          <div className="flex items-center justify-end mb-2 print:hidden">
+            <button onClick={() => setPrintSection("data-sections")}
+              className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
+              title="Imprimir esta sección">
+              <Printer size={12} />
+            </button>
+          </div>
+          {viewMode === "todos" && (
+            <SubPestanasProductos categoriaId={categoriaId} proveedorId={proveedorId} />
+          )}
+        </div>
       </div>
     </div>
   );

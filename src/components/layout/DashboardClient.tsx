@@ -20,15 +20,11 @@ import {
   TrendingUp,
   Package,
   AlertTriangle,
-  Users,
-  Calendar,
   Activity,
   ArrowUpRight,
   ArrowDownLeft,
-  RefreshCw,
   ShoppingBag,
   Coins,
-  ChevronRight,
   Sparkles,
   Inbox
 } from "lucide-react";
@@ -40,17 +36,18 @@ interface StatProps {
   icon: React.ReactNode;
   iconBg: string;
   textColor?: string;
+  wide?: boolean;
 }
 
-function StatCard({ title, value, sub, icon, iconBg, textColor = "text-white" }: StatProps) {
+function StatCard({ title, value, sub, icon, iconBg, textColor = "text-white", wide }: StatProps) {
   return (
-    <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 p-6 rounded-3xl flex items-center justify-between shadow-lg shadow-black/5 hover:border-slate-700/60 transition duration-150">
+    <div className={`bg-slate-900/40 backdrop-blur-md border border-slate-800 p-5 rounded-2xl flex items-center justify-between shadow-lg shadow-black/5 hover:border-slate-700/60 transition duration-150 h-full`}>
       <div className="space-y-1">
         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{title}</p>
-        <p className={`text-2xl font-black ${textColor} font-mono tracking-tight`}>{value}</p>
+        <p className={`${wide ? "text-3xl" : "text-2xl"} font-black ${textColor} font-mono tracking-tight`}>{value}</p>
         <p className="text-[10px] text-slate-400 font-medium">{sub}</p>
       </div>
-      <div className={`p-3.5 rounded-2xl ${iconBg} border border-white/5`}>
+      <div className={`p-3 rounded-xl ${iconBg} border border-white/5`}>
         {icon}
       </div>
     </div>
@@ -77,36 +74,35 @@ export default function DashboardClient({ data }: DashboardClientProps) {
     <div className="space-y-6">
       {/* 1. Tarjetas de Estadísticas */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <StatCard
-          title="Ventas del Día"
-          value={formatCurrency(stats.ventasHoy)}
-          sub="Facturado hoy en el local"
-          icon={<ShoppingBag size={20} />}
-          iconBg="bg-indigo-500/10 text-indigo-400"
-          textColor="text-indigo-400"
-        />
+        {/* Sales — prominent, spans 2 cols on large screens */}
+        <div className="sm:col-span-2">
+          <StatCard
+            title="Ventas del Día"
+            value={formatCurrency(stats.ventasHoy)}
+            sub="Facturado hoy en el local"
+            icon={<ShoppingBag size={22} />}
+            iconBg="bg-indigo-500/10 text-indigo-400"
+            textColor="text-indigo-400"
+            wide
+          />
+        </div>
+        {/* Caja */}
         <StatCard
           title="Efectivo en Caja"
           value={formatCurrency(stats.ingresosCaja)}
-          sub="Saldo activo de la caja abierta"
-          icon={<Coins size={20} />}
+          sub="Saldo activo de la caja"
+          icon={<Coins size={18} />}
           iconBg="bg-emerald-500/10 text-emerald-400"
           textColor="text-emerald-400"
         />
+        {/* Stock alerts — warning-colored */}
         <StatCard
           title="Alertas de Stock"
           value={stats.stockBajoCount}
-          sub="Repuestos con stock crítico"
-          icon={<AlertTriangle size={20} />}
-          iconBg={stats.stockBajoCount > 0 ? "bg-amber-500/10 text-amber-400 animate-pulse" : "bg-slate-800 text-slate-500"}
+          sub="Stock crítico"
+          icon={<AlertTriangle size={18} />}
+          iconBg={stats.stockBajoCount > 0 ? "bg-amber-500/15 text-amber-400" : "bg-slate-800 text-slate-500"}
           textColor={stats.stockBajoCount > 0 ? "text-amber-400" : "text-white"}
-        />
-        <StatCard
-          title="Clientes Registrados"
-          value={stats.totalClientes}
-          sub="Clientes fidelizados totales"
-          icon={<Users size={20} />}
-          iconBg="bg-purple-500/10 text-purple-400"
         />
       </div>
 
@@ -196,10 +192,10 @@ export default function DashboardClient({ data }: DashboardClientProps) {
         </div>
       </div>
 
-      {/* 3. Lógica de Tesis: Motor de Predicciones & Movimientos de Caja */}
+      {/* 3. Motor de Predicciones & Movimientos de Caja */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* MOTOR PREDICTIVO DE DEMANDA (TESIS EXCLUSIVE CARD) (7/12 cols) */}
+        {/* MOTOR PREDICTIVO DE DEMANDA (7/12 cols) */}
         <div className="lg:col-span-7 bg-slate-900/40 backdrop-blur-md border border-slate-800 p-6 rounded-3xl space-y-4 shadow-xl">
           <div className="flex items-center justify-between border-b border-slate-800/60 pb-3">
             <div className="flex items-center space-x-2 text-indigo-400">

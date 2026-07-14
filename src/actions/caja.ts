@@ -54,7 +54,7 @@ export async function getHistorialCajas() {
  */
 export async function abrirCaja(montoInicial: number) {
   const session = await getSession();
-  if (!session || !["ADMINISTRADOR", "CAJERO"].includes(session.role)) {
+  if (!session || !["ADMINISTRADOR", "ENCARGADO_VENTAS"].includes(session.role)) {
     throw new Error("No tiene permisos para realizar esta acción.");
   }
 
@@ -111,7 +111,7 @@ export async function abrirCaja(montoInicial: number) {
  */
 export async function cerrarCaja(id: number) {
   const session = await getSession();
-  if (!session || !["ADMINISTRADOR", "CAJERO"].includes(session.role)) {
+  if (!session || !["ADMINISTRADOR", "ENCARGADO_VENTAS"].includes(session.role)) {
     throw new Error("No tiene permisos para realizar esta acción.");
   }
 
@@ -153,7 +153,7 @@ export async function cerrarCaja(id: number) {
  */
 export async function registrarGastoCaja(formData: FormData) {
   const session = await getSession();
-  if (!session || !["ADMINISTRADOR", "CAJERO"].includes(session.role)) {
+  if (!session || !["ADMINISTRADOR", "ENCARGADO_VENTAS"].includes(session.role)) {
     throw new Error("No tiene permisos para realizar esta acción.");
   }
 

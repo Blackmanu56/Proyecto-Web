@@ -1,6 +1,8 @@
 ﻿"use client";
 
 import React, { useState, useTransition } from "react";
+import StatusFilter from "./StatusFilter";
+import type { FilterStatus } from "./StatusFilter";
 import {
   Search,
   Plus,
@@ -10,8 +12,6 @@ import {
   UserCheck,
   X,
   Shield,
-  Eye,
-  EyeOff,
   Building2,
   Phone,
   Mail,
@@ -114,7 +114,7 @@ export default function ProveedoresTable({
 }: ProveedoresTableProps) {
   const [proveedores, setProveedores] = useState<ProveedorConDetalles[]>(initialProveedores);
   const [searchQuery, setSearchQuery] = useState("");
-  const [showInactive, setShowInactive] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>("activos");
   const [isPending, startTransition] = useTransition();
 
   // Modales
@@ -146,21 +146,20 @@ export default function ProveedoresTable({
   const handleSearch = (query: string) => {
     setSearchQuery(query);
     startTransition(async () => {
-      const results = await onSearch(query, !showInactive);
+      const results = await onSearch(query, false);
       setProveedores(results);
     });
   };
 
-  const handleToggleInactive = () => {
-    const newVal = !showInactive;
-    setShowInactive(newVal);
-    startTransition(async () => {
-      const results = await onSearch(searchQuery, !newVal);
-      setProveedores(results);
-    });
-  };
+  // Filtrado client-side por estado
+  const filteredProveedores = proveedores.filter((p) => {
+    if (filterStatus === "todos") return true;
+    if (filterStatus === "activos") return p.activo;
+    if (filterStatus === "inactivos") return !p.activo;
+    return true;
+  });
 
-  // ÔöÇÔöÇÔöÇ Open Create/Edit modal ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+  // Open Create/Edit modal
   const openCreateModal = () => {
     setEditingProv(null);
     setFormError(null);
@@ -210,7 +209,7 @@ export default function ProveedoresTable({
     setIsSubmitting(false);
 
     // Refresh list
-    const results = await onSearch(searchQuery, !showInactive);
+    const results = await onSearch(searchQuery, false);
     setProveedores(results);
 
     setTimeout(() => {
@@ -254,7 +253,7 @@ export default function ProveedoresTable({
     const result = await onToggleEstado(provId);
     if (result.success) {
       setConfirmDialog({ ...confirmDialog, open: false });
-      const results = await onSearch(searchQuery, !showInactive);
+      const results = await onSearch(searchQuery, false);
       setProveedores(results);
     } else {
       setConfirmDialog({ ...confirmDialog, errorMsg: result.error });
@@ -266,7 +265,7 @@ export default function ProveedoresTable({
     const result = await onEliminarReal(provId);
     if (result.success) {
       setConfirmDialog({ ...confirmDialog, open: false });
-      const results = await onSearch(searchQuery, !showInactive);
+      const results = await onSearch(searchQuery, false);
       setProveedores(results);
     } else {
       setConfirmDialog({ ...confirmDialog, errorMsg: result.error });
@@ -315,19 +314,8 @@ export default function ProveedoresTable({
           )}
         </div>
 
-        {/* Show inactive toggle */}
-        <button
-          id="toggle-inactive-prov"
-          onClick={handleToggleInactive}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold border transition-all duration-200 whitespace-nowrap ${
-            showInactive
-              ? "bg-amber-500/10 border-amber-500/20 text-amber-400 hover:bg-amber-500/20"
-              : "bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-slate-300"
-          }`}
-        >
-          {showInactive ? <Eye size={14} /> : <EyeOff size={14} />}
-          {showInactive ? "Mostrando todos" : "Mostrar inactivos"}
-        </button>
+        {/* Filtro de estado Activo/Inactivo */}
+        <StatusFilter value={filterStatus} onChange={setFilterStatus} />
 
         {/* Add supplier button */}
         <button
@@ -419,7 +407,7 @@ export default function ProveedoresTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/70">
-              {proveedores.length === 0 ? (
+              {filteredProveedores.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="text-center py-16 text-slate-500">
                     <Building2 size={40} className="mx-auto mb-3 opacity-30" />
@@ -432,7 +420,7 @@ export default function ProveedoresTable({
                   </td>
                 </tr>
               ) : (
-                proveedores.map((prov) => (
+                filteredProveedores.map((prov) => (
                   <tr
                     key={prov.id}
                     onClick={() => openDetailModal(prov)}

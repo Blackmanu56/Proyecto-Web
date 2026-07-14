@@ -7,6 +7,7 @@ import {
   cerrarCaja,
   registrarGastoCaja
 } from "@/actions/caja";
+import ConfirmarCierreModal from "@/components/ui/ConfirmarCierreModal";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   Coins,
@@ -76,6 +77,8 @@ export default function CajaTerminal({
   const [gastoDesc, setGastoDesc] = useState("");
   const [gastoMonto, setGastoMonto] = useState("");
 
+  const [showCerrarModal, setShowCerrarModal] = useState(false);
+
   const [errorMsg, setErrorMsg] = useState("");
 
   // Acciones
@@ -100,27 +103,21 @@ export default function CajaTerminal({
     });
   };
 
-  const handleCerrar = async () => {
+  const handleCerrar = () => {
     if (!cajaActiva) return;
-    const saldoActual = cajaActiva.montoInicial + cajaActiva.totalVentas;
-    
-    if (
-      !confirm(
-        `¿Seguro que desea cerrar la caja?\n\n` +
-        `Monto inicial: ${formatCurrency(cajaActiva.montoInicial)}\n` +
-        `Movimientos netos: ${formatCurrency(cajaActiva.totalVentas)}\n` +
-        `Saldo total en caja: ${formatCurrency(saldoActual)}`
-      )
-    ) {
-      return;
-    }
+    setShowCerrarModal(true);
+  };
+
+  const confirmarCierre = () => {
+    if (!cajaActiva) return;
 
     startTransition(async () => {
       const res = await cerrarCaja(cajaActiva.id);
       if (res.success) {
         router.refresh();
       } else {
-        alert(res.error);
+        setErrorMsg(res.error || "Error al cerrar la caja.");
+        setShowCerrarModal(false);
       }
     });
   };
@@ -180,6 +177,7 @@ export default function CajaTerminal({
   const saldoFinalCalculado = totalIngresos - totalEgresos;
 
   return (
+    <>
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
       {/* SECCIÓN CAJA ACTIVA (7 COLS si está abierta, o 12 COLS si está cerrada) */}
       <div className={`${cajaActiva ? "lg:col-span-8" : "lg:col-span-12"} space-y-6`}>
@@ -524,5 +522,19 @@ export default function CajaTerminal({
         </div>
       )}
     </div>
+
+      {cajaActiva && (
+        <ConfirmarCierreModal
+          open={showCerrarModal}
+          onClose={() => !isPending && setShowCerrarModal(false)}
+          onConfirm={confirmarCierre}
+          isPending={isPending}
+          montoInicial={cajaActiva.montoInicial}
+          totalVentas={cajaActiva.totalVentas}
+          totalIngresos={totalIngresos}
+          totalEgresos={totalEgresos}
+        />
+      )}
+    </>
   );
 }

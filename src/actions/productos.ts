@@ -100,55 +100,54 @@ export async function createProducto(formData: FormData) {
 
       // 2. Si se inicializa con stock > 0, registrar compra contable y egreso de caja
       if (validation.data.cantidad > 0) {
-        // Buscar caja abierta
+        const totalCosto = validation.data.cantidad * validation.data.precioCompra;
+
+        // Buscar caja abierta (opcional: si no hay caja, se crea el producto sin movimiento financiero)
         const cajaAbierta = await tx.caja.findFirst({
           where: { estado: "ABIERTA" },
         });
 
-        if (!cajaAbierta) {
-          throw new Error("Debe abrir la caja antes de registrar productos con stock inicial.");
-        }
-
-        const totalCosto = validation.data.cantidad * validation.data.precioCompra;
-
-        // Crear registro de Compra
-        const compra = await tx.compra.create({
-          data: {
-            proveedorId: validation.data.proveedorId,
-            usuarioId: session.userId,
-            total: totalCosto,
-            detalles: {
-              create: {
-                productoId: p.id,
-                cantidad: validation.data.cantidad,
-                costoUnitario: validation.data.precioCompra,
-                subtotal: totalCosto,
+        if (cajaAbierta) {
+          // Crear registro de Compra
+          const compra = await tx.compra.create({
+            data: {
+              proveedorId: validation.data.proveedorId,
+              usuarioId: session.userId,
+              total: totalCosto,
+              detalles: {
+                create: {
+                  productoId: p.id,
+                  cantidad: validation.data.cantidad,
+                  costoUnitario: validation.data.precioCompra,
+                  subtotal: totalCosto,
+                },
               },
             },
-          },
-        });
+          });
 
-        // Registrar egreso en Caja
-        await tx.movimientoCaja.create({
-          data: {
-            cajaId: cajaAbierta.id,
-            usuarioId: session.userId,
-            compraId: compra.id,
-            tipo: "EGRESO",
-            monto: totalCosto,
-            descripcion: `Stock inicial de '${validation.data.nombre}' x${validation.data.cantidad}`,
-          },
-        });
-
-        // Actualizar totales de la Caja
-        await tx.caja.update({
-          where: { id: cajaAbierta.id },
-          data: {
-            totalVentas: {
-              decrement: totalCosto, // Los egresos reducen el balance acumulado
+          // Registrar egreso en Caja
+          await tx.movimientoCaja.create({
+            data: {
+              cajaId: cajaAbierta.id,
+              usuarioId: session.userId,
+              compraId: compra.id,
+              tipo: "EGRESO",
+              monto: totalCosto,
+              descripcion: `Stock inicial de '${validation.data.nombre}' x${validation.data.cantidad}`,
             },
-          },
-        });
+          });
+
+          // Actualizar totales de la Caja
+          await tx.caja.update({
+            where: { id: cajaAbierta.id },
+            data: {
+              totalVentas: {
+                decrement: totalCosto, // Los egresos reducen el balance acumulado
+              },
+            },
+          });
+        }
+        // Si no hay caja abierta, se crea el producto sin registrar movimiento financiero
       }
 
       return p;
@@ -214,21 +213,12 @@ export async function updateProducto(id: number, formData: FormData) {
         },
       });
 
-      // 2. Si el stock subió, es un reabastecimiento (Compra a proveedor con egreso de caja)
+      // 2. Si el stock subió, es un reabastecimiento (Compra a proveedor)
       if (nuevoStock > stockAnterior) {
         const diferencia = nuevoStock - stockAnterior;
         const totalCosto = diferencia * validation.data.precioCompra;
 
-        // Validar caja abierta
-        const cajaAbierta = await tx.caja.findFirst({
-          where: { estado: "ABIERTA" },
-        });
-
-        if (!cajaAbierta) {
-          throw new Error("Debe abrir la caja para registrar aumentos en el stock (reposiciones).");
-        }
-
-        // Registrar la Compra
+        // Registrar la Compra (siempre, independientemente de la caja)
         const compra = await tx.compra.create({
           data: {
             proveedorId: validation.data.proveedorId,
@@ -245,27 +235,32 @@ export async function updateProducto(id: number, formData: FormData) {
           },
         });
 
-        // Registrar egreso en la Caja
-        await tx.movimientoCaja.create({
-          data: {
-            cajaId: cajaAbierta.id,
-            usuarioId: session.userId,
-            compraId: compra.id,
-            tipo: "EGRESO",
-            monto: totalCosto,
-            descripcion: `Reposición de '${validation.data.nombre}' x${diferencia}`,
-          },
+        // Registrar egreso en la Caja solo si hay una caja abierta
+        const cajaAbierta = await tx.caja.findFirst({
+          where: { estado: "ABIERTA" },
         });
 
-        // Actualizar total caja
-        await tx.caja.update({
-          where: { id: cajaAbierta.id },
-          data: {
-            totalVentas: {
-              decrement: totalCosto,
+        if (cajaAbierta) {
+          await tx.movimientoCaja.create({
+            data: {
+              cajaId: cajaAbierta.id,
+              usuarioId: session.userId,
+              compraId: compra.id,
+              tipo: "EGRESO",
+              monto: totalCosto,
+              descripcion: `Reposición de '${validation.data.nombre}' x${diferencia}`,
             },
-          },
-        });
+          });
+
+          await tx.caja.update({
+            where: { id: cajaAbierta.id },
+            data: {
+              totalVentas: {
+                decrement: totalCosto,
+              },
+            },
+          });
+        }
       }
 
       return p;
@@ -307,8 +302,8 @@ export async function deleteProducto(id: number) {
  */
 export async function reactivarProducto(id: number) {
   const session = await getSession();
-  if (!session || session.role !== "ADMINISTRADOR") {
-    throw new Error("Solo los administradores pueden reactivar productos.");
+  if (!session || !["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(session.role)) {
+    throw new Error("No tiene permisos para reactivar productos.");
   }
 
   try {

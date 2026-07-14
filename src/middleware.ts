@@ -8,7 +8,7 @@ const key = new TextEncoder().encode(JWT_SECRET);
 // Definimos las rutas protegidas y sus permisos mínimos
 const protectedRoutes = [
   { path: "/dashboard", roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS", "ENCARGADO_STOCK"] },
-  { path: "/productos", roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS", "ENCARGADO_STOCK"] },
+  { path: "/productos", roles: ["ADMINISTRADOR", "ENCARGADO_STOCK"] },
   { path: "/ventas", roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS"] },
   { path: "/caja", roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS"] },
   { path: "/clientes", roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS"] },

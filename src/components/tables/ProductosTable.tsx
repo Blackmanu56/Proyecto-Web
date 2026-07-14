@@ -348,7 +348,7 @@ export default function ProductosTable({
                               )}
                             </>
                           ) : (
-                            userRole === "ADMINISTRADOR" && (
+                            ["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(userRole) && (
                               <button
                                 onClick={() => handleRestore(p.id)}
                                 className="p-1.5 rounded-lg bg-slate-800/60 hover:bg-emerald-500/10 text-slate-400 hover:text-emerald-400 border border-slate-700/40 transition duration-150 flex items-center space-x-1"

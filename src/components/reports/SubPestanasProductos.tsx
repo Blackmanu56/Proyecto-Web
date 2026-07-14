@@ -1,9 +1,9 @@
 ﻿"use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useState, useEffect, useTransition } from "react";
 import { getRentabilidadProductos, getReposicionProductos, getSinMovimientoProductos } from "@/actions/informes";
 import { formatCurrency } from "@/lib/utils";
-import { RefreshCw, TrendingUp, Package, Truck, Ban } from "lucide-react";
+import { RefreshCw, TrendingUp, Package, Truck, Ban, Printer } from "lucide-react";
 import DataTable from "@/components/ui/DataTable";
 
 type SubTabId = "resumen" | "rentabilidad" | "reposicion" | "sinMovimiento";
@@ -23,6 +23,16 @@ export default function SubPestanasProductos({ categoriaId, proveedorId }: { cat
   const [reposicion, setReposicion] = useState<any[] | null>(null);
   const [sinMovimiento, setSinMovimiento] = useState<any[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const [printSection, setPrintSection] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (printSection) {
+      setTimeout(() => {
+        window.print();
+        setPrintSection(null);
+      }, 100);
+    }
+  }, [printSection]);
 
   const loadTab = (tab: SubTabId) => {
     setActiveTab(tab);
@@ -66,7 +76,14 @@ export default function SubPestanasProductos({ categoriaId, proveedorId }: { cat
             {tab.icon}{tab.label}
           </button>
         ))}
-        {isPending && <RefreshCw size={14} className="animate-spin text-slate-400 self-center ml-2" />}
+        <div className="ml-auto flex items-center gap-2 print:hidden">
+          {isPending && <RefreshCw size={14} className="animate-spin text-slate-400" />}
+          <button onClick={() => setPrintSection(activeTab)}
+            className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
+            title="Imprimir esta sección">
+            <Printer size={12} />
+          </button>
+        </div>
       </div>
 
       {/* Content */}
@@ -76,6 +93,7 @@ export default function SubPestanasProductos({ categoriaId, proveedorId }: { cat
         </div>
       ) : (
         <>
+          <div className="report-section" data-section-id={activeTab} data-print-active={printSection === activeTab || null}>
           {activeTab === "resumen" && (
             <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-6 text-center text-slate-400">
               <p>Seleccioná una subcategoría para ver los datos detallados.</p>
@@ -127,6 +145,7 @@ export default function SubPestanasProductos({ categoriaId, proveedorId }: { cat
               emptyMessage="No hay productos sin movimiento."
             />
           )}
+        </div>
         </>
       )}
     </div>

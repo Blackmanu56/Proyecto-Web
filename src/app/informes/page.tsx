@@ -7,14 +7,11 @@ import {
   getReporteEmpleados,
   getClientesReport,
   getProveedoresReport,
-  getFinanzasReport,
-  getAuditoriaReport,
   getUsuariosActivos,
 } from "@/actions/informes";
 import { getCategorias, getProveedores, getClientesDistinct, getMetodosPago } from "@/actions/auxiliares";
 import InformesTabs from "@/components/reports/InformesTabs";
 import { BarChart3 } from "lucide-react";
-import { redirect } from "next/navigation";
 
 export default async function InformesPage() {
   const session = await getSession();
@@ -24,24 +21,30 @@ export default async function InformesPage() {
   const hoy = new Date();
   const hoyStr = hoy.toISOString().split("T")[0];
 
+  // Filtrar datos según el rol para evitar cargar datos innecesarios
+  const canSeeVentas = ["ADMINISTRADOR", "ENCARGADO_VENTAS"].includes(userRole);
+  const canSeeCierres = ["ADMINISTRADOR", "ENCARGADO_VENTAS"].includes(userRole);
+  const canSeeEmpleados = userRole === "ADMINISTRADOR";
+  const canSeeClientes = ["ADMINISTRADOR", "ENCARGADO_VENTAS"].includes(userRole);
+  const canSeeProductos = ["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(userRole);
+  const canSeeProveedores = ["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(userRole);
+
   const [
     ventasData, cierresData, productosData, empleadosData,
-    clientesData, proveedoresData, finanzasData, auditoriaData,
+    clientesData, proveedoresData,
     usuarios, categorias, proveedores, clientesDistinct, metodosPago,
   ] = await Promise.all([
-    getReporteVentas(hoyStr, hoyStr),
-    getReporteCierres(hoyStr, hoyStr),
-    getReporteProductos(),
-    getReporteEmpleados(hoyStr, hoyStr),
-    getClientesReport({ fechaDesde: hoyStr, fechaHasta: hoyStr, page: 1, limit: 50 }),
-    getProveedoresReport({ page: 1, limit: 50 }),
-    getFinanzasReport({ fechaDesde: hoyStr, fechaHasta: hoyStr }),
-    getAuditoriaReport({ page: 1, limit: 50 }),
+    canSeeVentas ? getReporteVentas(hoyStr, hoyStr) : Promise.resolve({ ventas: [], totales: { cantidad: 0, total: 0, promedio: 0 } }),
+    canSeeCierres ? getReporteCierres(hoyStr, hoyStr) : Promise.resolve([]),
+    canSeeProductos ? getReporteProductos() : Promise.resolve([]),
+    canSeeEmpleados ? getReporteEmpleados(hoyStr, hoyStr) : Promise.resolve([]),
+    canSeeClientes ? getClientesReport({ fechaDesde: hoyStr, fechaHasta: hoyStr, page: 1, limit: 50 }) : Promise.resolve({ data: [], total: 0, page: 1, pageSize: 50, totalPages: 0 }),
+    canSeeProveedores ? getProveedoresReport({ page: 1, limit: 50 }) : Promise.resolve({ data: [], total: 0, page: 1, pageSize: 50, totalPages: 0 }),
     getUsuariosActivos(),
     getCategorias(),
     getProveedores(),
-    getClientesDistinct(),
-    getMetodosPago(),
+    canSeeClientes ? getClientesDistinct() : Promise.resolve([]),
+    canSeeVentas ? getMetodosPago() : Promise.resolve([]),
   ]);
 
   return (
@@ -72,8 +75,6 @@ export default async function InformesPage() {
           initialEmpleados={empleadosData}
           initialClientes={clientesData}
           initialProveedores={proveedoresData}
-          initialFinanzas={finanzasData}
-          initialAuditoria={auditoriaData}
           usuarios={usuarios}
           categorias={categorias}
           proveedores={proveedores}

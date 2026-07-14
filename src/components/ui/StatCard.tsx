@@ -50,13 +50,13 @@ export default function StatCard({ label, value, icon, color, trend }: KpiCardDa
   const styles = COLOR_STYLES[color] ?? COLOR_STYLES.indigo;
 
   return (
-    <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 flex items-start gap-4">
+    <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 flex items-center gap-4">
       <div className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${styles.iconBg}`}>
         <span className={`w-5 h-5 ${styles.text}`}>{icon}</span>
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-sm text-slate-400 truncate">{label}</p>
-        <p className="text-2xl font-bold text-white mt-0.5">{value}</p>
+        <p className="text-sm text-slate-400 leading-tight">{label}</p>
+        <p className="text-2xl font-bold text-white mt-0.5 break-words">{value}</p>
         {trend && (
           <p
             className={`text-xs mt-1 flex items-center gap-1 ${

@@ -17,7 +17,7 @@ export async function createVenta(
   items: VentaItem[]
 ) {
   const session = await getSession();
-  if (!session || !["ADMINISTRADOR", "VENDEDOR", "CAJERO"].includes(session.role)) {
+  if (!session || !["ADMINISTRADOR", "ENCARGADO_VENTAS"].includes(session.role)) {
     throw new Error("No tiene permisos para realizar esta acción.");
   }
 

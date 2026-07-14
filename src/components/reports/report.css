@@ -1,11 +1,47 @@
 /* ═══════════════════════════════════════════════════════════════
-   Report Print Styles — SGI-Repuestos
+   Report Print Styles — Chopper Repuestos
    ═══════════════════════════════════════════════════════════════
    Escondé el chrome de la UI (navbar, botones, filtros) y
    mostrá solo el contenido del reporte al imprimir/PDF.
    ═══════════════════════════════════════════════════════════════ */
 
 @media print {
+  @page {
+    margin: 12mm;
+    size: A4;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* ── Prevent scrollbars & overflow in print ──────────────── */
+  body {
+    overflow: visible !important;
+  }
+
+  .overflow-x-auto,
+  .overflow-y-auto,
+  [class*="overflow-"] {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  /* ── Allow text to wrap in print (undo truncation) ────────── */
+  .truncate {
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+    max-width: none !important;
+  }
+
+  /* ── Remove sticky positioning in print ───────────────────── */
+  [class*="sticky"],
+  [class*="fixed"] {
+    position: static !important;
+  }
+
   /* ── Ocultar chrome de navegación ─────────────────────────── */
   nav,
   .navbar,
@@ -166,4 +202,22 @@
   h1 { font-size: 18pt !important; }
   h2 { font-size: 14pt !important; }
   h3 { font-size: 12pt !important; }
+}
+
+/* ── Per-section print isolation ──────────────────────── */
+@media print {
+  .report-section {
+    display: none !important;
+  }
+  .report-section[data-print-active="true"] {
+    display: block !important;
+    page-break-after: auto !important;
+  }
+  .report-section[data-print-active="true"] ~ .report-section {
+    display: none !important;
+  }
+}
+
+.report-section {
+  position: relative;
 }

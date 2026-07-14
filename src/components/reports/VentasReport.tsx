@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import React, { useState, useTransition, useCallback, useRef, useMemo } from "react";
+import React, { useState, useEffect, useTransition, useCallback, useRef, useMemo } from "react";
 import { getReporteVentas, getVentasPorProducto, getVentasPorCategoria, getVentasPorCliente, getVentasPorVendedorComision, getTopProductos, getBottomProductos } from "@/actions/informes";
 import { formatCurrency } from "@/lib/utils";
 import {
@@ -49,8 +49,6 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
   const [fechaDesde, setFechaDesde] = useState(new Date().toISOString().split("T")[0]);
   const [fechaHasta, setFechaHasta] = useState(new Date().toISOString().split("T")[0]);
   const [usuarioId, setUsuarioId] = useState<number | undefined>(undefined);
-  const [tipoComprobante, setTipoComprobante] = useState("");
-  const [metodoPago, setMetodoPago] = useState("");
   const [searchText, setSearchText] = useState("");
   const [isPending, startTransition] = useTransition();
 
@@ -61,6 +59,7 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
   const [topProds, setTopProds] = useState<any[] | null>(null);
   const [bottomProds, setBottomProds] = useState<any[] | null>(null);
   const [loadingSection, setLoadingSection] = useState<string | null>(null);
+  const [printSection, setPrintSection] = useState<string | null>(null);
 
   const [detalleVentaId, setDetalleVentaId] = useState<number | null>(null);
   const [ticketVentaId, setTicketVentaId] = useState<number | null>(null);
@@ -83,16 +82,23 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
 
   const handlePrint = () => window.print();
 
+  useEffect(() => {
+    if (printSection) {
+      setTimeout(() => {
+        window.print();
+        setPrintSection(null);
+      }, 100);
+    }
+  }, [printSection]);
+
   const ventasFiltradas = useMemo(() => {
-    let v = data.ventas || [];
-    if (tipoComprobante) v = v.filter((x: any) => x.tipoComprobante === tipoComprobante);
-    if (metodoPago) v = v.filter((x: any) => x.metodoPago === metodoPago);
-    if (searchText) v = v.filter((x: any) =>
+    const v = data.ventas || [];
+    if (!searchText) return v;
+    return v.filter((x: any) =>
       (x.cliente || "").toLowerCase().includes(searchText.toLowerCase()) ||
       (x.usuario || "").toLowerCase().includes(searchText.toLowerCase())
     );
-    return v;
-  }, [data, tipoComprobante, metodoPago, searchText]);
+  }, [data, searchText]);
 
   const totales = useMemo(() => {
     const v = ventasFiltradas as any[];
@@ -165,31 +171,57 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
         </div>
 
         {/* KPIs */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
-          {kpiData.map((kpi, i) => <StatCard key={i} {...kpi} />)}
+        <div className="report-section" data-section-id="kpis" data-print-active={printSection === "kpis" || null}>
+          <div className="flex items-center justify-end mb-2 print:hidden">
+            <button onClick={() => setPrintSection("kpis")}
+              className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
+              title="Imprimir esta sección">
+              <Printer size={12} />
+            </button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+            {kpiData.map((kpi, i) => <StatCard key={i} {...kpi} />)}
+          </div>
         </div>
 
         {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <ChartWrapper title="Ventas Diarias" height={250}>
-            <BarChart data={(data.ventas || []).length > 0 ? [...Array(7)].map((_, i) => { const d = new Date(); d.setDate(d.getDate() - 6 + i); return { fecha: d.toLocaleDateString("es-AR", { day: "2-digit", month: "short" }), total: 0 }; }) : []}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-              <XAxis dataKey="fecha" stroke="#64748b" tick={{ fontSize: 10 }} />
-              <YAxis stroke="#64748b" tick={{ fontSize: 10 }} />
-              <Bar dataKey="total" fill={CHART_COLORS[0]} radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ChartWrapper>
-          <ChartWrapper title="Ventas por Categoría" height={250}>
-            <RePie>
-              <Pie data={[{ name: "Cargando...", value: 1 }]} dataKey="value" cx="50%" cy="50%" outerRadius={80} label={({ name }) => name}>
-                <Cell fill={CHART_COLORS[0]} />
-              </Pie>
-            </RePie>
-          </ChartWrapper>
+        <div className="report-section" data-section-id="charts" data-print-active={printSection === "charts" || null}>
+          <div className="flex items-center justify-end mb-2 print:hidden">
+            <button onClick={() => setPrintSection("charts")}
+              className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
+              title="Imprimir esta sección">
+              <Printer size={12} />
+            </button>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <ChartWrapper title="Ventas Diarias" height={250}>
+              <BarChart data={(data.ventas || []).length > 0 ? [...Array(7)].map((_, i) => { const d = new Date(); d.setDate(d.getDate() - 6 + i); return { fecha: d.toLocaleDateString("es-AR", { day: "2-digit", month: "short" }), total: 0 }; }) : []}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                <XAxis dataKey="fecha" stroke="#64748b" tick={{ fontSize: 10 }} />
+                <YAxis stroke="#64748b" tick={{ fontSize: 10 }} />
+                <Bar dataKey="total" fill={CHART_COLORS[0]} radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ChartWrapper>
+            <ChartWrapper title="Ventas por Categoría" height={250}>
+              <RePie>
+                <Pie data={[{ name: "Cargando...", value: 1 }]} dataKey="value" cx="50%" cy="50%" outerRadius={80} label={({ name }) => name}>
+                  <Cell fill={CHART_COLORS[0]} />
+                </Pie>
+              </RePie>
+            </ChartWrapper>
+          </div>
         </div>
 
         {/* Tabla de Ventas */}
-        <div className="bg-slate-900/50 print:bg-white border border-slate-800 print:border-gray-300 rounded-xl overflow-hidden">
+        <div className="report-section" data-section-id="table" data-print-active={printSection === "table" || null}>
+          <div className="flex items-center justify-end mb-2 print:hidden">
+            <button onClick={() => setPrintSection("table")}
+              className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
+              title="Imprimir esta sección">
+              <Printer size={12} />
+            </button>
+          </div>
+          <div className="bg-slate-900/50 print:bg-white border border-slate-800 print:border-gray-300 rounded-xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -226,9 +258,18 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
             </table>
           </div>
         </div>
+        </div>
 
         {/* Data Sections */}
-        <div className="grid grid-cols-1 gap-4">
+        <div className="report-section" data-section-id="data-sections" data-print-active={printSection === "data-sections" || null}>
+          <div className="flex items-center justify-end mb-2 print:hidden">
+            <button onClick={() => setPrintSection("data-sections")}
+              className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
+              title="Imprimir esta sección">
+              <Printer size={12} />
+            </button>
+          </div>
+          <div className="grid grid-cols-1 gap-4">
           <DataSection title="Ventas por Producto" loading={loadingSection === "prod"} onLoad={() => loadSection("prod", () => getVentasPorProducto({ fechaDesde, fechaHasta, page: 1 }).then(r => setVentasPorProd(r.data)))} loaded={ventasPorProd !== null}>
             {ventasPorProd && <DataTable columns={[{ header: "Producto", accessor: "producto" }, { header: "Cat.", accessor: "categoria" }, { header: "Cant.", accessor: "cantidad", className: "text-right" }, { header: "Subtotal", accessor: (r: any) => formatCurrency(r.subtotal), className: "text-right" }, { header: "Ganancia", accessor: (r: any) => formatCurrency(r.ganancia), className: "text-right" }]} data={ventasPorProd} keyExtractor={(r: any) => r.productoId} />}
           </DataSection>
@@ -255,6 +296,7 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
             </DataSection>
           </div>
         </div>
+      </div>
       </div>
 
       {detalleVentaId && <DetalleVentaModal ventaId={detalleVentaId} onClose={() => setDetalleVentaId(null)} onPrintTicket={() => { const id = detalleVentaId; setDetalleVentaId(null); setTicketVentaId(id); }} />}

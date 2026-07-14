@@ -17,7 +17,22 @@ export default async function ProductosPage({ searchParams }: PageProps) {
   const session = await getSession();
   
   // Si no hay sesión, Next.js Middleware redirige automáticamente a /login
-  const userRole = session?.role || "VENDEDOR";
+  const userRole = session?.role || "ENCARGADO_STOCK";
+
+  // Verificar que el usuario tenga permisos para esta página
+  const allowedRoles = ["ADMINISTRADOR", "ENCARGADO_STOCK"];
+  if (!allowedRoles.includes(userRole)) {
+    return (
+      <div className="flex-1 bg-slate-950 flex items-center justify-center p-6">
+        <div className="text-center">
+          <p className="text-red-400 text-lg font-semibold">Acceso Denegado</p>
+          <p className="text-slate-500 text-sm mt-2">
+            No tiene permisos para acceder a esta sección.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const params = await searchParams;
   const query = params.q || "";

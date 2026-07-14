@@ -37,7 +37,6 @@ model Usuario {
   cajas             Caja[]
   compras           Compra[]
   movimientos       MovimientoCaja[]
-  auditoriaEventos  AuditoriaEvent[]
 
   @@map("usuarios")
 }
@@ -201,28 +200,3 @@ model DetalleCompra {
   @@map("detalle_compras")
 }
 
-enum TipoEvento {
-  LOGIN
-  LOGOUT
-  CREACION
-  ACTUALIZACION
-  ELIMINACION
-  EXPORTACION
-  OTRO
-
-  @@map("tipo_evento")
-}
-
-model AuditoriaEvent {
-  id          Int        @id @default(autoincrement())
-  tipo        TipoEvento
-  descripcion String
-  usuarioId   Int?
-  usuario     Usuario?   @relation(fields: [usuarioId], references: [id])
-  entidad     String?
-  entidadId   Int?
-  metadata    Json?
-  createdAt   DateTime   @default(now()) @map("created_at")
-
-  @@map("auditoria_eventos")
-}

@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { getSession } from "@/lib/auth.server";
 import { prisma } from "@/lib/prisma";
-import Navbar from "@/components/layout/Navbar";
+import AppShell from "@/components/layout/AppShell";
 import "./globals.css";
+import { ChopperToaster } from "@/components/ui/toast";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -11,7 +12,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "SGI-Repuestos - Sistema de Gestión Inteligente",
+  title: "Chopper Repuestos - Sistema de Gestión",
   description: "Sistema integral de inventario y ventas con predicción de demanda para Chopper Repuestos",
 };
 
@@ -21,15 +22,15 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const session = await getSession();
-  
+
   // Fetch fresh user data from DB for latest fotoUrl (JWT may be stale)
-  let navUser: typeof session = null;
+  let shellUser: typeof session = null;
   if (session) {
     const userFromDb = await prisma.usuario.findUnique({
       where: { id: session.userId },
       select: { username: true, fotoUrl: true },
     });
-    navUser = {
+    shellUser = {
       ...session,
       fotoUrl: userFromDb?.fotoUrl ?? null,
       username: userFromDb?.username ?? session.username,
@@ -37,10 +38,10 @@ export default async function RootLayout({
   }
 
   return (
-    <html lang="es" className={`${inter.variable} h-full bg-slate-950 text-slate-100 antialiased`}>
-      <body className="min-h-full flex flex-col bg-slate-950 text-slate-100 font-sans">
-        {navUser && <Navbar user={navUser} />}
-        <main className="flex-1 flex flex-col">{children}</main>
+    <html lang="es" className={`${inter.variable} h-full bg-bg text-text antialiased`}>
+      <body className="min-h-full bg-bg text-text font-sans">
+        <AppShell user={shellUser}>{children}</AppShell>
+        <ChopperToaster />
       </body>
     </html>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useTransition, useCallback, useMemo } from "react";
 import {
   getClientesReport, getFrecuenciaComprasCliente, getVentasPorCliente,
 } from "@/actions/informes";
@@ -57,6 +57,7 @@ export default function ClientesReport({ initialData, userRole }: Props) {
   const [ventasPorCli, setVentasPorCli] = useState<any[] | null>(null);
   const [frecuenciaData, setFrecuenciaData] = useState<any[] | null>(null);
   const [loadingSection, setLoadingSection] = useState<string | null>(null);
+  const [printSection, setPrintSection] = useState<string | null>(null);
 
   const handleSearch = useCallback(() => {
     startTransition(async () => {
@@ -75,6 +76,15 @@ export default function ClientesReport({ initialData, userRole }: Props) {
   }, []);
 
   const handlePrint = () => window.print();
+
+  useEffect(() => {
+    if (printSection) {
+      setTimeout(() => {
+        window.print();
+        setPrintSection(null);
+      }, 100);
+    }
+  }, [printSection]);
 
   const kpiData = useMemo(() => {
     const total = clientesTotal;
@@ -154,13 +164,29 @@ export default function ClientesReport({ initialData, userRole }: Props) {
         </div>
 
         {/* KPIs */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          {kpiData.map((kpi, i) => <StatCard key={i} {...kpi} />)}
+        <div className="report-section" data-section-id="kpis" data-print-active={printSection === "kpis" || null}>
+          <div className="flex items-center justify-end mb-2 print:hidden">
+            <button onClick={() => setPrintSection("kpis")}
+              className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
+              title="Imprimir esta sección">
+              <Printer size={12} />
+            </button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {kpiData.map((kpi, i) => <StatCard key={i} {...kpi} />)}
+          </div>
         </div>
 
         {/* Main table */}
-        <div className="space-y-2">
-          <h3 className="text-sm font-semibold text-slate-300">Clientes</h3>
+        <div className="report-section" data-section-id="table" data-print-active={printSection === "table" || null}>
+          <div className="flex items-center justify-between mb-2 print:hidden">
+            <h3 className="text-sm font-semibold text-slate-300">Clientes</h3>
+            <button onClick={() => setPrintSection("table")}
+              className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
+              title="Imprimir esta sección">
+              <Printer size={12} />
+            </button>
+          </div>
           <DataTable
             columns={[
               { header: "Nombre", accessor: "nombre" },
@@ -177,40 +203,57 @@ export default function ClientesReport({ initialData, userRole }: Props) {
         </div>
 
         {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <ChartWrapper title="Top Clientes por Gasto" height={250}>
-            <BarChart data={ventasPorCli ? ventasPorCli.slice(0, 10) : []}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-              <XAxis dataKey="cliente" stroke="#64748b" tick={{ fontSize: 10 }} />
-              <YAxis stroke="#64748b" tick={{ fontSize: 10 }} />
-              <Bar dataKey="total" fill={CHART_COLORS[0]} radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ChartWrapper>
+        <div className="report-section" data-section-id="charts" data-print-active={printSection === "charts" || null}>
+          <div className="flex items-center justify-end mb-2 print:hidden">
+            <button onClick={() => setPrintSection("charts")}
+              className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
+              title="Imprimir esta sección">
+              <Printer size={12} />
+            </button>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <ChartWrapper title="Top Clientes por Gasto" height={250}>
+              <BarChart data={ventasPorCli ? ventasPorCli.slice(0, 10) : []}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                <XAxis dataKey="cliente" stroke="#64748b" tick={{ fontSize: 10 }} />
+                <YAxis stroke="#64748b" tick={{ fontSize: 10 }} />
+                <Bar dataKey="total" fill={CHART_COLORS[0]} radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ChartWrapper>
 
-          <ChartWrapper title="Frecuencia de Compra" height={250}>
-            <RePie>
-              <Pie data={frecuenciaData ? (() => {
-                const cats: Record<string, number> = {};
-                frecuenciaData.forEach((f: any) => { cats[f.categoria] = (cats[f.categoria] || 0) + 1; });
-                return Object.entries(cats).map(([name, value]) => ({ name, value }));
-              })() : []} dataKey="value" cx="50%" cy="50%" outerRadius={80} label={({ name }) => name}>
-                {[0, 1, 2, 3, 4].map((i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-              </Pie>
-            </RePie>
-          </ChartWrapper>
+            <ChartWrapper title="Frecuencia de Compra" height={250}>
+              <RePie>
+                <Pie data={frecuenciaData ? (() => {
+                  const cats: Record<string, number> = {};
+                  frecuenciaData.forEach((f: any) => { cats[f.categoria] = (cats[f.categoria] || 0) + 1; });
+                  return Object.entries(cats).map(([name, value]) => ({ name, value }));
+                })() : []} dataKey="value" cx="50%" cy="50%" outerRadius={80} label={({ name }) => name}>
+                  {[0, 1, 2, 3, 4].map((i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                </Pie>
+              </RePie>
+            </ChartWrapper>
 
-          <ChartWrapper title="Tendencia de Gasto" height={250}>
-            <LineChart data={gastoTendencia}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-              <XAxis dataKey="rank" stroke="#64748b" tick={{ fontSize: 10 }} />
-              <YAxis stroke="#64748b" tick={{ fontSize: 10 }} />
-              <Line type="monotone" dataKey="gasto" stroke={CHART_COLORS[2]} strokeWidth={2} dot={false} />
-            </LineChart>
-          </ChartWrapper>
+            <ChartWrapper title="Tendencia de Gasto" height={250}>
+              <LineChart data={gastoTendencia}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                <XAxis dataKey="rank" stroke="#64748b" tick={{ fontSize: 10 }} />
+                <YAxis stroke="#64748b" tick={{ fontSize: 10 }} />
+                <Line type="monotone" dataKey="gasto" stroke={CHART_COLORS[2]} strokeWidth={2} dot={false} />
+              </LineChart>
+            </ChartWrapper>
+          </div>
         </div>
 
         {/* Lazy Data Sections */}
-        <div className="grid grid-cols-1 gap-4">
+        <div className="report-section" data-section-id="data-sections" data-print-active={printSection === "data-sections" || null}>
+          <div className="flex items-center justify-end mb-2 print:hidden">
+            <button onClick={() => setPrintSection("data-sections")}
+              className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
+              title="Imprimir esta sección">
+              <Printer size={12} />
+            </button>
+          </div>
+          <div className="grid grid-cols-1 gap-4">
           <DataSection title="Clientes por Gasto" loading={loadingSection === "gasto"}
             onLoad={() => loadSection("gasto", () => getVentasPorCliente({ fechaDesde, fechaHasta, page: 1 }).then(r => setVentasPorCli(r.data)))}
             loaded={ventasPorCli !== null}>
@@ -266,6 +309,7 @@ export default function ClientesReport({ initialData, userRole }: Props) {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

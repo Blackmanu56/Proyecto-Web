@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import React, { useState, useTransition, useMemo } from "react";
+import React, { useState, useEffect, useTransition, useMemo } from "react";
 import { getReporteEmpleados, getRankingVendedores, getActividadRecienteVendedores, getVentasPorVendedorComision } from "@/actions/informes";
 import { formatCurrency } from "@/lib/utils";
 import Avatar from "@/components/ui/Avatar";
@@ -30,6 +30,7 @@ export default function EmpleadosReport({ initialData, userRole }: Props) {
   const [actividad, setActividad] = useState<any[] | null>(null);
   const [ventasPorVend, setVentasPorVend] = useState<any[] | null>(null);
   const [loadingSection, setLoadingSection] = useState<string | null>(null);
+  const [printSection, setPrintSection] = useState<string | null>(null);
 
   const handleSearch = () => {
     startTransition(async () => {
@@ -46,6 +47,15 @@ export default function EmpleadosReport({ initialData, userRole }: Props) {
   };
 
   const handlePrint = () => window.print();
+
+  useEffect(() => {
+    if (printSection) {
+      setTimeout(() => {
+        window.print();
+        setPrintSection(null);
+      }, 100);
+    }
+  }, [printSection]);
 
   const empleadosFiltrados = useMemo(() => {
     let e = data as any[];
@@ -87,9 +97,9 @@ export default function EmpleadosReport({ initialData, userRole }: Props) {
           <div><label className="text-xs font-semibold text-slate-400 mb-1 block">Rol</label>
             <select value={rolFiltro} onChange={(e) => setRolFiltro(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
               <option value="">Todos</option>
-              <option value="ADMIN">Admin</option>
-              <option value="VENDEDOR">Vendedor</option>
-              <option value="EMPLEADO">Empleado</option>
+              <option value="ADMINISTRADOR">Admin</option>
+              <option value="ENCARGADO_VENTAS">Encargado de Ventas</option>
+              <option value="ENCARGADO_STOCK">Encargado de Stock</option>
             </select>
           </div>
           <div><label className="text-xs font-semibold text-slate-400 mb-1 block">Usuario</label>
@@ -113,32 +123,58 @@ export default function EmpleadosReport({ initialData, userRole }: Props) {
         </div>
 
         {/* KPIs */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
-          {kpis.map((kpi, i) => <StatCard key={i} {...kpi} />)}
+        <div className="report-section" data-section-id="kpis" data-print-active={printSection === "kpis" || null}>
+          <div className="flex items-center justify-end mb-2 print:hidden">
+            <button onClick={() => setPrintSection("kpis")}
+              className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
+              title="Imprimir esta sección">
+              <Printer size={12} />
+            </button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+            {kpis.map((kpi, i) => <StatCard key={i} {...kpi} />)}
+          </div>
         </div>
 
         {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <ChartWrapper title="Ranking Vendedores" height={250}>
-            <BarChart data={ranking?.slice(0, 10) || []} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-              <XAxis type="number" stroke="#64748b" tick={{ fontSize: 10 }} />
-              <YAxis dataKey="vendedor" type="category" stroke="#64748b" tick={{ fontSize: 10 }} width={100} />
-              <Bar dataKey="totalVendido" fill={CHART_COLORS[0]} radius={[0, 4, 4, 0]} />
-            </BarChart>
-          </ChartWrapper>
-          <ChartWrapper title="Actividad por Día" height={250}>
-            <AreaChart data={[]}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-              <XAxis dataKey="fecha" stroke="#64748b" tick={{ fontSize: 10 }} />
-              <YAxis stroke="#64748b" tick={{ fontSize: 10 }} />
-              <Area type="monotone" dataKey="ventas" stroke={CHART_COLORS[1]} fill={CHART_COLORS[1]} fillOpacity={0.2} strokeWidth={2} />
-            </AreaChart>
-          </ChartWrapper>
+        <div className="report-section" data-section-id="charts" data-print-active={printSection === "charts" || null}>
+          <div className="flex items-center justify-end mb-2 print:hidden">
+            <button onClick={() => setPrintSection("charts")}
+              className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
+              title="Imprimir esta sección">
+              <Printer size={12} />
+            </button>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <ChartWrapper title="Ranking Vendedores" height={250}>
+              <BarChart data={ranking?.slice(0, 10) || []} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                <XAxis type="number" stroke="#64748b" tick={{ fontSize: 10 }} />
+                <YAxis dataKey="vendedor" type="category" stroke="#64748b" tick={{ fontSize: 10 }} width={100} />
+                <Bar dataKey="totalVendido" fill={CHART_COLORS[0]} radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ChartWrapper>
+            <ChartWrapper title="Actividad por Día" height={250}>
+              <AreaChart data={[]}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                <XAxis dataKey="fecha" stroke="#64748b" tick={{ fontSize: 10 }} />
+                <YAxis stroke="#64748b" tick={{ fontSize: 10 }} />
+                <Area type="monotone" dataKey="ventas" stroke={CHART_COLORS[1]} fill={CHART_COLORS[1]} fillOpacity={0.2} strokeWidth={2} />
+              </AreaChart>
+            </ChartWrapper>
+          </div>
         </div>
 
         {/* Data Sections */}
-        <div className="grid grid-cols-1 gap-4">
+        <div className="report-section" data-section-id="data-sections" data-print-active={printSection === "data-sections" || null}>
+          <div className="flex items-center justify-end mb-2 print:hidden">
+            <button onClick={() => setPrintSection("data-sections")}
+              className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
+              title="Imprimir esta sección">
+              <Printer size={12} />
+            </button>
+          </div>
+          <div className="grid grid-cols-1 gap-4">
           {!ranking ? (
             <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-4">
               <div className="flex items-center justify-between">
@@ -215,6 +251,8 @@ export default function EmpleadosReport({ initialData, userRole }: Props) {
           )}
         </div>
       </div>
+      </div>
     </div>
   );
 }
+
