@@ -3,27 +3,33 @@ import { getSession } from "@/lib/auth.server";
 import { getDashboardData } from "@/actions/informes";
 import DashboardClient from "@/components/layout/DashboardClient";
 
+function getFormattedDate(): string {
+  const now = new Date();
+  const weekday = now.toLocaleDateString("es-AR", { weekday: "long" });
+  const day = now.toLocaleDateString("es-AR", { day: "numeric" });
+  const month = now.toLocaleDateString("es-AR", { month: "long" });
+  const year = now.toLocaleDateString("es-AR", { year: "numeric" });
+  // Capitalize first letter of weekday and month
+  const capitalizedWeekday = weekday.charAt(0).toUpperCase() + weekday.slice(1);
+  const capitalizedMonth = month.charAt(0).toUpperCase() + month.slice(1);
+  return `${capitalizedWeekday}, ${day} de ${capitalizedMonth} de ${year}`;
+}
+
 export default async function DashboardPage() {
   const session = await getSession();
 
-  // Carga de datos contables y analíticos del servidor
   const dashboardData = await getDashboardData();
+  const formattedDate = getFormattedDate();
 
   return (
-    <div className="flex-1 bg-slate-950 p-6 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Encabezado */}
-        <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">
-            Dashboard
-          </h1>
-          <p className="text-slate-500 text-xs mt-0.5">
-            Resumen de ventas, caja y stock.
-          </p>
-        </div>
-
-        {/* Dashboard Interactivo con Recharts (Client Component) */}
-        <DashboardClient data={dashboardData} />
+    <div className="flex-1 bg-[var(--bg)] p-6 md:p-8">
+      <div className="max-w-7xl mx-auto">
+        <DashboardClient
+          data={dashboardData}
+          userName={session?.username ?? "Usuario"}
+          role={session?.role ?? "ADMINISTRADOR"}
+          formattedDate={formattedDate}
+        />
       </div>
     </div>
   );

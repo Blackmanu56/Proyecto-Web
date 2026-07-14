@@ -121,3 +121,12 @@ body {
   outline: 2px solid var(--brand);
   outline-offset: 2px;
 }
+
+/* ── Scrollbar Hide Utility ── */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

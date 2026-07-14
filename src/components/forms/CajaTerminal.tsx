@@ -9,6 +9,10 @@ import {
 } from "@/actions/caja";
 import ConfirmarCierreModal from "@/components/ui/ConfirmarCierreModal";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { TableShell } from "@/components/ui/table-shell";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   Coins,
   Lock,
@@ -24,7 +28,9 @@ import {
   History,
   TrendingUp,
   Receipt,
-  ShoppingBag
+  ShoppingBag,
+  TrendingDown,
+  Wallet
 } from "lucide-react";
 
 interface Movimiento {
@@ -178,26 +184,26 @@ export default function CajaTerminal({
 
   return (
     <>
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 items-start">
       {/* SECCIÓN CAJA ACTIVA (7 COLS si está abierta, o 12 COLS si está cerrada) */}
-      <div className={`${cajaActiva ? "lg:col-span-8" : "lg:col-span-12"} space-y-6`}>
+      <div className={`${cajaActiva ? "lg:col-span-8" : "lg:col-span-12"} space-y-4 md:space-y-6`}>
         
         {/* CASO A: Caja Cerrada -> Formulario Apertura */}
         {!cajaActiva ? (
-          <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 rounded-3xl p-8 max-w-xl mx-auto text-center space-y-6 shadow-2xl">
-            <div className="inline-flex p-4 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">
+          <div className="bg-[var(--card)] border border-[var(--border)] rounded-[var(--radius-xl)] p-8 max-w-xl mx-auto text-center space-y-6 shadow-[var(--shadow-lg)]">
+            <div className="inline-flex p-4 rounded-full bg-[var(--danger-light)] text-[var(--danger)] border border-[var(--danger)]/20">
               <Lock size={32} />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">Caja Cerrada</h2>
-              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto leading-relaxed">
+              <h2 className="text-xl font-bold text-[var(--text)]">Caja Cerrada</h2>
+              <p className="text-xs text-[var(--text-secondary)] mt-1 max-w-sm mx-auto leading-relaxed">
                 Actualmente no hay ninguna caja operativa abierta. Debe abrir la caja con un saldo inicial en efectivo para poder registrar cobros y reposiciones.
               </p>
             </div>
 
             <form onSubmit={handleAbrir} className="space-y-4 max-w-xs mx-auto">
               <div className="space-y-1.5 text-left">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block text-center">
+                <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block text-center">
                   Monto de Apertura (Efectivo)
                 </label>
                 <input
@@ -205,225 +211,218 @@ export default function CajaTerminal({
                   placeholder="0.00"
                   value={montoApertura}
                   onChange={e => setMontoApertura(e.target.value)}
-                  className="w-full text-center px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-indigo-500 text-lg font-mono font-bold"
+                  className="w-full text-center px-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-[var(--text)] focus:outline-none focus:border-[var(--brand)] text-lg font-mono font-bold transition-colors"
                   required
                   disabled={isPending}
                 />
               </div>
 
               {errorMsg && (
-                <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold rounded-xl flex items-center justify-center space-x-2">
+                <div className="p-3 bg-[var(--danger-light)] border border-[var(--danger)]/20 text-[var(--danger)] text-xs font-semibold rounded-[var(--radius-md)] flex items-center justify-center space-x-2">
                   <AlertTriangle size={14} />
                   <span>{errorMsg}</span>
                 </div>
               )}
 
-              <button
+              <Button
                 type="submit"
-                className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 border border-indigo-600 hover:border-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/15 focus:outline-none transition flex items-center justify-center space-x-2 text-sm"
+                className="w-full py-3"
                 disabled={isPending}
+                loading={isPending}
+                leftIcon={<Unlock size={16} />}
               >
-                <Unlock size={16} />
-                <span>Abrir Caja de Mostrador</span>
-              </button>
+                Abrir Caja de Mostrador
+              </Button>
             </form>
           </div>
         ) : (
           /* CASO B: Caja Abierta -> Panel Operativo */
           <div className="space-y-6 animate-in fade-in duration-200">
             {/* 1. Tarjetas de Resumen Financiero */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-              {/* Saldo Inicial */}
-              <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 p-5 rounded-2xl flex items-center justify-between">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-5">
+              {/* Ingresos */}
+              <div className="bg-[var(--card)] border border-[var(--border)] p-5 rounded-[var(--radius-lg)] flex items-center justify-between shadow-[var(--shadow-sm)]">
                 <div>
-                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Apertura (Inicial)</p>
-                  <p className="text-lg font-extrabold text-white mt-1 font-mono">
-                    {formatCurrency(cajaActiva.montoInicial)}
+                  <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Ingresos</p>
+                  <p className="text-lg font-extrabold text-[var(--success)] mt-1 font-mono">
+                    {formatCurrency(totalIngresos)}
                   </p>
                 </div>
-                <div className="p-2.5 bg-slate-800 rounded-xl text-slate-400">
-                  <Coins size={18} />
-                </div>
-              </div>
-
-              {/* Movimientos Netos */}
-              <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 p-5 rounded-2xl flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Flujo de Caja (Neto)</p>
-                  <p className={`text-lg font-extrabold mt-1 font-mono ${
-                    cajaActiva.totalVentas >= 0 ? "text-emerald-400" : "text-red-400"
-                  }`}>
-                    {cajaActiva.totalVentas >= 0 ? "+" : ""}{formatCurrency(cajaActiva.totalVentas)}
-                  </p>
-                </div>
-                <div className={`p-2.5 rounded-xl ${
-                  cajaActiva.totalVentas >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
-                }`}>
-                  {cajaActiva.totalVentas >= 0 ? <ArrowUpRight size={18} /> : <ArrowDownLeft size={18} />}
-                </div>
-              </div>
-
-              {/* Saldo Total */}
-              <div className="bg-gradient-to-br from-indigo-950 to-slate-900 border border-indigo-500/20 p-5 rounded-2xl flex items-center justify-between shadow-lg shadow-indigo-500/5">
-                <div>
-                  <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider">Saldo Total Efectivo</p>
-                  <p className="text-xl font-black text-emerald-400 mt-1 font-mono">
-                    {formatCurrency(saldoActual)}
-                  </p>
-                </div>
-                <div className="p-2.5 bg-indigo-500/10 rounded-xl text-indigo-400 border border-indigo-500/10">
+                <div className="p-2.5 bg-[var(--success-light)] rounded-[var(--radius-lg)] text-[var(--success)]">
                   <TrendingUp size={18} />
+                </div>
+              </div>
+
+              {/* Egresos */}
+              <div className="bg-[var(--card)] border border-[var(--border)] p-5 rounded-[var(--radius-lg)] flex items-center justify-between shadow-[var(--shadow-sm)]">
+                <div>
+                  <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Egresos</p>
+                  <p className="text-lg font-extrabold text-[var(--danger)] mt-1 font-mono">
+                    {formatCurrency(totalEgresos)}
+                  </p>
+                </div>
+                <div className="p-2.5 bg-[var(--danger-light)] rounded-[var(--radius-lg)] text-[var(--danger)]">
+                  <TrendingDown size={18} />
+                </div>
+              </div>
+
+              {/* Balance */}
+              <div className="bg-gradient-to-br from-[var(--info)]/10 to-[var(--card)] border border-[var(--info)]/20 p-5 rounded-[var(--radius-lg)] flex items-center justify-between shadow-[var(--shadow-md)]">
+                <div>
+                  <p className="text-[10px] text-[var(--info)] font-bold uppercase tracking-wider">Balance</p>
+                  <p className={`text-xl font-black mt-1 font-mono ${
+                    saldoFinalCalculado >= 0 ? "text-[var(--success)]" : "text-[var(--danger)]"
+                  }`}>
+                    {formatCurrency(saldoFinalCalculado)}
+                  </p>
+                </div>
+                <div className="p-2.5 bg-[var(--info-light)] rounded-[var(--radius-lg)] text-[var(--info)]">
+                  <Wallet size={18} />
                 </div>
               </div>
             </div>
 
             {/* 2. Metadata Caja Abierta */}
-            <div className="bg-slate-900/30 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
-              <div className="flex flex-wrap items-center gap-4 text-slate-400">
+            <div className="bg-[var(--card)] border border-[var(--border)] rounded-[var(--radius-lg)] p-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
+              <div className="flex flex-wrap items-center gap-4 text-[var(--text-muted)]">
                 <span className="flex items-center space-x-1.5">
-                  <Calendar size={14} className="text-indigo-400" />
+                  <Calendar size={14} className="text-[var(--info)]" />
                   <span>Apertura: {formatDate(cajaActiva.fechaApertura)}</span>
                 </span>
                 <span className="flex items-center space-x-1.5">
-                  <User size={14} className="text-indigo-400" />
+                  <User size={14} className="text-[var(--info)]" />
                   <span>Cajero: {cajaActiva.usuario.username}</span>
                 </span>
                 <span className="flex items-center space-x-1.5">
-                  <Activity size={14} className="text-indigo-400" />
-                  <span>Estado: <strong className="text-emerald-400 uppercase">Abierta</strong></span>
+                  <Activity size={14} className="text-[var(--info)]" />
+                  <span>Estado: <strong className="text-[var(--success)] uppercase">Abierta</strong></span>
                 </span>
               </div>
-              <button
+              <Button
+                variant="danger"
+                size="sm"
                 onClick={handleCerrar}
-                className="w-full sm:w-auto px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl text-xs transition duration-150 flex items-center justify-center space-x-1.5"
                 disabled={isPending}
+                leftIcon={<Lock size={12} />}
               >
-                <Lock size={12} />
-                <span>Cerrar Caja</span>
-              </button>
+                Cerrar Caja
+              </Button>
             </div>
 
-            {/* 3. Libro Diario - Control de Caja (Rediseño Tabular) */}
-            <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 rounded-3xl p-5 space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-                <div className="flex items-center space-x-2 text-indigo-400">
-                  <Activity size={18} />
-                  <h3 className="text-sm font-bold text-white">Libro Diario (Movimientos del Turno)</h3>
+            {/* 3. Libro Diario - Control de Caja */}
+            <TableShell
+              title="Libro Diario (Movimientos del Turno)"
+              isEmpty={cajaActiva.movimientos.length === 0}
+              emptyMessage="No se registran movimientos en este turno."
+              emptyIcon={<Activity size={36} className="opacity-40" />}
+            >
+              <div className="space-y-4">
+                {/* Table */}
+                <div className="overflow-x-auto rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] max-h-96 overflow-y-auto">
+                  <table className="w-full text-[11px] text-left border-collapse">
+                    <thead className="bg-[var(--panel)] text-[var(--text-secondary)] uppercase font-semibold text-[9px] tracking-wider border-b border-[var(--border)] sticky top-0 z-10">
+                      <tr>
+                        <th className="py-2.5 px-3 text-center w-12">ID</th>
+                        <th className="py-2.5 px-3">Fecha</th>
+                        <th className="py-2.5 px-3">Hora</th>
+                        <th className="py-2.5 px-3">Descripción</th>
+                        <th className="py-2.5 px-3 text-center">Tipo</th>
+                        <th className="py-2.5 px-3">Usuario</th>
+                        <th className="py-2.5 px-3 text-right">Ingreso</th>
+                        <th className="py-2.5 px-3 text-right">Egreso</th>
+                        <th className="py-2.5 px-3 text-right">Saldo</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--border)]/60 font-mono">
+                      {movimientosConSaldo.map((mov) => {
+                        const isIncome = mov.tipo === "INGRESO";
+                        const d = new Date(mov.fecha);
+                        const fechaStr = d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" });
+                        const horaStr = d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+
+                        // Determinar el tipo de operación y su estilo
+                        let tipoOperacion = "VENTA";
+                        let badgeVariant: "success" | "danger" | "info" | "warning" | "default" = "success";
+
+                        const descLower = mov.descripcion.toLowerCase();
+
+                        if (descLower.startsWith("saldo inicial de apertura")) {
+                          tipoOperacion = "APERTURA";
+                          badgeVariant = "info";
+                        } else if (descLower.startsWith("cierre de caja") || descLower.includes("cierre")) {
+                          tipoOperacion = "CIERRE";
+                          badgeVariant = "info";
+                        } else if (descLower.startsWith("gasto:") || mov.descripcion.startsWith("Gasto:")) {
+                          tipoOperacion = "GASTO";
+                          badgeVariant = "danger";
+                        } else if (descLower.startsWith("stock inicial") || descLower.includes("stock inicial")) {
+                          tipoOperacion = "REPOSICIÓN";
+                          badgeVariant = "warning";
+                        } else if (descLower.startsWith("reposición") || mov.compraId) {
+                          tipoOperacion = "COMPRA";
+                          badgeVariant = "warning";
+                        } else if (descLower.startsWith("ajuste") || descLower.includes("ajuste")) {
+                          tipoOperacion = "AJUSTE";
+                          badgeVariant = "default";
+                        }
+
+                        return (
+                          <tr key={mov.id} className="hover:bg-[var(--card)] transition-colors">
+                            <td className="py-2 px-3 text-center text-[var(--text-secondary)] font-semibold">{mov.itemNumber}</td>
+                            <td className="py-2 px-3 text-[var(--text-muted)]">{fechaStr}</td>
+                            <td className="py-2 px-3 text-[var(--text-secondary)]">{horaStr}</td>
+                            <td className="py-2 px-3 text-[var(--text)] font-sans max-w-[200px] truncate" title={mov.descripcion}>{mov.descripcion}</td>
+                            <td className="py-2 px-3 text-center">
+                              <Badge variant={badgeVariant} size="sm">
+                                {tipoOperacion}
+                              </Badge>
+                            </td>
+                            <td className="py-2 px-3 text-[var(--text-muted)] font-sans">@{mov.usuario.username}</td>
+                            <td className="py-2 px-3 text-right text-[var(--success)] font-semibold">
+                              {isIncome ? formatCurrency(mov.monto) : "-"}
+                            </td>
+                            <td className="py-2 px-3 text-right text-[var(--danger)] font-semibold">
+                              {!isIncome ? formatCurrency(mov.monto) : "-"}
+                            </td>
+                            <td className="py-2 px-3 text-right text-[var(--text)] font-bold">
+                              {formatCurrency(mov.saldoAcumulado)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-                <span className="text-[10px] text-slate-500 font-semibold uppercase">{cajaActiva.movimientos.length} operaciones</span>
+
+                {/* Summary Pie de Tabla */}
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 p-4 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] text-xs">
+                  <div className="space-y-0.5">
+                    <span className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider block">Movimientos</span>
+                    <span className="text-sm font-bold text-[var(--text)]">{movimientosOrdenados.length} Registrados</span>
+                  </div>
+                  <div className="space-y-0.5">
+                    <span className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider block">Total Ingresos</span>
+                    <span className="text-sm font-extrabold text-[var(--success)] font-mono">
+                      {formatCurrency(totalIngresos)}
+                    </span>
+                  </div>
+                  <div className="space-y-0.5">
+                    <span className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider block">Total Egresos</span>
+                    <span className="text-sm font-extrabold text-[var(--danger)] font-mono">
+                      {formatCurrency(totalEgresos)}
+                    </span>
+                  </div>
+                  <div className="space-y-0.5">
+                    <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-wider block">Saldo Final de Caja</span>
+                    <span className={`text-sm font-black font-mono ${
+                      saldoFinalCalculado >= 0 ? "text-[var(--success)]" : "text-[var(--danger)]"
+                    }`}>
+                      {formatCurrency(saldoFinalCalculado)}
+                    </span>
+                  </div>
+                </div>
               </div>
-
-              {cajaActiva.movimientos.length === 0 ? (
-                <p className="text-center py-12 text-xs text-slate-600">No se registran movimientos en este turno.</p>
-              ) : (
-                <div className="space-y-4">
-                  {/* Table Wrapper with scroll */}
-                  <div className="overflow-x-auto rounded-xl border border-slate-850 bg-slate-950/20 max-h-96 overflow-y-auto">
-                    <table className="w-full text-[11px] text-left border-collapse">
-                      <thead className="bg-slate-950/60 text-slate-500 uppercase font-semibold text-[9px] tracking-wider border-b border-slate-850 sticky top-0 z-10">
-                        <tr>
-                          <th className="py-2.5 px-3 text-center w-12">ID</th>
-                          <th className="py-2.5 px-3">Fecha</th>
-                          <th className="py-2.5 px-3">Hora</th>
-                          <th className="py-2.5 px-3">Descripción</th>
-                          <th className="py-2.5 px-3 text-center">Tipo</th>
-                          <th className="py-2.5 px-3">Usuario</th>
-                          <th className="py-2.5 px-3 text-right">Ingreso</th>
-                          <th className="py-2.5 px-3 text-right">Egreso</th>
-                          <th className="py-2.5 px-3 text-right">Saldo</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-850/60 font-mono">
-                        {movimientosConSaldo.map((mov) => {
-                          const isIncome = mov.tipo === "INGRESO";
-                          const d = new Date(mov.fecha);
-                          const fechaStr = d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" });
-                          const horaStr = d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
-
-                          // Determinar el tipo de operación y su estilo
-                          let tipoOperacion = "VENTA";
-                          let badgeStyle = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
-
-                          const descLower = mov.descripcion.toLowerCase();
-
-                          if (descLower.startsWith("saldo inicial de apertura")) {
-                            tipoOperacion = "APERTURA";
-                            badgeStyle = "bg-blue-500/10 text-blue-400 border-blue-500/20";
-                          } else if (descLower.startsWith("cierre de caja") || descLower.includes("cierre")) {
-                            tipoOperacion = "CIERRE";
-                            badgeStyle = "bg-purple-500/10 text-purple-400 border-purple-500/20";
-                          } else if (descLower.startsWith("gasto:") || mov.descripcion.startsWith("Gasto:")) {
-                            tipoOperacion = "GASTO";
-                            badgeStyle = "bg-red-500/10 text-red-400 border-red-500/20";
-                          } else if (descLower.startsWith("stock inicial") || descLower.includes("stock inicial")) {
-                            tipoOperacion = "REPOSICIÓN";
-                            badgeStyle = "bg-orange-500/10 text-orange-400 border-orange-500/20";
-                          } else if (descLower.startsWith("reposición") || mov.compraId) {
-                            tipoOperacion = "COMPRA";
-                            badgeStyle = "bg-amber-500/10 text-amber-400 border-amber-500/20";
-                          } else if (descLower.startsWith("ajuste") || descLower.includes("ajuste")) {
-                            tipoOperacion = "AJUSTE";
-                            badgeStyle = "bg-slate-500/10 text-slate-400 border-slate-500/20";
-                          }
-
-                          return (
-                            <tr key={mov.id} className="hover:bg-slate-900/40 transition-colors">
-                              <td className="py-2 px-3 text-center text-slate-600 font-semibold">{mov.itemNumber}</td>
-                              <td className="py-2 px-3 text-slate-400">{fechaStr}</td>
-                              <td className="py-2 px-3 text-slate-500">{horaStr}</td>
-                              <td className="py-2 px-3 text-white font-sans max-w-[200px] truncate" title={mov.descripcion}>{mov.descripcion}</td>
-                              <td className="py-2 px-3 text-center">
-                                <span className={`inline-flex px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${badgeStyle}`}>
-                                  {tipoOperacion}
-                                </span>
-                              </td>
-                              <td className="py-2 px-3 text-slate-400 font-sans">@{mov.usuario.username}</td>
-                              <td className="py-2 px-3 text-right text-emerald-400 font-semibold">
-                                {isIncome ? formatCurrency(mov.monto) : "-"}
-                              </td>
-                              <td className="py-2 px-3 text-right text-red-400 font-semibold">
-                                {!isIncome ? formatCurrency(mov.monto) : "-"}
-                              </td>
-                              <td className="py-2 px-3 text-right text-slate-300 font-bold">
-                                {formatCurrency(mov.saldoAcumulado)}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Summary Pie de Tabla */}
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 p-4 rounded-xl border border-slate-850 bg-slate-950/40 text-xs">
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Movimientos</span>
-                      <span className="text-sm font-bold text-white">{movimientosOrdenados.length} Registrados</span>
-                    </div>
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Total Ingresos</span>
-                      <span className="text-sm font-extrabold text-emerald-400 font-mono">
-                        {formatCurrency(totalIngresos)}
-                      </span>
-                    </div>
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Total Egresos</span>
-                      <span className="text-sm font-extrabold text-red-400 font-mono">
-                        {formatCurrency(totalEgresos)}
-                      </span>
-                    </div>
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Saldo Final de Caja</span>
-                      <span className={`text-sm font-black font-mono ${
-                        saldoFinalCalculado >= 0 ? "text-emerald-400" : "text-red-400"
-                      }`}>
-                        {formatCurrency(saldoFinalCalculado)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+            </TableShell>
           </div>
         )}
       </div>
@@ -432,25 +431,23 @@ export default function CajaTerminal({
       {cajaActiva && (
         <div className="lg:col-span-4 space-y-6">
           {/* Panel Gasto Manual */}
-          <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 rounded-3xl p-5 space-y-4">
-            <div className="flex items-center space-x-2 text-indigo-400 border-b border-slate-800/80 pb-3">
+          <div className="bg-[var(--card)] border border-[var(--border)] rounded-[var(--radius-lg)] p-5 space-y-4 shadow-[var(--shadow-sm)]">
+            <div className="flex items-center space-x-2 text-[var(--brand)] border-b border-[var(--border)] pb-3">
               <MinusCircle size={18} />
-              <h2 className="text-sm font-bold text-white">Registrar Gasto Diario</h2>
+              <h2 className="text-sm font-bold text-[var(--text)]">Registrar Gasto Diario</h2>
             </div>
 
             <form onSubmit={handleGasto} className="space-y-4">
               {/* Campo Descripción */}
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">
                   Concepto del Gasto
                 </label>
-                <input
+                <Input
                   name="descripcion"
-                  type="text"
                   placeholder="Ej: Artículos de limpieza, Viáticos..."
                   value={gastoDesc}
                   onChange={e => setGastoDesc(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 text-xs"
                   required
                   disabled={isPending}
                 />
@@ -458,59 +455,61 @@ export default function CajaTerminal({
 
               {/* Campo Monto */}
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">
                   Monto ($)
                 </label>
-                <input
+                <Input
                   name="monto"
                   type="number"
                   placeholder="0"
                   value={gastoMonto}
                   onChange={e => setGastoMonto(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 text-xs font-mono font-bold"
+                  className="font-mono font-bold"
                   required
                   disabled={isPending}
                 />
               </div>
 
               {errorMsg && (
-                <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold rounded-xl flex items-center space-x-2">
+                <div className="p-3 bg-[var(--danger-light)] border border-[var(--danger)]/20 text-[var(--danger)] text-xs font-semibold rounded-[var(--radius-md)] flex items-center space-x-2">
                   <AlertTriangle size={14} />
                   <span>{errorMsg}</span>
                 </div>
               )}
 
-              <button
+              <Button
                 type="submit"
-                className="w-full py-2.5 bg-red-600/10 hover:bg-red-600 border border-red-500/20 hover:border-red-500 text-red-400 hover:text-white font-bold rounded-xl transition duration-150 flex items-center justify-center space-x-1.5 text-xs shadow-md"
+                variant="danger"
+                className="w-full"
                 disabled={isPending}
+                loading={isPending}
+                leftIcon={<PlusCircle size={14} />}
               >
-                <PlusCircle size={14} />
-                <span>{isPending ? "Registrando..." : "Registrar Egreso"}</span>
-              </button>
+                {isPending ? "Registrando..." : "Registrar Egreso"}
+              </Button>
             </form>
           </div>
 
           {/* Historial de Cajas Cerradas */}
-          <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 rounded-3xl p-5 space-y-4">
-            <div className="flex items-center space-x-2 text-indigo-400 border-b border-slate-800/80 pb-3">
+          <div className="bg-[var(--card)] border border-[var(--border)] rounded-[var(--radius-lg)] p-5 space-y-4 shadow-[var(--shadow-sm)]">
+            <div className="flex items-center space-x-2 text-[var(--brand)] border-b border-[var(--border)] pb-3">
               <History size={16} />
-              <h2 className="text-xs font-bold text-white">Historial de Arqueos</h2>
+              <h2 className="text-xs font-bold text-[var(--text)]">Historial de Arqueos</h2>
             </div>
 
             <div className="space-y-3 overflow-y-auto max-h-48 pr-1">
               {historialCajas.length === 0 ? (
-                <p className="text-center py-6 text-[10px] text-slate-600">No hay registros de caja cerrados.</p>
+                <p className="text-center py-6 text-[10px] text-[var(--text-secondary)]">No hay registros de caja cerrados.</p>
               ) : (
                 historialCajas.map(hc => (
-                  <div key={hc.id} className="p-2.5 bg-slate-950/20 border border-slate-850 rounded-xl space-y-1.5 text-[10px]">
-                    <div className="flex justify-between font-semibold text-white">
+                  <div key={hc.id} className="p-2.5 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] space-y-1.5 text-[10px]">
+                    <div className="flex justify-between font-semibold text-[var(--text)]">
                       <span>Caja #{hc.id.toString().padStart(4, "0")}</span>
-                      <span className="font-mono text-emerald-400">
+                      <span className="font-mono text-[var(--success)]">
                         {formatCurrency(hc.montoInicial + hc.totalVentas)}
                       </span>
                     </div>
-                    <div className="flex justify-between text-slate-500 text-[9px]">
+                    <div className="flex justify-between text-[var(--text-secondary)] text-[9px]">
                       <span>Cerrada: {hc.fechaCierre ? formatDate(hc.fechaCierre).split(" ")[0] : "N/D"}</span>
                       <span>Por: {hc.usuario.username}</span>
                     </div>

@@ -15,7 +15,10 @@ import {
   Printer,
   X,
   CreditCard,
-  UserPlus
+  UserPlus,
+  Minus,
+  ArrowRight,
+  Package
 } from "lucide-react";
 
 interface Product {
@@ -52,6 +55,7 @@ export default function VentasTerminal({ productos, clientes }: VentasTerminalPr
   // Búsquedas
   const [prodSearch, setProdSearch] = useState("");
   const [clientSearch, setClientSearch] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   // Entidades Seleccionadas
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -67,6 +71,9 @@ export default function VentasTerminal({ productos, clientes }: VentasTerminalPr
   } | null>(null);
 
   const [errorMsg, setErrorMsg] = useState("");
+
+  // Obtener categorías únicas
+  const categories = Array.from(new Set(productos.map(p => p.categoria.nombre)));
 
   // Agregar al carrito
   const addToCart = (product: Product) => {
@@ -130,6 +137,7 @@ export default function VentasTerminal({ productos, clientes }: VentasTerminalPr
 
   // Calcular total de venta
   const cartTotal = cart.reduce((sum, item) => sum + item.precioVenta * item.cantidad, 0);
+  const cartItemCount = cart.reduce((sum, item) => sum + item.cantidad, 0);
 
   // Confirmar Venta transaccional
   const handleCheckout = async () => {
@@ -175,10 +183,12 @@ export default function VentasTerminal({ productos, clientes }: VentasTerminalPr
   };
 
   // Filtrar productos
-  const filteredProducts = productos.filter(p =>
-    p.nombre.toLowerCase().includes(prodSearch.toLowerCase()) ||
-    p.categoria.nombre.toLowerCase().includes(prodSearch.toLowerCase())
-  );
+  const filteredProducts = productos.filter(p => {
+    const matchesSearch = p.nombre.toLowerCase().includes(prodSearch.toLowerCase()) ||
+      p.categoria.nombre.toLowerCase().includes(prodSearch.toLowerCase());
+    const matchesCategory = !selectedCategory || p.categoria.nombre === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
 
   // Filtrar clientes
   const filteredClients = clientes.filter(c =>
@@ -189,28 +199,28 @@ export default function VentasTerminal({ productos, clientes }: VentasTerminalPr
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-      {/* SECCIÓN IZQUIERDA: Búsqueda e Inserción (7/12 cols) */}
-      <div className="lg:col-span-7 space-y-6">
+      {/* SECCIÓN IZQUIERDA: Productos (7/12 cols) */}
+      <div className="lg:col-span-7 space-y-4 md:space-y-6">
         {/* 1. Panel de Selección de Clientes */}
-        <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 rounded-3xl p-5 space-y-4">
-          <div className="flex items-center space-x-2 text-indigo-400">
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-[var(--radius-lg)] p-5 space-y-4 shadow-[var(--shadow-sm)]">
+          <div className="flex items-center space-x-2 text-[var(--brand)]">
             <Users size={18} />
-            <h2 className="text-base font-bold text-white">Selección de Cliente</h2>
+            <h2 className="text-base font-bold text-[var(--text)]">Selección de Cliente</h2>
           </div>
 
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" size={14} />
             <input
               type="text"
               placeholder="Buscar cliente por nombre, DNI o CUIT..."
               value={clientSearch}
               onChange={e => setClientSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-slate-950/60 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 text-xs"
+              className="w-full pl-9 pr-4 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-[var(--text)] placeholder-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)] text-xs transition-colors"
             />
           </div>
 
           {/* Grilla Clientes */}
-          <div className="max-h-36 overflow-y-auto border border-slate-800/60 rounded-xl divide-y divide-slate-850">
+          <div className="max-h-36 overflow-y-auto border border-[var(--border)] rounded-[var(--radius-md)] divide-y divide-[var(--border)]">
             {filteredClients.map(c => {
               const isSelected = selectedClient?.id === c.id;
               return (
@@ -219,17 +229,17 @@ export default function VentasTerminal({ productos, clientes }: VentasTerminalPr
                   onClick={() => setSelectedClient(c)}
                   className={`flex items-center justify-between px-3 py-2 text-xs cursor-pointer transition ${
                     isSelected
-                      ? "bg-indigo-600/10 text-indigo-400 font-semibold"
-                      : "text-slate-400 hover:bg-slate-800/40 hover:text-white"
+                      ? "bg-[var(--brand-light)] text-[var(--brand)] font-semibold"
+                      : "text-[var(--text-muted)] hover:bg-[var(--card)] hover:text-[var(--text)]"
                   }`}
                 >
                   <div>
-                    <p className={isSelected ? "text-indigo-400" : "text-white"}>{c.nombre}</p>
-                    <p className="text-[10px] text-slate-500 mt-0.5">
+                    <p className={isSelected ? "text-[var(--brand)]" : "text-[var(--text)]"}>{c.nombre}</p>
+                    <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">
                       DNI: {c.dni} {c.cuit ? `| CUIT: ${c.cuit}` : ""}
                     </p>
                   </div>
-                  {isSelected && <span className="text-[10px] bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20 font-bold uppercase">Seleccionado</span>}
+                  {isSelected && <span className="text-[10px] bg-[var(--brand-light)] px-2 py-0.5 rounded border border-[var(--brand)]/20 font-bold uppercase">Seleccionado</span>}
                 </div>
               );
             })}
@@ -237,28 +247,55 @@ export default function VentasTerminal({ productos, clientes }: VentasTerminalPr
         </div>
 
         {/* 2. Panel de Búsqueda de Repuestos */}
-        <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 rounded-3xl p-5 space-y-4">
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-[var(--radius-lg)] p-5 space-y-4 shadow-[var(--shadow-sm)]">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 text-indigo-400">
+            <div className="flex items-center space-x-2 text-[var(--brand)]">
               <ShoppingCart size={18} />
-              <h2 className="text-base font-bold text-white">Catálogo de Venta</h2>
+              <h2 className="text-base font-bold text-[var(--text)]">Catálogo de Venta</h2>
             </div>
-            <span className="text-[10px] text-slate-500 font-semibold uppercase">Haga clic en un producto para agregarlo</span>
+            <span className="text-[10px] text-[var(--text-secondary)] font-semibold uppercase">Haga clic en un producto para agregarlo</span>
           </div>
 
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" size={14} />
             <input
               type="text"
               placeholder="Buscar por repuesto, código, categoría..."
               value={prodSearch}
               onChange={e => setProdSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-slate-950/60 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 text-xs"
+              className="w-full pl-9 pr-4 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-[var(--text)] placeholder-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)] text-xs transition-colors"
             />
           </div>
 
-          {/* Grilla Productos */}
-          <div className="max-h-72 overflow-y-auto border border-slate-800/60 rounded-xl divide-y divide-slate-850">
+          {/* Category Filter Buttons */}
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setSelectedCategory(null)}
+              className={`px-3 py-1.5 rounded-[var(--radius-full)] text-xs font-medium transition-all ${
+                !selectedCategory
+                  ? "bg-[var(--brand)] text-white"
+                  : "bg-[var(--bg)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--border-hover)]"
+              }`}
+            >
+              Todos
+            </button>
+            {categories.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
+                className={`px-3 py-1.5 rounded-[var(--radius-full)] text-xs font-medium transition-all ${
+                  selectedCategory === cat
+                    ? "bg-[var(--brand)] text-white"
+                    : "bg-[var(--bg)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--border-hover)]"
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+
+          {/* Product Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3 max-h-[500px] overflow-y-auto pr-1">
             {filteredProducts.map(p => {
               const isLowStock = p.cantidad <= 5;
               const hasNoStock = p.cantidad <= 0;
@@ -266,37 +303,41 @@ export default function VentasTerminal({ productos, clientes }: VentasTerminalPr
                 <div
                   key={p.id}
                   onClick={() => !hasNoStock && addToCart(p)}
-                  className={`flex items-center justify-between px-4 py-3 cursor-pointer transition ${
+                  className={`bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-lg)] p-3 cursor-pointer transition-all hover:border-[var(--border-hover)] hover:shadow-[var(--shadow-md)] ${
                     hasNoStock
-                      ? "opacity-40 cursor-not-allowed bg-slate-900/10"
-                      : "hover:bg-slate-800/40"
+                      ? "opacity-40 cursor-not-allowed"
+                      : "hover:scale-[1.02]"
                   }`}
                 >
-                  <div className="space-y-0.5">
-                    <p className="text-xs font-semibold text-white">{p.nombre}</p>
-                    <p className="text-[10px] text-slate-500">{p.categoria.nombre}</p>
+                  {/* Product Image Placeholder */}
+                  <div className="w-full aspect-square bg-[var(--panel)] rounded-[var(--radius-md)] flex items-center justify-center mb-3">
+                    <Package size={24} className="text-[var(--text-secondary)]" />
                   </div>
-                  <div className="flex items-center space-x-4">
-                    {/* Stock */}
-                    <div className="text-right">
-                      <p className={`text-xs font-mono font-semibold ${
-                        hasNoStock ? "text-red-500" : isLowStock ? "text-amber-400" : "text-emerald-400"
+                  
+                  {/* Product Info */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-[var(--text)] line-clamp-2 leading-tight">{p.nombre}</p>
+                    <p className="text-[10px] text-[var(--text-secondary)]">{p.categoria.nombre}</p>
+                    
+                    {/* Stock Badge */}
+                    <div className="flex items-center justify-between">
+                      <span className={`text-[10px] font-mono font-semibold ${
+                        hasNoStock ? "text-[var(--danger)]" : isLowStock ? "text-[var(--warning)]" : "text-[var(--success)]"
                       }`}>
                         {p.cantidad} u.
-                      </p>
-                      <p className="text-[9px] text-slate-500">Disp.</p>
+                      </span>
+                      <span className="text-[9px] text-[var(--text-secondary)]">Stock</span>
                     </div>
-                    {/* Precio */}
-                    <div className="text-right">
-                      <p className="text-xs font-bold text-indigo-400 font-mono">{formatCurrency(p.precioVenta)}</p>
-                      <p className="text-[9px] text-slate-500">P. Venta</p>
+                    
+                    {/* Price and Add Button */}
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold text-[var(--brand)] font-mono">{formatCurrency(p.precioVenta)}</p>
+                      {!hasNoStock && (
+                        <button className="p-1.5 rounded-[var(--radius-md)] bg-[var(--brand-light)] text-[var(--brand)] border border-[var(--brand)]/20 hover:bg-[var(--brand)] hover:text-white transition-all">
+                          <Plus size={12} />
+                        </button>
+                      )}
                     </div>
-                    {/* Botón rápido */}
-                    {!hasNoStock && (
-                      <button className="p-1 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/10 hover:bg-indigo-600 hover:text-white transition">
-                        <Plus size={12} />
-                      </button>
-                    )}
                   </div>
                 </div>
               );
@@ -305,55 +346,55 @@ export default function VentasTerminal({ productos, clientes }: VentasTerminalPr
         </div>
       </div>
 
-      {/* SECCIÓN DERECHA: Carrito de Compras (5/12 cols) */}
-      <div className="lg:col-span-5 space-y-6">
-        <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 rounded-3xl p-5 space-y-5 flex flex-col min-h-[500px]">
+      {/* SECCIÓN DERECHA: Carrito de Compras (5/12 cols) - Sticky */}
+      <div className="lg:col-span-5 lg:sticky lg:top-6">
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-[var(--radius-lg)] p-5 space-y-5 flex flex-col shadow-[var(--shadow-sm)]">
           {/* Header Carrito */}
-          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3.5">
-            <div className="flex items-center space-x-2 text-indigo-400">
+          <div className="flex items-center justify-between border-b border-[var(--border)] pb-3.5">
+            <div className="flex items-center space-x-2 text-[var(--brand)]">
               <ShoppingCart size={18} />
-              <h2 className="text-base font-bold text-white">Carrito de Venta</h2>
+              <h2 className="text-base font-bold text-[var(--text)]">Carrito de compras</h2>
             </div>
-            <span className="text-xs px-2.5 py-0.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-semibold rounded-lg font-mono">
-              {cart.length} repuestos
+            <span className="text-xs px-2.5 py-0.5 bg-[var(--brand-light)] border border-[var(--brand)]/20 text-[var(--brand)] font-semibold rounded-[var(--radius-full)] font-mono">
+              {cartItemCount} {cartItemCount === 1 ? 'artículo' : 'artículos'}
             </span>
           </div>
 
           {/* Listado de ítems del Carrito */}
           <div className="flex-1 overflow-y-auto space-y-3 pr-1 max-h-80">
             {cart.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-slate-500 py-16 space-y-2">
+              <div className="h-full flex flex-col items-center justify-center text-[var(--text-secondary)] py-16 space-y-2">
                 <ShoppingCart size={32} className="opacity-40" />
                 <p className="text-xs">El carrito está vacío</p>
               </div>
             ) : (
               cart.map(item => (
-                <div key={item.id} className="p-3 bg-slate-950/40 border border-slate-850 rounded-xl flex items-center justify-between">
+                <div key={item.id} className="p-3 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] flex items-center justify-between">
                   <div className="max-w-[60%]">
-                    <p className="text-xs font-semibold text-white truncate">{item.nombre}</p>
-                    <p className="text-[10px] text-indigo-400 font-mono mt-0.5">{formatCurrency(item.precioVenta)} c/u</p>
+                    <p className="text-xs font-semibold text-[var(--text)] truncate">{item.nombre}</p>
+                    <p className="text-[10px] text-[var(--brand)] font-mono mt-0.5">{formatCurrency(item.precioVenta)} c/u</p>
                   </div>
                   <div className="flex items-center space-x-3">
                     {/* Controles de Cantidad */}
-                    <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg overflow-hidden h-7">
+                    <div className="flex items-center bg-[var(--panel)] border border-[var(--border)] rounded-[var(--radius-md)] overflow-hidden h-7">
                       <button
                         onClick={() => updateQuantity(item.id, -1)}
-                        className="px-2 text-slate-500 hover:text-white transition text-xs font-bold"
+                        className="px-2 text-[var(--text-secondary)] hover:text-[var(--text)] transition text-xs font-bold"
                       >
-                        -
+                        <Minus size={10} />
                       </button>
-                      <span className="px-2 text-xs font-mono font-semibold text-white">{item.cantidad}</span>
+                      <span className="px-2 text-xs font-mono font-semibold text-[var(--text)]">{item.cantidad}</span>
                       <button
                         onClick={() => updateQuantity(item.id, 1)}
-                        className="px-2 text-slate-500 hover:text-white transition text-xs font-bold"
+                        className="px-2 text-[var(--text-secondary)] hover:text-[var(--text)] transition text-xs font-bold"
                       >
-                        +
+                        <Plus size={10} />
                       </button>
                     </div>
                     {/* Quitar */}
                     <button
                       onClick={() => removeFromCart(item.id)}
-                      className="text-slate-500 hover:text-red-400 transition"
+                      className="text-[var(--text-secondary)] hover:text-[var(--danger)] transition"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -364,37 +405,69 @@ export default function VentasTerminal({ productos, clientes }: VentasTerminalPr
           </div>
 
           {/* Checkout Info */}
-          <div className="border-t border-slate-800/80 pt-4 space-y-4">
+          <div className="border-t border-[var(--border)] pt-4 space-y-4">
             {/* Cliente Activo */}
             <div className="flex justify-between items-center text-xs">
-              <span className="text-slate-500">Cliente Asignado:</span>
-              <span className="font-semibold text-white">
-                {selectedClient ? selectedClient.nombre : <span className="text-slate-600 italic">No seleccionado</span>}
+              <span className="text-[var(--text-secondary)]">Cliente Asignado:</span>
+              <span className="font-semibold text-[var(--text)]">
+                {selectedClient ? selectedClient.nombre : <span className="text-[var(--text-secondary)] italic">No seleccionado</span>}
               </span>
             </div>
 
-            {/* Total Neto */}
-            <div className="flex justify-between items-center bg-slate-950/50 p-4 border border-slate-850 rounded-2xl">
-              <span className="text-sm font-semibold text-slate-400">Total a Pagar:</span>
-              <span className="text-xl font-black font-mono text-emerald-400">{formatCurrency(cartTotal)}</span>
+            {/* Summary Section */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-[var(--text-secondary)]">Subtotal:</span>
+                <span className="font-mono text-[var(--text)]">{formatCurrency(cartTotal)}</span>
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-[var(--text-secondary)]">IVA (21%):</span>
+                <span className="font-mono text-[var(--text)]">{formatCurrency(cartTotal * 0.21)}</span>
+              </div>
+              <div className="h-px bg-[var(--border)] my-2"></div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-bold text-[var(--text)]">Total:</span>
+                <span className="text-xl font-black font-mono text-[var(--success)]">{formatCurrency(cartTotal * 1.21)}</span>
+              </div>
             </div>
 
             {/* Mensajes de Error */}
             {errorMsg && (
-              <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold rounded-xl flex items-center space-x-2 animate-shake">
+              <div className="p-3 bg-[var(--danger-light)] border border-[var(--danger)]/20 text-[var(--danger)] text-xs font-semibold rounded-[var(--radius-md)] flex items-center space-x-2">
                 <AlertTriangle size={14} />
                 <span>{errorMsg}</span>
               </div>
             )}
 
-            {/* Botón Facturar */}
+            {/* Botón Cobrar - ROJO Y PROMINENTE */}
             <button
               onClick={handleCheckout}
               disabled={isPending || cart.length === 0}
-              className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 border border-emerald-600 hover:border-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/10 focus:outline-none transition duration-150 flex items-center justify-center text-sm disabled:opacity-40"
+              className="w-full py-4 bg-gradient-to-r from-[var(--danger)] to-[var(--brand)] hover:from-[var(--brand)] hover:to-[var(--danger)] text-white font-bold rounded-[var(--radius-lg)] shadow-lg shadow-[var(--danger)]/20 focus:outline-none transition duration-150 flex items-center justify-center text-base disabled:opacity-40 hover:shadow-xl hover:shadow-[var(--danger)]/30"
             >
-              {isPending ? "Procesando Cobro..." : "Confirmar Venta y Cobrar"}
+              {isPending ? (
+                "Procesando Cobro..."
+              ) : (
+                <>
+                  <span>Cobrar</span>
+                  <ArrowRight size={18} className="ml-2" />
+                </>
+              )}
             </button>
+
+            {/* Botón Limpiar Carrito */}
+            {cart.length > 0 && (
+              <button
+                onClick={() => {
+                  setCart([]);
+                  setSelectedClient(null);
+                  setErrorMsg("");
+                }}
+                className="w-full py-2.5 bg-transparent border border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--bg)] hover:text-[var(--text)] font-semibold rounded-[var(--radius-md)] transition duration-150 text-xs"
+              >
+                Limpiar carrito
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -402,11 +475,11 @@ export default function VentasTerminal({ productos, clientes }: VentasTerminalPr
       {/* 5. TICKET DE VENTA EMITIDA (DIALOG DE EXITO) */}
       {issuedInvoice && (
         <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white text-slate-900 border border-slate-300 w-full max-w-sm rounded-3xl p-6 shadow-2xl relative animate-in zoom-in-95 duration-200 font-mono text-xs">
+          <div className="bg-white text-slate-900 border border-slate-300 w-full max-w-sm rounded-[var(--radius-xl)] p-6 shadow-2xl relative animate-in zoom-in-95 duration-200 font-mono text-xs">
             {/* Cerrar modal */}
             <button
               onClick={() => setIssuedInvoice(null)}
-              className="absolute right-4 top-4 p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:text-slate-900 hover:bg-slate-200 transition"
+              className="absolute right-4 top-4 p-1.5 rounded-[var(--radius-md)] bg-slate-100 text-slate-500 hover:text-slate-900 hover:bg-slate-200 transition"
             >
               <X size={16} />
             </button>
@@ -464,14 +537,14 @@ export default function VentasTerminal({ productos, clientes }: VentasTerminalPr
               <div className="pt-2 flex justify-center space-x-3 print:hidden">
                 <button
                   onClick={() => window.print()}
-                  className="px-4 py-2 bg-slate-900 text-white hover:bg-slate-800 font-sans font-semibold rounded-lg flex items-center space-x-1.5 transition text-xs shadow-md"
+                  className="px-4 py-2 bg-slate-900 text-white hover:bg-slate-800 font-sans font-semibold rounded-[var(--radius-md)] flex items-center space-x-1.5 transition text-xs shadow-md"
                 >
                   <Printer size={12} />
                   <span>Imprimir</span>
                 </button>
                 <button
                   onClick={() => setIssuedInvoice(null)}
-                  className="px-4 py-2 bg-slate-200 text-slate-800 hover:bg-slate-300 font-sans font-semibold rounded-lg flex items-center transition text-xs"
+                  className="px-4 py-2 bg-slate-200 text-slate-800 hover:bg-slate-300 font-sans font-semibold rounded-[var(--radius-md)] flex items-center transition text-xs"
                 >
                   <span>Cerrar</span>
                 </button>

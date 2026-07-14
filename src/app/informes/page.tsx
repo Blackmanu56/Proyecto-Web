@@ -48,19 +48,19 @@ export default async function InformesPage() {
   ]);
 
   return (
-    <div className="flex-1 bg-slate-950 p-6 md:p-8">
+    <div className="flex-1 bg-[var(--bg)] p-4 md:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Encabezado */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center space-x-3">
-            <div className="p-3 bg-emerald-500/10 rounded-2xl text-emerald-400 border border-emerald-500/10">
+            <div className="p-3 bg-[var(--brand-light)] rounded-2xl text-[var(--brand)] border border-[var(--brand)]/10">
               <BarChart3 size={28} />
             </div>
             <div>
-              <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
+              <h1 className="text-2xl md:text-3xl font-extrabold text-[var(--text)] tracking-tight">
                 Informes
               </h1>
-              <p className="text-slate-500 text-xs md:text-sm mt-0.5 font-medium">
+              <p className="text-[var(--text-muted)] text-xs md:text-sm mt-0.5 font-medium">
                 Analice ventas, cierres de caja, productos y rendimiento del equipo.
               </p>
             </div>

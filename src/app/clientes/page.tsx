@@ -26,7 +26,7 @@ export default async function ClientesPage() {
   const clientes = await getClientes("", false);
 
   return (
-    <div className="flex-1 bg-slate-950 p-6 md:p-8 min-h-screen">
+    <div className="flex-1 bg p-6 md:p-8 min-h-screen">
       <div className="max-w-7xl mx-auto">
         <ClientesTable initialClientes={clientes} userRole={userRole} />
       </div>

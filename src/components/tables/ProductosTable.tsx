@@ -11,6 +11,12 @@ import {
 import { formatCurrency } from "@/lib/utils";
 import StatusFilter from "./StatusFilter";
 import type { FilterStatus } from "./StatusFilter";
+import { TableShell } from "@/components/ui/table-shell";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { FormField } from "@/components/ui/form-field";
 import {
   Plus,
   Search,
@@ -164,105 +170,91 @@ export default function ProductosTable({
   const lowStockCount = initialProducts.filter(p => p.activo && p.cantidad <= p.stockMinimo).length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* 1. Header con estadísticas de Stock */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-5">
         {/* Card Total Productos */}
-        <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 p-5 rounded-2xl flex items-center justify-between">
+        <div className="bg-card border border-border p-5 rounded-[var(--radius-lg)] flex items-center justify-between shadow-[var(--shadow-sm)]">
           <div>
-            <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Total Repuestos</p>
-            <p className="text-2xl font-extrabold text-white mt-1">
+            <p className="text-xs text-text-secondary font-bold uppercase tracking-wider">Total Repuestos</p>
+            <p className="text-2xl font-extrabold text-text mt-1">
               {initialProducts.filter(p => p.activo).length}
             </p>
           </div>
-          <div className="p-3 bg-indigo-500/10 rounded-xl text-indigo-400">
+          <div className="p-3 bg-brand-light rounded-[var(--radius-md)] text-brand">
             <Package size={24} />
           </div>
         </div>
 
         {/* Card Alerta Stock Bajo */}
-        <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 p-5 rounded-2xl flex items-center justify-between">
+        <div className="bg-card border border-border p-5 rounded-[var(--radius-lg)] flex items-center justify-between shadow-[var(--shadow-sm)]">
           <div>
-            <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Stock Crítico</p>
-            <p className={`text-2xl font-extrabold mt-1 ${lowStockCount > 0 ? "text-amber-400" : "text-white"}`}>
+            <p className="text-xs text-text-secondary font-bold uppercase tracking-wider">Stock Crítico</p>
+            <p className={`text-2xl font-extrabold mt-1 ${lowStockCount > 0 ? "text-warning" : "text-text"}`}>
               {lowStockCount}
             </p>
           </div>
-          <div className={`p-3 rounded-xl ${lowStockCount > 0 ? "bg-amber-500/10 text-amber-400 animate-pulse" : "bg-slate-800 text-slate-400"}`}>
+          <div className={`p-3 rounded-[var(--radius-md)] ${lowStockCount > 0 ? "bg-warning-light text-warning animate-pulse" : "bg-border text-text-secondary"}`}>
             <AlertTriangle size={24} />
           </div>
         </div>
 
         {/* Card Papelera */}
-        <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 p-5 rounded-2xl flex items-center justify-between">
+        <div className="bg-card border border-border p-5 rounded-[var(--radius-lg)] flex items-center justify-between shadow-[var(--shadow-sm)]">
           <div>
-            <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Inactivos / De Baja</p>
-            <p className="text-2xl font-extrabold text-white mt-1">
+            <p className="text-xs text-text-secondary font-bold uppercase tracking-wider">Inactivos / De Baja</p>
+            <p className="text-2xl font-extrabold text-text mt-1">
               {initialProducts.filter(p => !p.activo).length}
             </p>
           </div>
-          <div className="p-3 bg-slate-800 rounded-xl text-slate-400">
+          <div className="p-3 bg-border rounded-[var(--radius-md)] text-text-secondary">
             <FolderOpen size={24} />
           </div>
         </div>
       </div>
 
-      {/* 2. Filtros & Acciones */}
-      <div className="bg-slate-900/30 backdrop-blur-md border border-slate-800/80 rounded-2xl p-5 flex flex-col md:flex-row items-center justify-between gap-4">
-        {/* Filtros */}
-        <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
-          {/* Buscador */}
-          <div className="relative w-full sm:w-72">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-            <input
-              type="text"
-              placeholder="Buscar por repuesto, proveedor..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-950/60 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 text-sm"
-            />
+      {/* 2. TableShell with filters and actions */}
+      <TableShell
+        title="Inventario de Productos"
+        searchPlaceholder="Buscar por repuesto, proveedor..."
+        searchValue={search}
+        onSearchChange={setSearch}
+        isEmpty={filteredProducts.length === 0}
+        emptyMessage="No se encontraron productos coincidentes."
+        emptyIcon={<Package size={40} className="opacity-40" />}
+        actions={
+          <div className="flex items-center gap-3">
+            {/* Category filter */}
+            <div className="relative">
+              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" size={14} />
+              <select
+                value={catFilter}
+                onChange={e => setCatFilter(e.target.value)}
+                className="pl-9 pr-4 py-2.5 bg-bg border border-border rounded-[var(--radius-md)] text-text text-sm focus:outline-none focus:border-brand appearance-none"
+              >
+                <option value="all">Todas las Categorías</option>
+                {categorias.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.nombre}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Status filter */}
+            <StatusFilter value={filterStatus} onChange={setFilterStatus} />
+
+            {/* Add product button */}
+            {["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(userRole) && (
+              <Button onClick={handleOpenAdd} leftIcon={<Plus size={16} />}>
+                Agregar Repuesto
+              </Button>
+            )}
           </div>
-
-          {/* Categoría dropdown */}
-          <div className="relative w-full sm:w-48">
-            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
-            <select
-              value={catFilter}
-              onChange={e => setCatFilter(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 bg-slate-950/60 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-indigo-500 text-sm appearance-none"
-            >
-              <option value="all">Todas las Categorías</option>
-              {categorias.map(cat => (
-                <option key={cat.id} value={cat.id}>{cat.nombre}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Botones de acción */}
-        <div className="flex items-center gap-3 w-full md:w-auto justify-end">
-          {/* Filtro de estado Activo/Inactivo */}
-          <StatusFilter value={filterStatus} onChange={setFilterStatus} />
-
-          {/* Agregar producto */}
-          {["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(userRole) && (
-            <button
-              onClick={handleOpenAdd}
-              className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 border border-indigo-600 hover:border-indigo-500 text-white text-sm font-semibold rounded-xl transition duration-200 flex items-center space-x-1.5 shadow-lg shadow-indigo-600/10"
-            >
-              <Plus size={16} />
-              <span>Agregar Repuesto</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* 3. Tabla de Productos */}
-      <div className="bg-slate-900/20 border border-slate-800/80 rounded-2xl overflow-hidden shadow-xl">
+        }
+      >
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse min-w-[800px]">
             <thead>
-              <tr className="bg-slate-900/60 text-slate-400 border-b border-slate-800 text-xs uppercase tracking-wider font-semibold">
+              <tr className="border-b border-border text-xs uppercase tracking-wider font-semibold text-text-secondary">
                 <th className="py-4 px-6 text-center">ID</th>
                 <th className="py-4 px-6">Repuesto / Marca</th>
                 <th className="py-4 px-6">Categoría</th>
@@ -273,299 +265,258 @@ export default function ProductosTable({
                 <th className="py-4 px-6 text-center">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60 text-sm text-slate-300">
-              {filteredProducts.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-8 px-6 text-center text-slate-500">
-                    No se encontraron productos coincidentes.
-                  </td>
-                </tr>
-              ) : (
-                filteredProducts.map(p => {
-                  const isLowStock = p.activo && p.cantidad <= p.stockMinimo;
-                  return (
-                    <tr
-                      key={p.id}
-                      className={`hover:bg-slate-900/30 transition duration-150 ${
-                        isLowStock ? "bg-amber-950/5 hover:bg-amber-950/10" : ""
-                      }`}
-                    >
-                      <td className="py-4 px-6 text-center text-xs font-mono text-slate-500">
-                        {p.id}
-                      </td>
-                      <td className="py-4 px-6">
-                        <p className="font-semibold text-white">{p.nombre}</p>
-                        <p className="text-xs text-slate-500 mt-0.5">Marca estándar</p>
-                      </td>
-                      <td className="py-4 px-6 text-slate-400">{p.categoria.nombre}</td>
-                      <td className="py-4 px-6 text-slate-400">{p.proveedor.nombre}</td>
-                      <td className="py-4 px-6 text-right text-xs font-mono text-slate-500">
-                        {formatCurrency(p.precioCompra)}
-                      </td>
-                      <td className="py-4 px-6 text-right font-mono font-semibold text-indigo-400">
-                        {formatCurrency(p.precioVenta)}
-                      </td>
-                      <td className="py-4 px-6 text-center">
-                        <div className="flex flex-col items-center justify-center">
-                          <span
-                            className={`font-semibold px-2 py-0.5 rounded-lg text-xs font-mono ${
-                              isLowStock
-                                ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                                : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                            }`}
-                          >
-                            {p.cantidad} u
+            <tbody className="divide-y divide-border/60 text-sm text-text-muted">
+              {filteredProducts.map(p => {
+                const isLowStock = p.activo && p.cantidad <= p.stockMinimo;
+                const stockStatus = p.cantidad === 0 ? "danger" : isLowStock ? "warning" : "success";
+                return (
+                  <tr
+                    key={p.id}
+                    className={`hover:bg-border/30 transition duration-150 ${
+                      isLowStock ? "bg-warning-light/5 hover:bg-warning-light/10" : ""
+                    }`}
+                  >
+                    <td className="py-4 px-6 text-center text-xs font-mono text-text-secondary">
+                      {p.id}
+                    </td>
+                    <td className="py-4 px-6">
+                      <p className="font-semibold text-text">{p.nombre}</p>
+                      <p className="text-xs text-text-secondary mt-0.5">Marca estándar</p>
+                    </td>
+                    <td className="py-4 px-6">
+                      <Badge variant="default" size="sm">{p.categoria.nombre}</Badge>
+                    </td>
+                    <td className="py-4 px-6 text-text-muted">{p.proveedor.nombre}</td>
+                    <td className="py-4 px-6 text-right text-xs font-mono text-text-secondary">
+                      {formatCurrency(p.precioCompra)}
+                    </td>
+                    <td className="py-4 px-6 text-right font-mono font-semibold text-brand">
+                      {formatCurrency(p.precioVenta)}
+                    </td>
+                    <td className="py-4 px-6 text-center">
+                      <div className="flex flex-col items-center justify-center">
+                        <Badge variant={stockStatus} size="sm" className="font-mono">
+                          {p.cantidad} u
+                        </Badge>
+                        {isLowStock && (
+                          <span className="text-[10px] text-warning font-bold uppercase mt-1 flex items-center space-x-0.5 animate-pulse">
+                            <AlertTriangle size={10} />
+                            <span>Bajo Stock!</span>
                           </span>
-                          {isLowStock && (
-                            <span className="text-[10px] text-amber-500 font-bold uppercase mt-1 flex items-center space-x-0.5 animate-pulse">
-                              <AlertTriangle size={10} />
-                              <span>Bajo Stock!</span>
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-4 px-6 text-center">
-                        <div className="flex items-center justify-center space-x-2">
-                          {p.activo ? (
-                            <>
-                              {["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(userRole) && (
-                                <button
-                                  onClick={() => handleEdit(p)}
-                                  className="p-1.5 rounded-lg bg-slate-800/60 hover:bg-indigo-500/10 text-slate-400 hover:text-indigo-400 border border-slate-700/40 transition duration-150"
-                                  title="Editar Producto"
-                                >
-                                  <Edit2 size={14} />
-                                </button>
-                              )}
-                              {["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(userRole) && (
-                                <button
-                                  onClick={() => handleDelete(p.id)}
-                                  className="p-1.5 rounded-lg bg-slate-800/60 hover:bg-red-500/10 text-slate-400 hover:text-red-400 border border-slate-700/40 transition duration-150"
-                                  title="Dar de Baja"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              )}
-                            </>
-                          ) : (
-                            ["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(userRole) && (
-                              <button
-                                onClick={() => handleRestore(p.id)}
-                                className="p-1.5 rounded-lg bg-slate-800/60 hover:bg-emerald-500/10 text-slate-400 hover:text-emerald-400 border border-slate-700/40 transition duration-150 flex items-center space-x-1"
-                                title="Reactivar"
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-4 px-6 text-center">
+                      <div className="flex items-center justify-center space-x-1 md:space-x-2">
+                        {p.activo ? (
+                          <>
+                            {["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(userRole) && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEdit(p)}
+                                title="Editar Producto"
                               >
-                                <RotateCcw size={14} />
-                                <span className="text-xs font-semibold pr-1">Reactivar</span>
-                              </button>
-                            )
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
+                                <Edit2 size={14} />
+                              </Button>
+                            )}
+                            {["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(userRole) && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDelete(p.id)}
+                                title="Dar de Baja"
+                                className="hover:text-danger"
+                              >
+                                <Trash2 size={14} />
+                              </Button>
+                            )}
+                          </>
+                        ) : (
+                          ["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(userRole) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRestore(p.id)}
+                              title="Reactivar"
+                              className="hover:text-success"
+                            >
+                              <RotateCcw size={14} />
+                              <span className="hidden md:inline text-xs font-semibold">Reactivar</span>
+                            </Button>
+                          )
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
-      </div>
+      </TableShell>
 
-      {/* 4. MODAL DRAWER (AGREGAR / EDITAR) */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-3xl p-6 shadow-2xl relative animate-in zoom-in-95 duration-200">
-            {/* Cerrar modal */}
-            <button
-              onClick={() => setIsModalOpen(false)}
-              className="absolute right-4 top-4 p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition"
-            >
-              <X size={16} />
-            </button>
+      {/* 3. MODAL (AGREGAR / EDITAR) */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="p-2 rounded-[var(--radius-md)] bg-brand-light text-brand">
+                <Package size={18} />
+              </div>
+              {editingProduct ? "Editar Repuesto" : "Agregar Nuevo Repuesto"}
+            </DialogTitle>
+            <DialogDescription>
+              Complete la información técnica y comercial del producto.
+            </DialogDescription>
+          </DialogHeader>
 
-            {/* Icono Cabecera */}
-            <div className="flex items-center space-x-3 mb-6">
-              <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-400">
-                <Package size={20} />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-white">
-                  {editingProduct ? "Editar Repuesto" : "Agregar Nuevo Repuesto"}
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Complete la información técnica y comercial del producto.
-                </p>
-              </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Campo Nombre */}
+            <FormField label="Descripción / Nombre del Repuesto" required>
+              <Input
+                name="nombre"
+                type="text"
+                defaultValue={editingProduct?.nombre || ""}
+                required
+                placeholder="Ej: Aceite Motul 5100 15W-50 4T"
+              />
+            </FormField>
+
+            {/* Categoría & Proveedor */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField label="Categoría" required>
+                <div className="relative">
+                  <Layers className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" size={14} />
+                  <select
+                    name="categoriaId"
+                    defaultValue={editingProduct?.categoria.id || ""}
+                    required
+                    className="w-full pl-9 pr-4 py-2.5 bg-bg border border-border rounded-[var(--radius-md)] text-text text-sm focus:outline-none focus:border-brand appearance-none"
+                  >
+                    <option value="">Seleccione...</option>
+                    {categorias.map(cat => (
+                      <option key={cat.id} value={cat.id}>{cat.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+              </FormField>
+
+              <FormField label="Proveedor" required>
+                <div className="relative">
+                  <Truck className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" size={14} />
+                  <select
+                    name="proveedorId"
+                    defaultValue={editingProduct?.proveedor.id || ""}
+                    required
+                    className="w-full pl-9 pr-4 py-2.5 bg-bg border border-border rounded-[var(--radius-md)] text-text text-sm focus:outline-none focus:border-brand appearance-none"
+                  >
+                    <option value="">Seleccione...</option>
+                    {proveedores.map(p => (
+                      <option key={p.id} value={p.id}>{p.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+              </FormField>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Campo Nombre */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-                  Descripción / Nombre del Repuesto
-                </label>
-                <input
-                  name="nombre"
-                  type="text"
-                  defaultValue={editingProduct?.nombre || ""}
+            {/* Precio Compra & Venta */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField label="Precio Compra (Costo)" required>
+                <Input
+                  name="precioCompra"
+                  type="number"
+                  step="0.01"
+                  defaultValue={editingProduct?.precioCompra || ""}
                   required
-                  placeholder="Ej: Aceite Motul 5100 15W-50 4T"
-                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-indigo-500 text-sm"
+                  placeholder="0.00"
+                  className="font-mono"
                 />
+              </FormField>
+
+              <FormField label="Precio Venta (Público)" required>
+                <Input
+                  name="precioVenta"
+                  type="number"
+                  step="0.01"
+                  defaultValue={editingProduct?.precioVenta || ""}
+                  required
+                  placeholder="0.00"
+                  className="font-mono"
+                />
+              </FormField>
+            </div>
+
+            {/* Cantidad & Stock Mínimo */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField label="Stock Existencias" required>
+                <Input
+                  name="cantidad"
+                  type="number"
+                  defaultValue={editingProduct?.cantidad ?? ""}
+                  required
+                  placeholder="0"
+                  className="font-mono"
+                />
+              </FormField>
+
+              <FormField label="Stock de Seguridad Mínimo" required>
+                <Input
+                  name="stockMinimo"
+                  type="number"
+                  defaultValue={editingProduct?.stockMinimo ?? ""}
+                  required
+                  placeholder="0"
+                  className="font-mono"
+                />
+              </FormField>
+            </div>
+
+            {/* Alerta Reposición (si el stock sube) */}
+            {editingProduct && (
+              <div className="p-3.5 bg-brand-light/5 border border-brand/10 rounded-[var(--radius-lg)] text-[11px] text-text-muted leading-normal flex items-start space-x-2">
+                <TrendingDown className="text-brand mt-0.5 flex-shrink-0" size={14} />
+                <span>
+                  <strong>Regla Transaccional:</strong> Si incrementa el stock actual ({editingProduct.cantidad} u), el sistema generará automáticamente una <strong>Compra</strong> y registrará la salida financiera contable en el panel de <strong>Caja</strong>.
+                </span>
               </div>
+            )}
 
-              {/* Categoría & Proveedor */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-                    Categoría
-                  </label>
-                  <div className="relative">
-                    <Layers className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600" size={14} />
-                    <select
-                      name="categoriaId"
-                      defaultValue={editingProduct?.categoria.id || ""}
-                      required
-                      className="w-full pl-9 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-indigo-500 text-sm appearance-none"
-                    >
-                      <option value="">Seleccione...</option>
-                      {categorias.map(cat => (
-                        <option key={cat.id} value={cat.id}>{cat.nombre}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-                    Proveedor
-                  </label>
-                  <div className="relative">
-                    <Truck className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600" size={14} />
-                    <select
-                      name="proveedorId"
-                      defaultValue={editingProduct?.proveedor.id || ""}
-                      required
-                      className="w-full pl-9 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-indigo-500 text-sm appearance-none"
-                    >
-                      <option value="">Seleccione...</option>
-                      {proveedores.map(p => (
-                        <option key={p.id} value={p.id}>{p.nombre}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
+            {/* Alertas de Mensaje */}
+            {errorMsg && (
+              <div className="p-3 bg-danger-light border border-danger/20 text-danger text-xs font-semibold rounded-[var(--radius-md)] flex items-center space-x-2">
+                <AlertTriangle size={14} />
+                <span>{errorMsg}</span>
               </div>
-
-              {/* Precio Compra & Venta */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-                    Precio Compra (Costo)
-                  </label>
-                  <input
-                    name="precioCompra"
-                    type="number"
-                    step="0.01"
-                    defaultValue={editingProduct?.precioCompra || ""}
-                    required
-                    placeholder="0.00"
-                    className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-indigo-500 text-sm font-mono"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-                    Precio Venta (Público)
-                  </label>
-                  <input
-                    name="precioVenta"
-                    type="number"
-                    step="0.01"
-                    defaultValue={editingProduct?.precioVenta || ""}
-                    required
-                    placeholder="0.00"
-                    className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-indigo-500 text-sm font-mono"
-                  />
-                </div>
+            )}
+            {successMsg && (
+              <div className="p-3 bg-success-light border border-success/20 text-success text-xs font-semibold rounded-[var(--radius-md)] flex items-center space-x-2">
+                <CheckCircle size={14} />
+                <span>{successMsg}</span>
               </div>
+            )}
 
-              {/* Cantidad & Stock Mínimo */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-                    Stock Existencias
-                  </label>
-                  <input
-                    name="cantidad"
-                    type="number"
-                    defaultValue={editingProduct?.cantidad ?? ""}
-                    required
-                    placeholder="0"
-                    className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-indigo-500 text-sm font-mono"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-                    Stock de Seguridad Mínimo
-                  </label>
-                  <input
-                    name="stockMinimo"
-                    type="number"
-                    defaultValue={editingProduct?.stockMinimo ?? ""}
-                    required
-                    placeholder="0"
-                    className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-indigo-500 text-sm font-mono"
-                  />
-                </div>
-              </div>
-
-              {/* Alerta Reposición (si el stock sube) */}
-              {editingProduct && (
-                <div className="p-3.5 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl text-[11px] text-slate-400 leading-normal flex items-start space-x-2">
-                  <TrendingDown className="text-indigo-400 mt-0.5 flex-shrink-0" size={14} />
-                  <span>
-                    <strong>Regla Transaccional:</strong> Si incrementa el stock actual ({editingProduct.cantidad} u), el sistema generará automáticamente una <strong>Compra</strong> y registrará la salida financiera contable en el panel de **Caja**.
-                  </span>
-                </div>
-              )}
-
-              {/* Alertas de Mensaje */}
-              {errorMsg && (
-                <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold rounded-xl flex items-center space-x-2 animate-shake">
-                  <AlertTriangle size={14} />
-                  <span>{errorMsg}</span>
-                </div>
-              )}
-              {successMsg && (
-                <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold rounded-xl flex items-center space-x-2 animate-pulse">
-                  <CheckCircle size={14} />
-                  <span>{successMsg}</span>
-                </div>
-              )}
-
-              {/* Botón Guardar */}
-              <div className="pt-2 flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-750 text-slate-300 text-sm font-semibold rounded-xl transition duration-150"
-                  disabled={isPending}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 border border-indigo-600 hover:border-indigo-500 text-white text-sm font-semibold rounded-xl transition duration-150 flex items-center justify-center disabled:opacity-50"
-                  disabled={isPending}
-                >
-                  {isPending ? "Procesando..." : editingProduct ? "Actualizar Repuesto" : "Agregar Repuesto"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            {/* Botón Guardar */}
+            <div className="pt-2 flex justify-end space-x-3">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setIsModalOpen(false)}
+                disabled={isPending}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                loading={isPending}
+                disabled={isPending}
+              >
+                {editingProduct ? "Actualizar Repuesto" : "Agregar Repuesto"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

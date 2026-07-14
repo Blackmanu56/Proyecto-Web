@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import "./report.css";
 import { BarChart3, Wallet, Package, Users, UserCheck, Building } from "lucide-react";
 import VentasReport from "./VentasReport";
@@ -23,7 +23,7 @@ const ALLOWED_TABS: Record<TabId, string[]> = {
 
 const TAB_META: Record<TabId, { label: string; icon: React.ReactNode }> = {
   ventas: { label: "Ventas", icon: <BarChart3 size={16} /> },
-  cierres: { label: "Cierres de Caja", icon: <Wallet size={16} /> },
+  cierres: { label: "Cierres", icon: <Wallet size={16} /> },
   productos: { label: "Productos", icon: <Package size={16} /> },
   empleados: { label: "Empleados", icon: <Users size={16} /> },
   clientes: { label: "Clientes", icon: <UserCheck size={16} /> },
@@ -63,6 +63,21 @@ export default function InformesTabs({
     (t) => ALLOWED_TABS[t].includes(userRole)
   );
   const [activeTab, setActiveTab] = useState<TabId>(availableTabs[0] || "ventas");
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const [underlineStyle, setUnderlineStyle] = useState<React.CSSProperties>({});
+
+  useEffect(() => {
+    if (tabsRef.current) {
+      const activeButton = tabsRef.current.querySelector(`[data-tab="${activeTab}"]`) as HTMLElement;
+      if (activeButton) {
+        setUnderlineStyle({
+          left: activeButton.offsetLeft,
+          width: activeButton.offsetWidth,
+        });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   const renderTab = () => {
     switch (activeTab) {
@@ -120,25 +135,39 @@ export default function InformesTabs({
   return (
     <div className="space-y-6">
       {/* Tab Navigation */}
-      <div className="flex flex-wrap gap-1 bg-slate-900/50 border border-slate-800 rounded-xl p-1">
-        {availableTabs.map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
-              activeTab === tab
-                ? "bg-emerald-500/10 text-emerald-400 shadow-sm border border-emerald-500/20"
-                : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
-            }`}
-          >
-            {TAB_META[tab].icon}
-            {TAB_META[tab].label}
-          </button>
-        ))}
+      <div className="relative bg-[var(--panel)] border border-[var(--border)] rounded-[var(--radius-lg)] p-1">
+        <div
+          ref={tabsRef}
+          className="relative flex overflow-x-auto scrollbar-hide"
+        >
+          {/* Animated underline indicator */}
+          <div
+            className="absolute bottom-0 h-0.5 bg-[var(--brand)] rounded-full transition-all duration-200 ease-out"
+            style={underlineStyle}
+          />
+
+          {availableTabs.map((tab) => (
+            <button
+              key={tab}
+              data-tab={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`relative flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${
+                activeTab === tab
+                  ? "text-white"
+                  : "text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--card)]"
+              }`}
+            >
+              {TAB_META[tab].icon}
+              <span className="hidden sm:inline">{TAB_META[tab].label}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Tab Content */}
-      {renderTab()}
+      <div className="animate-in fade-in duration-200">
+        {renderTab()}
+      </div>
     </div>
   );
 }

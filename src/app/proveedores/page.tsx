@@ -71,20 +71,20 @@ export default async function ProveedoresPage() {
   const proveedores = await getProveedores("", false); // Get all suppliers including inactive
 
   return (
-    <div className="flex-1 bg-slate-950 p-6 md:p-8">
+    <div className="flex-1 bg p-6 md:p-8">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center space-x-3">
-            <div className="p-3 bg-indigo-500/10 rounded-2xl text-indigo-400 border border-indigo-500/10">
+            <div className="p-3 bg-brand-light rounded-2xl text-brand border border-brand/10">
               <Truck size={28} />
             </div>
             <div>
-              <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
-                Gesti├│n de Proveedores
+              <h1 className="text-2xl md:text-3xl font-extrabold text-text tracking-tight">
+                Gestión de Proveedores
               </h1>
-              <p className="text-slate-500 text-xs md:text-sm mt-0.5 font-medium">
-                Administre los proveedores, consulte su cat├ílogo de productos y el historial de compras.
+              <p className="text-text-secondary text-xs md:text-sm mt-0.5 font-medium">
+                Administre los proveedores, consulte su catálogo de productos y el historial de compras.
               </p>
             </div>
           </div>
