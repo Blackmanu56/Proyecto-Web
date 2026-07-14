@@ -95,6 +95,9 @@ model Categoria {
 model Producto {
   id             Int             @id @default(autoincrement())
   nombre         String
+  marca          String?
+  codigo         String?
+  imagen         String?
   categoriaId    Int             @map("categoria_id")
   categoria      Categoria       @relation(fields: [categoriaId], references: [id])
   precioCompra   Float           @map("precio_compra")
@@ -119,7 +122,11 @@ model Venta {
   total       Float            @default(0.0)
   fecha       DateTime         @default(now())
   metodoPago  String?          @map("metodo_pago")
-  estado      String           @default("COMPLETADA")
+  descuentoTipo String?        @map("descuento_tipo")
+  montoDescuento Float         @default(0.0) @map("monto_descuento")
+  tipoComprobante String?      @map("tipo_comprobante")
+  cuotas         Int?           @map("cuotas")
+  estado         String           @default("COMPLETADA")
   detalles    DetalleVenta[]
   movimientos MovimientoCaja[]
 

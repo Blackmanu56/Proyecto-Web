@@ -24,16 +24,24 @@ export default async function RootLayout({
   const session = await getSession();
 
   // Fetch fresh user data from DB for latest fotoUrl (JWT may be stale)
-  let shellUser: typeof session = null;
+  let shellUser: any = null;
   if (session) {
     const userFromDb = await prisma.usuario.findUnique({
       where: { id: session.userId },
-      select: { username: true, fotoUrl: true },
+      select: { username: true, fotoUrl: true, nombreCompleto: true, dni: true, correo: true, telefono: true, activo: true, creadoEn: true, rol: true },
     });
     shellUser = {
-      ...session,
-      fotoUrl: userFromDb?.fotoUrl ?? null,
+      userId: session.userId,
       username: userFromDb?.username ?? session.username,
+      role: session.role,
+      fotoUrl: userFromDb?.fotoUrl ?? null,
+      nombreCompleto: userFromDb?.nombreCompleto ?? session.username,
+      dni: userFromDb?.dni ?? "",
+      correo: userFromDb?.correo ?? null,
+      telefono: userFromDb?.telefono ?? null,
+      activo: userFromDb?.activo ?? true,
+      creadoEn: userFromDb?.creadoEn ?? new Date(),
+      rol: userFromDb?.rol ?? { id: 0, nombre: session.role },
     };
   }
 

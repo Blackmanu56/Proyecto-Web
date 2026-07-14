@@ -4,9 +4,13 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth.server";
+import { saveFile, deleteFile } from "@/lib/upload";
 
 const productoSchema = z.object({
   nombre: z.string().min(2, "El nombre del producto debe tener al menos 2 caracteres"),
+  marca: z.string().optional().nullable(),
+  codigo: z.string().optional().nullable(),
+  imagen: z.string().optional().nullable(),
   categoriaId: z.number().int().positive("Seleccione una categoría válida"),
   proveedorId: z.number().int().positive("Seleccione un proveedor válido"),
   precioCompra: z.number().positive("El precio de compra debe ser mayor a 0"),
@@ -33,6 +37,8 @@ export async function getProductos(
     if (query) {
       whereClause.OR = [
         { nombre: { contains: query, mode: "insensitive" } },
+        { marca: { contains: query, mode: "insensitive" } },
+        { codigo: { contains: query, mode: "insensitive" } },
         { categoria: { nombre: { contains: query, mode: "insensitive" } } },
         { proveedor: { nombre: { contains: query, mode: "insensitive" } } },
       ];
@@ -69,6 +75,9 @@ export async function createProducto(formData: FormData) {
 
   const rawData = {
     nombre: formData.get("nombre") as string,
+    marca: formData.get("marca") as string || null,
+    codigo: formData.get("codigo") as string || null,
+    imagen: formData.get("imagen") as string || null,
     categoriaId: Number(formData.get("categoriaId")),
     proveedorId: Number(formData.get("proveedorId")),
     precioCompra: Number(formData.get("precioCompra")),
@@ -76,6 +85,13 @@ export async function createProducto(formData: FormData) {
     cantidad: Number(formData.get("cantidad")),
     stockMinimo: Number(formData.get("stockMinimo")),
   };
+
+  // Handle file upload if present
+  const file = formData.get("imagenFile") as File | null;
+  if (file && file.size > 0) {
+    const imageUrl = await saveFile(file);
+    rawData.imagen = imageUrl;
+  }
 
   const validation = productoSchema.safeParse(rawData);
   if (!validation.success) {
@@ -88,6 +104,9 @@ export async function createProducto(formData: FormData) {
       const p = await tx.producto.create({
         data: {
           nombre: validation.data.nombre,
+          marca: validation.data.marca,
+          codigo: validation.data.codigo,
+          imagen: validation.data.imagen,
           categoriaId: validation.data.categoriaId,
           proveedorId: validation.data.proveedorId,
           precioCompra: validation.data.precioCompra,
@@ -172,6 +191,9 @@ export async function updateProducto(id: number, formData: FormData) {
 
   const rawData = {
     nombre: formData.get("nombre") as string,
+    marca: formData.get("marca") as string || null,
+    codigo: formData.get("codigo") as string || null,
+    imagen: formData.get("imagen") as string || null,
     categoriaId: Number(formData.get("categoriaId")),
     proveedorId: Number(formData.get("proveedorId")),
     precioCompra: Number(formData.get("precioCompra")),
@@ -179,6 +201,17 @@ export async function updateProducto(id: number, formData: FormData) {
     cantidad: Number(formData.get("cantidad")),
     stockMinimo: Number(formData.get("stockMinimo")),
   };
+
+  // Handle file upload if present
+  const file = formData.get("imagenFile") as File | null;
+  if (file && file.size > 0) {
+    // Delete old image if exists
+    if (rawData.imagen) {
+      await deleteFile(rawData.imagen);
+    }
+    const imageUrl = await saveFile(file);
+    rawData.imagen = imageUrl;
+  }
 
   const validation = productoSchema.safeParse(rawData);
   if (!validation.success) {
@@ -204,6 +237,9 @@ export async function updateProducto(id: number, formData: FormData) {
         where: { id },
         data: {
           nombre: validation.data.nombre,
+          marca: validation.data.marca,
+          codigo: validation.data.codigo,
+          imagen: validation.data.imagen,
           categoriaId: validation.data.categoriaId,
           proveedorId: validation.data.proveedorId,
           precioCompra: validation.data.precioCompra,

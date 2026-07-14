@@ -81,7 +81,7 @@ function getGreeting(userName: string): string {
   if (hour >= 5 && hour < 12) greeting = "Buenos días";
   else if (hour >= 12 && hour < 20) greeting = "Buenas tardes";
   else greeting = "Buenas noches";
-  return `¡${greeting}, ${userName}! 👋`;
+  return `${greeting}, ${userName}`;
 }
 
 function getStatCards(data: any, role: string) {
@@ -157,13 +157,13 @@ export default function DashboardClient({ data, userName, role, formattedDate }:
   const statCards = getStatCards(data, role);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {/* ── Header ── */}
-      <div className="pb-1">
-        <h1 className="text-3xl font-bold text-[var(--text)] tracking-tight">
+      <div className="pb-2">
+        <h1 className="text-3xl md:text-4xl font-extrabold text-[var(--text)] tracking-tight">
           {greeting}
         </h1>
-        <p className="text-[var(--text-muted)] text-sm mt-1 capitalize">
+        <p className="text-[var(--text-muted)] text-sm mt-1.5 capitalize">
           {formattedDate}
         </p>
       </div>

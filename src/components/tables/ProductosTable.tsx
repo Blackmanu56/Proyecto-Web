@@ -38,6 +38,9 @@ import {
 interface Product {
   id: number;
   nombre: string;
+  marca: string | null;
+  codigo: string | null;
+  imagen: string | null;
   precioCompra: number;
   precioVenta: number;
   cantidad: number;
@@ -73,12 +76,14 @@ export default function ProductosTable({
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   // Manejo de clicks en acciones
   const handleEdit = (product: Product) => {
     setEditingProduct(product);
     setErrorMsg("");
     setSuccessMsg("");
+    setImagePreview(product.imagen || null);
     setIsModalOpen(true);
   };
 
@@ -86,6 +91,7 @@ export default function ProductosTable({
     setEditingProduct(null);
     setErrorMsg("");
     setSuccessMsg("");
+    setImagePreview(null);
     setIsModalOpen(true);
   };
 
@@ -150,6 +156,8 @@ export default function ProductosTable({
   // Filtrar productos del lado del cliente
   const filteredProducts = initialProducts.filter(p => {
     const matchesSearch = p.nombre.toLowerCase().includes(search.toLowerCase()) || 
+                          (p.marca && p.marca.toLowerCase().includes(search.toLowerCase())) ||
+                          (p.codigo && p.codigo.toLowerCase().includes(search.toLowerCase())) ||
                           p.proveedor.nombre.toLowerCase().includes(search.toLowerCase()) ||
                           p.categoria.nombre.toLowerCase().includes(search.toLowerCase());
     
@@ -216,7 +224,7 @@ export default function ProductosTable({
       {/* 2. TableShell with filters and actions */}
       <TableShell
         title="Inventario de Productos"
-        searchPlaceholder="Buscar por repuesto, proveedor..."
+        searchPlaceholder="Buscar por repuesto, marca, código, proveedor..."
         searchValue={search}
         onSearchChange={setSearch}
         isEmpty={filteredProducts.length === 0}
@@ -256,7 +264,7 @@ export default function ProductosTable({
             <thead>
               <tr className="border-b border-border text-xs uppercase tracking-wider font-semibold text-text-secondary">
                 <th className="py-4 px-6 text-center">ID</th>
-                <th className="py-4 px-6">Repuesto / Marca</th>
+                <th className="py-4 px-6">Repuesto / Marca / Código</th>
                 <th className="py-4 px-6">Categoría</th>
                 <th className="py-4 px-6">Proveedor</th>
                 <th className="py-4 px-6 text-right">Precio Compra</th>
@@ -280,8 +288,24 @@ export default function ProductosTable({
                       {p.id}
                     </td>
                     <td className="py-4 px-6">
-                      <p className="font-semibold text-text">{p.nombre}</p>
-                      <p className="text-xs text-text-secondary mt-0.5">Marca estándar</p>
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 flex-shrink-0 rounded-[var(--radius-md)] overflow-hidden bg-border flex items-center justify-center">
+                          {p.imagen ? (
+                            <img src={p.imagen} alt={p.nombre} className="w-full h-full object-cover" />
+                          ) : (
+                            <Package size={16} className="text-text-secondary" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-text">{p.nombre}</p>
+                          <p className="text-xs text-text-secondary mt-0.5">
+                            {p.marca && <span className="font-medium">{p.marca}</span>}
+                            {p.marca && p.codigo && <span className="mx-1">·</span>}
+                            {p.codigo && <span className="font-mono">{p.codigo}</span>}
+                            {!p.marca && !p.codigo && "Sin marca/código"}
+                          </p>
+                        </div>
+                      </div>
                     </td>
                     <td className="py-4 px-6">
                       <Badge variant="default" size="sm">{p.categoria.nombre}</Badge>
@@ -383,6 +407,28 @@ export default function ProductosTable({
               />
             </FormField>
 
+            {/* Marca & Código */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField label="Marca">
+                <Input
+                  name="marca"
+                  type="text"
+                  defaultValue={editingProduct?.marca || ""}
+                  placeholder="Ej: Motul, Castrol..."
+                />
+              </FormField>
+
+              <FormField label="Código / SKU">
+                <Input
+                  name="codigo"
+                  type="text"
+                  defaultValue={editingProduct?.codigo || ""}
+                  placeholder="Ej: MOT-5100-15W50"
+                  className="font-mono"
+                />
+              </FormField>
+            </div>
+
             {/* Categoría & Proveedor */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField label="Categoría" required>
@@ -419,6 +465,77 @@ export default function ProductosTable({
                 </div>
               </FormField>
             </div>
+
+            {/* Imagen del Producto */}
+            <FormField label="Imagen del Producto">
+              <div className="flex items-center space-x-4">
+                <div className="relative flex-shrink-0">
+                  {imagePreview ? (
+                    <div className="w-20 h-20 rounded-[var(--radius-md)] overflow-hidden border border-border">
+                      <img
+                        src={imagePreview}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-20 h-20 rounded-[var(--radius-md)] bg-border flex items-center justify-center">
+                      <Package size={24} className="text-text-secondary" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <label className="inline-flex items-center px-4 py-2 bg-brand-light text-brand border border-brand/20 rounded-[var(--radius-md)] text-sm font-semibold hover:bg-brand/20 cursor-pointer transition">
+                      <span>Seleccionar imagen</span>
+                      <input
+                        type="file"
+                        name="imagenFile"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="sr-only"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file && file.size > 2 * 1024 * 1024) {
+                            alert("La imagen no puede superar 2MB");
+                            e.target.value = "";
+                            return;
+                          }
+                          if (file) {
+                            const url = URL.createObjectURL(file);
+                            setImagePreview(url);
+                          }
+                        }}
+                      />
+                    </label>
+                    {imagePreview && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setImagePreview(null);
+                          // Reset file input
+                          const fileInput = document.querySelector('input[name="imagenFile"]') as HTMLInputElement;
+                          if (fileInput) fileInput.value = "";
+                          // Clear hidden field
+                          const hiddenInput = document.querySelector('input[name="imagen"]') as HTMLInputElement;
+                          if (hiddenInput) hiddenInput.value = "";
+                        }}
+                        className="inline-flex items-center px-3 py-2 bg-danger-light text-danger border border-danger/20 rounded-[var(--radius-md)] text-xs font-semibold hover:bg-danger/20 transition"
+                      >
+                        Eliminar imagen
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="hidden"
+                    name="imagen"
+                    value={editingProduct?.imagen || ""}
+                  />
+                  <p className="text-[10px] text-text-secondary">
+                    JPG, PNG o WebP. Máximo 2MB.
+                  </p>
+                </div>
+              </div>
+            </FormField>
 
             {/* Precio Compra & Venta */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

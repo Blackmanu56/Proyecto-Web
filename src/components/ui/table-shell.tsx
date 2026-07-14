@@ -1,6 +1,6 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { Search, Inbox } from "lucide-react";
+import { Search, Inbox, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 export interface TableShellProps {
@@ -31,20 +31,29 @@ function TableShell({
   return (
     <div className="bg-card border border-border rounded-[var(--radius-lg)] shadow-[var(--shadow-sm)] overflow-hidden">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 border-b border-border/60">
-        <h2 className="text-lg font-bold text-text tracking-tight">{title}</h2>
-        <div className="flex items-center gap-3">
-          {onSearchChange !== undefined && (
+      <div className="flex flex-col gap-4 p-6 border-b border-border/60">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <h2 className="text-lg font-bold text-text tracking-tight">{title}</h2>
+          {actions}
+        </div>
+        {onSearchChange !== undefined && (
+          <div className="relative w-full">
             <Input
               placeholder={searchPlaceholder}
               value={searchValue ?? ""}
               onChange={(e) => onSearchChange(e.target.value)}
               leftIcon={<Search size={16} />}
-              className="w-64"
             />
-          )}
-          {actions}
-        </div>
+            {searchValue && searchValue.length > 0 && (
+              <button
+                onClick={() => onSearchChange("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text transition-colors"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Content */}

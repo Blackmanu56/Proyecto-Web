@@ -10,11 +10,62 @@ interface VentaItem {
 }
 
 /**
+ * Crear un cliente rápido desde la terminal de ventas.
+ */
+export async function crearClienteRapido(
+  nombre: string,
+  dni: string,
+  telefono: string,
+  email: string
+) {
+  const session = await getSession();
+  if (!session || !["ADMINISTRADOR", "ENCARGADO_VENTAS"].includes(session.role)) {
+    return { error: "No tiene permisos para realizar esta acción." };
+  }
+
+  if (!nombre || !dni) {
+    return { error: "El nombre y el DNI son obligatorios." };
+  }
+
+  try {
+    const existingDni = await prisma.cliente.findUnique({ where: { dni } });
+    if (existingDni) {
+      return { error: "El DNI ya se encuentra registrado por otro cliente." };
+    }
+
+    const cliente = await prisma.cliente.create({
+      data: {
+        nombre,
+        dni,
+        telefono: telefono || null,
+        email: email || null,
+        activo: true,
+      },
+    });
+
+    revalidatePath("/ventas");
+    revalidatePath("/clientes");
+    return {
+      success: true,
+      cliente: { id: cliente.id, nombre: cliente.nombre, dni: cliente.dni, cuit: cliente.cuit },
+    };
+  } catch (error: any) {
+    console.error("Error en crearClienteRapido:", error);
+    return { error: error.message || "Error al registrar el cliente." };
+  }
+}
+
+/**
  * Registra una venta completa con control transaccional de stock y caja contable.
  */
 export async function createVenta(
   clienteId: number,
-  items: VentaItem[]
+  items: VentaItem[],
+  metodoPago: string,
+  descuentoTipo: string | null,
+  montoDescuento: number,
+  tipoComprobante: string,
+  cuotas?: number | null
 ) {
   const session = await getSession();
   if (!session || !["ADMINISTRADOR", "ENCARGADO_VENTAS"].includes(session.role)) {
@@ -25,9 +76,13 @@ export async function createVenta(
     throw new Error("El carrito de compras está vacío.");
   }
 
+  if (!metodoPago) {
+    throw new Error("Debe seleccionar una forma de pago.");
+  }
+
   try {
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Validar que la caja esté abierta para poder recibir el ingreso
+      // 1. Validar que la caja esté abierta
       const cajaAbierta = await tx.caja.findFirst({
         where: { estado: "ABIERTA" },
       });
@@ -57,14 +112,9 @@ export async function createVenta(
           throw new Error(`Stock insuficiente para '${prod.nombre}'. Disponible: ${prod.cantidad} u.`);
         }
 
-        // Descontar stock del producto
         await tx.producto.update({
           where: { id: item.productoId },
-          data: {
-            cantidad: {
-              decrement: item.cantidad,
-            },
-          },
+          data: { cantidad: { decrement: item.cantidad } },
         });
 
         const subtotal = item.cantidad * prod.precioVenta;
@@ -78,38 +128,49 @@ export async function createVenta(
         });
       }
 
-      // 3. Crear cabecera de la Venta
+      // 3. Aplicar descuento
+      let descuentoAplicado = 0;
+      if (descuentoTipo === "PORCENTAJE" && montoDescuento > 0) {
+        descuentoAplicado = totalVenta * (montoDescuento / 100);
+      } else if (descuentoTipo === "MONTO" && montoDescuento > 0) {
+        descuentoAplicado = Math.min(montoDescuento, totalVenta);
+      }
+
+      const totalFinal = totalVenta - descuentoAplicado;
+
+      // 4. Crear cabecera de la Venta
       const venta = await tx.venta.create({
         data: {
           clienteId: clienteId,
           usuarioId: session.userId,
-          total: totalVenta,
+          total: totalFinal,
+          metodoPago: metodoPago,
+          descuentoTipo: descuentoTipo || null,
+          montoDescuento: descuentoAplicado,
+          tipoComprobante: tipoComprobante || null,
+          cuotas: (metodoPago === "TARJETA_CREDITO" && cuotas) ? cuotas : null,
           detalles: {
             create: detallesAGuardar,
           },
         },
       });
 
-      // 4. Registrar movimiento de INGRESO en la Caja
+      // 5. Registrar movimiento de INGRESO en la Caja
       await tx.movimientoCaja.create({
         data: {
           cajaId: cajaAbierta.id,
           usuarioId: session.userId,
           ventaId: venta.id,
           tipo: "INGRESO",
-          monto: totalVenta,
-          descripcion: `Venta - Factura Nº ${venta.id}`,
+          monto: totalFinal,
+          descripcion: `${tipoComprobante || 'Venta'} Nº ${venta.id} - ${metodoPago}${descuentoAplicado > 0 ? ` (Dto: $${descuentoAplicado.toFixed(2)})` : ''}`,
         },
       });
 
-      // 5. Incrementar totales de la Caja Abierta
+      // 6. Incrementar totales de la Caja Abierta
       await tx.caja.update({
         where: { id: cajaAbierta.id },
-        data: {
-          totalVentas: {
-            increment: totalVenta,
-          },
-        },
+        data: { totalVentas: { increment: totalFinal } },
       });
 
       return venta;
@@ -118,8 +179,12 @@ export async function createVenta(
     revalidatePath("/productos");
     revalidatePath("/ventas");
     revalidatePath("/caja");
-    
-    return { success: true, ventaId: result.id, total: result.total };
+
+    return {
+      success: true,
+      ventaId: result.id,
+      total: result.total,
+    };
   } catch (error: any) {
     console.error("Error en createVenta:", error);
     return { error: error.message || "Error al registrar la venta" };

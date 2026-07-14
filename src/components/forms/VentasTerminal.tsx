@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
-import { createVenta } from "@/actions/ventas";
+import React, { useState, useTransition, useRef } from "react";
+import { crearClienteRapido, createVenta } from "@/actions/ventas";
 import { formatCurrency } from "@/lib/utils";
 import {
   Search,
@@ -18,12 +18,20 @@ import {
   UserPlus,
   Minus,
   ArrowRight,
-  Package
+  Package,
+  Banknote,
+  ArrowLeftRight,
+  BadgePercent,
+  Receipt,
+  Eye,
+  Calculator,
+  Pencil,
 } from "lucide-react";
 
 interface Product {
   id: number;
   nombre: string;
+  imagen: string | null;
   precioVenta: number;
   cantidad: number;
   categoria: { nombre: string };
@@ -34,6 +42,9 @@ interface Client {
   nombre: string;
   dni: string;
   cuit: string | null;
+  telefono?: string | null;
+  direccion?: string | null;
+  email?: string | null;
 }
 
 interface CartItem {
@@ -47,10 +58,32 @@ interface CartItem {
 interface VentasTerminalProps {
   productos: Product[];
   clientes: Client[];
+  usuario?: { id: number; username: string; nombreCompleto: string } | null;
 }
 
-export default function VentasTerminal({ productos, clientes }: VentasTerminalProps) {
+type DiscountType = "PORCENTAJE" | "MONTO";
+type PaymentMethod = "EFECTIVO" | "TRANSFERENCIA" | "TARJETA_DEBITO" | "TARJETA_CREDITO";
+type ComprobanteType = "FACTURA_A" | "FACTURA_B" | "FACTURA_C";
+
+const PAYMENT_METHODS: { value: PaymentMethod; label: string; icon: React.ReactNode }[] = [
+  { value: "EFECTIVO", label: "Efectivo", icon: <Banknote size={14} /> },
+  { value: "TRANSFERENCIA", label: "Transferencia", icon: <ArrowLeftRight size={14} /> },
+  { value: "TARJETA_DEBITO", label: "Débito", icon: <CreditCard size={14} /> },
+  { value: "TARJETA_CREDITO", label: "Crédito", icon: <CreditCard size={14} /> },
+];
+
+const COMPROBANTES: { value: ComprobanteType; label: string; desc: string }[] = [
+  { value: "FACTURA_A", label: "Factura A", desc: "Responsable inscripto" },
+  { value: "FACTURA_B", label: "Factura B", desc: "Consumidor final" },
+  { value: "FACTURA_C", label: "Factura C", desc: "Exento" },
+];
+
+const CUOTAS_OPTIONS = [3, 6, 12, 18];
+
+export default function VentasTerminal({ productos, clientes, usuario }: VentasTerminalProps) {
   const [isPending, startTransition] = useTransition();
+  const receiptRef = useRef<HTMLDivElement>(null);
+  const issuedReceiptRef = useRef<HTMLDivElement>(null);
 
   // Búsquedas
   const [prodSearch, setProdSearch] = useState("");
@@ -60,14 +93,46 @@ export default function VentasTerminal({ productos, clientes }: VentasTerminalPr
   // Entidades Seleccionadas
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
-  
+
+  // Estados de pago
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("EFECTIVO");
+  const [discountType, setDiscountType] = useState<DiscountType>("MONTO");
+  const [discountValue, setDiscountValue] = useState<string>("0");
+  const [comprobanteType, setComprobanteType] = useState<ComprobanteType>("FACTURA_B");
+  const [cuotas, setCuotas] = useState<number>(3);
+
+  // Modales
+  const [showNewClientModal, setShowNewClientModal] = useState(false);
+  const [showReceiptPreview, setShowReceiptPreview] = useState(false);
+
+  // Nuevo cliente (modal)
+  const [newClientNombre, setNewClientNombre] = useState("");
+  const [newClientDni, setNewClientDni] = useState("");
+  const [newClientTelefono, setNewClientTelefono] = useState("");
+  const [newClientEmail, setNewClientEmail] = useState("");
+  const [newClientError, setNewClientError] = useState("");
+  const [newClientLoading, setNewClientLoading] = useState(false);
+
   // Estado de Ticket/Factura Emitida
   const [issuedInvoice, setIssuedInvoice] = useState<{
     id: number;
     cliente: string;
+    dni: string;
+    cuit: string | null;
+    telefono: string | null;
+    direccion: string | null;
+    email: string | null;
     total: number;
+    subtotal: number;
+    descuento: number;
+    descuentoTipo: string | null;
+    metodoPago: string;
+    tipoComprobante: string;
+    cuotas: number | null;
     fecha: string;
-    detalles: { nombre: string; cantidad: number; precio: number }[];
+    empleado: string;
+    usuarioSistema: string;
+    detalles: { nombre: string; cantidad: number; precio: number; subtotal: number; codigo: string | null }[];
   } | null>(null);
 
   const [errorMsg, setErrorMsg] = useState("");
@@ -75,43 +140,63 @@ export default function VentasTerminal({ productos, clientes }: VentasTerminalPr
   // Obtener categorías únicas
   const categories = Array.from(new Set(productos.map(p => p.categoria.nombre)));
 
-  // Agregar al carrito
+  // ─── CÁLCULOS ───
+  const cartSubtotal = cart.reduce((sum, item) => sum + item.precioVenta * item.cantidad, 0);
+
+  let discountAmount = 0;
+  const numDiscount = parseFloat(discountValue) || 0;
+  if (numDiscount > 0) {
+    if (discountType === "PORCENTAJE") {
+      discountAmount = cartSubtotal * (Math.min(numDiscount, 100) / 100);
+    } else {
+      discountAmount = Math.min(numDiscount, cartSubtotal);
+    }
+  }
+  const cartTotal = cartSubtotal - discountAmount;
+  const cartItemCount = cart.reduce((sum, item) => sum + item.cantidad, 0);
+
+  // ─── AGREGAR AL CARRITO ───
   const addToCart = (product: Product) => {
     setErrorMsg("");
-    const existing = cart.find(item => item.id === product.id);
-
     if (product.cantidad <= 0) {
       setErrorMsg("El producto no posee stock disponible.");
       return;
     }
-
+    const existing = cart.find(item => item.id === product.id);
     if (existing) {
       if (existing.cantidad >= product.cantidad) {
         setErrorMsg(`No puede superar el stock disponible (${product.cantidad} u.).`);
         return;
       }
-      setCart(
-        cart.map(item =>
-          item.id === product.id
-            ? { ...item, cantidad: item.cantidad + 1 }
-            : item
-        )
-      );
+      setCart(cart.map(item => item.id === product.id ? { ...item, cantidad: item.cantidad + 1 } : item));
     } else {
-      setCart([
-        ...cart,
-        {
-          id: product.id,
-          nombre: product.nombre,
-          precioVenta: product.precioVenta,
-          stockDisponible: product.cantidad,
-          cantidad: 1,
-        },
-      ]);
+      setCart([...cart, { id: product.id, nombre: product.nombre, precioVenta: product.precioVenta, stockDisponible: product.cantidad, cantidad: 1 }]);
     }
   };
 
-  // Restar o quitar del carrito
+  // ─── EDITAR CANTIDAD DIRECTA ───
+  const setQuantity = (id: number, rawValue: string) => {
+    setErrorMsg("");
+    if (rawValue === "") {
+      setCart(cart.map(item => item.id === id ? { ...item, cantidad: 0 } : item));
+      return;
+    }
+    const parsed = parseInt(rawValue, 10);
+    if (isNaN(parsed)) return;
+    setCart(
+      cart.map(item => {
+        if (item.id !== id) return item;
+        if (parsed < 1) return { ...item, cantidad: 1 };
+        if (parsed > item.stockDisponible) {
+          setErrorMsg(`No puede superar el stock disponible (${item.stockDisponible} u.).`);
+          return { ...item, cantidad: item.stockDisponible };
+        }
+        return { ...item, cantidad: parsed };
+      })
+    );
+  };
+
+  // ─── ACTUALIZAR CANTIDAD (+/-) ───
   const updateQuantity = (id: number, delta: number) => {
     setErrorMsg("");
     setCart(
@@ -135,12 +220,50 @@ export default function VentasTerminal({ productos, clientes }: VentasTerminalPr
     setCart(cart.filter(item => item.id !== id));
   };
 
-  // Calcular total de venta
-  const cartTotal = cart.reduce((sum, item) => sum + item.precioVenta * item.cantidad, 0);
-  const cartItemCount = cart.reduce((sum, item) => sum + item.cantidad, 0);
+  // ─── CREAR CLIENTE RÁPIDO ───
+  const handleCreateClient = async () => {
+    setNewClientError("");
+    if (!newClientNombre.trim() || !newClientDni.trim()) {
+      setNewClientError("Nombre y DNI son obligatorios.");
+      return;
+    }
+    setNewClientLoading(true);
+    try {
+      const res = await crearClienteRapido(newClientNombre.trim(), newClientDni.trim(), newClientTelefono.trim(), newClientEmail.trim());
+      if (res.success && res.cliente) {
+        setSelectedClient(res.cliente as Client);
+        setShowNewClientModal(false);
+        setNewClientNombre("");
+        setNewClientDni("");
+        setNewClientTelefono("");
+        setNewClientEmail("");
+      } else {
+        setNewClientError(res.error || "Error al crear el cliente.");
+      }
+    } catch {
+      setNewClientError("Error inesperado al crear el cliente.");
+    } finally {
+      setNewClientLoading(false);
+    }
+  };
 
-  // Confirmar Venta transaccional
-  const handleCheckout = async () => {
+  // ─── FILTRAR PRODUCTOS ───
+  const filteredProducts = productos.filter(p => {
+    const matchesSearch = p.nombre.toLowerCase().includes(prodSearch.toLowerCase()) ||
+      p.categoria.nombre.toLowerCase().includes(prodSearch.toLowerCase());
+    const matchesCategory = !selectedCategory || p.categoria.nombre === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
+
+  // ─── FILTRAR CLIENTES ───
+  const filteredClients = clientes.filter(c =>
+    c.nombre.toLowerCase().includes(clientSearch.toLowerCase()) ||
+    c.dni.includes(clientSearch) ||
+    (c.cuit && c.cuit.includes(clientSearch))
+  );
+
+  // ─── ABRIR VISTA PREVIA ───
+  const handleOpenPreview = () => {
     setErrorMsg("");
     if (!selectedClient) {
       setErrorMsg("Debe seleccionar un cliente antes de facturar.");
@@ -150,62 +273,116 @@ export default function VentasTerminal({ productos, clientes }: VentasTerminalPr
       setErrorMsg("El carrito de compras está vacío.");
       return;
     }
+    if (cart.some(item => item.cantidad <= 0)) {
+      setErrorMsg("Hay productos con cantidad inválida en el carrito.");
+      return;
+    }
+    setShowReceiptPreview(true);
+  };
 
-    const items = cart.map(item => ({
-      productoId: item.id,
-      cantidad: item.cantidad,
-    }));
+  // ─── CONFIRMAR COBRO ───
+  const handleConfirmPayment = async () => {
+    setShowReceiptPreview(false);
+    const items = cart.map(item => ({ productoId: item.id, cantidad: item.cantidad }));
 
     startTransition(async () => {
-      const res = await createVenta(selectedClient.id, items);
+      const res = await createVenta(selectedClient!.id, items, paymentMethod, discountType, parseFloat(discountValue) || 0, comprobanteType, paymentMethod === "TARJETA_CREDITO" ? cuotas : null);
 
       if (res.success) {
-        // Almacenar datos para renderizar el ticket
+        const now = new Date();
         setIssuedInvoice({
           id: res.ventaId!,
-          cliente: selectedClient.nombre,
+          cliente: selectedClient!.nombre,
+          dni: selectedClient!.dni,
+          cuit: selectedClient!.cuit ?? null,
+          telefono: (selectedClient as any).telefono ?? null,
+          direccion: (selectedClient as any).direccion ?? null,
+          email: (selectedClient as any).email ?? null,
           total: res.total!,
-          fecha: new Date().toLocaleDateString("es-AR") + " " + new Date().toLocaleTimeString("es-AR"),
-          detalles: cart.map(item => ({
-            nombre: item.nombre,
-            cantidad: item.cantidad,
-            precio: item.precioVenta,
-          })),
+          subtotal: cartSubtotal,
+          descuento: discountAmount,
+          descuentoTipo: discountType,
+          metodoPago: paymentMethod,
+          tipoComprobante: comprobanteType,
+          cuotas: paymentMethod === "TARJETA_CREDITO" ? cuotas : null,
+          fecha: now.toLocaleDateString("es-AR") + " " + now.toLocaleTimeString("es-AR"),
+          empleado: usuario?.nombreCompleto || "N/D",
+          usuarioSistema: usuario?.username || "N/D",
+          detalles: cart.map(item => {
+            const fullProduct = productos.find(p => p.id === item.id);
+            return {
+              nombre: item.nombre,
+              cantidad: item.cantidad,
+              precio: item.precioVenta,
+              subtotal: item.precioVenta * item.cantidad,
+              codigo: (fullProduct as any)?.codigo ?? null,
+            };
+          }),
         });
-
-        // Limpiar estados
+        // Limpiar
         setCart([]);
         setSelectedClient(null);
+        setPaymentMethod("EFECTIVO");
+        setDiscountValue("0");
+        setComprobanteType("FACTURA_B");
+        setCuotas(3);
+        setClientSearch("");
       } else {
         setErrorMsg(res.error || "Ocurrió un error al procesar el pago.");
       }
     });
   };
 
-  // Filtrar productos
-  const filteredProducts = productos.filter(p => {
-    const matchesSearch = p.nombre.toLowerCase().includes(prodSearch.toLowerCase()) ||
-      p.categoria.nombre.toLowerCase().includes(prodSearch.toLowerCase());
-    const matchesCategory = !selectedCategory || p.categoria.nombre === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+  // ─── IMPRIMIR COMPROBANTE ───
+  const handlePrint = () => {
+    // Try issued receipt first (post-payment), then preview receipt
+    const content = issuedReceiptRef.current || receiptRef.current;
+    if (!content) return;
 
-  // Filtrar clientes
-  const filteredClients = clientes.filter(c =>
-    c.nombre.toLowerCase().includes(clientSearch.toLowerCase()) ||
-    c.dni.includes(clientSearch) ||
-    (c.cuit && c.cuit.includes(clientSearch))
-  );
+    // Remove old overlay if exists
+    const old = document.getElementById("print-overlay");
+    if (old) old.remove();
+
+    // Create overlay at body level with receipt content
+    const overlay = document.createElement("div");
+    overlay.id = "print-overlay";
+    overlay.innerHTML = content.innerHTML;
+    document.body.appendChild(overlay);
+
+    // Add class to body to hide other elements during print
+    document.body.classList.add("print-active");
+
+    // Print then cleanup
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => {
+        overlay.remove();
+        document.body.classList.remove("print-active");
+      }, 500);
+    }, 100);
+  };
+
+  // ─── PAYMENT METHOD LABEL ───
+  const getPaymentLabel = (m: string) => PAYMENT_METHODS.find(p => p.value === m)?.label || m;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-      {/* SECCIÓN IZQUIERDA: Productos (7/12 cols) */}
+      {/* ═══ SECCIÓN IZQUIERDA: Productos (7/12 cols) ═══ */}
       <div className="lg:col-span-7 space-y-4 md:space-y-6">
         {/* 1. Panel de Selección de Clientes */}
         <div className="bg-[var(--card)] border border-[var(--border)] rounded-[var(--radius-lg)] p-5 space-y-4 shadow-[var(--shadow-sm)]">
-          <div className="flex items-center space-x-2 text-[var(--brand)]">
-            <Users size={18} />
-            <h2 className="text-base font-bold text-[var(--text)]">Selección de Cliente</h2>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2 text-[var(--brand)]">
+              <Users size={18} />
+              <h2 className="text-base font-bold text-[var(--text)]">Selección de Cliente</h2>
+            </div>
+            <button
+              onClick={() => setShowNewClientModal(true)}
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-[var(--brand-light)] text-[var(--brand)] border border-[var(--brand)]/20 rounded-[var(--radius-md)] text-xs font-semibold hover:bg-[var(--brand)] hover:text-white transition-all"
+            >
+              <UserPlus size={14} />
+              <span>Nuevo cliente</span>
+            </button>
           </div>
 
           <div className="relative">
@@ -221,6 +398,9 @@ export default function VentasTerminal({ productos, clientes }: VentasTerminalPr
 
           {/* Grilla Clientes */}
           <div className="max-h-36 overflow-y-auto border border-[var(--border)] rounded-[var(--radius-md)] divide-y divide-[var(--border)]">
+            {filteredClients.length === 0 && (
+              <div className="px-3 py-4 text-xs text-[var(--text-secondary)] text-center">No se encontraron clientes</div>
+            )}
             {filteredClients.map(c => {
               const isSelected = selectedClient?.id === c.id;
               return (
@@ -304,32 +484,25 @@ export default function VentasTerminal({ productos, clientes }: VentasTerminalPr
                   key={p.id}
                   onClick={() => !hasNoStock && addToCart(p)}
                   className={`bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-lg)] p-3 cursor-pointer transition-all hover:border-[var(--border-hover)] hover:shadow-[var(--shadow-md)] ${
-                    hasNoStock
-                      ? "opacity-40 cursor-not-allowed"
-                      : "hover:scale-[1.02]"
+                    hasNoStock ? "opacity-40 cursor-not-allowed" : "hover:scale-[1.02]"
                   }`}
                 >
-                  {/* Product Image Placeholder */}
-                  <div className="w-full aspect-square bg-[var(--panel)] rounded-[var(--radius-md)] flex items-center justify-center mb-3">
-                    <Package size={24} className="text-[var(--text-secondary)]" />
+                  <div className="w-full aspect-square bg-[var(--panel)] rounded-[var(--radius-md)] flex items-center justify-center mb-3 overflow-hidden">
+                    {p.imagen ? (
+                      <img src={p.imagen} alt={p.nombre} className="w-full h-full object-cover" />
+                    ) : (
+                      <Package size={24} className="text-[var(--text-secondary)]" />
+                    )}
                   </div>
-                  
-                  {/* Product Info */}
                   <div className="space-y-2">
                     <p className="text-xs font-semibold text-[var(--text)] line-clamp-2 leading-tight">{p.nombre}</p>
                     <p className="text-[10px] text-[var(--text-secondary)]">{p.categoria.nombre}</p>
-                    
-                    {/* Stock Badge */}
                     <div className="flex items-center justify-between">
-                      <span className={`text-[10px] font-mono font-semibold ${
-                        hasNoStock ? "text-[var(--danger)]" : isLowStock ? "text-[var(--warning)]" : "text-[var(--success)]"
-                      }`}>
+                      <span className={`text-[10px] font-mono font-semibold ${hasNoStock ? "text-[var(--danger)]" : isLowStock ? "text-[var(--warning)]" : "text-[var(--success)]"}`}>
                         {p.cantidad} u.
                       </span>
                       <span className="text-[9px] text-[var(--text-secondary)]">Stock</span>
                     </div>
-                    
-                    {/* Price and Add Button */}
                     <div className="flex items-center justify-between">
                       <p className="text-xs font-bold text-[var(--brand)] font-mono">{formatCurrency(p.precioVenta)}</p>
                       {!hasNoStock && (
@@ -346,7 +519,7 @@ export default function VentasTerminal({ productos, clientes }: VentasTerminalPr
         </div>
       </div>
 
-      {/* SECCIÓN DERECHA: Carrito de Compras (5/12 cols) - Sticky */}
+      {/* ═══ SECCIÓN DERECHA: Carrito + Pago (5/12 cols) - Sticky ═══ */}
       <div className="lg:col-span-5 lg:sticky lg:top-6">
         <div className="bg-[var(--card)] border border-[var(--border)] rounded-[var(--radius-lg)] p-5 space-y-5 flex flex-col shadow-[var(--shadow-sm)]">
           {/* Header Carrito */}
@@ -361,7 +534,7 @@ export default function VentasTerminal({ productos, clientes }: VentasTerminalPr
           </div>
 
           {/* Listado de ítems del Carrito */}
-          <div className="flex-1 overflow-y-auto space-y-3 pr-1 max-h-80">
+          <div className="flex-1 overflow-y-auto space-y-3 pr-1 max-h-64">
             {cart.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-[var(--text-secondary)] py-16 space-y-2">
                 <ShoppingCart size={32} className="opacity-40" />
@@ -370,12 +543,12 @@ export default function VentasTerminal({ productos, clientes }: VentasTerminalPr
             ) : (
               cart.map(item => (
                 <div key={item.id} className="p-3 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] flex items-center justify-between">
-                  <div className="max-w-[60%]">
+                  <div className="max-w-[50%]">
                     <p className="text-xs font-semibold text-[var(--text)] truncate">{item.nombre}</p>
                     <p className="text-[10px] text-[var(--brand)] font-mono mt-0.5">{formatCurrency(item.precioVenta)} c/u</p>
                   </div>
                   <div className="flex items-center space-x-3">
-                    {/* Controles de Cantidad */}
+                    {/* Controles de Cantidad Editable */}
                     <div className="flex items-center bg-[var(--panel)] border border-[var(--border)] rounded-[var(--radius-md)] overflow-hidden h-7">
                       <button
                         onClick={() => updateQuantity(item.id, -1)}
@@ -383,7 +556,17 @@ export default function VentasTerminal({ productos, clientes }: VentasTerminalPr
                       >
                         <Minus size={10} />
                       </button>
-                      <span className="px-2 text-xs font-mono font-semibold text-[var(--text)]">{item.cantidad}</span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={item.cantidad}
+                        onChange={e => setQuantity(item.id, e.target.value)}
+                        onBlur={e => {
+                          const v = parseInt(e.target.value, 10);
+                          if (isNaN(v) || v < 1) setQuantity(item.id, "1");
+                        }}
+                        className="w-8 text-center text-xs font-mono font-semibold text-[var(--text)] bg-transparent border-x border-[var(--border)] outline-none focus:bg-[var(--brand-light)] h-full"
+                      />
                       <button
                         onClick={() => updateQuantity(item.id, 1)}
                         className="px-2 text-[var(--text-secondary)] hover:text-[var(--text)] transition text-xs font-bold"
@@ -391,7 +574,6 @@ export default function VentasTerminal({ productos, clientes }: VentasTerminalPr
                         <Plus size={10} />
                       </button>
                     </div>
-                    {/* Quitar */}
                     <button
                       onClick={() => removeFromCart(item.id)}
                       className="text-[var(--text-secondary)] hover:text-[var(--danger)] transition"
@@ -404,34 +586,114 @@ export default function VentasTerminal({ productos, clientes }: VentasTerminalPr
             )}
           </div>
 
-          {/* Checkout Info */}
+          {/* ═══ SECCIÓN DE PAGO ═══ */}
           <div className="border-t border-[var(--border)] pt-4 space-y-4">
-            {/* Cliente Activo */}
+            {/* Cliente Asignado */}
             <div className="flex justify-between items-center text-xs">
-              <span className="text-[var(--text-secondary)]">Cliente Asignado:</span>
+              <span className="text-[var(--text-secondary)]">Cliente:</span>
               <span className="font-semibold text-[var(--text)]">
                 {selectedClient ? selectedClient.nombre : <span className="text-[var(--text-secondary)] italic">No seleccionado</span>}
               </span>
             </div>
 
-            {/* Summary Section */}
+            {/* Forma de Pago */}
             <div className="space-y-2">
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-[var(--text-secondary)]">Subtotal:</span>
-                <span className="font-mono text-[var(--text)]">{formatCurrency(cartTotal)}</span>
-              </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-[var(--text-secondary)]">IVA (21%):</span>
-                <span className="font-mono text-[var(--text)]">{formatCurrency(cartTotal * 0.21)}</span>
-              </div>
-              <div className="h-px bg-[var(--border)] my-2"></div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-bold text-[var(--text)]">Total:</span>
-                <span className="text-xl font-black font-mono text-[var(--success)]">{formatCurrency(cartTotal * 1.21)}</span>
+              <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Forma de Pago</label>
+              <div className="grid grid-cols-2 gap-2">
+                {PAYMENT_METHODS.map(pm => (
+                  <button
+                    key={pm.value}
+                    onClick={() => setPaymentMethod(pm.value)}
+                    className={`flex items-center justify-center space-x-1.5 py-2 px-3 rounded-[var(--radius-md)] text-xs font-semibold transition-all border ${
+                      paymentMethod === pm.value
+                        ? "bg-[var(--brand)] text-white border-[var(--brand)] shadow-md"
+                        : "bg-[var(--bg)] text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--border-hover)]"
+                    }`}
+                  >
+                    {pm.icon}
+                    <span>{pm.label}</span>
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* Mensajes de Error */}
+            {/* Descuento */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider flex items-center space-x-1.5">
+                <BadgePercent size={14} />
+                <span>Descuento</span>
+              </label>
+              <div className="flex gap-2">
+                <select
+                  value={discountType}
+                  onChange={e => setDiscountType(e.target.value as DiscountType)}
+                  className="py-2 px-3 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-xs text-[var(--text)] focus:outline-none focus:border-[var(--brand)] appearance-none cursor-pointer"
+                >
+                  <option value="MONTO">$ Monto fijo</option>
+                  <option value="PORCENTAJE">% Porcentaje</option>
+                </select>
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={discountValue}
+                    onChange={e => {
+                      const val = e.target.value.replace(/[^0-9.]/g, "");
+                      setDiscountValue(val);
+                    }}
+                    placeholder="0"
+                    className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-xs text-[var(--text)] font-mono focus:outline-none focus:border-[var(--brand)]"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[var(--text-secondary)] font-bold">
+                    {discountType === "PORCENTAJE" ? "%" : "$"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Tipo de Comprobante */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider flex items-center space-x-1.5">
+                <Receipt size={14} />
+                <span>Comprobante</span>
+              </label>
+              <div className="flex gap-2">
+                {COMPROBANTES.map(comp => (
+                  <button
+                    key={comp.value}
+                    onClick={() => setComprobanteType(comp.value)}
+                    className={`flex-1 py-2 px-2 rounded-[var(--radius-md)] text-xs font-semibold transition-all border text-center ${
+                      comprobanteType === comp.value
+                        ? "bg-[var(--brand)] text-white border-[var(--brand)]"
+                        : "bg-[var(--bg)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--border-hover)]"
+                    }`}
+                  >
+                    {comp.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Resumen */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-[var(--text-secondary)]">Subtotal:</span>
+                <span className="font-mono text-[var(--text)]">{formatCurrency(cartSubtotal)}</span>
+              </div>
+              {discountAmount > 0 && (
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-[var(--danger)]">Descuento ({discountType === "PORCENTAJE" ? `${Math.min(numDiscount, 100)}%` : "fijo"}):</span>
+                  <span className="font-mono text-[var(--danger)] font-semibold">-{formatCurrency(discountAmount)}</span>
+                </div>
+              )}
+              <div className="h-px bg-[var(--border)] my-2"></div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-bold text-[var(--text)]">Total:</span>
+                <span className="text-xl font-black font-mono text-[var(--success)]">{formatCurrency(cartTotal)}</span>
+              </div>
+            </div>
+
+            {/* Error */}
             {errorMsg && (
               <div className="p-3 bg-[var(--danger-light)] border border-[var(--danger)]/20 text-[var(--danger)] text-xs font-semibold rounded-[var(--radius-md)] flex items-center space-x-2">
                 <AlertTriangle size={14} />
@@ -439,9 +701,9 @@ export default function VentasTerminal({ productos, clientes }: VentasTerminalPr
               </div>
             )}
 
-            {/* Botón Cobrar - ROJO Y PROMINENTE */}
+            {/* Botón Cobrar */}
             <button
-              onClick={handleCheckout}
+              onClick={handleOpenPreview}
               disabled={isPending || cart.length === 0}
               className="w-full py-4 bg-gradient-to-r from-[var(--danger)] to-[var(--brand)] hover:from-[var(--brand)] hover:to-[var(--danger)] text-white font-bold rounded-[var(--radius-lg)] shadow-lg shadow-[var(--danger)]/20 focus:outline-none transition duration-150 flex items-center justify-center text-base disabled:opacity-40 hover:shadow-xl hover:shadow-[var(--danger)]/30"
             >
@@ -462,6 +724,8 @@ export default function VentasTerminal({ productos, clientes }: VentasTerminalPr
                   setCart([]);
                   setSelectedClient(null);
                   setErrorMsg("");
+                  setPaymentMethod("EFECTIVO");
+                  setDiscountValue("0");
                 }}
                 className="w-full py-2.5 bg-transparent border border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--bg)] hover:text-[var(--text)] font-semibold rounded-[var(--radius-md)] transition duration-150 text-xs"
               >
@@ -472,83 +736,439 @@ export default function VentasTerminal({ productos, clientes }: VentasTerminalPr
         </div>
       </div>
 
-      {/* 5. TICKET DE VENTA EMITIDA (DIALOG DE EXITO) */}
-      {issuedInvoice && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white text-slate-900 border border-slate-300 w-full max-w-sm rounded-[var(--radius-xl)] p-6 shadow-2xl relative animate-in zoom-in-95 duration-200 font-mono text-xs">
-            {/* Cerrar modal */}
+      {/* ═══ MODAL: NUEVO CLIENTE ═══ */}
+      {showNewClientModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[var(--card)] border border-[var(--border)] w-full max-w-sm rounded-[var(--radius-xl)] p-6 shadow-2xl relative animate-in zoom-in-95 duration-200">
             <button
-              onClick={() => setIssuedInvoice(null)}
-              className="absolute right-4 top-4 p-1.5 rounded-[var(--radius-md)] bg-slate-100 text-slate-500 hover:text-slate-900 hover:bg-slate-200 transition"
+              onClick={() => setShowNewClientModal(false)}
+              className="absolute right-4 top-4 p-1.5 rounded-[var(--radius-md)] text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--bg)] transition"
             >
               <X size={16} />
             </button>
 
-            {/* Cabecera del Ticket */}
-            <div className="text-center border-b border-dashed border-slate-300 pb-4 mb-4">
-              <h3 className="text-base font-black uppercase tracking-wider">CHOPPER REPUESTOS</h3>
-              <p className="text-[10px] text-slate-500 mt-1">Av. Roque Saenz Peña 1500 - Posadas</p>
-              <p className="text-[10px] text-slate-500">CUIT: 37323400546</p>
+            <div className="flex items-center space-x-2 text-[var(--brand)] mb-5">
+              <UserPlus size={18} />
+              <h3 className="text-sm font-bold text-[var(--text)]">Nuevo Cliente Rápido</h3>
             </div>
 
-            {/* Metadata Venta */}
-            <div className="space-y-1 border-b border-dashed border-slate-300 pb-4 mb-4">
-              <div className="flex justify-between">
-                <span>FACTURA Nº:</span>
-                <span className="font-bold">#{issuedInvoice.id.toString().padStart(6, "0")}</span>
+            <div className="space-y-3">
+              <div>
+                <label className="text-[10px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-1 block">Nombre y Apellido *</label>
+                <input
+                  type="text"
+                  value={newClientNombre}
+                  onChange={e => setNewClientNombre(e.target.value)}
+                  placeholder="Ej: Juan Pérez"
+                  className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-xs text-[var(--text)] focus:outline-none focus:border-[var(--brand)]"
+                />
               </div>
-              <div className="flex justify-between">
-                <span>FECHA:</span>
-                <span>{issuedInvoice.fecha}</span>
+              <div>
+                <label className="text-[10px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-1 block">DNI *</label>
+                <input
+                  type="text"
+                  value={newClientDni}
+                  onChange={e => setNewClientDni(e.target.value.replace(/[^0-9]/g, ""))}
+                  placeholder="Ej: 40123456"
+                  className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-xs text-[var(--text)] font-mono focus:outline-none focus:border-[var(--brand)]"
+                />
               </div>
-              <div className="flex justify-between">
-                <span>CLIENTE:</span>
-                <span className="font-bold truncate max-w-[70%]">{issuedInvoice.cliente}</span>
+              <div>
+                <label className="text-[10px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-1 block">Teléfono</label>
+                <input
+                  type="text"
+                  value={newClientTelefono}
+                  onChange={e => setNewClientTelefono(e.target.value)}
+                  placeholder="Ej: 3764-123456"
+                  className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-xs text-[var(--text)] focus:outline-none focus:border-[var(--brand)]"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-1 block">Correo (opcional)</label>
+                <input
+                  type="email"
+                  value={newClientEmail}
+                  onChange={e => setNewClientEmail(e.target.value)}
+                  placeholder="Ej: juan@email.com"
+                  className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-xs text-[var(--text)] focus:outline-none focus:border-[var(--brand)]"
+                />
               </div>
             </div>
 
-            {/* Desglose de Productos */}
-            <div className="space-y-2 border-b border-dashed border-slate-300 pb-4 mb-4">
-              <div className="flex justify-between font-bold text-slate-500">
-                <span>DETALLE</span>
-                <span>CANT x PRECIO</span>
+            {newClientError && (
+              <div className="mt-3 p-2.5 bg-[var(--danger-light)] border border-[var(--danger)]/20 text-[var(--danger)] text-xs font-semibold rounded-[var(--radius-md)]">
+                {newClientError}
               </div>
-              {issuedInvoice.detalles.map((det, index) => (
-                <div key={index} className="flex justify-between leading-normal">
-                  <span className="truncate max-w-[65%]">{det.nombre}</span>
-                  <span className="font-mono text-right flex-shrink-0">
-                    {det.cantidad} x {formatCurrency(det.precio)}
-                  </span>
+            )}
+
+            <div className="flex gap-2 mt-5">
+              <button
+                onClick={() => setShowNewClientModal(false)}
+                className="flex-1 py-2.5 bg-[var(--bg)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] font-semibold rounded-[var(--radius-md)] transition text-xs"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleCreateClient}
+                disabled={newClientLoading}
+                className="flex-1 py-2.5 bg-[var(--brand)] text-white font-semibold rounded-[var(--radius-md)] transition text-xs hover:opacity-90 disabled:opacity-50"
+              >
+                {newClientLoading ? "Guardando..." : "Guardar y Seleccionar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ MODAL: VISTA PREVIA DEL COMPROBANTE ═══ */}
+      {showReceiptPreview && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[var(--card)] border border-[var(--border)] w-full max-w-2xl rounded-[var(--radius-xl)] shadow-2xl relative animate-in zoom-in-95 duration-200 max-h-[95vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-[var(--border)]">
+              <div className="flex items-center space-x-2 text-[var(--brand)]">
+                <Eye size={18} />
+                <h3 className="text-sm font-bold text-[var(--text)]">Vista Previa del Comprobante</h3>
+              </div>
+              <button
+                onClick={() => setShowReceiptPreview(false)}
+                className="p-1.5 rounded-[var(--radius-md)] text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--bg)] transition"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Receipt Content — styled like A4 invoice */}
+            <div className="flex-1 overflow-y-auto p-6">
+              <div ref={receiptRef} className="bg-white text-gray-900 p-8 rounded font-sans text-xs" style={{ maxWidth: "750px", margin: "0 auto" }}>
+
+                {/* ── HEADER ── */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "2px solid #D62828", paddingBottom: "16px", marginBottom: "16px" }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
+                      <img src="/logo.png" alt="Logo" style={{ height: "48px", width: "auto" }} />
+                      <span style={{ fontSize: "20px", fontWeight: 800, color: "#D62828", textTransform: "uppercase", letterSpacing: "1px" }}>Chopper Repuestos</span>
+                    </div>
+                    <div style={{ fontSize: "9px", color: "#555", lineHeight: 1.5 }}>
+                      Av. Roque Saenz Peña 1500<br />
+                      Posadas, Misiones<br />
+                      Tel: (0376) 444-5555<br />
+                      Email: info@chopperrepuestos.com.ar<br />
+                      CUIT: 37-32340054-6<br />
+                      Condición IVA: Responsable Inscripto
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right", minWidth: "180px" }}>
+                    <div style={{ fontSize: "16px", fontWeight: 800, color: "#D62828", border: "2px solid #D62828", padding: "6px 14px", display: "inline-block", marginBottom: "6px" }}>
+                      {COMPROBANTES.find(c => c.value === comprobanteType)?.label}
+                    </div>
+                    <div style={{ fontSize: "9px", color: "#555", lineHeight: 1.6, textAlign: "right" }}>
+                      <div>Nº: <strong>0001-00000001</strong></div>
+                      <div>Fecha: <strong>{new Date().toLocaleDateString("es-AR")}</strong></div>
+                      <div>Hora: <strong>{new Date().toLocaleTimeString("es-AR")}</strong></div>
+                    </div>
+                  </div>
                 </div>
-              ))}
-            </div>
 
-            {/* Total Cobrado */}
-            <div className="space-y-1 pb-4 mb-4 text-sm font-bold flex justify-between border-b border-slate-300">
-              <span>TOTAL NETO:</span>
-              <span className="font-mono text-slate-950 text-base">{formatCurrency(issuedInvoice.total)}</span>
-            </div>
+                {/* ── CLIENT + EMPLOYEE ── */}
+                <div style={{ display: "flex", gap: "24px", marginBottom: "14px" }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: "10px", fontWeight: 700, color: "#D62828", textTransform: "uppercase", letterSpacing: "1px", borderBottom: "1px solid #e0e0e0", paddingBottom: "4px", marginBottom: "8px" }}>Datos del Cliente</div>
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", fontSize: "9px" }}>
+                      <span style={{ color: "#777", fontWeight: 600 }}>Nombre:</span>
+                      <span style={{ color: "#1a1a1a" }}>{selectedClient?.nombre}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", fontSize: "9px" }}>
+                      <span style={{ color: "#777", fontWeight: 600 }}>DNI/CUIT:</span>
+                      <span style={{ color: "#1a1a1a" }}>{selectedClient?.dni}{selectedClient?.cuit ? ` / ${selectedClient.cuit}` : ""}</span>
+                    </div>
+                    {(selectedClient as any)?.telefono && (
+                      <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", fontSize: "9px" }}>
+                        <span style={{ color: "#777", fontWeight: 600 }}>Teléfono:</span>
+                        <span style={{ color: "#1a1a1a" }}>{(selectedClient as any).telefono}</span>
+                      </div>
+                    )}
+                    {(selectedClient as any)?.email && (
+                      <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", fontSize: "9px" }}>
+                        <span style={{ color: "#777", fontWeight: 600 }}>Email:</span>
+                        <span style={{ color: "#1a1a1a" }}>{(selectedClient as any).email}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: "10px", fontWeight: 700, color: "#D62828", textTransform: "uppercase", letterSpacing: "1px", borderBottom: "1px solid #e0e0e0", paddingBottom: "4px", marginBottom: "8px" }}>Empleado</div>
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", fontSize: "9px" }}>
+                      <span style={{ color: "#777", fontWeight: 600 }}>Vendedor:</span>
+                      <span style={{ color: "#1a1a1a" }}>{usuario?.nombreCompleto || "N/D"}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", fontSize: "9px" }}>
+                      <span style={{ color: "#777", fontWeight: 600 }}>Usuario:</span>
+                      <span style={{ color: "#1a1a1a" }}>{usuario?.username || "N/D"}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", fontSize: "9px" }}>
+                      <span style={{ color: "#777", fontWeight: 600 }}>Emisión:</span>
+                      <span style={{ color: "#1a1a1a" }}>{new Date().toLocaleDateString("es-AR")} {new Date().toLocaleTimeString("es-AR")}</span>
+                    </div>
+                  </div>
+                </div>
 
-            {/* Pie de Página */}
-            <div className="text-center text-slate-500 space-y-2">
-              <p className="text-[10px]">¡GRACIAS POR SU COMPRA!</p>
-              <p className="text-[9px] italic">Este ticket sirve como constancia de pago.</p>
-              
-              <div className="pt-2 flex justify-center space-x-3 print:hidden">
-                <button
-                  onClick={() => window.print()}
-                  className="px-4 py-2 bg-slate-900 text-white hover:bg-slate-800 font-sans font-semibold rounded-[var(--radius-md)] flex items-center space-x-1.5 transition text-xs shadow-md"
-                >
-                  <Printer size={12} />
-                  <span>Imprimir</span>
-                </button>
-                <button
-                  onClick={() => setIssuedInvoice(null)}
-                  className="px-4 py-2 bg-slate-200 text-slate-800 hover:bg-slate-300 font-sans font-semibold rounded-[var(--radius-md)] flex items-center transition text-xs"
-                >
-                  <span>Cerrar</span>
-                </button>
+                {/* ── PRODUCTS TABLE ── */}
+                <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "14px" }}>
+                  <thead>
+                    <tr>
+                      <th style={{ background: "#D62828", color: "#fff", fontSize: "8px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", padding: "6px 8px", textAlign: "left", width: "10%" }}>Código</th>
+                      <th style={{ background: "#D62828", color: "#fff", fontSize: "8px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", padding: "6px 8px", textAlign: "left", width: "38%" }}>Producto</th>
+                      <th style={{ background: "#D62828", color: "#fff", fontSize: "8px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", padding: "6px 8px", textAlign: "center", width: "10%" }}>Cant.</th>
+                      <th style={{ background: "#D62828", color: "#fff", fontSize: "8px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", padding: "6px 8px", textAlign: "right", width: "14%" }}>P. Unit.</th>
+                      <th style={{ background: "#D62828", color: "#fff", fontSize: "8px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", padding: "6px 8px", textAlign: "right", width: "12%" }}>Descuento</th>
+                      <th style={{ background: "#D62828", color: "#fff", fontSize: "8px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", padding: "6px 8px", textAlign: "right", width: "16%" }}>Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cart.map((item, idx) => (
+                      <tr key={item.id} style={{ borderBottom: "1px solid #eee", background: idx % 2 === 0 ? "#fff" : "#fafafa" }}>
+                        <td style={{ padding: "5px 8px", fontSize: "9px", color: "#999" }}>-</td>
+                        <td style={{ padding: "5px 8px", fontSize: "9px" }}>{item.nombre}</td>
+                        <td style={{ padding: "5px 8px", fontSize: "9px", textAlign: "center" }}>{item.cantidad}</td>
+                        <td style={{ padding: "5px 8px", fontSize: "9px", textAlign: "right", fontFamily: "Consolas, monospace" }}>{formatCurrency(item.precioVenta)}</td>
+                        <td style={{ padding: "5px 8px", fontSize: "9px", textAlign: "right", fontFamily: "Consolas, monospace" }}>-</td>
+                        <td style={{ padding: "5px 8px", fontSize: "9px", textAlign: "right", fontFamily: "Consolas, monospace" }}>{formatCurrency(item.precioVenta * item.cantidad)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {/* ── SUMMARY ── */}
+                <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "14px" }}>
+                  <div style={{ width: "280px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: "9px" }}>
+                      <span style={{ color: "#777" }}>Subtotal:</span>
+                      <span style={{ fontFamily: "Consolas, monospace" }}>{formatCurrency(cartSubtotal)}</span>
+                    </div>
+                    {discountAmount > 0 && (
+                      <div style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: "9px" }}>
+                        <span style={{ color: "#777" }}>Descuento ({discountType === "PORCENTAJE" ? `${Math.min(numDiscount, 100)}%` : "fijo"}):</span>
+                        <span style={{ fontFamily: "Consolas, monospace", color: "#D62828", fontWeight: 600 }}>-{formatCurrency(discountAmount)}</span>
+                      </div>
+                    )}
+                    <div style={{ borderTop: "2px solid #D62828", marginTop: "4px", paddingTop: "6px", display: "flex", justifyContent: "space-between", fontSize: "13px", fontWeight: 800 }}>
+                      <span>TOTAL:</span>
+                      <span style={{ color: "#D62828", fontFamily: "Consolas, monospace" }}>{formatCurrency(cartTotal)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── PAYMENT ── */}
+                <div style={{ background: "#f8f8f8", border: "1px solid #e0e0e0", borderRadius: "4px", padding: "8px 12px", marginBottom: "14px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "9px", padding: "2px 0" }}>
+                    <span style={{ color: "#777" }}>Forma de Pago:</span>
+                    <span style={{ fontWeight: 700 }}>{getPaymentLabel(paymentMethod)}</span>
+                  </div>
+                </div>
+
+                {/* ── OBSERVATIONS ── */}
+                <div style={{ border: "1px dashed #ccc", borderRadius: "4px", padding: "8px 12px", minHeight: "36px", marginBottom: "14px", fontSize: "9px", color: "#999" }}>
+                  Observaciones: _______________
+                </div>
+
+                {/* ── FOOTER ── */}
+                <div style={{ textAlign: "center", borderTop: "2px solid #D62828", paddingTop: "12px", marginTop: "16px" }}>
+                  <div style={{ fontSize: "11px", fontWeight: 700, color: "#333", marginBottom: "4px" }}>¡Gracias por su compra!</div>
+                  <div style={{ fontSize: "8px", color: "#999" }}>Chopper Repuestos — Posadas, Misiones</div>
+                </div>
               </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="p-5 border-t border-[var(--border)] flex gap-3">
+              <button
+                onClick={() => setShowReceiptPreview(false)}
+                className="flex-1 py-2.5 bg-[var(--bg)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] font-semibold rounded-[var(--radius-md)] transition text-xs"
+              >
+                Volver
+              </button>
+              <button
+                onClick={handleConfirmPayment}
+                disabled={isPending}
+                className="flex-1 py-2.5 bg-[var(--success)] text-white font-semibold rounded-[var(--radius-md)] transition text-xs hover:opacity-90 disabled:opacity-50 flex items-center justify-center space-x-1.5"
+              >
+                <CheckCircle size={14} />
+                <span>{isPending ? "Procesando..." : "Confirmar Cobro"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ MODAL: COMPROBANTE EMITIDO ═══ */}
+      {issuedInvoice && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[var(--card)] border border-[var(--border)] w-full max-w-2xl rounded-[var(--radius-xl)] shadow-2xl relative animate-in zoom-in-95 duration-200 max-h-[95vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-[var(--border)]">
+              <div className="flex items-center space-x-2 text-[var(--success)]">
+                <CheckCircle size={18} />
+                <h3 className="text-sm font-bold text-[var(--text)]">Comprobante Emitido</h3>
+              </div>
+              <button
+                onClick={() => setIssuedInvoice(null)}
+                className="p-1.5 rounded-[var(--radius-md)] text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--bg)] transition"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Receipt Content — mirrors preview but with issued data */}
+            <div className="flex-1 overflow-y-auto p-6">
+              <div ref={issuedReceiptRef} className="bg-white text-gray-900 p-8 rounded font-sans text-xs" style={{ maxWidth: "750px", margin: "0 auto" }}>
+
+                {/* ── HEADER ── */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "2px solid #D62828", paddingBottom: "16px", marginBottom: "16px" }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
+                      <img src="/logo.png" alt="Logo" style={{ height: "48px", width: "auto" }} />
+                      <span style={{ fontSize: "20px", fontWeight: 800, color: "#D62828", textTransform: "uppercase", letterSpacing: "1px" }}>Chopper Repuestos</span>
+                    </div>
+                    <div style={{ fontSize: "9px", color: "#555", lineHeight: 1.5 }}>
+                      Av. Roque Saenz Peña 1500<br />
+                      Posadas, Misiones<br />
+                      Tel: (0376) 444-5555<br />
+                      Email: info@chopperrepuestos.com.ar<br />
+                      CUIT: 37-32340054-6<br />
+                      Condición IVA: Responsable Inscripto
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right", minWidth: "180px" }}>
+                    <div style={{ fontSize: "16px", fontWeight: 800, color: "#D62828", border: "2px solid #D62828", padding: "6px 14px", display: "inline-block", marginBottom: "6px" }}>
+                      {COMPROBANTES.find(c => c.value === issuedInvoice.tipoComprobante)?.label}
+                    </div>
+                    <div style={{ fontSize: "9px", color: "#555", lineHeight: 1.6, textAlign: "right" }}>
+                      <div>Nº: <strong>#{issuedInvoice.id.toString().padStart(6, "0")}</strong></div>
+                      <div>Fecha: <strong>{issuedInvoice.fecha}</strong></div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── CLIENT + EMPLOYEE ── */}
+                <div style={{ display: "flex", gap: "24px", marginBottom: "14px" }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: "10px", fontWeight: 700, color: "#D62828", textTransform: "uppercase", letterSpacing: "1px", borderBottom: "1px solid #e0e0e0", paddingBottom: "4px", marginBottom: "8px" }}>Datos del Cliente</div>
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", fontSize: "9px" }}>
+                      <span style={{ color: "#1a1a1a", fontWeight: 600 }}>Nombre:</span>
+                      <span style={{ color: "#1a1a1a" }}>{issuedInvoice.cliente}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", fontSize: "9px" }}>
+                      <span style={{ color: "#1a1a1a", fontWeight: 600 }}>DNI/CUIT:</span>
+                      <span style={{ color: "#1a1a1a" }}>{issuedInvoice.dni}{issuedInvoice.cuit ? ` / ${issuedInvoice.cuit}` : ""}</span>
+                    </div>
+                    {issuedInvoice.telefono && (
+                      <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", fontSize: "9px" }}>
+                        <span style={{ color: "#1a1a1a", fontWeight: 600 }}>Teléfono:</span>
+                        <span style={{ color: "#1a1a1a" }}>{issuedInvoice.telefono}</span>
+                      </div>
+                    )}
+                    {issuedInvoice.email && (
+                      <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", fontSize: "9px" }}>
+                        <span style={{ color: "#1a1a1a", fontWeight: 600 }}>Email:</span>
+                        <span style={{ color: "#1a1a1a" }}>{issuedInvoice.email}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: "10px", fontWeight: 700, color: "#D62828", textTransform: "uppercase", letterSpacing: "1px", borderBottom: "1px solid #e0e0e0", paddingBottom: "4px", marginBottom: "8px" }}>Empleado</div>
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", fontSize: "9px" }}>
+                      <span style={{ color: "#1a1a1a", fontWeight: 600 }}>Vendedor:</span>
+                      <span style={{ color: "#1a1a1a" }}>{issuedInvoice.empleado}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", fontSize: "9px" }}>
+                      <span style={{ color: "#1a1a1a", fontWeight: 600 }}>Usuario:</span>
+                      <span style={{ color: "#1a1a1a" }}>{issuedInvoice.usuarioSistema}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── PRODUCTS TABLE ── */}
+                <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "14px" }}>
+                  <thead>
+                    <tr>
+                      <th style={{ background: "#D62828", color: "#fff", fontSize: "8px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", padding: "6px 8px", textAlign: "left", width: "10%" }}>Código</th>
+                      <th style={{ background: "#D62828", color: "#fff", fontSize: "8px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", padding: "6px 8px", textAlign: "left", width: "38%" }}>Producto</th>
+                      <th style={{ background: "#D62828", color: "#fff", fontSize: "8px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", padding: "6px 8px", textAlign: "center", width: "10%" }}>Cant.</th>
+                      <th style={{ background: "#D62828", color: "#fff", fontSize: "8px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", padding: "6px 8px", textAlign: "right", width: "14%" }}>P. Unit.</th>
+                      <th style={{ background: "#D62828", color: "#fff", fontSize: "8px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", padding: "6px 8px", textAlign: "right", width: "12%" }}>Descuento</th>
+                      <th style={{ background: "#D62828", color: "#fff", fontSize: "8px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", padding: "6px 8px", textAlign: "right", width: "16%" }}>Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {issuedInvoice.detalles.map((det, idx) => (
+                      <tr key={idx} style={{ borderBottom: "1px solid #eee", background: idx % 2 === 0 ? "#fff" : "#fafafa" }}>
+                        <td style={{ padding: "5px 8px", fontSize: "9px", color: "#1a1a1a" }}>{det.codigo || "-"}</td>
+                        <td style={{ padding: "5px 8px", fontSize: "9px" }}>{det.nombre}</td>
+                        <td style={{ padding: "5px 8px", fontSize: "9px", textAlign: "center" }}>{det.cantidad}</td>
+                        <td style={{ padding: "5px 8px", fontSize: "9px", textAlign: "right", fontFamily: "Consolas, monospace" }}>{formatCurrency(det.precio)}</td>
+                        <td style={{ padding: "5px 8px", fontSize: "9px", textAlign: "right", fontFamily: "Consolas, monospace" }}>-</td>
+                        <td style={{ padding: "5px 8px", fontSize: "9px", textAlign: "right", fontFamily: "Consolas, monospace" }}>{formatCurrency(det.subtotal)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {/* ── SUMMARY ── */}
+                <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "14px" }}>
+                  <div style={{ width: "280px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: "9px" }}>
+                      <span style={{ color: "#1a1a1a" }}>Subtotal:</span>
+                      <span style={{ fontFamily: "Consolas, monospace" }}>{formatCurrency(issuedInvoice.subtotal)}</span>
+                    </div>
+                    {issuedInvoice.descuento > 0 && (
+                      <div style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: "9px" }}>
+                        <span style={{ color: "#1a1a1a" }}>Descuento:</span>
+                        <span style={{ fontFamily: "Consolas, monospace", color: "#D62828", fontWeight: 600 }}>-{formatCurrency(issuedInvoice.descuento)}</span>
+                      </div>
+                    )}
+                    <div style={{ borderTop: "2px solid #D62828", marginTop: "4px", paddingTop: "6px", display: "flex", justifyContent: "space-between", fontSize: "13px", fontWeight: 800 }}>
+                      <span>TOTAL:</span>
+                      <span style={{ color: "#D62828", fontFamily: "Consolas, monospace" }}>{formatCurrency(issuedInvoice.total)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── PAYMENT ── */}
+                <div style={{ border: "1px solid #ddd", borderRadius: "4px", padding: "8px 12px", marginBottom: "14px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "9px", padding: "2px 0" }}>
+                    <span style={{ color: "#1a1a1a", fontWeight: 600 }}>Forma de Pago:</span>
+                    <span style={{ fontWeight: 700, color: "#1a1a1a" }}>{getPaymentLabel(issuedInvoice.metodoPago)}</span>
+                  </div>
+                </div>
+
+                {/* ── OBSERVATIONS ── */}
+                <div style={{ border: "1px dashed #ccc", borderRadius: "4px", padding: "8px 12px", minHeight: "36px", marginBottom: "14px", fontSize: "9px", color: "#1a1a1a" }}>
+                  Observaciones: _______________
+                </div>
+
+                {/* ── FOOTER ── */}
+                <div style={{ textAlign: "center", borderTop: "2px solid #D62828", paddingTop: "12px", marginTop: "16px" }}>
+                  <div style={{ fontSize: "11px", fontWeight: 700, color: "#333", marginBottom: "4px" }}>¡Gracias por su compra!</div>
+                  <div style={{ fontSize: "8px", color: "#999" }}>Chopper Repuestos — Posadas, Misiones</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="p-5 border-t border-[var(--border)] flex gap-3">
+              <button
+                onClick={handlePrint}
+                className="flex-1 py-2.5 bg-[var(--brand)] text-white font-semibold rounded-[var(--radius-md)] transition text-xs hover:opacity-90 flex items-center justify-center space-x-1.5"
+              >
+                <Printer size={14} />
+                <span>Imprimir</span>
+              </button>
+              <button
+                onClick={() => setIssuedInvoice(null)}
+                className="flex-1 py-2.5 bg-[var(--bg)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] font-semibold rounded-[var(--radius-md)] transition text-xs"
+              >
+                Cerrar
+              </button>
             </div>
           </div>
         </div>

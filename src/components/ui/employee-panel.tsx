@@ -105,6 +105,23 @@ export function EmployeePanel({
 
         {/* Content */}
         <div className="p-6 space-y-6 overflow-y-auto h-[calc(100%-200px)]">
+          {/* Large Photo */}
+          <div className="flex justify-center">
+            {user.fotoUrl ? (
+              <div className="w-32 h-32 rounded-2xl overflow-hidden border-2 border-brand/30 shadow-lg">
+                <img
+                  src={user.fotoUrl}
+                  alt={user.nombreCompleto}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className="w-32 h-32 rounded-2xl flex items-center justify-center text-4xl font-bold bg-brand/10 text-brand border-2 border-brand/20">
+                {user.nombreCompleto.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+              </div>
+            )}
+          </div>
+
           {/* User Profile Header */}
           <div className="flex items-center gap-4">
             <Avatar

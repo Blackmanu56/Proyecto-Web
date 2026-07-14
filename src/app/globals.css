@@ -130,3 +130,59 @@ body {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* ── Print overlay ── */
+#print-overlay {
+  display: none;
+}
+@media print {
+  /* Oculta los elementos normales de la página solo cuando la impresión del comprobante esté activa */
+  body.print-active > *:not(#print-overlay) {
+    display: none !important;
+  }
+  #print-overlay {
+    display: block !important;
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    background: #ffffff !important;
+    color: #000000 !important;
+    padding: 12mm;
+    overflow: auto;
+    font-family: var(--font-family), monospace;
+  }
+  /* Fuerza al navegador a imprimir los colores de fondo y bordes exactos */
+  #print-overlay * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  /* Asegura texto negro sólido en los detalles para evitar grises apagados */
+  #print-overlay p,
+  #print-overlay span,
+  #print-overlay div,
+  #print-overlay td,
+  #print-overlay strong,
+  #print-overlay table,
+  #print-overlay tr {
+    color: #000000 !important;
+  }
+  /* Conserva el color rojo de marca para el texto */
+  #print-overlay [style*="color: rgb(214, 40, 40)"],
+  #print-overlay [style*="color: #D62828"],
+  #print-overlay [style*="color:#D62828"] {
+    color: #D62828 !important;
+  }
+  /* Conserva el color rojo de marca para fondos de cabecera (th) y el texto en blanco */
+  #print-overlay th,
+  #print-overlay [style*="background: rgb(214, 40, 40)"],
+  #print-overlay [style*="background: #D62828"],
+  #print-overlay [style*="background:#D62828"] {
+    background: #D62828 !important;
+    color: #ffffff !important;
+  }
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+}
+

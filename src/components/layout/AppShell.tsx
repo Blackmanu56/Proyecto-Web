@@ -6,9 +6,17 @@ import Navbar from "./Navbar";
 
 interface AppShellProps {
   user: {
+    userId?: number;
     username: string;
     role: string;
     fotoUrl?: string | null;
+    nombreCompleto?: string;
+    dni?: string;
+    correo?: string | null;
+    telefono?: string | null;
+    activo?: boolean;
+    creadoEn?: Date;
+    rol?: { id: number; nombre: string };
   } | null;
   children: React.ReactNode;
 }

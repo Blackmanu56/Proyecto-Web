@@ -8,7 +8,7 @@ export default async function VentasPage() {
   const session = await getSession();
 
   // Carga de datos del servidor
-  const [productos, clientes] = await Promise.all([
+  const [productos, clientes, usuario] = await Promise.all([
     prisma.producto.findMany({
       where: { activo: true },
       include: { categoria: true },
@@ -18,6 +18,10 @@ export default async function VentasPage() {
       where: { activo: true },
       orderBy: { nombre: "asc" },
     }),
+    session ? prisma.usuario.findUnique({
+      where: { id: session.userId },
+      select: { id: true, username: true, nombreCompleto: true },
+    }) : null,
   ]);
 
   return (
@@ -41,7 +45,7 @@ export default async function VentasPage() {
         </div>
 
         {/* Terminal Interactivo (Client Component) */}
-        <VentasTerminal productos={productos as any} clientes={clientes} />
+        <VentasTerminal productos={productos as any} clientes={clientes as any} usuario={usuario} />
       </div>
     </div>
   );
