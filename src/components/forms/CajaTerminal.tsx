@@ -240,7 +240,27 @@ export default function CajaTerminal({
 
   // ─── Exportación ────────────────────────────────────────────
   const handlePrint = () => {
-    window.print();
+    const report = document.getElementById("caja-print-report");
+    if (!report) return;
+
+    const old = document.getElementById("print-overlay");
+    if (old) old.remove();
+
+    const overlay = document.createElement("div");
+    overlay.id = "print-overlay";
+    overlay.innerHTML = report.innerHTML;
+    document.body.appendChild(overlay);
+
+    document.body.classList.add("print-active");
+
+    // Wait for layout + image loading before printing
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => {
+        overlay.remove();
+        document.body.classList.remove("print-active");
+      }, 500);
+    }, 300);
   };
 
   const handleExportCSV = () => {
@@ -293,14 +313,6 @@ export default function CajaTerminal({
 
   return (
     <>
-    <style>{`
-      @media print {
-        body * { visibility: hidden !important; }
-        .caja-print-area, .caja-print-area * { visibility: visible !important; }
-        .caja-print-area { position: absolute; left: 0; top: 0; width: 100%; }
-        .no-print { display: none !important; }
-      }
-    `}</style>
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch h-full min-h-0">
       {/* ═══ SECCIÓN PRINCIPAL (9 cols abierta, 12 cerrada) ═══ */}
       <div className={`${cajaActiva ? "lg:col-span-9" : "lg:col-span-12"} flex flex-col min-h-0 overflow-hidden`}>
@@ -349,7 +361,7 @@ export default function CajaTerminal({
           <div className="animate-in fade-in duration-200 flex flex-col min-h-0 gap-2">
 
             {/* ═══ BARRA DE ESTADO ═══ */}
-            <div className="no-print bg-[var(--card)] border border-[var(--border)] rounded-lg p-2 flex flex-col items-center gap-1.5 text-xs shadow-[var(--shadow-sm)] shrink-0">
+            <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-2 flex flex-col items-center gap-1.5 text-xs shadow-[var(--shadow-sm)] shrink-0">
               <div className="flex flex-wrap items-center justify-center gap-2 text-[var(--text-muted)]">
                 <span className="flex items-center gap-1.5 bg-[var(--panel)] px-2 py-1 rounded border border-[var(--border)]">
                   <Calendar size={12} className="text-[var(--info)]" />
@@ -376,7 +388,7 @@ export default function CajaTerminal({
             </div>
 
             {/* ═══ BUSCADOR + FILTROS ═══ */}
-            <div className="no-print shrink-0 space-y-1">
+            <div className="shrink-0 space-y-1">
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
                   <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" />
@@ -473,7 +485,7 @@ export default function CajaTerminal({
             </div>
 
             {/* ═══ LIBRO DIARIO + RESUMEN (área de impresión) ═══ */}
-            <div className="caja-print-area flex flex-col min-h-0 flex-1">
+            <div className="flex flex-col min-h-0 flex-1">
               <TableShell
                 title="Libro Diario"
                 isEmpty={movimientosFiltrados.length === 0}
@@ -583,7 +595,7 @@ export default function CajaTerminal({
 
       {/* ═══ COLUMNA DERECHA (3 cols) ═══ */}
       {cajaActiva && (
-        <div className="no-print lg:col-span-3 flex flex-col gap-2 min-h-0">
+        <div className="lg:col-span-3 flex flex-col gap-2 min-h-0">
           {/* Panel Gasto Manual */}
           <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 shadow-[var(--shadow-sm)] flex flex-col shrink-0">
             <div className="flex items-center space-x-2 text-[var(--brand)] border-b border-[var(--border)] pb-3">
@@ -677,6 +689,153 @@ export default function CajaTerminal({
       onClose={() => { setShowDetalleModal(false); setMovimientoSeleccionado(null); }}
       movimiento={movimientoSeleccionado}
     />
+
+    {/* ═══ REPORTE OCULTO PARA IMPRESIÓN ═══ */}
+    {cajaActiva && (
+      <div id="caja-print-report" className="caja-print-source">
+
+        {/* Header */}
+        <div className="cj-header">
+          <img src="/logo.png" alt="Chopper Repuestos" className="cj-logo" />
+          <div className="cj-header-center">
+            <div className="cj-title">Libro Diario de Caja</div>
+            <div className="cj-subtitle">Chopper Repuestos — Sistema de Gestión Integral</div>
+          </div>
+        </div>
+
+        {/* Metadata */}
+        <div className="cj-meta">
+          <div className="cj-meta-item">
+            <div className="cj-meta-label">Caja</div>
+            <div className="cj-meta-value">#{cajaActiva.id.toString().padStart(4, "0")}</div>
+          </div>
+          <div className="cj-meta-item">
+            <div className="cj-meta-label">Apertura</div>
+            <div className="cj-meta-value">{formatDate(cajaActiva.fechaApertura)}</div>
+          </div>
+          <div className="cj-meta-item">
+            <div className="cj-meta-label">Cajero</div>
+            <div className="cj-meta-value">@{cajaActiva.usuario.username}</div>
+          </div>
+          <div className="cj-meta-item">
+            <div className="cj-meta-label">Estado</div>
+            <div className="cj-meta-value">{cajaActiva.estado}</div>
+          </div>
+          <div className="cj-meta-item">
+            <div className="cj-meta-label">Saldo Inicial</div>
+            <div className="cj-meta-value">{formatCurrency(cajaActiva.montoInicial)}</div>
+          </div>
+          <div className="cj-meta-item">
+            <div className="cj-meta-label">Duración Turno</div>
+            <div className="cj-meta-value">{duracionHoras}h {duracionMinutos}min</div>
+          </div>
+          <div className="cj-meta-item">
+            <div className="cj-meta-label">Movimientos</div>
+            <div className="cj-meta-value">{movimientosFiltrados.length}{hayFiltrosActivos ? ` / ${movimientosConSaldo.length}` : ""}</div>
+          </div>
+          <div className="cj-meta-item">
+            <div className="cj-meta-label">Emisión</div>
+            <div className="cj-meta-value">{new Date().toLocaleString("es-AR")}</div>
+          </div>
+        </div>
+
+        {/* Filtros aplicados */}
+        {hayFiltrosActivos && (
+          <div className="cj-filters">
+            <strong>Filtros aplicados:</strong>{" "}
+            {filtroFechaDesde && `Desde: ${filtroFechaDesde}`}
+            {filtroFechaHasta && ` | Hasta: ${filtroFechaHasta}`}
+            {filtroTipo && ` | Tipo: ${filtroTipo}`}
+            {filtroUsuario && ` | Usuario: @${filtroUsuario}`}
+            {filtroBusqueda && ` | Búsqueda: "${filtroBusqueda}"`}
+          </div>
+        )}
+
+        {/* Tabla */}
+        <table className="cj-table">
+          <thead>
+            <tr>
+              <th className="col-num">#</th>
+              <th className="col-fecha">Fecha</th>
+              <th className="col-hora">Hora</th>
+              <th className="col-desc">Descripción</th>
+              <th className="col-tipo">Tipo</th>
+              <th className="col-user">Usuario</th>
+              <th className="col-ing">Ingreso</th>
+              <th className="col-egr">Egreso</th>
+              <th className="col-saldo">Saldo</th>
+            </tr>
+          </thead>
+          <tbody>
+            {movimientosFiltrados.map((mov) => {
+              const isIncome = mov.tipo === "INGRESO";
+              const d = new Date(mov.fecha);
+              const fechaStr = d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" });
+              const horaStr = d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+              const visual = getTipoVisual(mov);
+              const badgeClass = visual.variant === "success" ? "badge-success" : visual.variant === "danger" ? "badge-danger" : visual.variant === "warning" ? "badge-warning" : visual.variant === "info" ? "badge-info" : "badge-default";
+
+              return (
+                <tr key={mov.id}>
+                  <td className="col-num text-center">{mov.itemNumber}</td>
+                  <td className="col-fecha">{fechaStr}</td>
+                  <td className="col-hora">{horaStr}</td>
+                  <td className="col-desc">{mov.descripcion}</td>
+                  <td className="col-tipo text-center"><span className={`badge ${badgeClass}`}>{visual.label}</span></td>
+                  <td className="col-user">@{mov.usuario.username}</td>
+                  <td className="col-ing text-right font-bold text-green">{isIncome ? formatCurrency(mov.monto) : "—"}</td>
+                  <td className="col-egr text-right font-bold text-red">{!isIncome ? formatCurrency(mov.monto) : "—"}</td>
+                  <td className="col-saldo text-right font-bold">{formatCurrency(mov.saldoAcumulado)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+
+        {/* Resumen */}
+        <div className="cj-summary">
+          <div className="cj-summary-title">Resumen del Turno</div>
+          <div className="cj-summary-grid">
+            <div className="cj-summary-item">
+              <div className="cj-summary-label">Movimientos</div>
+              <div className="cj-summary-value">{movimientosFiltrados.length}</div>
+            </div>
+            <div className="cj-summary-item">
+              <div className="cj-summary-label">Saldo Inicial</div>
+              <div className="cj-summary-value" style={{color:"#0369a1"}}>{formatCurrency(cajaActiva.montoInicial)}</div>
+            </div>
+            <div className="cj-summary-item">
+              <div className="cj-summary-label">Ventas</div>
+              <div className="cj-summary-value" style={{color:"#16a34a"}}>{formatCurrency(hayFiltrosActivos ? totalIngresosFiltrado : totalIngresosTurno)}</div>
+            </div>
+            <div className="cj-summary-item">
+              <div className="cj-summary-label">Reposiciones</div>
+              <div className="cj-summary-value" style={{color:"#d97706"}}>{formatCurrency(totalReposiciones)}</div>
+            </div>
+            <div className="cj-summary-item">
+              <div className="cj-summary-label">Gastos</div>
+              <div className="cj-summary-value" style={{color:"#dc2626"}}>{formatCurrency(totalGastos)}</div>
+            </div>
+            <div className="cj-summary-item">
+              <div className="cj-summary-label">Ingresos</div>
+              <div className="cj-summary-value" style={{color:"#16a34a"}}>{formatCurrency(hayFiltrosActivos ? totalIngresosFiltrado : totalIngresosTurno)}</div>
+            </div>
+            <div className="cj-summary-item">
+              <div className="cj-summary-label">Egresos</div>
+              <div className="cj-summary-value" style={{color:"#dc2626"}}>{formatCurrency(hayFiltrosActivos ? totalEgresosFiltrado : totalEgresosTurno)}</div>
+            </div>
+            <div className="cj-summary-item" style={{borderColor:"#000", borderWidth:"2px"}}>
+              <div className="cj-summary-label">Saldo Final</div>
+              <div className="cj-summary-value" style={{color:(hayFiltrosActivos ? saldoFinalFiltrado : saldoFinalTurno) >= 0 ? "#16a34a" : "#dc2626", fontSize:"13px"}}>{formatCurrency(hayFiltrosActivos ? saldoFinalFiltrado : saldoFinalTurno)}</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="cj-footer">
+          Chopper Repuestos — Sistema de Gestión Integral | Generado el {new Date().toLocaleString("es-AR")}
+        </div>
+      </div>
+    )}
     </>
   );
 }
