@@ -131,6 +131,62 @@ body {
   display: none;
 }
 
+/* ── Terminal Ventas Layout ── */
+@media (min-width: 1024px) {
+  body.ventas-active {
+    overflow: hidden !important;
+  }
+  body.ventas-active main {
+    padding: 0px !important;
+    height: calc(100vh - 5.5rem) !important;
+    overflow: hidden !important;
+  }
+}
+
+/* ── Login Page Styles ── */
+@keyframes login-fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes login-fadeInUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes login-slideInLeft {
+  from { opacity: 0; transform: translateX(-24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes login-expandIn {
+  from { opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; }
+  to { opacity: 1; max-height: 80px; padding-top: 12px; padding-bottom: 12px; }
+}
+@keyframes login-pulseGlow {
+  0%, 100% { box-shadow: 0 0 20px rgba(214,40,40,0.3), 0 0 40px rgba(214,40,40,0.1); }
+  50% { box-shadow: 0 0 30px rgba(214,40,40,0.5), 0 0 60px rgba(214,40,40,0.2); }
+}
+@keyframes login-staggerIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.password-mask {
+  -webkit-text-security: disc;
+}
+.password-visible {
+  -webkit-text-security: none;
+}
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 30px #1E2129 inset !important;
+  -webkit-text-fill-color: #F1F5F9 !important;
+  caret-color: #F1F5F9 !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+input[type="password"]::-webkit-credentials-autofill-button,
+input::-webkit-credentials-autofill-button {
+  display: none !important;
+}
+
 /* ── Print overlay ── */
 #print-overlay {
   display: none;
@@ -184,5 +240,10 @@ body {
     size: A4 portrait;
     margin: 0;
   }
+}
+
+/* ── Next.js Dev Tools: move "N" button right to avoid covering content ── */
+nextjs-portal {
+  transform: translateX(10px);
 }
 

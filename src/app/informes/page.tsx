@@ -52,7 +52,7 @@ export default async function InformesPage() {
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Encabezado */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center justify-center space-x-3">
             <div className="p-3 bg-[var(--brand-light)] rounded-2xl text-[var(--brand)] border border-[var(--brand)]/10">
               <BarChart3 size={28} />
             </div>

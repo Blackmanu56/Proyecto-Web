@@ -1,7 +1,6 @@
 ﻿"use client";
 
 import React, { useState, useTransition } from "react";
-import StatusFilter from "./StatusFilter";
 import type { FilterStatus } from "./StatusFilter";
 import { TableShell } from "@/components/ui/table-shell";
 import { Button } from "@/components/ui/button";
@@ -10,27 +9,24 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { FormField } from "@/components/ui/form-field";
 import {
-  Search,
   Plus,
   Edit3,
   Trash2,
   UserX,
   UserCheck,
-  X,
-  Shield,
   Building2,
   Phone,
   Mail,
   MapPin,
-  FileText,
   Package,
   Calendar,
-  DollarSign,
-  Loader2,
   AlertTriangle,
   CheckCircle2,
   History,
   Info,
+  CheckCircle,
+  Loader2,
+  Shield,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────
@@ -280,102 +276,83 @@ export default function ProveedoresTable({
   };
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      {/* 1. Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
-        {[
-          {
-            label: "Total Proveedores",
-            value: proveedores.length,
-            icon: <Building2 size={18} />,
-            color: "brand",
-          },
-          {
-            label: "Activos",
-            value: proveedores.filter((p) => p.activo).length,
-            icon: <CheckCircle2 size={18} />,
-            color: "success",
-          },
-          {
-            label: "Inactivos (Baja)",
-            value: proveedores.filter((p) => !p.activo).length,
-            icon: <UserX size={18} />,
-            color: "danger",
-          },
-          {
-            label: "Productos Asoc.",
-            value: proveedores.reduce((acc, curr) => acc + curr._count.productos, 0),
-            icon: <Package size={18} />,
-            color: "info",
-          },
-        ].map((stat) => (
-          <div
-            key={stat.label}
-            className="p-4 rounded-[var(--radius-lg)] bg-card border border-border transition-all duration-200 shadow-[var(--shadow-sm)]"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[11px] font-medium text-text-secondary uppercase tracking-wide">
-                  {stat.label}
-                </p>
-                <p className="text-2xl font-bold text-text mt-1">{stat.value}</p>
-              </div>
-              <div
-                className={`p-2.5 rounded-[var(--radius-md)] bg-${stat.color}-light text-${stat.color}`}
-              >
-                {stat.icon}
-              </div>
-            </div>
+    <div className="flex flex-col h-full min-h-0">
+      {/* 1. Stats Cards — compacto */}
+      <div className="grid grid-cols-3 gap-2 shrink-0 mb-2">
+        <div className="bg-card border border-border p-2.5 rounded-lg flex items-center justify-between shadow-[var(--shadow-sm)]">
+          <div>
+            <p className="text-[10px] text-text-secondary font-bold uppercase tracking-wider">Total Proveedores</p>
+            <p className="text-lg font-extrabold text-text">{proveedores.length}</p>
           </div>
-        ))}
+          <div className="p-1.5 bg-brand-light rounded text-brand">
+            <Building2 size={14} />
+          </div>
+        </div>
+
+        <div className="bg-card border border-border p-2.5 rounded-lg flex items-center justify-between shadow-[var(--shadow-sm)]">
+          <div>
+            <p className="text-[10px] text-text-secondary font-bold uppercase tracking-wider">Activos</p>
+            <p className="text-lg font-extrabold text-success">{proveedores.filter((p) => p.activo).length}</p>
+          </div>
+          <div className="p-1.5 bg-success-light rounded text-success">
+            <UserCheck size={14} />
+          </div>
+        </div>
+
+        <div className="bg-card border border-border p-2.5 rounded-lg flex items-center justify-between shadow-[var(--shadow-sm)]">
+          <div>
+            <p className="text-[10px] text-text-secondary font-bold uppercase tracking-wider">Inactivos</p>
+            <p className="text-lg font-extrabold text-danger">{proveedores.filter((p) => !p.activo).length}</p>
+          </div>
+          <div className="p-1.5 bg-danger-light rounded text-danger">
+            <UserX size={14} />
+          </div>
+        </div>
       </div>
 
       {/* 2. TableShell */}
       <TableShell
         title="Gestión de Proveedores"
-        searchPlaceholder="Buscar proveedores por nombre, CUIT, responsable o correo..."
+        searchPlaceholder="Buscar proveedor, CUIT, responsable..."
         searchValue={searchQuery}
         onSearchChange={handleSearch}
         isEmpty={filteredProveedores.length === 0}
         emptyMessage="No se encontraron proveedores"
-        emptyIcon={<Building2 size={40} className="opacity-40" />}
+        emptyIcon={<Building2 size={32} className="opacity-40" />}
         actions={
-          <div className="flex items-center gap-3">
-            <StatusFilter value={filterStatus} onChange={setFilterStatus} />
-            <Button onClick={openCreateModal} leftIcon={<Plus size={16} />}>
-              Nuevo Proveedor
-            </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <CheckCircle className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" size={12} />
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
+                className="pl-7 pr-6 py-1.5 bg-bg border border-border rounded text-text text-[11px] focus:outline-none focus:border-brand appearance-none cursor-pointer"
+              >
+                <option value="todos">Todos</option>
+                <option value="activos">Activos</option>
+                <option value="inactivos">Inactivos</option>
+              </select>
+            </div>
+            <button onClick={openCreateModal} className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--brand)] text-white rounded text-[11px] font-semibold hover:bg-[var(--brand)]/90 transition">
+              <Plus size={12} />
+              Nuevo
+            </button>
           </div>
         }
       >
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[700px]">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="text-left py-3.5 px-5 text-[11px] font-semibold text-text-secondary uppercase tracking-wider">
-                  Proveedor
-                </th>
-                <th className="text-left py-3.5 px-5 text-[11px] font-semibold text-text-secondary uppercase tracking-wider">
-                  CUIT
-                </th>
-                <th className="text-left py-3.5 px-5 text-[11px] font-semibold text-text-secondary uppercase tracking-wider hidden md:table-cell">
-                  Contacto Responsable
-                </th>
-                <th className="text-left py-3.5 px-5 text-[11px] font-semibold text-text-secondary uppercase tracking-wider hidden sm:table-cell">
-                  Contacto
-                </th>
-                <th className="text-center py-3.5 px-5 text-[11px] font-semibold text-text-secondary uppercase tracking-wider">
-                  Artículos
-                </th>
-                <th className="text-center py-3.5 px-5 text-[11px] font-semibold text-text-secondary uppercase tracking-wider">
-                  Estado
-                </th>
-                <th className="text-center py-3.5 px-5 text-[11px] font-semibold text-text-secondary uppercase tracking-wider">
-                  Acciones
-                </th>
+        <div className="overflow-auto max-h-[calc(100vh-22rem)]">
+          <table className="w-full text-left border-collapse min-w-[700px]">
+            <thead className="sticky top-0 bg-[var(--card)]">
+              <tr className="border-b border-border text-[11px] uppercase tracking-wider font-semibold text-text-secondary">
+                <th className="py-2 px-4">Proveedor</th>
+                <th className="py-2 px-4">CUIT</th>
+                <th className="py-2 px-4 hidden md:table-cell">Contacto</th>
+                <th className="py-2 px-4 text-center">Artículos</th>
+                <th className="py-2 px-4 text-center">Estado</th>
+                <th className="py-2 px-4 text-center">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border/70">
+            <tbody className="divide-y divide-border/60 text-sm text-text-muted">
               {filteredProveedores.map((prov) => (
                 <tr
                   key={prov.id}
@@ -384,17 +361,16 @@ export default function ProveedoresTable({
                     !prov.activo ? "opacity-60" : ""
                   }`}
                 >
-                  {/* Proveedor info */}
-                  <td className="py-3.5 px-5">
-                    <div className="flex items-center gap-3">
+                  <td className="py-2 px-4">
+                    <div className="flex items-center gap-2">
                       <div
-                        className={`w-9 h-9 rounded-[var(--radius-md)] flex items-center justify-center text-xs font-bold shrink-0 ${
+                        className={`w-7 h-7 rounded flex items-center justify-center text-[10px] font-bold shrink-0 ${
                           prov.activo
                             ? "bg-brand-light text-brand border border-brand/20"
                             : "bg-border text-text-secondary border border-border"
                         }`}
                       >
-                        <Building2 size={16} />
+                        <Building2 size={12} />
                       </div>
                       <div>
                         <p className="font-semibold text-text text-sm leading-tight group-hover:text-brand transition-colors">
@@ -402,72 +378,52 @@ export default function ProveedoresTable({
                         </p>
                         {prov.direccion && (
                           <p className="text-[11px] text-text-secondary mt-0.5 flex items-center gap-1">
-                            <MapPin size={10} className="text-text-secondary" />
+                            <MapPin size={9} className="text-text-secondary" />
                             {prov.direccion}
                           </p>
                         )}
                       </div>
                     </div>
                   </td>
-
-                  {/* CUIT */}
-                  <td className="py-3.5 px-5">
-                    <span className="font-mono text-xs text-text-muted">
-                      {prov.cuit}
-                    </span>
+                  <td className="py-2 px-4">
+                    <span className="font-mono text-xs text-text-muted">{prov.cuit}</span>
                   </td>
-
-                  {/* Contacto Responsable */}
-                  <td className="py-3.5 px-5 hidden md:table-cell text-text-muted font-medium">
-                    {prov.contactoResponsable || (
-                      <span className="text-text-secondary italic">No especificado</span>
-                    )}
-                  </td>
-
-                  {/* Contact (Phone/Email) */}
-                  <td className="py-3.5 px-5 hidden sm:table-cell">
+                  <td className="py-2 px-4 hidden md:table-cell">
                     <div className="space-y-0.5">
                       {prov.email && (
-                        <p className="text-xs text-text-muted flex items-center gap-1.5">
-                          <Mail size={10} className="text-text-secondary shrink-0" />
+                        <p className="text-xs text-text-muted flex items-center gap-1">
+                          <Mail size={9} className="text-text-secondary shrink-0" />
                           {prov.email}
                         </p>
                       )}
                       {prov.telefono && (
-                        <p className="text-xs text-text-secondary flex items-center gap-1.5">
-                          <Phone size={10} className="text-text-secondary shrink-0" />
+                        <p className="text-xs text-text-secondary flex items-center gap-1">
+                          <Phone size={9} className="text-text-secondary shrink-0" />
                           {prov.telefono}
                         </p>
                       )}
                       {!prov.email && !prov.telefono && (
-                        <p className="text-xs text-text-secondary italic">Sin datos</p>
+                        <p className="text-[11px] text-text-secondary italic">Sin datos</p>
                       )}
                     </div>
                   </td>
-
-                  {/* Articles count */}
-                  <td className="py-3.5 px-5 text-center">
-                    <Badge variant="default" size="sm" className="font-mono">
-                      <Package size={10} className="mr-1" />
+                  <td className="py-2 px-4 text-center">
+                    <Badge variant="default" size="sm" className="font-mono text-[11px]">
                       {prov._count.productos}
                     </Badge>
                   </td>
-
-                  {/* Status */}
-                  <td className="py-3.5 px-5 text-center">
+                  <td className="py-2 px-4 text-center">
                     <Badge variant={prov.activo ? "success" : "danger"} size="sm">
-                      {prov.activo ? "Activo" : "Inactivo"}
+                      {prov.activo ? "Activo" : "Baja"}
                     </Badge>
                   </td>
-
-                  {/* Actions */}
-                  <td className="py-3.5 px-5">
-                    <div className="flex items-center justify-center gap-1 md:gap-2">
+                  <td className="py-2 px-4 text-center">
+                    <div className="flex items-center justify-center gap-1">
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={(e) => openEditModal(prov, e)}
-                        title="Editar proveedor"
+                        title="Editar"
                       >
                         <Edit3 size={14} />
                       </Button>
@@ -475,7 +431,7 @@ export default function ProveedoresTable({
                         variant="ghost"
                         size="sm"
                         onClick={(e) => openConfirmDialog(prov, "toggle", e)}
-                        title={prov.activo ? "Dar de baja" : "Reactivar proveedor"}
+                        title={prov.activo ? "Dar de baja" : "Reactivar"}
                         className={prov.activo ? "hover:text-warning" : "hover:text-success"}
                       >
                         {prov.activo ? <UserX size={14} /> : <UserCheck size={14} />}
@@ -484,7 +440,7 @@ export default function ProveedoresTable({
                         variant="ghost"
                         size="sm"
                         onClick={(e) => openConfirmDialog(prov, "delete", e)}
-                        title="Eliminar del sistema"
+                        title="Eliminar"
                         className="hover:text-danger"
                       >
                         <Trash2 size={14} />

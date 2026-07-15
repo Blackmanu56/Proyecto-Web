@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useTransition, useRef } from "react";
-import StatusFilter from "./StatusFilter";
 import type { FilterStatus } from "./StatusFilter";
 import Avatar from "@/components/ui/Avatar";
 import { TableShell } from "@/components/ui/table-shell";
@@ -12,12 +11,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { FormField } from "@/components/ui/form-field";
 import { EmployeePanel } from "@/components/ui/employee-panel";
 import {
-  Search,
   Plus,
   Edit3,
   UserX,
   UserCheck,
-  X,
   Shield,
   ShieldCheck,
   ShieldAlert,
@@ -25,13 +22,14 @@ import {
   EyeOff,
   Users,
   ChevronDown,
-  Loader2,
   AlertTriangle,
   CheckCircle2,
   Camera,
   Trash2,
   Upload,
   ImageIcon,
+  CheckCircle,
+  Loader2,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────
@@ -425,99 +423,83 @@ export default function UsuariosTable({
   const selectedRolNombre = roles.find((r) => r.id === selectedRolId)?.nombre || "";
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      {/* 1. Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
-        {[
-          {
-            label: "Total Usuarios",
-            value: users.length,
-            icon: <Users size={18} />,
-            color: "brand",
-          },
-          {
-            label: "Activos",
-            value: users.filter((u) => u.activo).length,
-            icon: <UserCheck size={18} />,
-            color: "success",
-          },
-          {
-            label: "Dados de Baja",
-            value: users.filter((u) => !u.activo).length,
-            icon: <UserX size={18} />,
-            color: "danger",
-          },
-          {
-            label: "Administradores",
-            value: users.filter((u) => u.rol.nombre === "ADMINISTRADOR").length,
-            icon: <ShieldCheck size={18} />,
-            color: "warning",
-          },
-        ].map((stat) => (
-          <div
-            key={stat.label}
-            className="p-4 rounded-[var(--radius-lg)] bg-card border border-border hover:border-border-hover transition-all duration-200 shadow-[var(--shadow-sm)]"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[11px] font-medium text-text-secondary uppercase tracking-wide">
-                  {stat.label}
-                </p>
-                <p className="text-2xl font-bold text-text mt-1">{stat.value}</p>
-              </div>
-              <div
-                className={`p-2.5 rounded-[var(--radius-md)] bg-${stat.color}-light text-${stat.color}`}
-              >
-                {stat.icon}
-              </div>
-            </div>
+    <div className="flex flex-col h-full min-h-0">
+      {/* 1. Stats Cards — compacto */}
+      <div className="grid grid-cols-3 gap-2 shrink-0 mb-2">
+        <div className="bg-card border border-border p-2.5 rounded-lg flex items-center justify-between shadow-[var(--shadow-sm)]">
+          <div>
+            <p className="text-[10px] text-text-secondary font-bold uppercase tracking-wider">Total Usuarios</p>
+            <p className="text-lg font-extrabold text-text">{users.length}</p>
           </div>
-        ))}
+          <div className="p-1.5 bg-brand-light rounded text-brand">
+            <Users size={14} />
+          </div>
+        </div>
+
+        <div className="bg-card border border-border p-2.5 rounded-lg flex items-center justify-between shadow-[var(--shadow-sm)]">
+          <div>
+            <p className="text-[10px] text-text-secondary font-bold uppercase tracking-wider">Activos</p>
+            <p className="text-lg font-extrabold text-success">{users.filter((u) => u.activo).length}</p>
+          </div>
+          <div className="p-1.5 bg-success-light rounded text-success">
+            <UserCheck size={14} />
+          </div>
+        </div>
+
+        <div className="bg-card border border-border p-2.5 rounded-lg flex items-center justify-between shadow-[var(--shadow-sm)]">
+          <div>
+            <p className="text-[10px] text-text-secondary font-bold uppercase tracking-wider">Inactivos</p>
+            <p className="text-lg font-extrabold text-danger">{users.filter((u) => !u.activo).length}</p>
+          </div>
+          <div className="p-1.5 bg-danger-light rounded text-danger">
+            <UserX size={14} />
+          </div>
+        </div>
       </div>
 
       {/* 2. TableShell */}
       <TableShell
         title="Gestión de Usuarios"
-        searchPlaceholder="Buscar por nombre, DNI, usuario o correo..."
+        searchPlaceholder="Buscar por nombre, DNI, usuario..."
         searchValue={searchQuery}
         onSearchChange={handleSearch}
         isEmpty={filteredUsers.length === 0}
         emptyMessage="No se encontraron usuarios"
-        emptyIcon={<Users size={40} className="opacity-40" />}
+        emptyIcon={<Users size={32} className="opacity-40" />}
         actions={
-          <div className="flex items-center gap-3">
-            <StatusFilter value={filterStatus} onChange={setFilterStatus} />
-            <Button onClick={openCreateModal} leftIcon={<Plus size={16} />}>
-              Nuevo Usuario
-            </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <CheckCircle className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" size={12} />
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
+                className="pl-7 pr-6 py-1.5 bg-bg border border-border rounded text-text text-[11px] focus:outline-none focus:border-brand appearance-none cursor-pointer"
+              >
+                <option value="todos">Todos</option>
+                <option value="activos">Activos</option>
+                <option value="inactivos">Inactivos</option>
+              </select>
+            </div>
+            <button onClick={openCreateModal} className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--brand)] text-white rounded text-[11px] font-semibold hover:bg-[var(--brand)]/90 transition">
+              <Plus size={12} />
+              Nuevo
+            </button>
           </div>
         }
       >
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[600px]">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="text-left py-3.5 px-5 text-[11px] font-semibold text-text-secondary uppercase tracking-wider">
-                  Usuario
-                </th>
-                <th className="text-left py-3.5 px-5 text-[11px] font-semibold text-text-secondary uppercase tracking-wider">
-                  DNI
-                </th>
-                <th className="text-left py-3.5 px-5 text-[11px] font-semibold text-text-secondary uppercase tracking-wider hidden md:table-cell">
-                  Contacto
-                </th>
-                <th className="text-left py-3.5 px-5 text-[11px] font-semibold text-text-secondary uppercase tracking-wider">
-                  Rol
-                </th>
-                <th className="text-center py-3.5 px-5 text-[11px] font-semibold text-text-secondary uppercase tracking-wider">
-                  Estado
-                </th>
-                <th className="text-center py-3.5 px-5 text-[11px] font-semibold text-text-secondary uppercase tracking-wider">
-                  Acciones
-                </th>
+        <div className="overflow-auto max-h-[calc(100vh-22rem)]">
+          <table className="w-full text-left border-collapse min-w-[600px]">
+            <thead className="sticky top-0 bg-[var(--card)]">
+              <tr className="border-b border-border text-[11px] uppercase tracking-wider font-semibold text-text-secondary">
+                <th className="py-2 px-4">Usuario</th>
+                <th className="py-2 px-4">DNI</th>
+                <th className="py-2 px-4 hidden md:table-cell">Contacto</th>
+                <th className="py-2 px-4">Rol</th>
+                <th className="py-2 px-4 text-center">Estado</th>
+                <th className="py-2 px-4 text-center">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border/70">
+            <tbody className="divide-y divide-border/60 text-sm text-text-muted">
               {filteredUsers.map((user) => (
                 <tr
                   key={user.id}
@@ -526,9 +508,8 @@ export default function UsuariosTable({
                     !user.activo ? "opacity-60" : ""
                   }`}
                 >
-                  {/* User info */}
-                  <td className="py-3.5 px-5">
-                    <div className="flex items-center gap-3">
+                  <td className="py-2 px-4">
+                    <div className="flex items-center gap-2">
                       <Avatar
                         fotoUrl={user.fotoUrl}
                         nombreCompleto={user.nombreCompleto}
@@ -545,16 +526,10 @@ export default function UsuariosTable({
                       </div>
                     </div>
                   </td>
-
-                  {/* DNI */}
-                  <td className="py-3.5 px-5">
-                    <span className="font-mono text-xs text-text-muted">
-                      {user.dni}
-                    </span>
+                  <td className="py-2 px-4">
+                    <span className="font-mono text-xs text-text-muted">{user.dni}</span>
                   </td>
-
-                  {/* Contact */}
-                  <td className="py-3.5 px-5 hidden md:table-cell">
+                  <td className="py-2 px-4 hidden md:table-cell">
                     <div className="space-y-0.5">
                       {user.correo && (
                         <p className="text-xs text-text-muted">{user.correo}</p>
@@ -563,35 +538,27 @@ export default function UsuariosTable({
                         <p className="text-xs text-text-secondary">{user.telefono}</p>
                       )}
                       {!user.correo && !user.telefono && (
-                        <p className="text-xs text-text-secondary italic">Sin datos</p>
+                        <p className="text-[11px] text-text-secondary italic">Sin datos</p>
                       )}
                     </div>
                   </td>
-
-                  {/* Role */}
-                  <td className="py-3.5 px-5">
+                  <td className="py-2 px-4">
                     <RolBadge rolNombre={user.rol.nombre} />
                   </td>
-
-                  {/* Status */}
-                  <td className="py-3.5 px-5 text-center">
+                  <td className="py-2 px-4 text-center">
                     <EstadoBadge activo={user.activo} />
                   </td>
-
-                  {/* Actions */}
-                  <td className="py-3.5 px-5">
-                    <div className="flex items-center justify-center gap-1 md:gap-2">
+                  <td className="py-2 px-4 text-center">
+                    <div className="flex items-center justify-center gap-1">
                       <Button
-                        id={`btn-edit-${user.id}`}
                         variant="ghost"
                         size="sm"
                         onClick={() => openEditModal(user)}
-                        title="Editar usuario"
+                        title="Editar"
                       >
                         <Edit3 size={14} />
                       </Button>
                       <Button
-                        id={`btn-toggle-${user.id}`}
                         variant="ghost"
                         size="sm"
                         onClick={() =>
@@ -602,7 +569,7 @@ export default function UsuariosTable({
                             isActive: user.activo,
                           })
                         }
-                        title={user.activo ? "Dar de baja" : "Reactivar usuario"}
+                        title={user.activo ? "Dar de baja" : "Reactivar"}
                         className={user.activo ? "hover:text-danger" : "hover:text-success"}
                       >
                         {user.activo ? <UserX size={14} /> : <UserCheck size={14} />}

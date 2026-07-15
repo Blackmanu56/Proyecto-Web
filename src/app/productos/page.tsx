@@ -16,10 +16,8 @@ interface PageProps {
 export default async function ProductosPage({ searchParams }: PageProps) {
   const session = await getSession();
   
-  // Si no hay sesión, Next.js Middleware redirige automáticamente a /login
   const userRole = session?.role || "ENCARGADO_STOCK";
 
-  // Verificar que el usuario tenga permisos para esta página
   const allowedRoles = ["ADMINISTRADOR", "ENCARGADO_STOCK"];
   if (!allowedRoles.includes(userRole)) {
     return (
@@ -38,8 +36,6 @@ export default async function ProductosPage({ searchParams }: PageProps) {
   const query = params.q || "";
   const catFilter = params.cat ? Number(params.cat) : undefined;
 
-  // Carga de datos simultánea en el servidor para velocidad óptima
-  // Se cargan todos los productos (activos e inactivos); el filtro de estado se aplica del lado cliente
   const [productos, categorias, proveedores] = await Promise.all([
     getProductos(query, catFilter, undefined),
     getCategorias(),
@@ -47,32 +43,27 @@ export default async function ProductosPage({ searchParams }: PageProps) {
   ]);
 
   return (
-    <div className="flex-1 bg p-6 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="fixed inset-0 top-[5.5rem] bg-[var(--bg)] flex flex-col overflow-hidden z-10">
+      <div className="flex-1 flex flex-col min-h-0 p-2 lg:p-3">
         {/* Encabezado */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-center space-x-3">
-            <div className="p-3 bg-brand-light rounded-2xl text-brand border border-brand/10">
-              <Package size={28} />
-            </div>
-            <div>
-              <h1 className="text-2xl md:text-3xl font-extrabold text-text tracking-tight">
-                Control de Inventario
-              </h1>
-              <p className="text-text-secondary text-xs md:text-sm mt-0.5 font-medium">
-                Gestione existencias de repuestos, categorías, proveedores y reposiciones.
-              </p>
-            </div>
+        <div className="flex items-center justify-center gap-2 shrink-0 mb-1">
+          <div className="p-1.5 bg-[var(--brand-light)] rounded-lg text-[var(--brand)]">
+            <Package size={16} />
           </div>
+          <h1 className="text-base lg:text-lg font-extrabold text-[var(--text)] tracking-tight">
+            Control de Inventario
+          </h1>
         </div>
 
-        {/* Tabla Interactiva y Formularios (Client Component) */}
-        <ProductosTable
-          initialProducts={productos as any}
-          categorias={categorias}
-          proveedores={proveedores as any}
-          userRole={userRole}
-        />
+        {/* Tabla Interactiva */}
+        <div className="flex-1 min-h-0">
+          <ProductosTable
+            initialProducts={productos as any}
+            categorias={categorias}
+            proveedores={proveedores as any}
+            userRole={userRole}
+          />
+        </div>
       </div>
     </div>
   );

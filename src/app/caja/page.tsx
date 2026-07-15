@@ -15,31 +15,26 @@ export default async function CajaPage() {
   ]);
 
   return (
-    <div className="flex-1 bg-[var(--bg)] p-6 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="fixed inset-0 top-[5.5rem] bg-[var(--bg)] flex flex-col overflow-hidden z-10">
+      <div className="flex-1 flex flex-col min-h-0 p-2 lg:p-3">
         {/* Encabezado */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-center space-x-3">
-            <div className="p-3 bg-[var(--brand-light)] rounded-[var(--radius-xl)] text-[var(--brand)] border border-[var(--brand)]/10">
-              <Coins size={28} />
-            </div>
-            <div>
-              <h1 className="text-2xl md:text-3xl font-extrabold text-[var(--text)] tracking-tight">
-                Control de Caja
-              </h1>
-              <p className="text-[var(--text-secondary)] text-xs md:text-sm mt-0.5 font-medium">
-                Monitoree los ingresos, registre egresos manuales de gastos y realice arqueos y cierres diarios y mensuales.
-              </p>
-            </div>
+        <div className="flex items-center justify-center gap-2.5 shrink-0 mb-1">
+          <div className="p-1.5 bg-[var(--brand)]/10 rounded-lg text-[var(--brand)]">
+            <Coins size={18} strokeWidth={2.5} />
           </div>
+          <h1 className="text-lg lg:text-xl font-black text-[var(--text)] tracking-tight uppercase">
+            Control de Caja
+          </h1>
         </div>
 
         {/* Terminal Operativo de Caja (Client Component) */}
-        <CajaTerminal
-          cajaActiva={cajaActiva as any}
-          historialCajas={historialCajas as any}
-          userRole={userRole}
-        />
+        <div className="flex-1 min-h-0">
+          <CajaTerminal
+            cajaActiva={cajaActiva as any}
+            historialCajas={historialCajas as any}
+            userRole={userRole}
+          />
+        </div>
       </div>
     </div>
   );

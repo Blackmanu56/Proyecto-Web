@@ -1,13 +1,13 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { formatCurrency } from "@/lib/utils";
-import { Lock, X, Loader2, Coins, ArrowUpRight, ArrowDownLeft, TrendingUp } from "lucide-react";
+import { Lock, X, Loader2, Coins, ArrowUpRight, ArrowDownLeft, TrendingUp, Scale, AlertTriangle, CheckCircle2, Eye } from "lucide-react";
 
 interface ConfirmarCierreModalProps {
   open: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: (observacion?: string) => void;
   isPending: boolean;
   montoInicial: number;
   totalVentas: number;
@@ -25,10 +25,26 @@ export default function ConfirmarCierreModal({
   totalEgresos,
   totalIngresos,
 }: ConfirmarCierreModalProps) {
+  const [montoContado, setMontoContado] = useState("");
+  const [observacion, setObservacion] = useState("");
+  const [showObservacion, setShowObservacion] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setMontoContado("");
+      setObservacion("");
+      setShowObservacion(false);
+    }
+  }, [open]);
+
   if (!open) return null;
 
   const movimientosNetos = totalVentas;
   const saldoFinal = montoInicial + movimientosNetos;
+  const montoContadoNum = montoContado === "" ? null : Number(montoContado);
+  const diferencia = montoContadoNum !== null ? montoContadoNum - saldoFinal : null;
+  const tieneDiferencia = diferencia !== null && Math.abs(diferencia) > 0.01;
+  const esCuadrada = diferencia !== null && !tieneDiferencia;
 
   return (
     <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -36,8 +52,8 @@ export default function ConfirmarCierreModal({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <Lock size={18} className="text-red-400" />
-            Confirmar cierre de caja
+            <Scale size={18} className="text-amber-400" />
+            Arqueo de Caja
           </h2>
           <button
             onClick={onClose}
@@ -51,78 +67,105 @@ export default function ConfirmarCierreModal({
         {/* Body */}
         <div className="px-6 py-5 space-y-3">
           <p className="text-xs text-slate-400 font-medium mb-3">
-            Revise los valores antes de confirmar el cierre de caja.
+            Revise los valores antes de confirmar el cierre. Ingrese el monto contado en efectivo.
           </p>
 
-          {/* Monto Inicial */}
-          <div className="flex items-center justify-between bg-slate-800/40 border border-slate-700/50 rounded-xl px-4 py-3">
-            <div className="flex items-center gap-2.5">
-              <div className="p-1.5 rounded-lg bg-slate-700/50 text-slate-400">
-                <Coins size={14} />
-              </div>
-              <span className="text-xs font-semibold text-slate-300">Monto inicial</span>
-            </div>
-            <span className="text-sm font-bold text-white font-mono">
-              {formatCurrency(montoInicial)}
-            </span>
-          </div>
-
-          {/* Total Ingresos */}
-          <div className="flex items-center justify-between bg-slate-800/40 border border-slate-700/50 rounded-xl px-4 py-3">
-            <div className="flex items-center gap-2.5">
-              <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
-                <ArrowUpRight size={14} />
-              </div>
-              <span className="text-xs font-semibold text-slate-300">Total ingresos</span>
-            </div>
-            <span className="text-sm font-bold text-emerald-400 font-mono">
-              {formatCurrency(totalIngresos)}
-            </span>
-          </div>
-
-          {/* Total Egresos */}
-          <div className="flex items-center justify-between bg-slate-800/40 border border-slate-700/50 rounded-xl px-4 py-3">
-            <div className="flex items-center gap-2.5">
-              <div className="p-1.5 rounded-lg bg-red-500/10 text-red-400">
-                <ArrowDownLeft size={14} />
-              </div>
-              <span className="text-xs font-semibold text-slate-300">Total egresos</span>
-            </div>
-            <span className="text-sm font-bold text-red-400 font-mono">
-              {formatCurrency(totalEgresos)}
-            </span>
-          </div>
-
-          {/* Movimientos Netos */}
-          <div className="flex items-center justify-between bg-slate-800/40 border border-slate-700/50 rounded-xl px-4 py-3">
+          {/* Saldo Esperado */}
+          <div className="flex items-center justify-between bg-indigo-950/40 border border-indigo-500/30 rounded-xl px-4 py-3">
             <div className="flex items-center gap-2.5">
               <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400">
                 <TrendingUp size={14} />
               </div>
-              <span className="text-xs font-semibold text-slate-300">Movimientos netos</span>
+              <span className="text-xs font-semibold text-indigo-300">Saldo esperado en caja</span>
             </div>
-            <span className={`text-sm font-bold font-mono ${
-              movimientosNetos >= 0 ? "text-emerald-400" : "text-red-400"
-            }`}>
-              {movimientosNetos >= 0 ? "+" : ""}{formatCurrency(movimientosNetos)}
+            <span className="text-sm font-black text-indigo-300 font-mono">
+              {formatCurrency(saldoFinal)}
             </span>
           </div>
 
-          {/* Separator */}
-          <div className="border-t border-slate-700/50 pt-3">
-            {/* Saldo Final */}
-            <div className="flex items-center justify-between bg-gradient-to-r from-indigo-950/60 to-slate-900/60 border border-indigo-500/20 rounded-xl px-4 py-3 shadow-md">
-              <div className="flex items-center gap-2.5">
-                <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400">
-                  <Lock size={14} />
-                </div>
-                <span className="text-xs font-bold text-indigo-300 uppercase tracking-wider">Saldo final esperado</span>
-              </div>
-              <span className="text-base font-black text-emerald-400 font-mono">
-                {formatCurrency(saldoFinal)}
-              </span>
+          {/* Monto Contado - INPUT */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              Monto contado (efectivo en mano)
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-bold">$</span>
+              <input
+                type="number"
+                placeholder="0.00"
+                value={montoContado}
+                onChange={(e) => setMontoContado(e.target.value)}
+                className="w-full pl-7 pr-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white font-mono font-bold text-sm focus:outline-none focus:border-indigo-500 transition"
+                disabled={isPending}
+                step="0.01"
+              />
             </div>
           </div>
+
+          {/* Diferencia (solo si ingresa monto) */}
+          {diferencia !== null && (
+            <div className={`flex items-center justify-between rounded-xl px-4 py-3 border ${
+              esCuadrada
+                ? "bg-emerald-950/30 border-emerald-500/30"
+                : "bg-red-950/30 border-red-500/30"
+            }`}>
+              <div className="flex items-center gap-2.5">
+                <div className={`p-1.5 rounded-lg ${esCuadrada ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
+                  {esCuadrada ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
+                </div>
+                <span className={`text-xs font-semibold ${esCuadrada ? "text-emerald-300" : "text-red-300"}`}>
+                  {esCuadrada ? "Caja cuadrada" : "Diferencia"}
+                </span>
+              </div>
+              <span className={`text-sm font-black font-mono ${esCuadrada ? "text-emerald-400" : "text-red-400"}`}>
+                {diferencia >= 0 ? "+" : ""}{formatCurrency(diferencia)}
+              </span>
+            </div>
+          )}
+
+          {/* Resumen de movimientos */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex items-center justify-between bg-slate-800/40 border border-slate-700/50 rounded-lg px-3 py-2">
+              <div className="flex items-center gap-1.5">
+                <ArrowUpRight size={12} className="text-emerald-400" />
+                <span className="text-[10px] font-semibold text-slate-400">Ingresos</span>
+              </div>
+              <span className="text-xs font-bold text-emerald-400 font-mono">{formatCurrency(totalIngresos)}</span>
+            </div>
+            <div className="flex items-center justify-between bg-slate-800/40 border border-slate-700/50 rounded-lg px-3 py-2">
+              <div className="flex items-center gap-1.5">
+                <ArrowDownLeft size={12} className="text-red-400" />
+                <span className="text-[10px] font-semibold text-slate-400">Egresos</span>
+              </div>
+              <span className="text-xs font-bold text-red-400 font-mono">{formatCurrency(totalEgresos)}</span>
+            </div>
+          </div>
+
+          {/* Toggle Observación */}
+          {!showObservacion ? (
+            <button
+              type="button"
+              onClick={() => setShowObservacion(true)}
+              className="w-full text-left text-[10px] text-slate-500 hover:text-slate-300 font-semibold uppercase tracking-wider transition flex items-center gap-1"
+            >
+              <Eye size={10} />
+              Agregar observación (opcional)
+            </button>
+          ) : (
+            <div className="space-y-1.5 animate-in fade-in duration-150">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                Observación del cierre
+              </label>
+              <textarea
+                placeholder="Ej: Faltante de $500, sobrante de $200..."
+                value={observacion}
+                onChange={(e) => setObservacion(e.target.value)}
+                rows={2}
+                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-xs font-medium focus:outline-none focus:border-indigo-500 transition resize-none"
+                disabled={isPending}
+              />
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -135,8 +178,8 @@ export default function ConfirmarCierreModal({
             Cancelar
           </button>
           <button
-            onClick={onConfirm}
-            disabled={isPending}
+            onClick={() => onConfirm(observacion || undefined)}
+            disabled={isPending || montoContado === ""}
             className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-sm font-bold rounded-lg transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isPending ? (

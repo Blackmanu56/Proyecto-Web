@@ -107,7 +107,9 @@ export async function getDashboardData(): Promise<DashboardData> {
     // 3. Productos más vendidos
     const detallesVenta = await prisma.detalleVenta.findMany({
       include: {
-        producto: true,
+        producto: {
+          include: { categoria: true },
+        },
       },
     });
 
@@ -127,7 +129,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     // 4. Distribución por Categoría (Ventas)
     const agrupadoCategorias: { [key: string]: number } = {};
     detallesVenta.forEach((d) => {
-      const catNombre = d.producto.nombre.split(" ").slice(-1)[0] || "Otros"; // fallback si no carga relación
+      const catNombre = d.producto.categoria?.nombre || "Sin categoría";
       agrupadoCategorias[catNombre] = (agrupadoCategorias[catNombre] || 0) + d.subtotal;
     });
 

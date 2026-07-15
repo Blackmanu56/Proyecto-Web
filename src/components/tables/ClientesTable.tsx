@@ -17,11 +17,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { FormField } from "@/components/ui/form-field";
 import {
   Plus,
-  Search,
   Edit2,
   UserX,
   UserCheck,
-  X,
   CheckCircle,
   AlertTriangle,
   Users,
@@ -32,7 +30,6 @@ import {
   FileText,
   Trash2,
   Info,
-  Loader2,
 } from "lucide-react";
 
 interface ClientesTableProps {
@@ -49,15 +46,13 @@ export default function ClientesTable({
 
   // Búsqueda y Filtros
   const [search, setSearch] = useState("");
-
+  const [filterStatus, setFilterStatus] = useState<"activos" | "inactivos" | "todos">("activos");
 
   // Estados del Formulario (Agregar / Editar)
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCliente, setEditingCliente] = useState<ClienteConVentas | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
-  // Nuevo filtro de estado: 'activos', 'inactivos', 'todos'
-  const [filterStatus, setFilterStatus] = useState<'activos' | 'inactivos' | 'todos'>('activos');
 
   // Modal de Detalle / Visualización
   const [selectedCliente, setSelectedCliente] = useState<ClienteConVentas | null>(null);
@@ -175,63 +170,52 @@ export default function ClientesTable({
       (c.email && c.email.toLowerCase().includes(search.toLowerCase()));
 
     let matchesStatus = false;
-    if (filterStatus === 'todos') {
+    if (filterStatus === "todos") {
       matchesStatus = true;
-    } else if (filterStatus === 'activos') {
+    } else if (filterStatus === "activos") {
       matchesStatus = c.activo;
-    } else if (filterStatus === 'inactivos') {
+    } else if (filterStatus === "inactivos") {
       matchesStatus = !c.activo;
     }
     return matchesSearch && matchesStatus;
   });
 
-  // Métricas para tarjetas superiores
+  // Contadores para stats
   const totalClientes = initialClientes.length;
   const clientesActivos = initialClientes.filter((c) => c.activo).length;
   const clientesInactivos = totalClientes - clientesActivos;
-  const totalVentasRegistradas = initialClientes.reduce((acc, c) => acc + c._count.ventas, 0);
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      {/* 1. Header con estadísticas */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-        <div className="bg-card border border-border p-4 rounded-[var(--radius-lg)] flex items-center justify-between shadow-[var(--shadow-sm)]">
+    <div className="flex flex-col h-full min-h-0">
+      {/* 1. Header con estadísticas — compacto */}
+      <div className="grid grid-cols-3 gap-2 shrink-0 mb-2">
+        <div className="bg-card border border-border p-2.5 rounded-lg flex items-center justify-between shadow-[var(--shadow-sm)]">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-text-secondary">Total Clientes</p>
-            <p className="text-2xl font-bold text-text mt-1">{totalClientes}</p>
+            <p className="text-[10px] text-text-secondary font-bold uppercase tracking-wider">Total Clientes</p>
+            <p className="text-lg font-extrabold text-text">{totalClientes}</p>
           </div>
-          <div className="p-3 bg-brand-light rounded-[var(--radius-md)] text-brand">
-            <Users size={22} />
+          <div className="p-1.5 bg-brand-light rounded text-brand">
+            <Users size={14} />
           </div>
         </div>
 
-        <div className="bg-card border border-border p-4 rounded-[var(--radius-lg)] flex items-center justify-between shadow-[var(--shadow-sm)]">
+        <div className="bg-card border border-border p-2.5 rounded-lg flex items-center justify-between shadow-[var(--shadow-sm)]">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-text-secondary">Activos</p>
-            <p className="text-2xl font-bold text-success mt-1">{clientesActivos}</p>
+            <p className="text-[10px] text-text-secondary font-bold uppercase tracking-wider">Activos</p>
+            <p className="text-lg font-extrabold text-success">{clientesActivos}</p>
           </div>
-          <div className="p-3 bg-success-light rounded-[var(--radius-md)] text-success">
-            <UserCheck size={22} />
+          <div className="p-1.5 bg-success-light rounded text-success">
+            <UserCheck size={14} />
           </div>
         </div>
 
-        <div className="bg-card border border-border p-4 rounded-[var(--radius-lg)] flex items-center justify-between shadow-[var(--shadow-sm)]">
+        <div className="bg-card border border-border p-2.5 rounded-lg flex items-center justify-between shadow-[var(--shadow-sm)]">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-text-secondary">Inactivos</p>
-            <p className="text-2xl font-bold text-danger mt-1">{clientesInactivos}</p>
+            <p className="text-[10px] text-text-secondary font-bold uppercase tracking-wider">Inactivos</p>
+            <p className="text-lg font-extrabold text-danger">{clientesInactivos}</p>
           </div>
-          <div className="p-3 bg-danger-light rounded-[var(--radius-md)] text-danger">
-            <UserX size={22} />
-          </div>
-        </div>
-
-        <div className="bg-card border border-border p-4 rounded-[var(--radius-lg)] flex items-center justify-between shadow-[var(--shadow-sm)]">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-text-secondary">Transacciones Realizadas</p>
-            <p className="text-2xl font-bold text-info mt-1">{totalVentasRegistradas}</p>
-          </div>
-          <div className="p-3 bg-info-light rounded-[var(--radius-md)] text-info">
-            <FileText size={22} />
+          <div className="p-1.5 bg-danger-light rounded text-danger">
+            <UserX size={14} />
           </div>
         </div>
       </div>
@@ -244,37 +228,41 @@ export default function ClientesTable({
         onSearchChange={setSearch}
         isEmpty={filteredClientes.length === 0}
         emptyMessage="No se encontraron clientes que coincidan con la búsqueda."
-        emptyIcon={<Users size={40} className="opacity-40" />}
+        emptyIcon={<Users size={32} className="opacity-40" />}
         actions={
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             {/* Status filter */}
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value as any)}
-              className="bg-bg border border-border rounded-[var(--radius-md)] text-text text-xs px-3 py-2.5 focus:outline-none focus:border-brand"
-            >
-              <option value="activos">Activos</option>
-              <option value="inactivos">Inactivos</option>
-              <option value="todos">Todos</option>
-            </select>
+            <div className="relative">
+              <CheckCircle className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" size={12} />
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value as any)}
+                className="pl-7 pr-6 py-1.5 bg-bg border border-border rounded text-text text-[11px] focus:outline-none focus:border-brand appearance-none cursor-pointer"
+              >
+                <option value="todos">Todos</option>
+                <option value="activos">Activos</option>
+                <option value="inactivos">Inactivos</option>
+              </select>
+            </div>
 
             {/* Add client button */}
-            <Button onClick={handleOpenAdd} leftIcon={<Plus size={16} />}>
-              Registrar Cliente
-            </Button>
+            <button onClick={handleOpenAdd} className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--brand)] text-white rounded text-[11px] font-semibold hover:bg-[var(--brand)]/90 transition">
+              <Plus size={12} />
+              Registrar
+            </button>
           </div>
         }
       >
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[calc(100vh-22rem)]">
           <table className="w-full text-left border-collapse min-w-[700px]">
-            <thead>
-              <tr className="border-b border-border text-xs font-semibold uppercase tracking-wider text-text-secondary">
-                <th className="py-4 px-5">Cliente</th>
-                <th className="py-4 px-5">Documentos (DNI / CUIT)</th>
-                <th className="py-4 px-5">Contacto</th>
-                <th className="py-4 px-5 text-center">Estado</th>
-                <th className="py-4 px-5 text-center">Compras</th>
-                <th className="py-4 px-5 text-right">Acciones</th>
+            <thead className="sticky top-0 bg-[var(--card)]">
+              <tr className="border-b border-border text-[11px] uppercase tracking-wider font-semibold text-text-secondary">
+                <th className="py-2 px-4">Cliente</th>
+                <th className="py-2 px-4">Documentos (DNI / CUIT)</th>
+                <th className="py-2 px-4">Contacto</th>
+                <th className="py-2 px-4 text-center">Estado</th>
+                <th className="py-2 px-4 text-center">Compras</th>
+                <th className="py-2 px-4 text-center">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60 text-sm text-text-muted">
@@ -285,20 +273,20 @@ export default function ClientesTable({
                     !cliente.activo ? "opacity-60 bg-danger-light/5" : ""
                   }`}
                 >
-                  <td className="py-3.5 px-5">
-                    <div className="font-semibold text-text">{cliente.nombre}</div>
+                  <td className="py-2 px-4">
+                    <div className="font-semibold text-text text-sm">{cliente.nombre}</div>
                     <div className="text-[11px] text-text-secondary flex items-center gap-1 mt-0.5">
-                      <Calendar size={11} />
-                      Registrado: {new Date(cliente.creadoEn).toLocaleDateString()}
+                      <Calendar size={10} />
+                      {new Date(cliente.creadoEn).toLocaleDateString()}
                     </div>
                   </td>
-                  <td className="py-3.5 px-5">
+                  <td className="py-2 px-4">
                     <div className="flex flex-col gap-0.5">
-                      <span className="text-xs text-text-muted">
+                      <span className="text-[11px] text-text-muted">
                         <span className="font-medium text-text-secondary">DNI:</span> {cliente.dni}
                       </span>
                       {cliente.cuit ? (
-                        <span className="text-xs text-text-muted">
+                        <span className="text-[11px] text-text-muted">
                           <span className="font-medium text-text-secondary">CUIT:</span> {cliente.cuit}
                         </span>
                       ) : (
@@ -306,35 +294,35 @@ export default function ClientesTable({
                       )}
                     </div>
                   </td>
-                  <td className="py-3.5 px-5">
+                  <td className="py-2 px-4">
                     <div className="flex flex-col gap-0.5">
                       {cliente.telefono && (
-                        <div className="text-xs flex items-center gap-1 text-text-muted">
-                          <Phone size={12} className="text-text-secondary" />
+                        <div className="text-[11px] flex items-center gap-1 text-text-muted">
+                          <Phone size={11} className="text-text-secondary" />
                           {cliente.telefono}
                         </div>
                       )}
                       {cliente.email && (
-                        <div className="text-xs flex items-center gap-1 text-text-muted">
-                          <Mail size={12} className="text-text-secondary" />
+                        <div className="text-[11px] flex items-center gap-1 text-text-muted">
+                          <Mail size={11} className="text-text-secondary" />
                           {cliente.email}
                         </div>
                       )}
                       {!cliente.telefono && !cliente.email && (
-                        <span className="text-[11px] text-text-secondary italic">Sin datos de contacto</span>
+                        <span className="text-[11px] text-text-secondary italic">Sin datos</span>
                       )}
                     </div>
                   </td>
-                  <td className="py-3.5 px-5 text-center">
+                  <td className="py-2 px-4 text-center">
                     <Badge variant={cliente.activo ? "success" : "danger"} size="sm">
-                      {cliente.activo ? "Activo" : "Baja Lógica"}
+                      {cliente.activo ? "Activo" : "Baja"}
                     </Badge>
                   </td>
-                  <td className="py-3.5 px-5 text-center font-semibold text-text">
+                  <td className="py-2 px-4 text-center font-semibold text-text">
                     {cliente._count.ventas}
                   </td>
-                  <td className="py-3.5 px-5 text-right">
-                    <div className="flex items-center justify-end gap-1">
+                  <td className="py-2 px-4 text-center">
+                    <div className="flex items-center justify-center gap-1">
                       <Button
                         variant="ghost"
                         size="sm"

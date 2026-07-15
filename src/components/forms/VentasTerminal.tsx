@@ -366,38 +366,38 @@ export default function VentasTerminal({ productos, clientes, usuario }: VentasT
   const getPaymentLabel = (m: string) => PAYMENT_METHODS.find(p => p.value === m)?.label || m;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch h-full">
       {/* ═══ SECCIÓN IZQUIERDA: Productos (7/12 cols) ═══ */}
-      <div className="lg:col-span-7 space-y-4 md:space-y-6">
+      <div className="lg:col-span-7 flex flex-col gap-2 min-h-0 h-full">
         {/* 1. Panel de Selección de Clientes */}
-        <div className="bg-[var(--card)] border border-[var(--border)] rounded-[var(--radius-lg)] p-5 space-y-4 shadow-[var(--shadow-sm)]">
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-2 space-y-1.5 shadow-[var(--shadow-sm)] shrink-0">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 text-[var(--brand)]">
-              <Users size={18} />
-              <h2 className="text-base font-bold text-[var(--text)]">Selección de Cliente</h2>
+            <div className="flex items-center space-x-1.5 text-[var(--brand)]">
+              <Users size={14} />
+              <h2 className="text-xs font-bold text-[var(--text)]">Selección de Cliente</h2>
             </div>
             <button
               onClick={() => setShowNewClientModal(true)}
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-[var(--brand-light)] text-[var(--brand)] border border-[var(--brand)]/20 rounded-[var(--radius-md)] text-xs font-semibold hover:bg-[var(--brand)] hover:text-white transition-all"
+              className="flex items-center space-x-1 px-2 py-0.5 bg-[var(--brand-light)] text-[var(--brand)] border border-[var(--brand)]/20 rounded text-[10px] font-semibold hover:bg-[var(--brand)] hover:text-white transition-all"
             >
-              <UserPlus size={14} />
-              <span>Nuevo cliente</span>
+              <UserPlus size={10} />
+              <span>Nuevo</span>
             </button>
           </div>
 
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" size={14} />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" size={12} />
             <input
               type="text"
-              placeholder="Buscar cliente por nombre, DNI o CUIT..."
+              placeholder="Buscar cliente..."
               value={clientSearch}
               onChange={e => setClientSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-[var(--text)] placeholder-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)] text-xs transition-colors"
+              className="w-full pl-8 pr-3 py-1.5 bg-[var(--bg)] border border-[var(--border)] rounded text-[var(--text)] placeholder-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)] text-[11px] transition-colors"
             />
           </div>
 
           {/* Grilla Clientes */}
-          <div className="max-h-36 overflow-y-auto border border-[var(--border)] rounded-[var(--radius-md)] divide-y divide-[var(--border)]">
+          <div className="max-h-24 overflow-y-auto border border-[var(--border)] rounded divide-y divide-[var(--border)]">
             {filteredClients.length === 0 && (
               <div className="px-3 py-4 text-xs text-[var(--text-secondary)] text-center">No se encontraron clientes</div>
             )}
@@ -407,7 +407,7 @@ export default function VentasTerminal({ productos, clientes, usuario }: VentasT
                 <div
                   key={c.id}
                   onClick={() => setSelectedClient(c)}
-                  className={`flex items-center justify-between px-3 py-2 text-xs cursor-pointer transition ${
+                  className={`flex items-center justify-between px-2.5 py-1.5 text-[11px] cursor-pointer transition ${
                     isSelected
                       ? "bg-[var(--brand-light)] text-[var(--brand)] font-semibold"
                       : "text-[var(--text-muted)] hover:bg-[var(--card)] hover:text-[var(--text)]"
@@ -415,11 +415,11 @@ export default function VentasTerminal({ productos, clientes, usuario }: VentasT
                 >
                   <div>
                     <p className={isSelected ? "text-[var(--brand)]" : "text-[var(--text)]"}>{c.nombre}</p>
-                    <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">
+                    <p className="text-[9px] text-[var(--text-secondary)] mt-0.5">
                       DNI: {c.dni} {c.cuit ? `| CUIT: ${c.cuit}` : ""}
                     </p>
                   </div>
-                  {isSelected && <span className="text-[10px] bg-[var(--brand-light)] px-2 py-0.5 rounded border border-[var(--brand)]/20 font-bold uppercase">Seleccionado</span>}
+                  {isSelected && <span className="text-[8px] bg-[var(--brand-light)] px-1.5 py-0.5 rounded border border-[var(--brand)]/20 font-bold uppercase">Seleccionado</span>}
                 </div>
               );
             })}
@@ -427,55 +427,41 @@ export default function VentasTerminal({ productos, clientes, usuario }: VentasT
         </div>
 
         {/* 2. Panel de Búsqueda de Repuestos */}
-        <div className="bg-[var(--card)] border border-[var(--border)] rounded-[var(--radius-lg)] p-5 space-y-4 shadow-[var(--shadow-sm)]">
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-[var(--radius-lg)] p-2 space-y-1.5 shadow-[var(--shadow-sm)] flex-1 flex flex-col min-h-0">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 text-[var(--brand)]">
-              <ShoppingCart size={18} />
-              <h2 className="text-base font-bold text-[var(--text)]">Catálogo de Venta</h2>
+            <div className="flex items-center space-x-1.5 text-[var(--brand)]">
+              <ShoppingCart size={14} />
+              <h2 className="text-xs font-bold text-[var(--text)]">Catálogo de Venta</h2>
             </div>
-            <span className="text-[10px] text-[var(--text-secondary)] font-semibold uppercase">Haga clic en un producto para agregarlo</span>
+            <span className="text-[8px] text-[var(--text-secondary)] font-semibold uppercase tracking-wider">Clic para agregar</span>
           </div>
 
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" size={14} />
-            <input
-              type="text"
-              placeholder="Buscar por repuesto, código, categoría..."
-              value={prodSearch}
-              onChange={e => setProdSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-[var(--text)] placeholder-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)] text-xs transition-colors"
-            />
-          </div>
-
-          {/* Category Filter Buttons */}
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setSelectedCategory(null)}
-              className={`px-3 py-1.5 rounded-[var(--radius-full)] text-xs font-medium transition-all ${
-                !selectedCategory
-                  ? "bg-[var(--brand)] text-white"
-                  : "bg-[var(--bg)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--border-hover)]"
-              }`}
+          {/* Buscador + Filtro inline */}
+          <div className="flex gap-1.5">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" size={12} />
+              <input
+                type="text"
+                placeholder="Buscar repuesto..."
+                value={prodSearch}
+                onChange={e => setProdSearch(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-[var(--text)] placeholder-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)] text-[11px] transition-colors"
+              />
+            </div>
+            <select
+              value={selectedCategory || ""}
+              onChange={e => setSelectedCategory(e.target.value || null)}
+              className="px-2 py-1.5 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-[11px] text-[var(--text)] focus:outline-none focus:border-[var(--brand)] cursor-pointer font-medium shrink-0"
             >
-              Todos
-            </button>
-            {categories.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
-                className={`px-3 py-1.5 rounded-[var(--radius-full)] text-xs font-medium transition-all ${
-                  selectedCategory === cat
-                    ? "bg-[var(--brand)] text-white"
-                    : "bg-[var(--bg)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--border-hover)]"
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
+              <option value="">Todas</option>
+              {categories.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
           </div>
 
-          {/* Product Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3 max-h-[500px] overflow-y-auto pr-1">
+          {/* Product Grid — 2 filas visibles, scroll interno */}
+          <div className="grid grid-cols-4 gap-2 h-[500px] overflow-y-auto pr-1">
             {filteredProducts.map(p => {
               const isLowStock = p.cantidad <= 5;
               const hasNoStock = p.cantidad <= 0;
@@ -483,34 +469,24 @@ export default function VentasTerminal({ productos, clientes, usuario }: VentasT
                 <div
                   key={p.id}
                   onClick={() => !hasNoStock && addToCart(p)}
-                  className={`bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-lg)] p-3 cursor-pointer transition-all hover:border-[var(--border-hover)] hover:shadow-[var(--shadow-md)] ${
+                  className={`bg-[var(--bg)] border border-[var(--border)] rounded-lg p-2 cursor-pointer transition-all hover:border-[var(--border-hover)] hover:shadow-[var(--shadow-md)] ${
                     hasNoStock ? "opacity-40 cursor-not-allowed" : "hover:scale-[1.02]"
                   }`}
                 >
-                  <div className="w-full aspect-square bg-[var(--panel)] rounded-[var(--radius-md)] flex items-center justify-center mb-3 overflow-hidden">
+                  <div className="w-full h-40 bg-[var(--panel)] rounded flex items-center justify-center mb-1.5 overflow-hidden">
                     {p.imagen ? (
-                      <img src={p.imagen} alt={p.nombre} className="w-full h-full object-cover" />
+                      <img src={p.imagen} alt={p.nombre} className="w-full h-full object-contain" />
                     ) : (
-                      <Package size={24} className="text-[var(--text-secondary)]" />
+                      <Package size={32} className="text-[var(--text-secondary)]" />
                     )}
                   </div>
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold text-[var(--text)] line-clamp-2 leading-tight">{p.nombre}</p>
-                    <p className="text-[10px] text-[var(--text-secondary)]">{p.categoria.nombre}</p>
-                    <div className="flex items-center justify-between">
-                      <span className={`text-[10px] font-mono font-semibold ${hasNoStock ? "text-[var(--danger)]" : isLowStock ? "text-[var(--warning)]" : "text-[var(--success)]"}`}>
-                        {p.cantidad} u.
-                      </span>
-                      <span className="text-[9px] text-[var(--text-secondary)]">Stock</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-bold text-[var(--brand)] font-mono">{formatCurrency(p.precioVenta)}</p>
-                      {!hasNoStock && (
-                        <button className="p-1.5 rounded-[var(--radius-md)] bg-[var(--brand-light)] text-[var(--brand)] border border-[var(--brand)]/20 hover:bg-[var(--brand)] hover:text-white transition-all">
-                          <Plus size={12} />
-                        </button>
-                      )}
-                    </div>
+                  <p className="text-[10px] font-semibold text-[var(--text)] leading-tight line-clamp-2 min-h-[2rem]">{p.nombre}</p>
+                  <p className="text-[8px] text-[var(--text-secondary)] truncate">{p.categoria.nombre}</p>
+                  <div className="flex items-center justify-between mt-1">
+                    <p className="text-[11px] font-bold text-[var(--brand)] font-mono">{formatCurrency(p.precioVenta)}</p>
+                    <span className={`text-[8px] font-mono font-semibold ${hasNoStock ? "text-[var(--danger)]" : isLowStock ? "text-[var(--warning)]" : "text-[var(--success)]"}`}>
+                      {p.cantidad}u
+                    </span>
                   </div>
                 </div>
               );
@@ -519,42 +495,41 @@ export default function VentasTerminal({ productos, clientes, usuario }: VentasT
         </div>
       </div>
 
-      {/* ═══ SECCIÓN DERECHA: Carrito + Pago (5/12 cols) - Sticky ═══ */}
-      <div className="lg:col-span-5 lg:sticky lg:top-6">
-        <div className="bg-[var(--card)] border border-[var(--border)] rounded-[var(--radius-lg)] p-5 space-y-5 flex flex-col shadow-[var(--shadow-sm)]">
+      {/* ═══ SECCIÓN DERECHA: Carrito + Pago (5/12 cols) ═══ */}
+      <div className="lg:col-span-5 h-full flex flex-col min-h-0">
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-2 space-y-1.5 flex flex-col flex-1 min-h-0 shadow-[var(--shadow-sm)]">
           {/* Header Carrito */}
-          <div className="flex items-center justify-between border-b border-[var(--border)] pb-3.5">
-            <div className="flex items-center space-x-2 text-[var(--brand)]">
-              <ShoppingCart size={18} />
-              <h2 className="text-base font-bold text-[var(--text)]">Carrito de compras</h2>
+          <div className="flex items-center justify-between border-b border-[var(--border)] pb-1.5">
+            <div className="flex items-center space-x-1.5 text-[var(--brand)]">
+              <ShoppingCart size={14} />
+              <h2 className="text-xs font-bold text-[var(--text)]">Carrito de compras</h2>
             </div>
-            <span className="text-xs px-2.5 py-0.5 bg-[var(--brand-light)] border border-[var(--brand)]/20 text-[var(--brand)] font-semibold rounded-[var(--radius-full)] font-mono">
-              {cartItemCount} {cartItemCount === 1 ? 'artículo' : 'artículos'}
+            <span className="text-[9px] px-1.5 py-0.5 bg-[var(--brand-light)] border border-[var(--brand)]/20 text-[var(--brand)] font-semibold rounded font-mono">
+              {cartItemCount} {cartItemCount === 1 ? 'art.' : 'arts.'}
             </span>
           </div>
 
-          {/* Listado de ítems del Carrito */}
-          <div className="flex-1 overflow-y-auto space-y-3 pr-1 max-h-64">
+          {/* Listado de ítems del Carrito — fill remaining space, scroll interno */}
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-1.5 pr-1">
             {cart.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-[var(--text-secondary)] py-16 space-y-2">
-                <ShoppingCart size={32} className="opacity-40" />
-                <p className="text-xs">El carrito está vacío</p>
+              <div className="h-full flex flex-col items-center justify-center text-[var(--text-secondary)] py-6 space-y-1.5">
+                <ShoppingCart size={24} className="opacity-40" />
+                <p className="text-[10px]">El carrito está vacío</p>
               </div>
             ) : (
               cart.map(item => (
-                <div key={item.id} className="p-3 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] flex items-center justify-between">
+                <div key={item.id} className="p-1.5 bg-[var(--bg)] border border-[var(--border)] rounded flex items-center justify-between">
                   <div className="max-w-[50%]">
-                    <p className="text-xs font-semibold text-[var(--text)] truncate">{item.nombre}</p>
-                    <p className="text-[10px] text-[var(--brand)] font-mono mt-0.5">{formatCurrency(item.precioVenta)} c/u</p>
+                    <p className="text-[10px] font-semibold text-[var(--text)] truncate">{item.nombre}</p>
+                    <p className="text-[8px] text-[var(--brand)] font-mono">{formatCurrency(item.precioVenta)} c/u</p>
                   </div>
-                  <div className="flex items-center space-x-3">
-                    {/* Controles de Cantidad Editable */}
-                    <div className="flex items-center bg-[var(--panel)] border border-[var(--border)] rounded-[var(--radius-md)] overflow-hidden h-7">
+                  <div className="flex items-center space-x-1.5">
+                    <div className="flex items-center bg-[var(--panel)] border border-[var(--border)] rounded overflow-hidden h-5">
                       <button
                         onClick={() => updateQuantity(item.id, -1)}
-                        className="px-2 text-[var(--text-secondary)] hover:text-[var(--text)] transition text-xs font-bold"
+                        className="px-1.5 text-[var(--text-secondary)] hover:text-[var(--text)] transition text-[9px] font-bold"
                       >
-                        <Minus size={10} />
+                        <Minus size={8} />
                       </button>
                       <input
                         type="text"
@@ -565,20 +540,20 @@ export default function VentasTerminal({ productos, clientes, usuario }: VentasT
                           const v = parseInt(e.target.value, 10);
                           if (isNaN(v) || v < 1) setQuantity(item.id, "1");
                         }}
-                        className="w-8 text-center text-xs font-mono font-semibold text-[var(--text)] bg-transparent border-x border-[var(--border)] outline-none focus:bg-[var(--brand-light)] h-full"
+                        className="w-6 text-center text-[9px] font-mono font-semibold text-[var(--text)] bg-transparent border-x border-[var(--border)] outline-none focus:bg-[var(--brand-light)] h-full"
                       />
                       <button
                         onClick={() => updateQuantity(item.id, 1)}
-                        className="px-2 text-[var(--text-secondary)] hover:text-[var(--text)] transition text-xs font-bold"
+                        className="px-1.5 text-[var(--text-secondary)] hover:text-[var(--text)] transition text-[9px] font-bold"
                       >
-                        <Plus size={10} />
+                        <Plus size={8} />
                       </button>
                     </div>
                     <button
                       onClick={() => removeFromCart(item.id)}
                       className="text-[var(--text-secondary)] hover:text-[var(--danger)] transition"
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={11} />
                     </button>
                   </div>
                 </div>
@@ -587,151 +562,130 @@ export default function VentasTerminal({ productos, clientes, usuario }: VentasT
           </div>
 
           {/* ═══ SECCIÓN DE PAGO ═══ */}
-          <div className="border-t border-[var(--border)] pt-4 space-y-4">
-            {/* Cliente Asignado */}
-            <div className="flex justify-between items-center text-xs">
+          <div className="border-t border-[var(--border)] pt-2 space-y-2 shrink-0">
+            {/* Cliente */}
+            <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px]">
               <span className="text-[var(--text-secondary)]">Cliente:</span>
-              <span className="font-semibold text-[var(--text)]">
+              <span className="font-semibold text-[var(--text)] text-right truncate">
                 {selectedClient ? selectedClient.nombre : <span className="text-[var(--text-secondary)] italic">No seleccionado</span>}
               </span>
             </div>
 
             {/* Forma de Pago */}
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Forma de Pago</label>
-              <div className="grid grid-cols-2 gap-2">
-                {PAYMENT_METHODS.map(pm => (
-                  <button
-                    key={pm.value}
-                    onClick={() => setPaymentMethod(pm.value)}
-                    className={`flex items-center justify-center space-x-1.5 py-2 px-3 rounded-[var(--radius-md)] text-xs font-semibold transition-all border ${
-                      paymentMethod === pm.value
-                        ? "bg-[var(--brand)] text-white border-[var(--brand)] shadow-md"
-                        : "bg-[var(--bg)] text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--border-hover)]"
-                    }`}
-                  >
-                    {pm.icon}
-                    <span>{pm.label}</span>
-                  </button>
-                ))}
-              </div>
+            <div className="grid grid-cols-2 gap-1.5">
+              {PAYMENT_METHODS.map(pm => (
+                <button
+                  key={pm.value}
+                  onClick={() => setPaymentMethod(pm.value)}
+                  className={`flex items-center justify-center space-x-1.5 py-1.5 px-2 rounded text-[11px] font-semibold transition-all border ${
+                    paymentMethod === pm.value
+                      ? "bg-[var(--brand)] text-white border-[var(--brand)]"
+                      : "bg-[var(--bg)] text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--border-hover)]"
+                  }`}
+                >
+                  {pm.icon}
+                  <span>{pm.label}</span>
+                </button>
+              ))}
             </div>
 
             {/* Descuento */}
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider flex items-center space-x-1.5">
-                <BadgePercent size={14} />
-                <span>Descuento</span>
-              </label>
-              <div className="flex gap-2">
-                <select
-                  value={discountType}
-                  onChange={e => setDiscountType(e.target.value as DiscountType)}
-                  className="py-2 px-3 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-xs text-[var(--text)] focus:outline-none focus:border-[var(--brand)] appearance-none cursor-pointer"
-                >
-                  <option value="MONTO">$ Monto fijo</option>
-                  <option value="PORCENTAJE">% Porcentaje</option>
-                </select>
-                <div className="relative flex-1">
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={discountValue}
-                    onChange={e => {
-                      const val = e.target.value.replace(/[^0-9.]/g, "");
-                      setDiscountValue(val);
-                    }}
-                    placeholder="0"
-                    className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-xs text-[var(--text)] font-mono focus:outline-none focus:border-[var(--brand)]"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[var(--text-secondary)] font-bold">
-                    {discountType === "PORCENTAJE" ? "%" : "$"}
-                  </span>
-                </div>
+            <div className="flex gap-1.5">
+              <select
+                value={discountType}
+                onChange={e => setDiscountType(e.target.value as DiscountType)}
+                className="py-1.5 px-2 bg-[var(--bg)] border border-[var(--border)] rounded text-[11px] text-[var(--text)] focus:outline-none focus:border-[var(--brand)] appearance-none cursor-pointer"
+              >
+                <option value="MONTO">$ Fijo</option>
+                <option value="PORCENTAJE">% Porc.</option>
+              </select>
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={discountValue}
+                  onChange={e => {
+                    const val = e.target.value.replace(/[^0-9.]/g, "");
+                    setDiscountValue(val);
+                  }}
+                  placeholder="0"
+                  className="w-full px-2.5 py-1.5 bg-[var(--bg)] border border-[var(--border)] rounded text-[11px] text-[var(--text)] font-mono focus:outline-none focus:border-[var(--brand)]"
+                />
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-[var(--text-secondary)] font-bold">
+                  {discountType === "PORCENTAJE" ? "%" : "$"}
+                </span>
               </div>
             </div>
 
-            {/* Tipo de Comprobante */}
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider flex items-center space-x-1.5">
-                <Receipt size={14} />
-                <span>Comprobante</span>
-              </label>
-              <div className="flex gap-2">
-                {COMPROBANTES.map(comp => (
-                  <button
-                    key={comp.value}
-                    onClick={() => setComprobanteType(comp.value)}
-                    className={`flex-1 py-2 px-2 rounded-[var(--radius-md)] text-xs font-semibold transition-all border text-center ${
-                      comprobanteType === comp.value
-                        ? "bg-[var(--brand)] text-white border-[var(--brand)]"
-                        : "bg-[var(--bg)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--border-hover)]"
-                    }`}
-                  >
-                    {comp.label}
-                  </button>
-                ))}
-              </div>
+            {/* Comprobante */}
+            <div className="flex gap-1.5">
+              {COMPROBANTES.map(comp => (
+                <button
+                  key={comp.value}
+                  onClick={() => setComprobanteType(comp.value)}
+                  className={`flex-1 py-1.5 px-2 rounded text-[11px] font-semibold transition-all border text-center ${
+                    comprobanteType === comp.value
+                      ? "bg-[var(--brand)] text-white border-[var(--brand)]"
+                      : "bg-[var(--bg)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--border-hover)]"
+                  }`}
+                >
+                  {comp.label}
+                </button>
+              ))}
             </div>
 
             {/* Resumen */}
-            <div className="space-y-2">
-              <div className="flex justify-between items-center text-xs">
+            <div className="space-y-1">
+              <div className="flex justify-between items-center text-[11px]">
                 <span className="text-[var(--text-secondary)]">Subtotal:</span>
                 <span className="font-mono text-[var(--text)]">{formatCurrency(cartSubtotal)}</span>
               </div>
               {discountAmount > 0 && (
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-[var(--danger)]">Descuento ({discountType === "PORCENTAJE" ? `${Math.min(numDiscount, 100)}%` : "fijo"}):</span>
+                <div className="flex justify-between items-center text-[11px]">
+                  <span className="text-[var(--danger)]">Desc.:</span>
                   <span className="font-mono text-[var(--danger)] font-semibold">-{formatCurrency(discountAmount)}</span>
                 </div>
               )}
-              <div className="h-px bg-[var(--border)] my-2"></div>
               <div className="flex justify-between items-center">
                 <span className="text-sm font-bold text-[var(--text)]">Total:</span>
-                <span className="text-xl font-black font-mono text-[var(--success)]">{formatCurrency(cartTotal)}</span>
+                <span className="text-lg font-black font-mono text-[var(--success)]">{formatCurrency(cartTotal)}</span>
               </div>
             </div>
 
             {/* Error */}
             {errorMsg && (
-              <div className="p-3 bg-[var(--danger-light)] border border-[var(--danger)]/20 text-[var(--danger)] text-xs font-semibold rounded-[var(--radius-md)] flex items-center space-x-2">
-                <AlertTriangle size={14} />
+              <div className="p-2 bg-[var(--danger-light)] border border-[var(--danger)]/20 text-[var(--danger)] text-[11px] font-semibold rounded flex items-center space-x-1.5">
+                <AlertTriangle size={12} />
                 <span>{errorMsg}</span>
               </div>
             )}
 
-            {/* Botón Cobrar */}
+            {/* Botones Cobrar + Limpiar apilados */}
             <button
               onClick={handleOpenPreview}
               disabled={isPending || cart.length === 0}
-              className="w-full py-4 bg-gradient-to-r from-[var(--danger)] to-[var(--brand)] hover:from-[var(--brand)] hover:to-[var(--danger)] text-white font-bold rounded-[var(--radius-lg)] shadow-lg shadow-[var(--danger)]/20 focus:outline-none transition duration-150 flex items-center justify-center text-base disabled:opacity-40 hover:shadow-xl hover:shadow-[var(--danger)]/30"
+              className="w-full py-2.5 bg-gradient-to-r from-[var(--danger)] to-[var(--brand)] hover:from-[var(--brand)] hover:to-[var(--danger)] text-white font-bold rounded shadow-lg shadow-[var(--danger)]/20 focus:outline-none transition duration-150 flex items-center justify-center text-sm disabled:opacity-40 hover:shadow-xl hover:shadow-[var(--danger)]/30"
             >
-              {isPending ? (
-                "Procesando Cobro..."
-              ) : (
+              {isPending ? "Procesando..." : (
                 <>
                   <span>Cobrar</span>
-                  <ArrowRight size={18} className="ml-2" />
+                  <ArrowRight size={14} className="ml-1" />
                 </>
               )}
             </button>
-
-            {/* Botón Limpiar Carrito */}
-            {cart.length > 0 && (
-              <button
-                onClick={() => {
-                  setCart([]);
-                  setSelectedClient(null);
-                  setErrorMsg("");
-                  setPaymentMethod("EFECTIVO");
-                  setDiscountValue("0");
-                }}
-                className="w-full py-2.5 bg-transparent border border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--bg)] hover:text-[var(--text)] font-semibold rounded-[var(--radius-md)] transition duration-150 text-xs"
-              >
-                Limpiar carrito
-              </button>
-            )}
+            <button
+              onClick={() => {
+                setCart([]);
+                setSelectedClient(null);
+                setErrorMsg("");
+                setPaymentMethod("EFECTIVO");
+                setDiscountValue("0");
+              }}
+              disabled={cart.length === 0}
+              className="w-full py-2 bg-transparent border border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--bg)] hover:text-[var(--text)] font-semibold rounded transition duration-150 text-[11px] disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              Limpiar carrito
+            </button>
           </div>
         </div>
       </div>

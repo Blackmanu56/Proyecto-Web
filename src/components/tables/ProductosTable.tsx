@@ -9,7 +9,6 @@ import {
   reactivarProducto
 } from "@/actions/productos";
 import { formatCurrency } from "@/lib/utils";
-import StatusFilter from "./StatusFilter";
 import type { FilterStatus } from "./StatusFilter";
 import { TableShell } from "@/components/ui/table-shell";
 import { Button } from "@/components/ui/button";
@@ -70,6 +69,7 @@ export default function ProductosTable({
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("activos");
+  const [stockFilter, setStockFilter] = useState<"todos" | "normal" | "poco" | "sin">("todos");
 
   // Estados del Formulario (Agregar / Editar)
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -77,10 +77,12 @@ export default function ProductosTable({
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [cantidadAReponer, setCantidadAReponer] = useState<number | "">("");
 
   // Manejo de clicks en acciones
   const handleEdit = (product: Product) => {
     setEditingProduct(product);
+    setCantidadAReponer("");
     setErrorMsg("");
     setSuccessMsg("");
     setImagePreview(product.imagen || null);
@@ -89,6 +91,7 @@ export default function ProductosTable({
 
   const handleOpenAdd = () => {
     setEditingProduct(null);
+    setCantidadAReponer("");
     setErrorMsg("");
     setSuccessMsg("");
     setImagePreview(null);
@@ -172,51 +175,74 @@ export default function ProductosTable({
       matchesStatus = !p.activo;
     }
 
-    return matchesSearch && matchesCat && matchesStatus;
+    let matchesStock = false;
+    if (stockFilter === "todos") {
+      matchesStock = true;
+    } else if (stockFilter === "normal") {
+      matchesStock = p.cantidad > p.stockMinimo;
+    } else if (stockFilter === "poco") {
+      matchesStock = p.cantidad > 0 && p.cantidad <= p.stockMinimo;
+    } else if (stockFilter === "sin") {
+      matchesStock = p.cantidad === 0;
+    }
+
+    return matchesSearch && matchesCat && matchesStatus && matchesStock;
   });
 
+  // Count helpers for stock badges
+  const activeProductsForCounts = initialProducts.filter(p => {
+    if (filterStatus === "todos") return true;
+    if (filterStatus === "activos") return p.activo;
+    if (filterStatus === "inactivos") return !p.activo;
+    return true;
+  });
+
+  const countTodos = activeProductsForCounts.length;
+  const countNormal = activeProductsForCounts.filter(p => p.cantidad > p.stockMinimo).length;
+  const countPoco = activeProductsForCounts.filter(p => p.cantidad > 0 && p.cantidad <= p.stockMinimo).length;
+  const countSin = activeProductsForCounts.filter(p => p.cantidad === 0).length;
   const lowStockCount = initialProducts.filter(p => p.activo && p.cantidad <= p.stockMinimo).length;
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      {/* 1. Header con estadísticas de Stock */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-5">
+    <div className="flex flex-col h-full min-h-0">
+      {/* 1. Header con estadísticas de Stock — compacto */}
+      <div className="grid grid-cols-3 gap-2 shrink-0 mb-2">
         {/* Card Total Productos */}
-        <div className="bg-card border border-border p-5 rounded-[var(--radius-lg)] flex items-center justify-between shadow-[var(--shadow-sm)]">
+        <div className="bg-card border border-border p-2.5 rounded-lg flex items-center justify-between shadow-[var(--shadow-sm)]">
           <div>
-            <p className="text-xs text-text-secondary font-bold uppercase tracking-wider">Total Repuestos</p>
-            <p className="text-2xl font-extrabold text-text mt-1">
+            <p className="text-[10px] text-text-secondary font-bold uppercase tracking-wider">Repuestos</p>
+            <p className="text-lg font-extrabold text-text">
               {initialProducts.filter(p => p.activo).length}
             </p>
           </div>
-          <div className="p-3 bg-brand-light rounded-[var(--radius-md)] text-brand">
-            <Package size={24} />
+          <div className="p-1.5 bg-brand-light rounded text-brand">
+            <Package size={14} />
           </div>
         </div>
 
         {/* Card Alerta Stock Bajo */}
-        <div className="bg-card border border-border p-5 rounded-[var(--radius-lg)] flex items-center justify-between shadow-[var(--shadow-sm)]">
+        <div className="bg-card border border-border p-2.5 rounded-lg flex items-center justify-between shadow-[var(--shadow-sm)]">
           <div>
-            <p className="text-xs text-text-secondary font-bold uppercase tracking-wider">Stock Crítico</p>
-            <p className={`text-2xl font-extrabold mt-1 ${lowStockCount > 0 ? "text-warning" : "text-text"}`}>
+            <p className="text-[10px] text-text-secondary font-bold uppercase tracking-wider">Stock Crítico</p>
+            <p className={`text-lg font-extrabold ${lowStockCount > 0 ? "text-warning" : "text-text"}`}>
               {lowStockCount}
             </p>
           </div>
-          <div className={`p-3 rounded-[var(--radius-md)] ${lowStockCount > 0 ? "bg-warning-light text-warning animate-pulse" : "bg-border text-text-secondary"}`}>
-            <AlertTriangle size={24} />
+          <div className={`p-1.5 rounded ${lowStockCount > 0 ? "bg-warning-light text-warning animate-pulse" : "bg-border text-text-secondary"}`}>
+            <AlertTriangle size={14} />
           </div>
         </div>
 
         {/* Card Papelera */}
-        <div className="bg-card border border-border p-5 rounded-[var(--radius-lg)] flex items-center justify-between shadow-[var(--shadow-sm)]">
+        <div className="bg-card border border-border p-2.5 rounded-lg flex items-center justify-between shadow-[var(--shadow-sm)]">
           <div>
-            <p className="text-xs text-text-secondary font-bold uppercase tracking-wider">Inactivos / De Baja</p>
-            <p className="text-2xl font-extrabold text-text mt-1">
+            <p className="text-[10px] text-text-secondary font-bold uppercase tracking-wider">Inactivos</p>
+            <p className="text-lg font-extrabold text-text">
               {initialProducts.filter(p => !p.activo).length}
             </p>
           </div>
-          <div className="p-3 bg-border rounded-[var(--radius-md)] text-text-secondary">
-            <FolderOpen size={24} />
+          <div className="p-1.5 bg-border rounded text-text-secondary">
+            <FolderOpen size={14} />
           </div>
         </div>
       </div>
@@ -224,23 +250,23 @@ export default function ProductosTable({
       {/* 2. TableShell with filters and actions */}
       <TableShell
         title="Inventario de Productos"
-        searchPlaceholder="Buscar por repuesto, marca, código, proveedor..."
+        searchPlaceholder="Buscar repuesto, marca, código..."
         searchValue={search}
         onSearchChange={setSearch}
         isEmpty={filteredProducts.length === 0}
-        emptyMessage="No se encontraron productos coincidentes."
-        emptyIcon={<Package size={40} className="opacity-40" />}
+        emptyMessage="No se encontraron productos."
+        emptyIcon={<Package size={32} className="opacity-40" />}
         actions={
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             {/* Category filter */}
             <div className="relative">
-              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" size={14} />
+              <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" size={12} />
               <select
                 value={catFilter}
                 onChange={e => setCatFilter(e.target.value)}
-                className="pl-9 pr-4 py-2.5 bg-bg border border-border rounded-[var(--radius-md)] text-text text-sm focus:outline-none focus:border-brand appearance-none"
+                className="pl-7 pr-6 py-1.5 bg-bg border border-border rounded text-text text-[11px] focus:outline-none focus:border-brand appearance-none cursor-pointer"
               >
-                <option value="all">Todas las Categorías</option>
+                <option value="all">Categorías</option>
                 {categorias.map(cat => (
                   <option key={cat.id} value={cat.id}>{cat.nombre}</option>
                 ))}
@@ -248,29 +274,56 @@ export default function ProductosTable({
             </div>
 
             {/* Status filter */}
-            <StatusFilter value={filterStatus} onChange={setFilterStatus} />
+            <div className="relative">
+              <CheckCircle className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" size={12} />
+              <select
+                value={filterStatus}
+                onChange={e => setFilterStatus(e.target.value as any)}
+                className="pl-7 pr-6 py-1.5 bg-bg border border-border rounded text-text text-[11px] focus:outline-none focus:border-brand appearance-none cursor-pointer"
+              >
+                <option value="todos">Todos</option>
+                <option value="activos">Activos</option>
+                <option value="inactivos">Inactivos</option>
+              </select>
+            </div>
+
+            {/* Stock filter */}
+            <div className="relative">
+              <Package className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" size={12} />
+              <select
+                value={stockFilter}
+                onChange={e => setStockFilter(e.target.value as any)}
+                className="pl-7 pr-6 py-1.5 bg-bg border border-border rounded text-text text-[11px] focus:outline-none focus:border-brand appearance-none cursor-pointer"
+              >
+                <option value="todos">Stock ({countTodos})</option>
+                <option value="normal">Normal ({countNormal})</option>
+                <option value="poco">Poco ({countPoco})</option>
+                <option value="sin">Sin ({countSin})</option>
+              </select>
+            </div>
 
             {/* Add product button */}
             {["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(userRole) && (
-              <Button onClick={handleOpenAdd} leftIcon={<Plus size={16} />}>
-                Agregar Repuesto
-              </Button>
+              <button onClick={handleOpenAdd} className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--brand)] text-white rounded text-[11px] font-semibold hover:bg-[var(--brand)]/90 transition">
+                <Plus size={12} />
+                Agregar
+              </button>
             )}
           </div>
         }
       >
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[calc(100vh-22rem)]">
           <table className="w-full text-left border-collapse min-w-[800px]">
-            <thead>
-              <tr className="border-b border-border text-xs uppercase tracking-wider font-semibold text-text-secondary">
-                <th className="py-4 px-6 text-center">ID</th>
-                <th className="py-4 px-6">Repuesto / Marca / Código</th>
-                <th className="py-4 px-6">Categoría</th>
-                <th className="py-4 px-6">Proveedor</th>
-                <th className="py-4 px-6 text-right">Precio Compra</th>
-                <th className="py-4 px-6 text-right">Precio Venta</th>
-                <th className="py-4 px-6 text-center">Stock</th>
-                <th className="py-4 px-6 text-center">Acciones</th>
+            <thead className="sticky top-0 bg-[var(--card)]">
+              <tr className="border-b border-border text-[11px] uppercase tracking-wider font-semibold text-text-secondary">
+                <th className="py-2 px-4 text-center">ID</th>
+                <th className="py-2 px-4">Repuesto / Marca / Código</th>
+                <th className="py-2 px-4">Categoría</th>
+                <th className="py-2 px-4">Proveedor</th>
+                <th className="py-2 px-4 text-right">P. Compra</th>
+                <th className="py-2 px-4 text-right">P. Venta</th>
+                <th className="py-2 px-4 text-center">Stock</th>
+                <th className="py-2 px-4 text-center">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60 text-sm text-text-muted">
@@ -284,54 +337,54 @@ export default function ProductosTable({
                       isLowStock ? "bg-warning-light/5 hover:bg-warning-light/10" : ""
                     }`}
                   >
-                    <td className="py-4 px-6 text-center text-xs font-mono text-text-secondary">
+                    <td className="py-2 px-4 text-center text-[11px] font-mono text-text-secondary">
                       {p.id}
                     </td>
-                    <td className="py-4 px-6">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 flex-shrink-0 rounded-[var(--radius-md)] overflow-hidden bg-border flex items-center justify-center">
+                    <td className="py-2 px-4">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-8 h-8 flex-shrink-0 rounded overflow-hidden bg-border flex items-center justify-center">
                           {p.imagen ? (
                             <img src={p.imagen} alt={p.nombre} className="w-full h-full object-cover" />
                           ) : (
-                            <Package size={16} className="text-text-secondary" />
+                            <Package size={12} className="text-text-secondary" />
                           )}
                         </div>
                         <div>
-                          <p className="font-semibold text-text">{p.nombre}</p>
-                          <p className="text-xs text-text-secondary mt-0.5">
+                          <p className="font-semibold text-text text-sm">{p.nombre}</p>
+                          <p className="text-[11px] text-text-secondary">
                             {p.marca && <span className="font-medium">{p.marca}</span>}
-                            {p.marca && p.codigo && <span className="mx-1">·</span>}
+                            {p.marca && p.codigo && <span className="mx-0.5">·</span>}
                             {p.codigo && <span className="font-mono">{p.codigo}</span>}
-                            {!p.marca && !p.codigo && "Sin marca/código"}
+                            {!p.marca && !p.codigo && <span className="italic">Sin marca/código</span>}
                           </p>
                         </div>
                       </div>
                     </td>
-                    <td className="py-4 px-6">
+                    <td className="py-2 px-4">
                       <Badge variant="default" size="sm">{p.categoria.nombre}</Badge>
                     </td>
-                    <td className="py-4 px-6 text-text-muted">{p.proveedor.nombre}</td>
-                    <td className="py-4 px-6 text-right text-xs font-mono text-text-secondary">
+                    <td className="py-2 px-4 text-text-muted text-[11px]">{p.proveedor.nombre}</td>
+                    <td className="py-2 px-4 text-right text-[11px] font-mono text-text-secondary">
                       {formatCurrency(p.precioCompra)}
                     </td>
-                    <td className="py-4 px-6 text-right font-mono font-semibold text-brand">
+                    <td className="py-2 px-4 text-right font-mono font-semibold text-brand text-sm">
                       {formatCurrency(p.precioVenta)}
                     </td>
-                    <td className="py-4 px-6 text-center">
+                    <td className="py-2 px-4 text-center">
                       <div className="flex flex-col items-center justify-center">
-                        <Badge variant={stockStatus} size="sm" className="font-mono">
+                        <Badge variant={stockStatus} size="sm" className="font-mono text-[11px]">
                           {p.cantidad} u
                         </Badge>
                         {isLowStock && (
-                          <span className="text-[10px] text-warning font-bold uppercase mt-1 flex items-center space-x-0.5 animate-pulse">
-                            <AlertTriangle size={10} />
-                            <span>Bajo Stock!</span>
+                          <span className="text-[10px] text-warning font-bold uppercase mt-0.5 flex items-center space-x-0.5 animate-pulse">
+                            <AlertTriangle size={8} />
+                            <span>Bajo!</span>
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="py-4 px-6 text-center">
-                      <div className="flex items-center justify-center space-x-1 md:space-x-2">
+                    <td className="py-2 px-4 text-center">
+                      <div className="flex items-center justify-center space-x-1">
                         {p.activo ? (
                           <>
                             {["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(userRole) && (
@@ -565,29 +618,81 @@ export default function ProductosTable({
             </div>
 
             {/* Cantidad & Stock Mínimo */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormField label="Stock Existencias" required>
-                <Input
-                  name="cantidad"
-                  type="number"
-                  defaultValue={editingProduct?.cantidad ?? ""}
-                  required
-                  placeholder="0"
-                  className="font-mono"
-                />
-              </FormField>
+            {editingProduct ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <FormField label="Stock Existencias">
+                    <Input
+                      type="number"
+                      value={editingProduct.cantidad}
+                      disabled
+                      placeholder="0"
+                      className="font-mono bg-[var(--bg-secondary)]"
+                    />
+                  </FormField>
 
-              <FormField label="Stock de Seguridad Mínimo" required>
-                <Input
-                  name="stockMinimo"
-                  type="number"
-                  defaultValue={editingProduct?.stockMinimo ?? ""}
-                  required
-                  placeholder="0"
-                  className="font-mono"
-                />
-              </FormField>
-            </div>
+                  <FormField label="Cantidad a Reponer">
+                    <Input
+                      type="number"
+                      min="0"
+                      value={cantidadAReponer}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setCantidadAReponer(val === "" ? "" : Math.max(0, parseInt(val) || 0));
+                      }}
+                      placeholder="0"
+                      className="font-mono"
+                    />
+                  </FormField>
+
+                  <FormField label="Nuevo Stock">
+                    <Input
+                      name="cantidad"
+                      type="number"
+                      value={editingProduct.cantidad + (Number(cantidadAReponer) || 0)}
+                      readOnly
+                      placeholder="0"
+                      className="font-mono font-bold bg-[var(--bg-secondary)] text-[var(--brand)]"
+                    />
+                  </FormField>
+                </div>
+
+                <div className="grid grid-cols-1">
+                  <FormField label="Stock de Seguridad Mínimo" required>
+                    <Input
+                      name="stockMinimo"
+                      type="number"
+                      defaultValue={editingProduct.stockMinimo ?? ""}
+                      required
+                      placeholder="0"
+                      className="font-mono"
+                    />
+                  </FormField>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField label="Stock Existencias" required>
+                  <Input
+                    name="cantidad"
+                    type="number"
+                    required
+                    placeholder="0"
+                    className="font-mono"
+                  />
+                </FormField>
+
+                <FormField label="Stock de Seguridad Mínimo" required>
+                  <Input
+                    name="stockMinimo"
+                    type="number"
+                    required
+                    placeholder="0"
+                    className="font-mono"
+                  />
+                </FormField>
+              </div>
+            )}
 
             {/* Alerta Reposición (si el stock sube) */}
             {editingProduct && (

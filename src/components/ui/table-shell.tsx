@@ -29,11 +29,11 @@ function TableShell({
   isLoading = false,
 }: TableShellProps) {
   return (
-    <div className="bg-card border border-border rounded-[var(--radius-lg)] shadow-[var(--shadow-sm)] overflow-hidden">
+    <div className="bg-card border border-border rounded-lg shadow-[var(--shadow-sm)] overflow-hidden flex flex-col h-full min-h-0">
       {/* Header */}
-      <div className="flex flex-col gap-4 p-6 border-b border-border/60">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <h2 className="text-lg font-bold text-text tracking-tight">{title}</h2>
+      <div className="flex flex-col gap-2 p-3 border-b border-border/60 shrink-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <h2 className="text-sm font-bold text-text tracking-tight">{title}</h2>
           {actions}
         </div>
         {onSearchChange !== undefined && (
@@ -42,14 +42,15 @@ function TableShell({
               placeholder={searchPlaceholder}
               value={searchValue ?? ""}
               onChange={(e) => onSearchChange(e.target.value)}
-              leftIcon={<Search size={16} />}
+              leftIcon={<Search size={14} />}
+              className="py-1.5 text-[11px]"
             />
             {searchValue && searchValue.length > 0 && (
               <button
                 onClick={() => onSearchChange("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text transition-colors"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text transition-colors"
               >
-                <X size={14} />
+                <X size={12} />
               </button>
             )}
           </div>
@@ -57,16 +58,16 @@ function TableShell({
       </div>
 
       {/* Content */}
-      <div className="p-6">
+      <div className="flex-1 min-h-0 overflow-hidden p-3">
         {isLoading ? (
           <LoadingSkeleton />
         ) : isEmpty ? (
-          <div className="py-16 flex flex-col items-center justify-center text-text-secondary text-sm space-y-3">
-            {emptyIcon ?? <Inbox size={36} className="opacity-40" />}
+          <div className="py-12 flex flex-col items-center justify-center text-text-secondary text-xs space-y-2">
+            {emptyIcon ?? <Inbox size={28} className="opacity-40" />}
             <p>{emptyMessage}</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-auto flex-1 min-h-0 max-h-[calc(100vh-22rem)] pb-8">
             {children}
           </div>
         )}

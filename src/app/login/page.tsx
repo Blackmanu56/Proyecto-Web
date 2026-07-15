@@ -16,57 +16,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-/* ─── Animation Keyframes ─── */
-const keyframes = `
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-  @keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(14px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  @keyframes slideInLeft {
-    from { opacity: 0; transform: translateX(-24px); }
-    to { opacity: 1; transform: translateX(0); }
-  }
-  @keyframes expandIn {
-    from { opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; }
-    to { opacity: 1; max-height: 80px; padding-top: 12px; padding-bottom: 12px; }
-  }
-  @keyframes pulseGlow {
-    0%, 100% { box-shadow: 0 0 20px rgba(214,40,40,0.3), 0 0 40px rgba(214,40,40,0.1); }
-    50% { box-shadow: 0 0 30px rgba(214,40,40,0.5), 0 0 60px rgba(214,40,40,0.2); }
-  }
-  @keyframes staggerIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  .password-mask {
-    -webkit-text-security: disc;
-  }
-  .password-visible {
-    -webkit-text-security: none;
-  }
-`;
-
-/* Force dark mode for autocomplete dropdowns */
-const globalStyles = `
-  input:-webkit-autofill,
-  input:-webkit-autofill:hover,
-  input:-webkit-autofill:focus {
-    -webkit-box-shadow: 0 0 0 30px #1E2129 inset !important;
-    -webkit-text-fill-color: #F1F5F9 !important;
-    caret-color: #F1F5F9 !important;
-    transition: background-color 5000s ease-in-out 0s;
-  }
-  /* Hide browser's native password reveal button */
-  input[type="password"]::-webkit-credentials-autofill-button,
-  input::-webkit-credentials-autofill-button {
-    display: none !important;
-  }
-`;
-
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -130,9 +79,6 @@ export default function LoginPage() {
 
   return (
     <>
-      <style>{keyframes}</style>
-      <style>{globalStyles}</style>
-
       <div
         className="relative min-h-screen flex items-center justify-center overflow-hidden"
         style={{ background: "#101114", colorScheme: "dark" }}
@@ -209,7 +155,7 @@ export default function LoginPage() {
         <div
           className="relative z-10 w-full max-w-6xl mx-4 md:mx-6"
           style={{
-            animation: "fadeIn 400ms ease forwards",
+            animation: "login-fadeIn 400ms ease forwards",
           }}
         >
           <div
@@ -235,7 +181,7 @@ export default function LoginPage() {
                   background:
                     "linear-gradient(135deg, rgba(214,40,40,0.2) 0%, rgba(214,40,40,0.08) 30%, #111318 70%, #0d0f13 100%)",
                   borderRight: "1px solid #2A2E38",
-                  animation: "slideInLeft 500ms ease 100ms both",
+                  animation: "login-slideInLeft 500ms ease 100ms both",
                 }}
               >
                 {/* Dark atmospheric overlay */}
@@ -378,7 +324,7 @@ export default function LoginPage() {
                 className="md:w-1/2 flex flex-col items-center justify-center"
                 style={{
                   padding: "48px 48px 32px",
-                  animation: "fadeInUp 500ms ease 200ms both",
+                  animation: "login-fadeInUp 500ms ease 200ms both",
                 }}
               >
                 {/* User Icon with Glow */}
@@ -391,7 +337,7 @@ export default function LoginPage() {
                       "linear-gradient(135deg, rgba(214,40,40,0.15), rgba(214,40,40,0.05))",
                     border: "1.5px solid rgba(214,40,40,0.3)",
                     animation:
-                      "fadeIn 400ms ease 300ms both, pulseGlow 3s ease-in-out infinite",
+                      "login-fadeIn 400ms ease 300ms both, login-pulseGlow 3s ease-in-out infinite",
                   }}
                 >
                   <User size={28} style={{ color: "#D62828" }} />
@@ -404,7 +350,7 @@ export default function LoginPage() {
                     fontSize: "var(--text-3xl)",
                     color: "#F1F5F9",
                     marginBottom: "6px",
-                    animation: "fadeInUp 400ms ease 300ms both",
+                    animation: "login-fadeInUp 400ms ease 300ms both",
                   }}
                 >
                   Iniciar
@@ -418,7 +364,7 @@ export default function LoginPage() {
                     fontSize: "var(--text-sm)",
                     color: "#94A3B8",
                     marginBottom: "28px",
-                    animation: "fadeInUp 400ms ease 350ms both",
+                    animation: "login-fadeInUp 400ms ease 350ms both",
                   }}
                 >
                   Ingresá tus credenciales para acceder al sistema.
@@ -435,7 +381,7 @@ export default function LoginPage() {
                   <div
                     className="w-full group"
                     style={{
-                      animation: "staggerIn 400ms ease 420ms both",
+                      animation: "login-staggerIn 400ms ease 420ms both",
                     }}
                   >
                     <div
@@ -491,7 +437,7 @@ export default function LoginPage() {
                   <div
                     className="w-full"
                     style={{
-                      animation: "staggerIn 400ms ease 490ms both",
+                      animation: "login-staggerIn 400ms ease 490ms both",
                     }}
                   >
                     <div
@@ -576,7 +522,7 @@ export default function LoginPage() {
                       style={{
                         background: "rgba(239,68,68,0.08)",
                         border: "1px solid rgba(239,68,68,0.15)",
-                        animation: "fadeIn 200ms ease",
+                        animation: "login-fadeIn 200ms ease",
                       }}
                     >
                       <div
@@ -596,7 +542,7 @@ export default function LoginPage() {
                   <div
                     className="flex items-center justify-between w-full"
                     style={{
-                      animation: "staggerIn 400ms ease 560ms both",
+                      animation: "login-staggerIn 400ms ease 560ms both",
                     }}
                   >
                     <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -673,7 +619,7 @@ export default function LoginPage() {
                         background: "rgba(214,40,40,0.06)",
                         border: "1px solid rgba(214,40,40,0.12)",
                         padding: "12px 16px",
-                        animation: "expandIn 300ms ease forwards",
+                        animation: "login-expandIn 300ms ease forwards",
                       }}
                     >
                       Contactá con un administrador presencialmente.
@@ -685,7 +631,7 @@ export default function LoginPage() {
                     className="w-full"
                     style={{
                       marginTop: "10px",
-                      animation: "staggerIn 400ms ease 630ms both",
+                      animation: "login-staggerIn 400ms ease 630ms both",
                     }}
                   >
                     <Button
@@ -756,7 +702,7 @@ export default function LoginPage() {
                   className="flex items-center gap-3 w-full"
                   style={{
                     marginTop: "16px",
-                    animation: "staggerIn 400ms ease 660ms both",
+                    animation: "login-staggerIn 400ms ease 660ms both",
                   }}
                 >
                   <div
@@ -779,7 +725,7 @@ export default function LoginPage() {
                 <div
                   className="w-full mt-3"
                   style={{
-                    animation: "staggerIn 400ms ease 700ms both",
+                    animation: "login-staggerIn 400ms ease 700ms both",
                   }}
                 >
                   <button
@@ -818,7 +764,7 @@ export default function LoginPage() {
           <div
             className="flex items-center justify-center gap-1.5 mt-6"
             style={{
-              animation: "fadeIn 600ms ease 800ms both",
+              animation: "login-fadeIn 600ms ease 800ms both",
             }}
           >
             <Shield
