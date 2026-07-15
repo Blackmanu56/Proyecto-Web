@@ -264,30 +264,81 @@ export default function CajaTerminal({
   };
 
   const handleExportCSV = () => {
-    const headers = ["ID", "Fecha", "Hora", "Descripción", "Tipo", "Usuario", "Ingreso", "Egreso", "Saldo"];
-    const rows = movimientosFiltrados.map((mov) => {
+    if (!cajaActiva) return;
+
+    const BOM = "\uFEFF";
+    const lines: string[] = [];
+
+    // ─── ENCABEZADO ───
+    lines.push("CHOPPER REPUESTOS");
+    lines.push("LIBRO DIARIO DE CAJA");
+    lines.push("");
+    lines.push(`Caja: #${cajaActiva.id.toString().padStart(4, "0")}`);
+    lines.push(`Estado: ${cajaActiva.estado}`);
+    lines.push(`Cajero: @${cajaActiva.usuario.username}`);
+    lines.push(`Fecha de apertura: ${formatDate(cajaActiva.fechaApertura)}`);
+    lines.push(`Fecha de emisión del reporte: ${new Date().toLocaleString("es-AR")}`);
+    lines.push("");
+
+    // ─── FILTROS ───
+    if (hayFiltrosActivos) {
+      lines.push("Filtros aplicados");
+      if (filtroFechaDesde) lines.push(`Desde: ${filtroFechaDesde}`);
+      if (filtroFechaHasta) lines.push(`Hasta: ${filtroFechaHasta}`);
+      if (filtroUsuario) lines.push(`Usuario: @${filtroUsuario}`);
+      if (filtroTipo) lines.push(`Tipo: ${filtroTipo}`);
+      if (filtroBusqueda) lines.push(`Búsqueda: "${filtroBusqueda}"`);
+      lines.push("");
+    }
+
+    // ─── TABLA ───
+    lines.push("N°;Fecha;Hora;Descripción;Tipo;Usuario;Ingreso;Egreso;Saldo");
+
+    const movimientos = movimientosFiltrados;
+    for (const mov of movimientos) {
       const d = new Date(mov.fecha);
-      const fechaStr = d.toLocaleDateString("es-AR");
+      const fechaStr = d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" });
       const horaStr = d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
       const isIncome = mov.tipo === "INGRESO";
-      return [
-        mov.itemNumber,
-        fechaStr,
-        horaStr,
-        `"${mov.descripcion.replace(/"/g, '""')}"`,
-        mov.tipo,
-        mov.usuario.username,
-        isIncome ? mov.monto.toFixed(2) : "",
-        !isIncome ? mov.monto.toFixed(2) : "",
-        mov.saldoAcumulado.toFixed(2)
-      ].join(",");
-    });
-    const csv = [headers.join(","), ...rows].join("\n");
+      const ingreso = isIncome ? formatCurrency(mov.monto) : "";
+      const egreso = !isIncome ? formatCurrency(mov.monto) : "";
+      const saldo = formatCurrency(mov.saldoAcumulado);
+      const desc = mov.descripcion.replace(/"/g, '""');
+
+      lines.push(`${mov.itemNumber};${fechaStr};${horaStr};"${desc}";${mov.tipo};@${mov.usuario.username};${ingreso};${egreso};${saldo}`);
+    }
+
+    // ─── RESUMEN ───
+    lines.push("");
+    lines.push("RESUMEN");
+    lines.push(`Movimientos: ${movimientos.length}`);
+    lines.push(`Saldo Inicial: ${formatCurrency(cajaActiva.montoInicial)}`);
+    lines.push(`Ventas: ${formatCurrency(hayFiltrosActivos ? totalIngresosFiltrado : totalIngresosTurno)}`);
+    lines.push(`Reposiciones: ${formatCurrency(totalReposiciones)}`);
+    lines.push(`Gastos: ${formatCurrency(totalGastos)}`);
+    lines.push(`Ingresos: ${formatCurrency(hayFiltrosActivos ? totalIngresosFiltrado : totalIngresosTurno)}`);
+    lines.push(`Egresos: ${formatCurrency(hayFiltrosActivos ? totalEgresosFiltrado : totalEgresosTurno)}`);
+    lines.push(`Saldo Final: ${formatCurrency(hayFiltrosActivos ? saldoFinalFiltrado : saldoFinalTurno)}`);
+    if (hayFiltrosActivos) {
+      lines.push("");
+      lines.push("Totales correspondientes a los filtros aplicados.");
+    }
+
+    // ─── DESCARGA ───
+    const csv = BOM + lines.join("\r\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `libro-diario-caja-${cajaActiva?.id || "export"}.csv`;
+
+    // Nombre descriptivo
+    const today = new Date().toISOString().split("T")[0];
+    if (filtroFechaDesde && filtroFechaHasta) {
+      link.download = `Libro_Diario_Caja_${filtroFechaDesde}_a_${filtroFechaHasta}.csv`;
+    } else {
+      link.download = `Libro_Diario_Caja_${today}.csv`;
+    }
+
     link.click();
     URL.revokeObjectURL(url);
   };
