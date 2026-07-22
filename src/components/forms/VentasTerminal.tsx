@@ -52,6 +52,8 @@ interface Client {
 interface CartItem {
   id: number;
   nombre: string;
+  imagen: string | null;
+  categoria: string;
   precioVenta: number;
   stockDisponible: number;
   cantidad: number;
@@ -200,7 +202,7 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
       }
       setCart(cart.map(item => item.id === product.id ? { ...item, cantidad: item.cantidad + 1 } : item));
     } else {
-      setCart([...cart, { id: product.id, nombre: product.nombre, precioVenta: product.precioVenta, stockDisponible: product.cantidad, cantidad: 1 }]);
+      setCart([...cart, { id: product.id, nombre: product.nombre, imagen: product.imagen, categoria: product.categoria.nombre, precioVenta: product.precioVenta, stockDisponible: product.cantidad, cantidad: 1 }]);
     }
   };
 
@@ -480,25 +482,31 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
           {/* Buscador + Filtro inline */}
           <div className="flex gap-1.5">
             <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" size={12} />
-              <input
-                type="text"
-                placeholder="Buscar repuesto..."
-                value={prodSearch}
-                onChange={e => setProdSearch(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-[var(--text)] placeholder-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)] text-[11px] transition-colors"
-              />
+              <label className="block text-[10px] text-slate-200 font-semibold mb-0.5">Buscar producto</label>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" size={12} />
+                <input
+                  type="text"
+                  placeholder="Buscar repuesto..."
+                  value={prodSearch}
+                  onChange={e => setProdSearch(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-[var(--text)] placeholder-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)] text-[11px] transition-colors"
+                />
+              </div>
             </div>
-            <select
-              value={selectedCategory || ""}
-              onChange={e => setSelectedCategory(e.target.value || null)}
-              className="px-2 py-1.5 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-[11px] text-[var(--text)] focus:outline-none focus:border-[var(--brand)] cursor-pointer font-medium shrink-0"
-            >
-              <option value="">Todas</option>
-              {categories.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
+            <div className="shrink-0">
+              <label className="block text-[10px] text-slate-200 font-semibold mb-0.5">Categoría</label>
+              <select
+                value={selectedCategory || ""}
+                onChange={e => setSelectedCategory(e.target.value || null)}
+                className="w-full px-2 py-1.5 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-[11px] text-[var(--text)] focus:outline-none focus:border-[var(--brand)] cursor-pointer font-medium"
+              >
+                <option value="">Todas</option>
+                {categories.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Filtros rápidos: Todos / Favoritos / Más vendidos */}
@@ -626,7 +634,7 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
           </div>
 
           {/* Listado de ítems del Carrito — fill remaining space, scroll interno */}
-          <div className="flex-1 min-h-0 overflow-y-auto space-y-1.5 pr-1">
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-1 pr-1">
             {cart.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-[var(--text-secondary)] py-6 space-y-1.5">
                 <ShoppingCart size={24} className="opacity-40" />
@@ -634,120 +642,161 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
               </div>
             ) : (
               cart.map(item => (
-                <div key={item.id} className="p-1.5 bg-[var(--bg)] border border-[var(--border)] rounded flex items-center justify-between">
-                  <div className="max-w-[50%]">
-                    <p className="text-[10px] font-semibold text-[var(--text)] truncate">{item.nombre}</p>
-                    <p className="text-[8px] text-[var(--brand)] font-mono">{formatCurrency(item.precioVenta)} c/u</p>
+                <div key={item.id} className="flex items-center gap-2 p-1.5 bg-[var(--bg)] border border-[var(--border)] rounded">
+                  {/* Imagen */}
+                  <div className="w-9 h-9 bg-[var(--panel)] rounded flex items-center justify-center shrink-0 overflow-hidden">
+                    {item.imagen ? (
+                      <img src={item.imagen} alt={item.nombre} className="w-full h-full object-contain" />
+                    ) : (
+                      <Package size={14} className="text-[var(--text-secondary)]" />
+                    )}
                   </div>
-                  <div className="flex items-center space-x-1.5">
-                    <div className="flex items-center bg-[var(--panel)] border border-[var(--border)] rounded overflow-hidden h-5">
-                      <button
-                        onClick={() => updateQuantity(item.id, -1)}
-                        className="px-1.5 text-[var(--text-secondary)] hover:text-[var(--text)] transition text-[9px] font-bold"
-                      >
-                        <Minus size={8} />
-                      </button>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={item.cantidad}
-                        onChange={e => setQuantity(item.id, e.target.value)}
-                        onBlur={e => {
-                          const v = parseInt(e.target.value, 10);
-                          if (isNaN(v) || v < 1) setQuantity(item.id, "1");
-                        }}
-                        className="w-6 text-center text-[9px] font-mono font-semibold text-[var(--text)] bg-transparent border-x border-[var(--border)] outline-none focus:bg-[var(--brand-light)] h-full"
-                      />
-                      <button
-                        onClick={() => updateQuantity(item.id, 1)}
-                        className="px-1.5 text-[var(--text-secondary)] hover:text-[var(--text)] transition text-[9px] font-bold"
-                      >
-                        <Plus size={8} />
-                      </button>
-                    </div>
+
+                  {/* Nombre + Categoría */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-semibold text-[var(--text)] truncate leading-tight">{item.nombre}</p>
+                    <p className="text-[8px] text-[var(--text-secondary)] truncate leading-tight">{item.categoria}</p>
+                  </div>
+
+                  {/* Controles de cantidad */}
+                  <div className="flex items-center bg-[var(--panel)] border border-[var(--border-hover)] rounded overflow-hidden h-6 shrink-0">
                     <button
-                      onClick={() => removeFromCart(item.id)}
-                      className="text-[var(--text-secondary)] hover:text-[var(--danger)] transition"
+                      onClick={() => updateQuantity(item.id, -1)}
+                      className="px-1.5 text-[var(--text-secondary)] hover:text-white hover:bg-[var(--brand)]/20 transition text-[11px] font-bold leading-none"
                     >
-                      <Trash2 size={11} />
+                      <Minus size={10} />
+                    </button>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={item.cantidad}
+                      onChange={e => setQuantity(item.id, e.target.value)}
+                      onBlur={e => {
+                        const v = parseInt(e.target.value, 10);
+                        if (isNaN(v) || v < 1) setQuantity(item.id, "1");
+                      }}
+                      className="w-7 text-center text-[11px] font-mono font-bold text-white bg-transparent border-x border-[var(--border-hover)] outline-none focus:bg-[var(--brand-light)] h-full"
+                    />
+                    <button
+                      onClick={() => updateQuantity(item.id, 1)}
+                      className="px-1.5 text-[var(--text-secondary)] hover:text-white hover:bg-[var(--brand)]/20 transition text-[11px] font-bold leading-none"
+                    >
+                      <Plus size={10} />
                     </button>
                   </div>
+
+                  {/* Subtotal */}
+                  <p className="text-[12px] font-bold font-mono text-white shrink-0 whitespace-nowrap">{formatCurrency(item.precioVenta * item.cantidad)}</p>
+
+                  {/* Eliminar */}
+                  <button
+                    onClick={() => removeFromCart(item.id)}
+                    title="Eliminar producto"
+                    className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--danger)] hover:bg-[var(--danger)]/10 transition rounded-md shrink-0"
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </div>
               ))
             )}
           </div>
 
+          {/* ═══ BOTÓN LIMPIAR CARRITO ═══ */}
+          <button
+            onClick={() => {
+              setCart([]);
+              setSelectedClient(null);
+              setErrorMsg("");
+              setPaymentMethod("EFECTIVO");
+              setDiscountValue("0");
+            }}
+            disabled={cart.length === 0}
+            className="w-full py-2 flex items-center justify-center gap-1.5 bg-transparent border border-[var(--danger)]/30 text-[var(--danger)] hover:bg-[var(--danger)]/10 font-semibold rounded-[var(--radius-md)] transition text-[11px] disabled:opacity-20 disabled:cursor-not-allowed shrink-0"
+          >
+            <Trash2 size={13} />
+            <span>Limpiar carrito</span>
+          </button>
+
           {/* ═══ SECCIÓN DE PAGO ═══ */}
           <div className="border-t border-[var(--border)] pt-2 space-y-2 shrink-0">
             {/* Cliente */}
-            <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px]">
-              <span className="text-[var(--text-secondary)]">Cliente:</span>
+            <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[11px]">
+              <span className="text-slate-200 font-semibold">Cliente:</span>
               <span className="font-semibold text-[var(--text)] text-right truncate">
                 {selectedClient ? selectedClient.nombre : <span className="text-[var(--text-secondary)] italic">No seleccionado</span>}
               </span>
             </div>
 
             {/* Forma de Pago */}
-            <div className="grid grid-cols-2 gap-1.5">
-              {PAYMENT_METHODS.map(pm => (
-                <button
-                  key={pm.value}
-                  onClick={() => setPaymentMethod(pm.value)}
-                  className={`flex items-center justify-center space-x-1.5 py-1.5 px-2 rounded text-[11px] font-semibold transition-all border ${
-                    paymentMethod === pm.value
-                      ? "bg-[var(--brand)] text-white border-[var(--brand)]"
-                      : "bg-[var(--bg)] text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--border-hover)]"
-                  }`}
-                >
-                  {pm.icon}
-                  <span>{pm.label}</span>
-                </button>
-              ))}
-            </div>
-
-            {/* Descuento */}
-            <div className="flex gap-1.5">
-              <select
-                value={discountType}
-                onChange={e => setDiscountType(e.target.value as DiscountType)}
-                className="py-1.5 px-2 bg-[var(--bg)] border border-[var(--border)] rounded text-[11px] text-[var(--text)] focus:outline-none focus:border-[var(--brand)] appearance-none cursor-pointer"
-              >
-                <option value="MONTO">$ Fijo</option>
-                <option value="PORCENTAJE">% Porc.</option>
-              </select>
-              <div className="relative flex-1">
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={discountValue}
-                  onChange={e => {
-                    const val = e.target.value.replace(/[^0-9.]/g, "");
-                    setDiscountValue(val);
-                  }}
-                  placeholder="0"
-                  className="w-full px-2.5 py-1.5 bg-[var(--bg)] border border-[var(--border)] rounded text-[11px] text-[var(--text)] font-mono focus:outline-none focus:border-[var(--brand)]"
-                />
-                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-[var(--text-secondary)] font-bold">
-                  {discountType === "PORCENTAJE" ? "%" : "$"}
-                </span>
+            <div>
+              <label className="block text-[10px] text-slate-200 font-semibold mb-0.5">Forma de pago</label>
+              <div className="grid grid-cols-2 gap-1.5">
+                {PAYMENT_METHODS.map(pm => (
+                  <button
+                    key={pm.value}
+                    onClick={() => setPaymentMethod(pm.value)}
+                    className={`flex items-center justify-center space-x-1.5 py-1.5 px-2 rounded text-[11px] font-semibold transition-all border ${
+                      paymentMethod === pm.value
+                        ? "bg-[var(--brand)] text-white border-[var(--brand)]"
+                        : "bg-[var(--bg)] text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--border-hover)]"
+                    }`}
+                  >
+                    {pm.icon}
+                    <span>{pm.label}</span>
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* Comprobante */}
-            <div className="flex gap-1.5">
-              {COMPROBANTES.map(comp => (
-                <button
-                  key={comp.value}
-                  onClick={() => setComprobanteType(comp.value)}
-                  className={`flex-1 py-1.5 px-2 rounded text-[11px] font-semibold transition-all border text-center ${
-                    comprobanteType === comp.value
-                      ? "bg-[var(--brand)] text-white border-[var(--brand)]"
-                      : "bg-[var(--bg)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--border-hover)]"
-                  }`}
+            {/* Tipo de Factura */}
+            <div>
+              <label className="block text-[10px] text-slate-200 font-semibold mb-0.5">Tipo de factura</label>
+              <div className="flex gap-1.5">
+                {COMPROBANTES.map(comp => (
+                  <button
+                    key={comp.value}
+                    onClick={() => setComprobanteType(comp.value)}
+                    className={`flex-1 py-1.5 px-2 rounded text-[11px] font-semibold transition-all border text-center ${
+                      comprobanteType === comp.value
+                        ? "bg-[var(--brand)] text-white border-[var(--brand)]"
+                        : "bg-[var(--bg)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--border-hover)]"
+                    }`}
+                  >
+                    {comp.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Descuento */}
+            <div>
+              <label className="block text-[10px] text-slate-200 font-semibold mb-0.5">Descuento</label>
+              <div className="flex gap-1.5 max-w-[320px]">
+                <select
+                  value={discountType}
+                  onChange={e => setDiscountType(e.target.value as DiscountType)}
+                  className="py-1.5 px-2 bg-[var(--bg)] border border-[var(--border-hover)] rounded text-[11px] text-slate-200 font-semibold focus:outline-none focus:border-[var(--brand)] appearance-none cursor-pointer shrink-0"
                 >
-                  {comp.label}
-                </button>
-              ))}
+                  <option value="MONTO">$ Fijo</option>
+                  <option value="PORCENTAJE">% Porc.</option>
+                </select>
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={discountValue}
+                    onChange={e => {
+                      const val = e.target.value.replace(/[^0-9.]/g, "");
+                      setDiscountValue(val);
+                    }}
+                    placeholder="0"
+                    className="w-full px-2.5 py-1.5 bg-[var(--bg)] border border-[var(--border-hover)] rounded text-[11px] text-white font-mono font-semibold focus:outline-none focus:border-[var(--brand)]"
+                  />
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-300 font-bold">
+                    {discountType === "PORCENTAJE" ? "%" : "$"}
+                  </span>
+                </div>
+              </div>
             </div>
 
             {/* Resumen */}
@@ -776,7 +825,7 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
               </div>
             )}
 
-            {/* Botones Cobrar + Limpiar apilados */}
+            {/* Botón Cobrar */}
             <button
               onClick={handleOpenPreview}
               disabled={isPending || cart.length === 0}
@@ -788,19 +837,6 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
                   <ArrowRight size={14} className="ml-1" />
                 </>
               )}
-            </button>
-            <button
-              onClick={() => {
-                setCart([]);
-                setSelectedClient(null);
-                setErrorMsg("");
-                setPaymentMethod("EFECTIVO");
-                setDiscountValue("0");
-              }}
-              disabled={cart.length === 0}
-              className="w-full py-2 bg-transparent border border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--bg)] hover:text-[var(--text)] font-semibold rounded transition duration-150 text-[11px] disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              Limpiar carrito
             </button>
           </div>
         </div>
