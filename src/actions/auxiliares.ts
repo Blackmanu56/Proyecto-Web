@@ -1,18 +1,61 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth.server";
+import { revalidatePath } from "next/cache";
 
 /**
- * Obtener listado de categorías para comboboxes
+ * Obtener listado de categorías activas para comboboxes
  */
 export async function getCategorias() {
   try {
     return await prisma.categoria.findMany({
+      where: { activo: true },
       orderBy: { nombre: "asc" },
     });
   } catch (error) {
     console.error("Error en getCategorias:", error);
     return [];
+  }
+}
+
+/**
+ * Crear una nueva categoría (si ya existe con el mismo nombre, retorna la existente)
+ */
+export async function createCategoria(nombre: string) {
+  const session = await getSession();
+  if (!session || !["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(session.role)) {
+    throw new Error("No tiene permisos para realizar esta acción.");
+  }
+  try {
+    const existing = await prisma.categoria.findFirst({ where: { nombre } });
+    if (existing) return existing;
+    const cat = await prisma.categoria.create({ data: { nombre } });
+    return cat;
+  } catch (error) {
+    console.error("Error en createCategoria:", error);
+    throw new Error("Error al crear la categoría");
+  }
+}
+
+/**
+ * Eliminar una categoría (solo si no tiene productos asociados)
+ */
+export async function deleteCategoria(id: number) {
+  const session = await getSession();
+  if (!session || !["ADMINISTRADOR"].includes(session.role)) {
+    throw new Error("No tiene permisos para eliminar categorías.");
+  }
+  try {
+    const products = await prisma.producto.count({ where: { categoriaId: id } });
+    if (products > 0) {
+      throw new Error("No se puede eliminar: hay " + products + " productos en esta categoría.");
+    }
+    await prisma.categoria.delete({ where: { id } });
+    revalidatePath("/productos");
+    return { success: true };
+  } catch (error: any) {
+    return { error: error.message };
   }
 }
 
@@ -43,6 +86,145 @@ export async function getClientesDistinct() {
   } catch (error) {
     console.error("Error en getClientesDistinct:", error);
     return [];
+  }
+}
+
+/**
+ * Obtener categorías con conteo de productos asociados
+ */
+export async function getCategoriasWithCount() {
+  try {
+    return await prisma.categoria.findMany({
+      include: { _count: { select: { productos: true } } },
+      orderBy: { nombre: "asc" },
+    });
+  } catch (error) {
+    console.error("Error en getCategoriasWithCount:", error);
+    return [];
+  }
+}
+
+/**
+ * Actualizar nombre de una categoría
+ */
+export async function updateCategoria(id: number, nombre: string) {
+  const session = await getSession();
+  if (!session || !["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(session.role)) {
+    throw new Error("No tiene permisos para realizar esta acción.");
+  }
+  try {
+    const existing = await prisma.categoria.findFirst({ where: { nombre, id: { not: id } } });
+    if (existing) throw new Error("Ya existe una categoría con ese nombre.");
+    const cat = await prisma.categoria.update({ where: { id }, data: { nombre } });
+    revalidatePath("/productos");
+    return cat;
+  } catch (error: any) {
+    if (error.message?.includes("Ya existe")) throw error;
+    throw new Error("Error al actualizar la categoría");
+  }
+}
+
+/**
+ * Cambiar estado activo/inactivo de una categoría
+ */
+export async function toggleCategoriaActivo(id: number, activo: boolean) {
+  const session = await getSession();
+  if (!session || !["ADMINISTRADOR"].includes(session.role)) {
+    throw new Error("No tiene permisos para realizar esta acción.");
+  }
+  try {
+    const cat = await prisma.categoria.update({ where: { id }, data: { activo } });
+    revalidatePath("/productos");
+    return cat;
+  } catch (error) {
+    throw new Error("Error al cambiar estado de la categoría");
+  }
+}
+
+/**
+ * Obtener marcas activas para comboboxes
+ */
+export async function getMarcasActivas() {
+  try {
+    return await prisma.marca.findMany({
+      where: { activo: true },
+      select: { id: true, nombre: true },
+      orderBy: { nombre: "asc" },
+    });
+  } catch (error) {
+    console.error("Error en getMarcasActivas:", error);
+    return [];
+  }
+}
+
+/**
+ * Obtener marcas con conteo de productos asociados
+ */
+export async function getMarcasWithCount() {
+  try {
+    return await prisma.marca.findMany({
+      include: { _count: { select: { productos: true } } },
+      orderBy: { nombre: "asc" },
+    });
+  } catch (error) {
+    console.error("Error en getMarcasWithCount:", error);
+    return [];
+  }
+}
+
+/**
+ * Crear una nueva marca
+ */
+export async function createMarca(nombre: string) {
+  const session = await getSession();
+  if (!session || !["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(session.role)) {
+    throw new Error("No tiene permisos para realizar esta acción.");
+  }
+  try {
+    const existing = await prisma.marca.findFirst({ where: { nombre } });
+    if (existing) throw new Error("Ya existe una marca con ese nombre.");
+    const marca = await prisma.marca.create({ data: { nombre } });
+    return marca;
+  } catch (error: any) {
+    if (error.message?.includes("Ya existe")) throw error;
+    throw new Error("Error al crear la marca");
+  }
+}
+
+/**
+ * Actualizar nombre de una marca
+ */
+export async function updateMarca(id: number, nombre: string) {
+  const session = await getSession();
+  if (!session || !["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(session.role)) {
+    throw new Error("No tiene permisos para realizar esta acción.");
+  }
+  try {
+    const existing = await prisma.marca.findFirst({ where: { nombre, id: { not: id } } });
+    if (existing) throw new Error("Ya existe una marca con ese nombre.");
+    const marca = await prisma.marca.update({ where: { id }, data: { nombre } });
+    revalidatePath("/productos");
+    return marca;
+  } catch (error: any) {
+    if (error.message?.includes("Ya existe")) throw error;
+    throw new Error("Error al actualizar la marca");
+  }
+}
+
+/**
+ * Cambiar estado activo/inactivo de una marca
+ */
+export async function toggleMarcaActivo(id: number, activo: boolean) {
+  const session = await getSession();
+  if (!session || !["ADMINISTRADOR"].includes(session.role)) {
+    throw new Error("No tiene permisos para realizar esta acción.");
+  }
+  try {
+    const marca = await prisma.marca.update({ where: { id }, data: { activo } });
+    revalidatePath("/productos");
+    return marca;
+  } catch (error) {
+    throw new Error("Error al cambiar estado de la marca");
   }
 }
 

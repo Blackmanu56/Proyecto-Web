@@ -36,6 +36,7 @@ interface Product {
   imagen: string | null;
   precioVenta: number;
   cantidad: number;
+  activo: boolean;
   categoria: { nombre: string };
 }
 
@@ -190,6 +191,10 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
   // ─── AGREGAR AL CARRITO ───
   const addToCart = (product: Product) => {
     setErrorMsg("");
+    if (!product.activo) {
+      setErrorMsg("El producto está inactivo y no puede venderse.");
+      return;
+    }
     if (product.cantidad <= 0) {
       setErrorMsg("El producto no posee stock disponible.");
       return;
@@ -281,6 +286,7 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
 
   // ─── FILTRAR PRODUCTOS ───
   let filteredProducts = productos.filter(p => {
+    if (!p.activo) return false; // No mostrar productos inactivos en ventas
     const matchesSearch = p.nombre.toLowerCase().includes(prodSearch.toLowerCase()) ||
       p.categoria.nombre.toLowerCase().includes(prodSearch.toLowerCase());
     const matchesCategory = !selectedCategory || p.categoria.nombre === selectedCategory;
