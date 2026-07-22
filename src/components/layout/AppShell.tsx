@@ -37,7 +37,7 @@ export default function AppShell({ user, children }: AppShellProps) {
   return (
     <div className="min-h-screen bg-[var(--bg)]">
       <Navbar user={user} currentPath={pathname} />
-      <main className="p-6">{children}</main>
+      <main className="p-4">{children}</main>
     </div>
   );
 }

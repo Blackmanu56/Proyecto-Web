@@ -261,6 +261,12 @@ input::-webkit-credentials-autofill-button {
   pointer-events: none;
 }
 
+/* ── Dashboard fade-in ── */
+@keyframes dashboard-fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* ── Next.js Dev Tools: move "N" button right to avoid covering content ── */
 nextjs-portal {
   transform: translateX(10px);

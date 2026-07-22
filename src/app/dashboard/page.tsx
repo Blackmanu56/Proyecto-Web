@@ -22,8 +22,8 @@ export default async function DashboardPage() {
   const formattedDate = getFormattedDate();
 
   return (
-    <div className="flex-1 bg-[var(--bg)] p-4 md:p-6">
-      <div className="max-w-[1800px] mx-auto">
+    <div className="flex-1 bg-[var(--bg)] px-5 py-2">
+      <div className="w-full">
         <DashboardClient
           data={dashboardData}
           userName={session?.username ?? "Usuario"}

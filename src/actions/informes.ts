@@ -1632,3 +1632,175 @@ export async function getStockBajo(filters: ReportFilters = {}): Promise<Paginat
     return { data: [], total: 0, page: 1, pageSize: 50, totalPages: 0 };
   }
 }
+
+// ─── 30. DATOS DE GRÁFICOS DEL DASHBOARD (FILTRADOS) ──────────
+
+export type DashboardPeriod =
+  | "diario"
+  | "semanal"
+  | "mensual"
+  | "ultimos3"
+  | "ultimos5"
+  | "ultimos7"
+  | "ultimos15"
+  | "ultimos35";
+
+export type DashboardChartType = "categorias" | "productos" | "marcas";
+
+export type DashboardChartDataResult = {
+  evolutionData: { fecha: string; total: number }[];
+  pieData: { name: string; value: number }[];
+  period: DashboardPeriod;
+  chartType: DashboardChartType;
+};
+
+export async function getDashboardChartData(
+  period: DashboardPeriod = "ultimos7",
+  chartType: DashboardChartType = "categorias"
+): Promise<DashboardChartDataResult> {
+  try {
+    const ahora = new Date();
+
+    // ── Calcular rango de fechas según período ──
+    let fechaDesde: Date;
+    let fechaHasta: Date = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 23, 59, 59);
+
+    switch (period) {
+      case "diario":
+        fechaDesde = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+        break;
+      case "semanal":
+        fechaDesde = new Date(ahora.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case "mensual":
+        fechaDesde = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
+        break;
+      case "ultimos3":
+        fechaDesde = new Date(ahora.getTime() - 2 * 24 * 60 * 60 * 1000);
+        break;
+      case "ultimos5":
+        fechaDesde = new Date(ahora.getTime() - 4 * 24 * 60 * 60 * 1000);
+        break;
+      case "ultimos7":
+        fechaDesde = new Date(ahora.getTime() - 6 * 24 * 60 * 60 * 1000);
+        break;
+      case "ultimos15":
+        fechaDesde = new Date(ahora.getTime() - 14 * 24 * 60 * 60 * 1000);
+        break;
+      case "ultimos35":
+        fechaDesde = new Date(ahora.getTime() - 34 * 24 * 60 * 60 * 1000);
+        break;
+      default:
+        fechaDesde = new Date(ahora.getTime() - 6 * 24 * 60 * 60 * 1000);
+    }
+
+    // ── Traer ventas del rango ──
+    const ventas = await prisma.venta.findMany({
+      where: { fecha: { gte: fechaDesde, lte: fechaHasta } },
+      orderBy: { fecha: "asc" },
+    });
+
+    // ── 1. Evolución de ventas (AreaChart) ──
+    let evolutionData: { fecha: string; total: number }[] = [];
+
+    if (period === "diario") {
+      // Agrupar por hora
+      const porHora: { [hora: string]: number } = {};
+      for (let h = 0; h <= 23; h++) {
+        const label = `${String(h).padStart(2, "0")}:00`;
+        porHora[label] = 0;
+      }
+      ventas.forEach((v) => {
+        const label = `${String(v.fecha.getHours()).padStart(2, "0")}:00`;
+        if (porHora[label] !== undefined) porHora[label] += v.total;
+      });
+      evolutionData = Object.entries(porHora).map(([fecha, total]) => ({ fecha, total }));
+    } else if (period === "mensual") {
+      // Agrupar por semana del mes
+      const porSemana: { [key: string]: number } = {};
+      ventas.forEach((v) => {
+        const diaMes = v.fecha.getDate();
+        const numSemana = Math.ceil(diaMes / 7);
+        const label = `Sem ${numSemana}`;
+        porSemana[label] = (porSemana[label] || 0) + v.total;
+      });
+      evolutionData = Object.entries(porSemana).map(([fecha, total]) => ({ fecha, total }));
+    } else if (period === "semanal") {
+      // Agrupar por día de la semana
+      const nombresDias = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+      const porDia: { [key: string]: number } = {};
+      nombresDias.forEach((d) => (porDia[d] = 0));
+      ventas.forEach((v) => {
+        const label = nombresDias[v.fecha.getDay()];
+        porDia[label] += v.total;
+      });
+      evolutionData = Object.entries(porDia).map(([fecha, total]) => ({ fecha, total }));
+    } else {
+      // Últimos X días: agrupar por fecha
+      const dias = parseInt(period.replace("ultimos", ""), 10);
+      const porFecha: { [key: string]: number } = {};
+      for (let i = dias - 1; i >= 0; i--) {
+        const d = new Date(ahora.getTime() - i * 24 * 60 * 60 * 1000);
+        const label = d.toLocaleDateString("es-AR", { day: "2-digit", month: "short" });
+        porFecha[label] = 0;
+      }
+      ventas.forEach((v) => {
+        const label = v.fecha.toLocaleDateString("es-AR", { day: "2-digit", month: "short" });
+        if (porFecha[label] !== undefined) porFecha[label] += v.total;
+      });
+      evolutionData = Object.entries(porFecha).map(([fecha, total]) => ({ fecha, total }));
+    }
+
+    // ── 2. Pie chart según tipo seleccionado ──
+    let pieData: { name: string; value: number }[] = [];
+
+    const detalles = await prisma.detalleVenta.findMany({
+      where: { venta: { fecha: { gte: fechaDesde, lte: fechaHasta } } },
+      include: {
+        producto: {
+          select: {
+            nombre: true,
+            marca: true,
+            categoria: { select: { nombre: true } },
+          },
+        },
+      },
+    });
+
+    if (chartType === "categorias") {
+      const agrupado: { [key: string]: number } = {};
+      detalles.forEach((d) => {
+        const cat = d.producto.categoria?.nombre || "Sin categoría";
+        agrupado[cat] = (agrupado[cat] || 0) + d.subtotal;
+      });
+      pieData = Object.entries(agrupado)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 6);
+    } else if (chartType === "productos") {
+      const agrupado: { [key: string]: number } = {};
+      detalles.forEach((d) => {
+        agrupado[d.producto.nombre] = (agrupado[d.producto.nombre] || 0) + d.cantidad;
+      });
+      pieData = Object.entries(agrupado)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 6);
+    } else if (chartType === "marcas") {
+      const agrupado: { [key: string]: number } = {};
+      detalles.forEach((d) => {
+        const marca = d.producto.marca || "Sin marca";
+        agrupado[marca] = (agrupado[marca] || 0) + d.subtotal;
+      });
+      pieData = Object.entries(agrupado)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 6);
+    }
+
+    return { evolutionData, pieData, period, chartType };
+  } catch (error) {
+    console.error("Error en getDashboardChartData:", error);
+    return { evolutionData: [], pieData: [], period, chartType };
+  }
+}
