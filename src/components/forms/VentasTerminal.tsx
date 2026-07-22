@@ -75,10 +75,10 @@ type PaymentMethod = "EFECTIVO" | "TRANSFERENCIA" | "TARJETA_DEBITO" | "TARJETA_
 type ComprobanteType = "FACTURA_A" | "FACTURA_B" | "FACTURA_C";
 
 const PAYMENT_METHODS: { value: PaymentMethod; label: string; icon: React.ReactNode }[] = [
-  { value: "EFECTIVO", label: "Efectivo", icon: <Banknote size={14} /> },
-  { value: "TRANSFERENCIA", label: "Transferencia", icon: <ArrowLeftRight size={14} /> },
-  { value: "TARJETA_DEBITO", label: "Débito", icon: <CreditCard size={14} /> },
-  { value: "TARJETA_CREDITO", label: "Crédito", icon: <CreditCard size={14} /> },
+  { value: "EFECTIVO", label: "Efectivo", icon: <Banknote size={16} /> },
+  { value: "TRANSFERENCIA", label: "Transferencia", icon: <ArrowLeftRight size={16} /> },
+  { value: "TARJETA_DEBITO", label: "Débito", icon: <CreditCard size={16} /> },
+  { value: "TARJETA_CREDITO", label: "Crédito", icon: <CreditCard size={16} /> },
 ];
 
 const COMPROBANTES: { value: ComprobanteType; label: string; desc: string }[] = [
@@ -395,6 +395,7 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
     // Create overlay at body level with receipt content
     const overlay = document.createElement("div");
     overlay.id = "print-overlay";
+    overlay.setAttribute("style", "background:#fff;color:#000;padding:20px;margin:0;width:100%;max-width:none;font-family:Arial,Helvetica,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;color-adjust:exact;");
     overlay.innerHTML = content.innerHTML;
     document.body.appendChild(overlay);
 
@@ -422,14 +423,14 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
         <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-2 space-y-1.5 shadow-[var(--shadow-sm)] shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-1.5 text-[var(--brand)]">
-              <Users size={14} />
-              <h2 className="text-xs font-bold text-[var(--text)]">Selección de Cliente</h2>
+              <Users size={16} />
+              <h2 className="text-sm font-bold text-[var(--text)]">Selección de Cliente</h2>
             </div>
             <button
               onClick={() => setShowNewClientModal(true)}
-              className="flex items-center space-x-1 px-2 py-0.5 bg-[var(--brand-light)] text-[var(--brand)] border border-[var(--brand)]/20 rounded text-[10px] font-semibold hover:bg-[var(--brand)] hover:text-white transition-all"
+              className="flex items-center space-x-1 px-2 py-0.5 bg-[var(--brand-light)] text-[var(--brand)] border border-[var(--brand)]/20 rounded text-xs font-semibold hover:bg-[var(--brand)] hover:text-white transition-all"
             >
-              <UserPlus size={10} />
+              <UserPlus size={12} />
               <span>Nuevo</span>
             </button>
           </div>
@@ -441,12 +442,12 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
               placeholder="Buscar cliente..."
               value={clientSearch}
               onChange={e => setClientSearch(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 bg-[var(--bg)] border border-[var(--border)] rounded text-[var(--text)] placeholder-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)] text-[11px] transition-colors"
+              className="w-full pl-8 pr-3 py-1.5 bg-[var(--bg)] border border-[var(--border)] rounded text-[var(--text)] placeholder-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)] text-sm transition-colors"
             />
           </div>
 
           {/* Grilla Clientes */}
-          <div className="max-h-24 overflow-y-auto border border-[var(--border)] rounded divide-y divide-[var(--border)]">
+          <div className="max-h-32 overflow-y-auto border border-[var(--border)] rounded divide-y divide-[var(--border)]">
             {filteredClients.length === 0 && (
               <div className="px-3 py-4 text-xs text-[var(--text-secondary)] text-center">No se encontraron clientes</div>
             )}
@@ -456,7 +457,7 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
                 <div
                   key={c.id}
                   onClick={() => setSelectedClient(c)}
-                  className={`flex items-center justify-between px-2.5 py-1.5 text-[11px] cursor-pointer transition ${
+                  className={`flex items-center justify-between px-2.5 py-1.5 text-sm cursor-pointer transition ${
                     isSelected
                       ? "bg-[var(--brand-light)] text-[var(--brand)] font-semibold"
                       : "text-[var(--text-muted)] hover:bg-[var(--card)] hover:text-[var(--text)]"
@@ -464,11 +465,11 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
                 >
                   <div>
                     <p className={isSelected ? "text-[var(--brand)]" : "text-[var(--text)]"}>{c.nombre}</p>
-                    <p className="text-[9px] text-[var(--text-secondary)] mt-0.5">
+                    <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">
                       DNI: {c.dni} {c.cuit ? `| CUIT: ${c.cuit}` : ""}
                     </p>
                   </div>
-                  {isSelected && <span className="text-[8px] bg-[var(--brand-light)] px-1.5 py-0.5 rounded border border-[var(--brand)]/20 font-bold uppercase">Seleccionado</span>}
+                  {isSelected && <span className="text-[10px] bg-[var(--brand-light)] px-1.5 py-0.5 rounded border border-[var(--brand)]/20 font-bold uppercase">Seleccionado</span>}
                 </div>
               );
             })}
@@ -479,16 +480,16 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
         <div className="bg-[var(--card)] border border-[var(--border)] rounded-[var(--radius-lg)] p-2 space-y-1.5 shadow-[var(--shadow-sm)] flex-1 flex flex-col min-h-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-1.5 text-[var(--brand)]">
-              <ShoppingCart size={14} />
-              <h2 className="text-xs font-bold text-[var(--text)]">Catálogo de Venta</h2>
+              <ShoppingCart size={16} />
+              <h2 className="text-sm font-bold text-[var(--text)]">Catálogo de Venta</h2>
             </div>
-            <span className="text-[8px] text-[var(--text-secondary)] font-semibold uppercase tracking-wider">Clic para agregar</span>
+            <span className="text-[10px] text-[var(--text-secondary)] font-semibold uppercase tracking-wider">Clic para agregar</span>
           </div>
 
           {/* Buscador + Filtro inline */}
           <div className="flex gap-1.5">
             <div className="relative flex-1">
-              <label className="block text-[10px] text-slate-200 font-semibold mb-0.5">Buscar producto</label>
+              <label className="block text-xs text-slate-200 font-semibold mb-0.5">Buscar producto</label>
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" size={12} />
                 <input
@@ -496,16 +497,16 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
                   placeholder="Buscar repuesto..."
                   value={prodSearch}
                   onChange={e => setProdSearch(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-[var(--text)] placeholder-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)] text-[11px] transition-colors"
+                  className="w-full pl-8 pr-3 py-1.5 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-[var(--text)] placeholder-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)] text-sm transition-colors"
                 />
               </div>
             </div>
             <div className="shrink-0">
-              <label className="block text-[10px] text-slate-200 font-semibold mb-0.5">Categoría</label>
+              <label className="block text-xs text-slate-200 font-semibold mb-0.5">Categoría</label>
               <select
                 value={selectedCategory || ""}
                 onChange={e => setSelectedCategory(e.target.value || null)}
-                className="w-full px-2 py-1.5 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-[11px] text-[var(--text)] focus:outline-none focus:border-[var(--brand)] cursor-pointer font-medium"
+                className="w-full px-2 py-1.5 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-sm text-[var(--text)] focus:outline-none focus:border-[var(--brand)] cursor-pointer font-medium"
               >
                 <option value="">Todas</option>
                 {categories.map(cat => (
@@ -518,14 +519,14 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
           {/* Filtros rápidos: Todos / Favoritos / Más vendidos */}
           <div className="flex gap-1 p-0.5 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)]">
             {([
-              { key: "todos" as ProductFilter, label: "Todos", icon: <Package size={10} /> },
-              { key: "favoritos" as ProductFilter, label: "Favoritos", icon: <Star size={10} />, count: favoritoIds.size },
-              { key: "mas-vendidos" as ProductFilter, label: "Más vendidos", icon: <TrendingUp size={10} /> },
+              { key: "todos" as ProductFilter, label: "Todos", icon: <Package size={12} /> },
+              { key: "favoritos" as ProductFilter, label: "Favoritos", icon: <Star size={12} />, count: favoritoIds.size },
+              { key: "mas-vendidos" as ProductFilter, label: "Más vendidos", icon: <TrendingUp size={12} /> },
             ]).map(tab => (
               <button
                 key={tab.key}
                 onClick={() => setActiveFilter(tab.key)}
-                className={`flex-1 flex items-center justify-center gap-1 py-1 px-2 rounded text-[10px] font-semibold transition-all ${
+                className={`flex-1 flex items-center justify-center gap-1 py-1 px-2 rounded text-xs font-semibold transition-all ${
                   activeFilter === tab.key
                     ? "bg-[var(--brand)] text-white shadow-sm"
                     : "text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--panel)]"
@@ -534,7 +535,7 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
                 {tab.icon}
                 <span>{tab.label}</span>
                 {"count" in tab && tab.count !== undefined && tab.count > 0 && (
-                  <span className={`ml-0.5 text-[8px] px-1 py-0 rounded-full font-bold ${
+                  <span className={`ml-0.5 text-[10px] px-1 py-0 rounded-full font-bold ${
                     activeFilter === tab.key ? "bg-white/20" : "bg-[var(--border)]"
                   }`}>
                     {tab.count}
@@ -545,26 +546,26 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
           </div>
 
           {/* Product Grid — 2 filas visibles, scroll interno */}
-          <div className="grid grid-cols-4 gap-2 h-[500px] overflow-y-auto pr-1">
+          <div className="grid grid-cols-4 gap-2 flex-1 overflow-y-auto pr-1">
             {filteredProducts.length === 0 ? (
               <div className="col-span-4 h-full flex flex-col items-center justify-center text-[var(--text-secondary)]">
                 {activeFilter === "favoritos" ? (
                   <>
                     <Star size={24} className="opacity-30 mb-1.5" />
-                    <p className="text-[10px] font-semibold">No tenés favoritos aún</p>
-                    <p className="text-[8px] opacity-60">Tocá la estrella en un producto para marcarlo</p>
+                    <p className="text-xs font-semibold">No tenés favoritos aún</p>
+                    <p className="text-[10px] opacity-60">Tocá la estrella en un producto para marcarlo</p>
                   </>
                 ) : activeFilter === "mas-vendidos" ? (
                   <>
                     <TrendingUp size={24} className="opacity-30 mb-1.5" />
-                    <p className="text-[10px] font-semibold">Sin ventas registradas</p>
-                    <p className="text-[8px] opacity-60">Aún no se registraron ventas en el sistema</p>
+                    <p className="text-xs font-semibold">Sin ventas registradas</p>
+                    <p className="text-[10px] opacity-60">Aún no se registraron ventas en el sistema</p>
                   </>
                 ) : (
                   <>
                     <Package size={24} className="opacity-30 mb-1.5" />
-                    <p className="text-[10px] font-semibold">No se encontraron productos</p>
-                    <p className="text-[8px] opacity-60">Probá con otros términos de búsqueda</p>
+                    <p className="text-xs font-semibold">No se encontraron productos</p>
+                    <p className="text-[10px] opacity-60">Probá con otros términos de búsqueda</p>
                   </>
                 )}
               </div>
@@ -592,27 +593,27 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
                     }`}
                     title={isFavorito ? "Quitar de favoritos" : "Agregar a favoritos"}
                   >
-                    <Star size={14} fill={isFavorito ? "currentColor" : "none"} />
+                    <Star size={16} fill={isFavorito ? "currentColor" : "none"} />
                   </button>
 
-                  <div className="w-full h-40 bg-[var(--panel)] rounded flex items-center justify-center mb-1.5 overflow-hidden">
+                  <div className="w-full h-36 bg-[var(--panel)] rounded flex items-center justify-center mb-1.5 overflow-hidden">
                     {p.imagen ? (
                       <img src={p.imagen} alt={p.nombre} className="w-full h-full object-contain" />
                     ) : (
                       <Package size={32} className="text-[var(--text-secondary)]" />
                     )}
                   </div>
-                  <p className="text-[10px] font-semibold text-[var(--text)] leading-tight line-clamp-2 min-h-[2rem]">{p.nombre}</p>
-                  <p className="text-[8px] text-[var(--text-secondary)] truncate">{p.categoria.nombre}</p>
+                  <p className="text-xs font-semibold text-[var(--text)] leading-tight line-clamp-2 min-h-[2rem]">{p.nombre}</p>
+                  <p className="text-[10px] text-[var(--text-secondary)] truncate">{p.categoria.nombre}</p>
                   <div className="flex items-center justify-between mt-1">
-                    <p className="text-[11px] font-bold text-[var(--brand)] font-mono">{formatCurrency(p.precioVenta)}</p>
-                    <span className={`text-[8px] font-mono font-semibold ${hasNoStock ? "text-[var(--danger)]" : isLowStock ? "text-[var(--warning)]" : "text-[var(--success)]"}`}>
+                    <p className="text-sm font-bold text-[var(--brand)] font-mono">{formatCurrency(p.precioVenta)}</p>
+                    <span className={`text-[10px] font-mono font-semibold ${hasNoStock ? "text-[var(--danger)]" : isLowStock ? "text-[var(--warning)]" : "text-[var(--success)]"}`}>
                       {p.cantidad}u
                     </span>
                   </div>
                   {/* Badge de vendidos en filtro "Más vendidos" */}
                   {activeFilter === "mas-vendidos" && vendidos > 0 && (
-                    <div className="mt-1 flex items-center gap-0.5 text-[8px] text-[var(--text-secondary)]">
+                    <div className="mt-1 flex items-center gap-0.5 text-[10px] text-[var(--text-secondary)]">
                       <TrendingUp size={8} />
                       <span>{vendidos} vendidos</span>
                     </div>
@@ -631,10 +632,10 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
           {/* Header Carrito */}
           <div className="flex items-center justify-between border-b border-[var(--border)] pb-1.5">
             <div className="flex items-center space-x-1.5 text-[var(--brand)]">
-              <ShoppingCart size={14} />
-              <h2 className="text-xs font-bold text-[var(--text)]">Carrito de compras</h2>
+              <ShoppingCart size={16} />
+              <h2 className="text-sm font-bold text-[var(--text)]">Carrito de compras</h2>
             </div>
-            <span className="text-[9px] px-1.5 py-0.5 bg-[var(--brand-light)] border border-[var(--brand)]/20 text-[var(--brand)] font-semibold rounded font-mono">
+            <span className="text-xs px-1.5 py-0.5 bg-[var(--brand-light)] border border-[var(--brand)]/20 text-[var(--brand)] font-semibold rounded font-mono">
               {cartItemCount} {cartItemCount === 1 ? 'art.' : 'arts.'}
             </span>
           </div>
@@ -644,11 +645,11 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
             {cart.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-[var(--text-secondary)] py-6 space-y-1.5">
                 <ShoppingCart size={24} className="opacity-40" />
-                <p className="text-[10px]">El carrito está vacío</p>
+                <p className="text-sm">El carrito está vacío</p>
               </div>
             ) : (
               cart.map(item => (
-                <div key={item.id} className="flex items-center gap-2 p-1.5 bg-[var(--bg)] border border-[var(--border)] rounded">
+                <div key={item.id} className="flex items-center gap-2 p-2 bg-[var(--bg)] border border-[var(--border)] rounded">
                   {/* Imagen */}
                   <div className="w-9 h-9 bg-[var(--panel)] rounded flex items-center justify-center shrink-0 overflow-hidden">
                     {item.imagen ? (
@@ -660,17 +661,17 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
 
                   {/* Nombre + Categoría */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-semibold text-[var(--text)] truncate leading-tight">{item.nombre}</p>
-                    <p className="text-[8px] text-[var(--text-secondary)] truncate leading-tight">{item.categoria}</p>
+                    <p className="text-xs font-semibold text-[var(--text)] truncate leading-tight">{item.nombre}</p>
+                    <p className="text-[10px] text-[var(--text-secondary)] truncate leading-tight">{item.categoria}</p>
                   </div>
 
                   {/* Controles de cantidad */}
-                  <div className="flex items-center bg-[var(--panel)] border border-[var(--border-hover)] rounded overflow-hidden h-6 shrink-0">
+                  <div className="flex items-center bg-[var(--panel)] border border-[var(--border-hover)] rounded overflow-hidden h-7 shrink-0">
                     <button
                       onClick={() => updateQuantity(item.id, -1)}
                       className="px-1.5 text-[var(--text-secondary)] hover:text-white hover:bg-[var(--brand)]/20 transition text-[11px] font-bold leading-none"
                     >
-                      <Minus size={10} />
+                      <Minus size={12} />
                     </button>
                     <input
                       type="text"
@@ -687,12 +688,12 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
                       onClick={() => updateQuantity(item.id, 1)}
                       className="px-1.5 text-[var(--text-secondary)] hover:text-white hover:bg-[var(--brand)]/20 transition text-[11px] font-bold leading-none"
                     >
-                      <Plus size={10} />
+                      <Plus size={12} />
                     </button>
                   </div>
 
                   {/* Subtotal */}
-                  <p className="text-[12px] font-bold font-mono text-white shrink-0 whitespace-nowrap">{formatCurrency(item.precioVenta * item.cantidad)}</p>
+                  <p className="text-sm font-bold font-mono text-white shrink-0 whitespace-nowrap">{formatCurrency(item.precioVenta * item.cantidad)}</p>
 
                   {/* Eliminar */}
                   <button
@@ -700,7 +701,7 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
                     title="Eliminar producto"
                     className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--danger)] hover:bg-[var(--danger)]/10 transition rounded-md shrink-0"
                   >
-                    <Trash2 size={14} />
+                    <Trash2 size={16} />
                   </button>
                 </div>
               ))
@@ -726,7 +727,7 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
           {/* ═══ SECCIÓN DE PAGO ═══ */}
           <div className="border-t border-[var(--border)] pt-2 space-y-2 shrink-0">
             {/* Cliente */}
-            <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[11px]">
+            <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-sm">
               <span className="text-slate-200 font-semibold">Cliente:</span>
               <span className="font-semibold text-[var(--text)] text-right truncate">
                 {selectedClient ? selectedClient.nombre : <span className="text-[var(--text-secondary)] italic">No seleccionado</span>}
@@ -735,13 +736,13 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
 
             {/* Forma de Pago */}
             <div>
-              <label className="block text-[10px] text-slate-200 font-semibold mb-0.5">Forma de pago</label>
+              <label className="block text-xs text-slate-200 font-semibold mb-0.5">Forma de pago</label>
               <div className="grid grid-cols-2 gap-1.5">
                 {PAYMENT_METHODS.map(pm => (
                   <button
                     key={pm.value}
                     onClick={() => setPaymentMethod(pm.value)}
-                    className={`flex items-center justify-center space-x-1.5 py-1.5 px-2 rounded text-[11px] font-semibold transition-all border ${
+                    className={`flex items-center justify-center space-x-1.5 py-1.5 px-2 rounded text-sm font-semibold transition-all border ${
                       paymentMethod === pm.value
                         ? "bg-[var(--brand)] text-white border-[var(--brand)]"
                         : "bg-[var(--bg)] text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--border-hover)]"
@@ -756,13 +757,13 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
 
             {/* Tipo de Factura */}
             <div>
-              <label className="block text-[10px] text-slate-200 font-semibold mb-0.5">Tipo de factura</label>
+              <label className="block text-xs text-slate-200 font-semibold mb-0.5">Tipo de factura</label>
               <div className="flex gap-1.5">
                 {COMPROBANTES.map(comp => (
                   <button
                     key={comp.value}
                     onClick={() => setComprobanteType(comp.value)}
-                    className={`flex-1 py-1.5 px-2 rounded text-[11px] font-semibold transition-all border text-center ${
+                    className={`flex-1 py-1.5 px-2 rounded text-sm font-semibold transition-all border text-center ${
                       comprobanteType === comp.value
                         ? "bg-[var(--brand)] text-white border-[var(--brand)]"
                         : "bg-[var(--bg)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--border-hover)]"
@@ -776,12 +777,12 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
 
             {/* Descuento */}
             <div>
-              <label className="block text-[10px] text-slate-200 font-semibold mb-0.5">Descuento</label>
+              <label className="block text-xs text-slate-200 font-semibold mb-0.5">Descuento</label>
               <div className="flex gap-1.5 max-w-[320px]">
                 <select
                   value={discountType}
                   onChange={e => setDiscountType(e.target.value as DiscountType)}
-                  className="py-1.5 px-2 bg-[var(--bg)] border border-[var(--border-hover)] rounded text-[11px] text-slate-200 font-semibold focus:outline-none focus:border-[var(--brand)] appearance-none cursor-pointer shrink-0"
+                  className="py-1.5 px-2 bg-[var(--bg)] border border-[var(--border-hover)] rounded text-sm text-slate-200 font-semibold focus:outline-none focus:border-[var(--brand)] appearance-none cursor-pointer shrink-0"
                 >
                   <option value="MONTO">$ Fijo</option>
                   <option value="PORCENTAJE">% Porc.</option>
@@ -796,7 +797,7 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
                       setDiscountValue(val);
                     }}
                     placeholder="0"
-                    className="w-full px-2.5 py-1.5 bg-[var(--bg)] border border-[var(--border-hover)] rounded text-[11px] text-white font-mono font-semibold focus:outline-none focus:border-[var(--brand)]"
+                    className="w-full px-2.5 py-1.5 bg-[var(--bg)] border border-[var(--border-hover)] rounded text-sm text-white font-mono font-semibold focus:outline-none focus:border-[var(--brand)]"
                   />
                   <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-300 font-bold">
                     {discountType === "PORCENTAJE" ? "%" : "$"}
@@ -807,25 +808,25 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
 
             {/* Resumen */}
             <div className="space-y-1">
-              <div className="flex justify-between items-center text-[11px]">
+              <div className="flex justify-between items-center text-sm">
                 <span className="text-[var(--text-secondary)]">Subtotal:</span>
                 <span className="font-mono text-[var(--text)]">{formatCurrency(cartSubtotal)}</span>
               </div>
               {discountAmount > 0 && (
-                <div className="flex justify-between items-center text-[11px]">
+                <div className="flex justify-between items-center text-sm">
                   <span className="text-[var(--danger)]">Desc.:</span>
                   <span className="font-mono text-[var(--danger)] font-semibold">-{formatCurrency(discountAmount)}</span>
                 </div>
               )}
               <div className="flex justify-between items-center">
                 <span className="text-sm font-bold text-[var(--text)]">Total:</span>
-                <span className="text-lg font-black font-mono text-[var(--success)]">{formatCurrency(cartTotal)}</span>
+                <span className="text-xl font-black font-mono text-[var(--success)]">{formatCurrency(cartTotal)}</span>
               </div>
             </div>
 
             {/* Error */}
             {errorMsg && (
-              <div className="p-2 bg-[var(--danger-light)] border border-[var(--danger)]/20 text-[var(--danger)] text-[11px] font-semibold rounded flex items-center space-x-1.5">
+              <div className="p-2 bg-[var(--danger-light)] border border-[var(--danger)]/20 text-[var(--danger)] text-xs font-semibold rounded flex items-center space-x-1.5">
                 <AlertTriangle size={12} />
                 <span>{errorMsg}</span>
               </div>
@@ -835,12 +836,12 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
             <button
               onClick={handleOpenPreview}
               disabled={isPending || cart.length === 0}
-              className="w-full py-2.5 bg-gradient-to-r from-[var(--danger)] to-[var(--brand)] hover:from-[var(--brand)] hover:to-[var(--danger)] text-white font-bold rounded shadow-lg shadow-[var(--danger)]/20 focus:outline-none transition duration-150 flex items-center justify-center text-sm disabled:opacity-40 hover:shadow-xl hover:shadow-[var(--danger)]/30"
+              className="w-full py-3 bg-gradient-to-r from-[var(--danger)] to-[var(--brand)] hover:from-[var(--brand)] hover:to-[var(--danger)] text-white font-bold rounded shadow-lg shadow-[var(--danger)]/20 focus:outline-none transition duration-150 flex items-center justify-center text-base disabled:opacity-40 hover:shadow-xl hover:shadow-[var(--danger)]/30"
             >
               {isPending ? "Procesando..." : (
                 <>
                   <span>Cobrar</span>
-                  <ArrowRight size={14} className="ml-1" />
+                  <ArrowRight size={16} className="ml-1" />
                 </>
               )}
             </button>
@@ -861,48 +862,48 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
 
             <div className="flex items-center space-x-2 text-[var(--brand)] mb-5">
               <UserPlus size={18} />
-              <h3 className="text-sm font-bold text-[var(--text)]">Nuevo Cliente Rápido</h3>
+              <h3 className="text-base font-bold text-[var(--text)]">Nuevo Cliente Rápido</h3>
             </div>
 
             <div className="space-y-3">
               <div>
-                <label className="text-[10px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-1 block">Nombre y Apellido *</label>
+                <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-1 block">Nombre y Apellido *</label>
                 <input
                   type="text"
                   value={newClientNombre}
                   onChange={e => setNewClientNombre(e.target.value)}
                   placeholder="Ej: Juan Pérez"
-                  className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-xs text-[var(--text)] focus:outline-none focus:border-[var(--brand)]"
+                  className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-sm text-[var(--text)] focus:outline-none focus:border-[var(--brand)]"
                 />
               </div>
               <div>
-                <label className="text-[10px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-1 block">DNI *</label>
+                <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-1 block">DNI *</label>
                 <input
                   type="text"
                   value={newClientDni}
                   onChange={e => setNewClientDni(e.target.value.replace(/[^0-9]/g, ""))}
                   placeholder="Ej: 40123456"
-                  className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-xs text-[var(--text)] font-mono focus:outline-none focus:border-[var(--brand)]"
+                  className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-sm text-[var(--text)] font-mono focus:outline-none focus:border-[var(--brand)]"
                 />
               </div>
               <div>
-                <label className="text-[10px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-1 block">Teléfono</label>
+                <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-1 block">Teléfono</label>
                 <input
                   type="text"
                   value={newClientTelefono}
                   onChange={e => setNewClientTelefono(e.target.value)}
                   placeholder="Ej: 3764-123456"
-                  className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-xs text-[var(--text)] focus:outline-none focus:border-[var(--brand)]"
+                  className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-sm text-[var(--text)] focus:outline-none focus:border-[var(--brand)]"
                 />
               </div>
               <div>
-                <label className="text-[10px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-1 block">Correo (opcional)</label>
+                <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-1 block">Correo (opcional)</label>
                 <input
                   type="email"
                   value={newClientEmail}
                   onChange={e => setNewClientEmail(e.target.value)}
                   placeholder="Ej: juan@email.com"
-                  className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-xs text-[var(--text)] focus:outline-none focus:border-[var(--brand)]"
+                  className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-sm text-[var(--text)] focus:outline-none focus:border-[var(--brand)]"
                 />
               </div>
             </div>
@@ -916,14 +917,14 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
             <div className="flex gap-2 mt-5">
               <button
                 onClick={() => setShowNewClientModal(false)}
-                className="flex-1 py-2.5 bg-[var(--bg)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] font-semibold rounded-[var(--radius-md)] transition text-xs"
+                className="flex-1 py-2.5 bg-[var(--bg)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] font-semibold rounded-[var(--radius-md)] transition text-sm"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleCreateClient}
                 disabled={newClientLoading}
-                className="flex-1 py-2.5 bg-[var(--brand)] text-white font-semibold rounded-[var(--radius-md)] transition text-xs hover:opacity-90 disabled:opacity-50"
+                className="flex-1 py-2.5 bg-[var(--brand)] text-white font-semibold rounded-[var(--radius-md)] transition text-sm hover:opacity-90 disabled:opacity-50"
               >
                 {newClientLoading ? "Guardando..." : "Guardar y Seleccionar"}
               </button>
@@ -940,7 +941,7 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
             <div className="flex items-center justify-between p-5 border-b border-[var(--border)]">
               <div className="flex items-center space-x-2 text-[var(--brand)]">
                 <Eye size={18} />
-                <h3 className="text-sm font-bold text-[var(--text)]">Vista Previa del Comprobante</h3>
+                <h3 className="text-base font-bold text-[var(--text)]">Vista Previa del Comprobante</h3>
               </div>
               <button
                 onClick={() => setShowReceiptPreview(false)}
@@ -1085,8 +1086,6 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
 
                 {/* ── FOOTER ── */}
                 <div style={{ textAlign: "center", borderTop: "2px solid #D62828", paddingTop: "12px", marginTop: "16px" }}>
-                  <div style={{ fontSize: "11px", fontWeight: 700, color: "#333", marginBottom: "4px" }}>¡Gracias por su compra!</div>
-                  <div style={{ fontSize: "8px", color: "#999" }}>Chopper Repuestos — Posadas, Misiones</div>
                 </div>
               </div>
             </div>
@@ -1095,14 +1094,14 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
             <div className="p-5 border-t border-[var(--border)] flex gap-3">
               <button
                 onClick={() => setShowReceiptPreview(false)}
-                className="flex-1 py-2.5 bg-[var(--bg)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] font-semibold rounded-[var(--radius-md)] transition text-xs"
+                className="flex-1 py-2.5 bg-[var(--bg)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] font-semibold rounded-[var(--radius-md)] transition text-sm"
               >
                 Volver
               </button>
               <button
                 onClick={handleConfirmPayment}
                 disabled={isPending}
-                className="flex-1 py-2.5 bg-[var(--success)] text-white font-semibold rounded-[var(--radius-md)] transition text-xs hover:opacity-90 disabled:opacity-50 flex items-center justify-center space-x-1.5"
+                className="flex-1 py-2.5 bg-[var(--success)] text-white font-semibold rounded-[var(--radius-md)] transition text-sm hover:opacity-90 disabled:opacity-50 flex items-center justify-center space-x-1.5"
               >
                 <CheckCircle size={14} />
                 <span>{isPending ? "Procesando..." : "Confirmar Cobro"}</span>
@@ -1120,7 +1119,7 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
             <div className="flex items-center justify-between p-5 border-b border-[var(--border)]">
               <div className="flex items-center space-x-2 text-[var(--success)]">
                 <CheckCircle size={18} />
-                <h3 className="text-sm font-bold text-[var(--text)]">Comprobante Emitido</h3>
+                <h3 className="text-base font-bold text-[var(--text)]">Comprobante Emitido</h3>
               </div>
               <button
                 onClick={() => setIssuedInvoice(null)}
@@ -1260,8 +1259,6 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
 
                 {/* ── FOOTER ── */}
                 <div style={{ textAlign: "center", borderTop: "2px solid #D62828", paddingTop: "12px", marginTop: "16px" }}>
-                  <div style={{ fontSize: "11px", fontWeight: 700, color: "#333", marginBottom: "4px" }}>¡Gracias por su compra!</div>
-                  <div style={{ fontSize: "8px", color: "#999" }}>Chopper Repuestos — Posadas, Misiones</div>
                 </div>
               </div>
             </div>
@@ -1270,14 +1267,14 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
             <div className="p-5 border-t border-[var(--border)] flex gap-3">
               <button
                 onClick={handlePrint}
-                className="flex-1 py-2.5 bg-[var(--brand)] text-white font-semibold rounded-[var(--radius-md)] transition text-xs hover:opacity-90 flex items-center justify-center space-x-1.5"
+                className="flex-1 py-2.5 bg-[var(--brand)] text-white font-semibold rounded-[var(--radius-md)] transition text-sm hover:opacity-90 flex items-center justify-center space-x-1.5"
               >
                 <Printer size={14} />
                 <span>Imprimir</span>
               </button>
               <button
                 onClick={() => setIssuedInvoice(null)}
-                className="flex-1 py-2.5 bg-[var(--bg)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] font-semibold rounded-[var(--radius-md)] transition text-xs"
+                className="flex-1 py-2.5 bg-[var(--bg)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] font-semibold rounded-[var(--radius-md)] transition text-sm"
               >
                 Cerrar
               </button>

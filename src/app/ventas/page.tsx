@@ -49,10 +49,10 @@ export default async function VentasPage() {
       <div className="flex-1 flex flex-col min-h-0 p-2 lg:p-3">
         {/* Encabezado */}
         <div className="flex items-center justify-center gap-2 shrink-0 mb-1">
-          <div className="p-1.5 bg-[var(--brand-light)] rounded-lg text-[var(--brand)]">
-            <ShoppingCart size={16} />
+          <div className="p-2 bg-[var(--brand-light)] rounded-lg text-[var(--brand)]">
+            <ShoppingCart size={20} />
           </div>
-          <h1 className="text-base lg:text-lg font-extrabold text-[var(--text)] tracking-tight">
+          <h1 className="text-xl lg:text-2xl font-extrabold text-[var(--text)] tracking-tight">
             Terminal de Ventas
           </h1>
         </div>
