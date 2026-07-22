@@ -56,6 +56,45 @@ export async function crearClienteRapido(
 }
 
 /**
+ * Alterna el estado de favorito de un producto para el usuario actual.
+ */
+export async function toggleFavorito(productoId: number) {
+  const session = await getSession();
+  if (!session) {
+    return { error: "Debe iniciar sesión." };
+  }
+
+  try {
+    const existing = await prisma.productoFavorito.findUnique({
+      where: {
+        usuarioId_productoId: {
+          usuarioId: session.userId,
+          productoId,
+        },
+      },
+    });
+
+    if (existing) {
+      await prisma.productoFavorito.delete({
+        where: { id: existing.id },
+      });
+      return { success: true, favorito: false };
+    } else {
+      await prisma.productoFavorito.create({
+        data: {
+          usuarioId: session.userId,
+          productoId,
+        },
+      });
+      return { success: true, favorito: true };
+    }
+  } catch (error: any) {
+    console.error("Error en toggleFavorito:", error);
+    return { error: error.message || "Error al actualizar favorito." };
+  }
+}
+
+/**
  * Registra una venta completa con control transaccional de stock y caja contable.
  */
 export async function createVenta(

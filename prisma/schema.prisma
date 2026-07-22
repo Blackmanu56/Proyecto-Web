@@ -37,6 +37,7 @@ model Usuario {
   cajas             Caja[]
   compras           Compra[]
   movimientos       MovimientoCaja[]
+  favoritos         ProductoFavorito[]
 
   @@map("usuarios")
 }
@@ -109,6 +110,7 @@ model Producto {
   activo         Boolean         @default(true)
   detalleVentas  DetalleVenta[]
   detalleCompras DetalleCompra[]
+  favoritos      ProductoFavorito[]
 
   @@map("productos")
 }
@@ -205,5 +207,17 @@ model DetalleCompra {
   subtotal      Float
 
   @@map("detalle_compras")
+}
+
+model ProductoFavorito {
+  id         Int      @id @default(autoincrement())
+  usuarioId  Int      @map("usuario_id")
+  usuario    Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  productoId Int      @map("producto_id")
+  producto   Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
+  creadoEn   DateTime @default(now()) @map("creado_en")
+
+  @@unique([usuarioId, productoId])
+  @@map("productos_favoritos")
 }
 

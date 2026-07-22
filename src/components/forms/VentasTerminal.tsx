@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useTransition, useRef } from "react";
-import { crearClienteRapido, createVenta } from "@/actions/ventas";
+import { crearClienteRapido, createVenta, toggleFavorito } from "@/actions/ventas";
 import { formatCurrency } from "@/lib/utils";
 import {
   Search,
@@ -26,6 +26,8 @@ import {
   Eye,
   Calculator,
   Pencil,
+  Star,
+  TrendingUp,
 } from "lucide-react";
 
 interface Product {
@@ -59,7 +61,11 @@ interface VentasTerminalProps {
   productos: Product[];
   clientes: Client[];
   usuario?: { id: number; username: string; nombreCompleto: string } | null;
+  favoritoIds: number[];
+  ventasPorProducto: Record<number, number>;
 }
+
+type ProductFilter = "todos" | "favoritos" | "mas-vendidos";
 
 type DiscountType = "PORCENTAJE" | "MONTO";
 type PaymentMethod = "EFECTIVO" | "TRANSFERENCIA" | "TARJETA_DEBITO" | "TARJETA_CREDITO";
@@ -80,7 +86,7 @@ const COMPROBANTES: { value: ComprobanteType; label: string; desc: string }[] = 
 
 const CUOTAS_OPTIONS = [3, 6, 12, 18];
 
-export default function VentasTerminal({ productos, clientes, usuario }: VentasTerminalProps) {
+export default function VentasTerminal({ productos, clientes, usuario, favoritoIds: initialFavoritoIds, ventasPorProducto }: VentasTerminalProps) {
   const [isPending, startTransition] = useTransition();
   const receiptRef = useRef<HTMLDivElement>(null);
   const issuedReceiptRef = useRef<HTMLDivElement>(null);
@@ -89,6 +95,11 @@ export default function VentasTerminal({ productos, clientes, usuario }: VentasT
   const [prodSearch, setProdSearch] = useState("");
   const [clientSearch, setClientSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [activeFilter, setActiveFilter] = useState<ProductFilter>("todos");
+  const [favoritoIds, setFavoritoIds] = useState<Set<number>>(() => new Set(initialFavoritoIds));
+
+  // Mapa de ventas para lookup rápido
+  const ventasMap = useRef(ventasPorProducto).current;
 
   // Entidades Seleccionadas
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -139,6 +150,25 @@ export default function VentasTerminal({ productos, clientes, usuario }: VentasT
 
   // Obtener categorías únicas
   const categories = Array.from(new Set(productos.map(p => p.categoria.nombre)));
+
+  // ─── TOGGLE FAVORITO ───
+  const handleToggleFavorito = async (e: React.MouseEvent, productoId: number) => {
+    e.stopPropagation(); // No activar el addToCart
+    const prev = new Set(favoritoIds);
+    // Optimistic update
+    if (prev.has(productoId)) {
+      prev.delete(productoId);
+    } else {
+      prev.add(productoId);
+    }
+    setFavoritoIds(prev);
+
+    const res = await toggleFavorito(productoId);
+    if (!res.success) {
+      // Revert on error
+      setFavoritoIds(favoritoIds);
+    }
+  };
 
   // ─── CÁLCULOS ───
   const cartSubtotal = cart.reduce((sum, item) => sum + item.precioVenta * item.cantidad, 0);
@@ -248,12 +278,23 @@ export default function VentasTerminal({ productos, clientes, usuario }: VentasT
   };
 
   // ─── FILTRAR PRODUCTOS ───
-  const filteredProducts = productos.filter(p => {
+  let filteredProducts = productos.filter(p => {
     const matchesSearch = p.nombre.toLowerCase().includes(prodSearch.toLowerCase()) ||
       p.categoria.nombre.toLowerCase().includes(prodSearch.toLowerCase());
     const matchesCategory = !selectedCategory || p.categoria.nombre === selectedCategory;
-    return matchesSearch && matchesCategory;
+    const matchesFilter =
+      activeFilter === "todos" ||
+      (activeFilter === "favoritos" && favoritoIds.has(p.id)) ||
+      activeFilter === "mas-vendidos"; // se ordena después
+    return matchesSearch && matchesCategory && matchesFilter;
   });
+
+  // Ordenar por "más vendidos" si corresponde
+  if (activeFilter === "mas-vendidos") {
+    filteredProducts = [...filteredProducts].sort(
+      (a, b) => (ventasMap[b.id] ?? 0) - (ventasMap[a.id] ?? 0)
+    );
+  }
 
   // ─── FILTRAR CLIENTES ───
   const filteredClients = clientes.filter(c =>
@@ -460,19 +501,86 @@ export default function VentasTerminal({ productos, clientes, usuario }: VentasT
             </select>
           </div>
 
+          {/* Filtros rápidos: Todos / Favoritos / Más vendidos */}
+          <div className="flex gap-1 p-0.5 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)]">
+            {([
+              { key: "todos" as ProductFilter, label: "Todos", icon: <Package size={10} /> },
+              { key: "favoritos" as ProductFilter, label: "Favoritos", icon: <Star size={10} />, count: favoritoIds.size },
+              { key: "mas-vendidos" as ProductFilter, label: "Más vendidos", icon: <TrendingUp size={10} /> },
+            ]).map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveFilter(tab.key)}
+                className={`flex-1 flex items-center justify-center gap-1 py-1 px-2 rounded text-[10px] font-semibold transition-all ${
+                  activeFilter === tab.key
+                    ? "bg-[var(--brand)] text-white shadow-sm"
+                    : "text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--panel)]"
+                }`}
+              >
+                {tab.icon}
+                <span>{tab.label}</span>
+                {"count" in tab && tab.count !== undefined && tab.count > 0 && (
+                  <span className={`ml-0.5 text-[8px] px-1 py-0 rounded-full font-bold ${
+                    activeFilter === tab.key ? "bg-white/20" : "bg-[var(--border)]"
+                  }`}>
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+
           {/* Product Grid — 2 filas visibles, scroll interno */}
           <div className="grid grid-cols-4 gap-2 h-[500px] overflow-y-auto pr-1">
-            {filteredProducts.map(p => {
+            {filteredProducts.length === 0 ? (
+              <div className="col-span-4 h-full flex flex-col items-center justify-center text-[var(--text-secondary)]">
+                {activeFilter === "favoritos" ? (
+                  <>
+                    <Star size={24} className="opacity-30 mb-1.5" />
+                    <p className="text-[10px] font-semibold">No tenés favoritos aún</p>
+                    <p className="text-[8px] opacity-60">Tocá la estrella en un producto para marcarlo</p>
+                  </>
+                ) : activeFilter === "mas-vendidos" ? (
+                  <>
+                    <TrendingUp size={24} className="opacity-30 mb-1.5" />
+                    <p className="text-[10px] font-semibold">Sin ventas registradas</p>
+                    <p className="text-[8px] opacity-60">Aún no se registraron ventas en el sistema</p>
+                  </>
+                ) : (
+                  <>
+                    <Package size={24} className="opacity-30 mb-1.5" />
+                    <p className="text-[10px] font-semibold">No se encontraron productos</p>
+                    <p className="text-[8px] opacity-60">Probá con otros términos de búsqueda</p>
+                  </>
+                )}
+              </div>
+            ) : (
+            filteredProducts.map(p => {
               const isLowStock = p.cantidad <= 5;
               const hasNoStock = p.cantidad <= 0;
+              const isFavorito = favoritoIds.has(p.id);
+              const vendidos = ventasMap[p.id] ?? 0;
               return (
                 <div
                   key={p.id}
                   onClick={() => !hasNoStock && addToCart(p)}
-                  className={`bg-[var(--bg)] border border-[var(--border)] rounded-lg p-2 cursor-pointer transition-all hover:border-[var(--border-hover)] hover:shadow-[var(--shadow-md)] ${
+                  className={`relative bg-[var(--bg)] border border-[var(--border)] rounded-lg p-2 cursor-pointer transition-all hover:border-[var(--border-hover)] hover:shadow-[var(--shadow-md)] ${
                     hasNoStock ? "opacity-40 cursor-not-allowed" : "hover:scale-[1.02]"
                   }`}
                 >
+                  {/* Botón Favorito */}
+                  <button
+                    onClick={(e) => handleToggleFavorito(e, p.id)}
+                    className={`absolute top-1.5 right-1.5 z-10 p-0.5 rounded transition-all ${
+                      isFavorito
+                        ? "text-yellow-400 hover:text-yellow-300"
+                        : "text-[var(--text-secondary)] opacity-40 hover:opacity-100 hover:text-yellow-400"
+                    }`}
+                    title={isFavorito ? "Quitar de favoritos" : "Agregar a favoritos"}
+                  >
+                    <Star size={14} fill={isFavorito ? "currentColor" : "none"} />
+                  </button>
+
                   <div className="w-full h-40 bg-[var(--panel)] rounded flex items-center justify-center mb-1.5 overflow-hidden">
                     {p.imagen ? (
                       <img src={p.imagen} alt={p.nombre} className="w-full h-full object-contain" />
@@ -488,9 +596,17 @@ export default function VentasTerminal({ productos, clientes, usuario }: VentasT
                       {p.cantidad}u
                     </span>
                   </div>
+                  {/* Badge de vendidos en filtro "Más vendidos" */}
+                  {activeFilter === "mas-vendidos" && vendidos > 0 && (
+                    <div className="mt-1 flex items-center gap-0.5 text-[8px] text-[var(--text-secondary)]">
+                      <TrendingUp size={8} />
+                      <span>{vendidos} vendidos</span>
+                    </div>
+                  )}
                 </div>
               );
-            })}
+            })
+            )}
           </div>
         </div>
       </div>

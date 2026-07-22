@@ -8,7 +8,7 @@ export default async function VentasPage() {
   const session = await getSession();
 
   // Carga de datos del servidor
-  const [productos, clientes, usuario] = await Promise.all([
+  const [productos, clientes, usuario, favoritos, ventasPorProducto] = await Promise.all([
     prisma.producto.findMany({
       where: { activo: true },
       include: { categoria: true },
@@ -22,7 +22,27 @@ export default async function VentasPage() {
       where: { id: session.userId },
       select: { id: true, username: true, nombreCompleto: true },
     }) : null,
+    // Favoritos del usuario actual
+    session ? prisma.productoFavorito.findMany({
+      where: { usuarioId: session.userId },
+      select: { productoId: true },
+    }) : [],
+    // Cantidad de veces que cada producto fue vendido (agregado desde detalle_ventas)
+    prisma.detalleVenta.groupBy({
+      by: ["productoId"],
+      _sum: { cantidad: true },
+      orderBy: { _sum: { cantidad: "desc" } },
+    }),
   ]);
+
+  // Set de IDs de favoritos para lookup rápido (serializado como array para client component)
+  const favoritoIds = favoritos.map(f => f.productoId);
+
+  // Mapa productoId -> cantidad total vendida
+  const ventasMap = new Map<number, number>();
+  for (const v of ventasPorProducto) {
+    ventasMap.set(v.productoId, v._sum.cantidad ?? 0);
+  }
 
   return (
     <div className="fixed inset-0 top-[5.5rem] bg-[var(--bg)] flex flex-col overflow-hidden z-10">
@@ -39,7 +59,13 @@ export default async function VentasPage() {
 
         {/* Terminal Interactivo (Client Component) */}
         <div className="flex-1 min-h-0">
-          <VentasTerminal productos={productos as any} clientes={clientes as any} usuario={usuario} />
+          <VentasTerminal
+            productos={productos as any}
+            clientes={clientes as any}
+            usuario={usuario}
+            favoritoIds={favoritoIds}
+            ventasPorProducto={Object.fromEntries(ventasMap)}
+          />
         </div>
       </div>
     </div>
