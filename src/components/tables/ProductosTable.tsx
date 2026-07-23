@@ -35,8 +35,6 @@ import {
   TrendingDown,
   MoreHorizontal,
   ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
   Columns3,
   Tag,
   Trash2,
@@ -578,12 +576,29 @@ export default function ProductosTable({
   const inactivos = initialProducts.filter(p => !p.activo).length;
   const sinStock = initialProducts.filter(p => p.cantidad === 0).length;
 
-  /* ── Render helper: sort icon ── */
-  const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortField !== field || !sortDir) return <ArrowUpDown size={12} className="text-text-secondary/50" />;
-    return sortDir === "asc"
-      ? <ArrowUp size={12} className="text-brand" />
-      : <ArrowDown size={12} className="text-brand" />;
+  /* ── Render helper: sort indicator ── */
+  const TEXT_FIELDS = new Set<SortField>(["nombre", "marca", "categoria", "proveedor"]);
+
+  const getSortTooltip = (field: SortField): string => {
+    const isText = TEXT_FIELDS.has(field);
+    if (sortField !== field || sortDir === null) return isText ? "Ordenar de A a Z" : "Ordenar de menor a mayor";
+    if (sortDir === "asc") return isText ? "Ordenar de Z a A" : "Ordenar de mayor a menor";
+    return "Quitar ordenamiento";
+  };
+
+  const SortIndicator = ({ field }: { field: SortField }) => {
+    const isActive = sortField === field && sortDir !== null;
+    const isText = TEXT_FIELDS.has(field);
+    const color = isActive ? "text-[var(--brand)]" : "opacity-40";
+    let label: string;
+    if (!isActive) {
+      label = isText ? "A–Z ↕" : "1–9 ↕";
+    } else if (sortDir === "asc") {
+      label = isText ? "A–Z ↑" : "1–9 ↑";
+    } else {
+      label = isText ? "Z–A ↓" : "1–9 ↓";
+    }
+    return <span className={`text-[9px] font-medium tracking-normal whitespace-nowrap ${color}`}>{label}</span>;
   };
 
   /* ── Check if a column is visible ── */
@@ -826,12 +841,13 @@ export default function ProductosTable({
                   return (
                     <th
                       key={col.key}
-                      className={`py-3.5 px-4 ${col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : ""} ${col.sortable ? "cursor-pointer select-none hover:text-[var(--text)] transition-colors" : ""}`}
+                      className={`py-3.5 px-4 ${col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : ""} ${col.sortable ? "cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors" : ""}`}
                       onClick={col.sortable && col.sortField ? () => handleSort(col.sortField!) : undefined}
+                      title={col.sortable && col.sortField ? getSortTooltip(col.sortField) : undefined}
                     >
-                      <div className={`flex items-center gap-1 ${col.align === "right" ? "justify-end" : col.align === "center" ? "justify-center" : ""}`}>
+                      <div className={`flex items-center gap-2 ${col.align === "right" ? "justify-end" : col.align === "center" ? "justify-center" : ""}`}>
                         {col.label}
-                        {col.sortable && col.sortField && <SortIcon field={col.sortField} />}
+                        {col.sortable && col.sortField && <SortIndicator field={col.sortField} />}
                       </div>
                     </th>
                   );

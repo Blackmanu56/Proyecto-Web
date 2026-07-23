@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useState, useTransition, useMemo, useCallback } from "react";
 import type { FilterStatus } from "./StatusFilter";
 import { TableShell } from "@/components/ui/table-shell";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,6 @@ import { FormField } from "@/components/ui/form-field";
 import {
   Plus,
   Edit3,
-  Trash2,
   UserX,
   UserCheck,
   Building2,
@@ -78,12 +77,17 @@ type CompraHistorial = {
   }[];
 };
 
+// ─── Sort ─────────────────────────────────────────────────────────
+type SortField = "nombre" | "cuit" | "productos" | "activo";
+type SortDir = "asc" | "desc" | null;
+
+const TEXT_SORT_FIELDS = new Set<SortField>(["nombre", "cuit"]);
+
 interface ProveedoresTableProps {
   initialProveedores: ProveedorConDetalles[];
   onCreateProveedor: (formData: FormData) => Promise<{ success?: boolean; error?: string }>;
   onUpdateProveedor: (id: number, formData: FormData) => Promise<{ success?: boolean; error?: string }>;
   onToggleEstado: (id: number) => Promise<{ success?: boolean; error?: string }>;
-  onEliminarReal: (id: number) => Promise<{ success?: boolean; error?: string }>;
   onSearch: (query: string, soloActivos: boolean) => Promise<ProveedorConDetalles[]>;
   onGetProductos: (id: number) => Promise<any[]>;
   onGetHistorial: (id: number) => Promise<any[]>;
@@ -94,7 +98,6 @@ export default function ProveedoresTable({
   onCreateProveedor,
   onUpdateProveedor,
   onToggleEstado,
-  onEliminarReal,
   onSearch,
   onGetProductos,
   onGetHistorial,
@@ -103,6 +106,10 @@ export default function ProveedoresTable({
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("activos");
   const [isPending, startTransition] = useTransition();
+
+  // Sorting
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>(null);
 
   // Modales
   const [modalOpen, setModalOpen] = useState(false);
@@ -119,15 +126,48 @@ export default function ProveedoresTable({
   const [purchaseHistory, setPurchaseHistory] = useState<CompraHistorial[]>([]);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
-  // Diálogo de Confirmación
+  // Diálogo de Confirmación (solo toggle)
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
     provId: number;
     provName: string;
-    type: "toggle" | "delete";
     isActive?: boolean;
     errorMsg?: string | null;
-  }>({ open: false, provId: 0, provName: "", type: "toggle" });
+  }>({ open: false, provId: 0, provName: "" });
+
+  // ─── Sort handlers ─────────────────────────────────────────────
+  const handleSortCycle = useCallback((field: SortField) => {
+    if (sortField === field) {
+      if (sortDir === "asc") setSortDir("desc");
+      else if (sortDir === "desc") setSortDir(null);
+      else setSortDir("asc");
+    } else {
+      setSortField(field);
+      setSortDir("asc");
+    }
+  }, [sortField, sortDir]);
+
+  const getSortTooltip = (field: SortField): string => {
+    const isText = TEXT_SORT_FIELDS.has(field);
+    if (sortField !== field || sortDir === null) return isText ? "Ordenar de A a Z" : "Ordenar de menor a mayor";
+    if (sortDir === "asc") return isText ? "Ordenar de Z a A" : "Ordenar de mayor a menor";
+    return "Quitar ordenamiento";
+  };
+
+  const renderSortIndicator = (field: SortField) => {
+    const isActive = sortField === field && sortDir !== null;
+    const isText = TEXT_SORT_FIELDS.has(field);
+    const color = isActive ? "text-[var(--brand)]" : "opacity-40";
+    let label: string;
+    if (!isActive) {
+      label = isText ? "A–Z ↕" : "1–9 ↕";
+    } else if (sortDir === "asc") {
+      label = isText ? "A–Z ↑" : "1–9 ↑";
+    } else {
+      label = isText ? "Z–A ↓" : "1–9 ↓";
+    }
+    return <span className={`text-[9px] font-medium tracking-normal whitespace-nowrap ${color}`}>{label}</span>;
+  };
 
   // ─── Search handler ───────────────────────────────────────────
   const handleSearch = (query: string) => {
@@ -139,12 +179,31 @@ export default function ProveedoresTable({
   };
 
   // Filtrado client-side por estado
-  const filteredProveedores = proveedores.filter((p) => {
-    if (filterStatus === "todos") return true;
-    if (filterStatus === "activos") return p.activo;
-    if (filterStatus === "inactivos") return !p.activo;
-    return true;
-  });
+  const filteredProveedores = useMemo(() => {
+    return proveedores.filter((p) => {
+      if (filterStatus === "todos") return true;
+      if (filterStatus === "activos") return p.activo;
+      if (filterStatus === "inactivos") return !p.activo;
+      return true;
+    });
+  }, [proveedores, filterStatus]);
+
+  // Sorting
+  const sortedProveedores = useMemo(() => {
+    const result = [...filteredProveedores];
+    if (!sortField || !sortDir) return result;
+    result.sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case "nombre": cmp = a.nombre.localeCompare(b.nombre); break;
+        case "cuit": cmp = a.cuit.localeCompare(b.cuit); break;
+        case "productos": cmp = a._count.productos - b._count.productos; break;
+        case "activo": cmp = (a.activo ? 0 : 1) - (b.activo ? 0 : 1); break;
+      }
+      return sortDir === "desc" ? -cmp : cmp;
+    });
+    return result;
+  }, [filteredProveedores, sortField, sortDir]);
 
   // Open Create/Edit modal
   const openCreateModal = () => {
@@ -195,7 +254,6 @@ export default function ProveedoresTable({
     setFormSuccess(true);
     setIsSubmitting(false);
 
-    // Refresh list
     const results = await onSearch(searchQuery, false);
     setProveedores(results);
 
@@ -204,7 +262,7 @@ export default function ProveedoresTable({
     }, 800);
   };
 
-  // ─── Open Details/History modal ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+  // ─── Open Details/History modal ─────────────────────────────
   const openDetailModal = async (prov: ProveedorConDetalles) => {
     setSelectedProv(prov);
     setActiveTab("info");
@@ -234,7 +292,7 @@ export default function ProveedoresTable({
     setPurchaseHistory([]);
   };
 
-  // ─── Actions handlers ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+  // ─── Actions handlers ───────────────────────────────────────
   const handleToggleEstado = async () => {
     const { provId } = confirmDialog;
     const result = await onToggleEstado(provId);
@@ -247,21 +305,8 @@ export default function ProveedoresTable({
     }
   };
 
-  const handleEliminarReal = async () => {
-    const { provId } = confirmDialog;
-    const result = await onEliminarReal(provId);
-    if (result.success) {
-      setConfirmDialog({ ...confirmDialog, open: false });
-      const results = await onSearch(searchQuery, false);
-      setProveedores(results);
-    } else {
-      setConfirmDialog({ ...confirmDialog, errorMsg: result.error });
-    }
-  };
-
   const openConfirmDialog = (
     prov: ProveedorConDetalles,
-    type: "toggle" | "delete",
     e: React.MouseEvent
   ) => {
     e.stopPropagation();
@@ -269,7 +314,6 @@ export default function ProveedoresTable({
       open: true,
       provId: prov.id,
       provName: prov.nombre,
-      type,
       isActive: prov.activo,
       errorMsg: null,
     });
@@ -277,35 +321,35 @@ export default function ProveedoresTable({
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* 1. Stats Cards — compacto */}
-      <div className="grid grid-cols-3 gap-2 shrink-0 mb-2">
-        <div className="bg-card border border-border p-2.5 rounded-lg flex items-center justify-between shadow-[var(--shadow-sm)]">
+      {/* 1. Stats Cards */}
+      <div className="grid grid-cols-3 gap-3 shrink-0 mb-3">
+        <div className="bg-[var(--panel)] border border-[var(--border)] p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] hover:shadow-md transition-shadow">
           <div>
-            <p className="text-[10px] text-text-secondary font-bold uppercase tracking-wider">Total Proveedores</p>
-            <p className="text-lg font-extrabold text-text">{proveedores.length}</p>
+            <p className="text-xs text-[var(--text-secondary)] font-bold uppercase tracking-wider">Total Proveedores</p>
+            <p className="text-2xl font-extrabold text-[var(--text)]">{proveedores.length}</p>
           </div>
-          <div className="p-1.5 bg-brand-light rounded text-brand">
-            <Building2 size={14} />
+          <div className="p-2.5 bg-[var(--brand-light)] rounded-lg text-[var(--brand)]">
+            <Building2 size={20} />
           </div>
         </div>
 
-        <div className="bg-card border border-border p-2.5 rounded-lg flex items-center justify-between shadow-[var(--shadow-sm)]">
+        <div className="bg-[var(--panel)] border border-[var(--border)] p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] hover:shadow-md transition-shadow">
           <div>
-            <p className="text-[10px] text-text-secondary font-bold uppercase tracking-wider">Activos</p>
-            <p className="text-lg font-extrabold text-success">{proveedores.filter((p) => p.activo).length}</p>
+            <p className="text-xs text-[var(--text-secondary)] font-bold uppercase tracking-wider">Activos</p>
+            <p className="text-2xl font-extrabold text-[var(--success)]">{proveedores.filter((p) => p.activo).length}</p>
           </div>
-          <div className="p-1.5 bg-success-light rounded text-success">
-            <UserCheck size={14} />
+          <div className="p-2.5 bg-[var(--success-light)] rounded-lg text-[var(--success)]">
+            <UserCheck size={20} />
           </div>
         </div>
 
-        <div className="bg-card border border-border p-2.5 rounded-lg flex items-center justify-between shadow-[var(--shadow-sm)]">
+        <div className="bg-[var(--panel)] border border-[var(--border)] p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] hover:shadow-md transition-shadow">
           <div>
-            <p className="text-[10px] text-text-secondary font-bold uppercase tracking-wider">Inactivos</p>
-            <p className="text-lg font-extrabold text-danger">{proveedores.filter((p) => !p.activo).length}</p>
+            <p className="text-xs text-[var(--text-secondary)] font-bold uppercase tracking-wider">Inactivos</p>
+            <p className="text-2xl font-extrabold text-[var(--danger)]">{proveedores.filter((p) => !p.activo).length}</p>
           </div>
-          <div className="p-1.5 bg-danger-light rounded text-danger">
-            <UserX size={14} />
+          <div className="p-2.5 bg-[var(--danger-light)] rounded-lg text-[var(--danger)]">
+            <UserX size={20} />
           </div>
         </div>
       </div>
@@ -316,108 +360,143 @@ export default function ProveedoresTable({
         searchPlaceholder="Buscar proveedor, CUIT, responsable..."
         searchValue={searchQuery}
         onSearchChange={handleSearch}
-        isEmpty={filteredProveedores.length === 0}
+        isEmpty={sortedProveedores.length === 0}
         emptyMessage="No se encontraron proveedores"
         emptyIcon={<Building2 size={32} className="opacity-40" />}
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative">
-              <CheckCircle className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" size={12} />
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
-                className="pl-7 pr-6 py-1.5 bg-bg border border-border rounded text-text text-[11px] focus:outline-none focus:border-brand appearance-none cursor-pointer"
-              >
-                <option value="todos">Todos</option>
-                <option value="activos">Activos</option>
-                <option value="inactivos">Inactivos</option>
-              </select>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Estado</label>
+              <div className="relative">
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
+                  className="pl-3 pr-7 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-[var(--text)] text-sm focus:outline-none focus:border-[var(--brand)] appearance-none cursor-pointer min-w-[130px]"
+                >
+                  <option value="todos">Todos</option>
+                  <option value="activos">Activos</option>
+                  <option value="inactivos">Inactivos</option>
+                </select>
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                  <svg className="w-3 h-3 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                </div>
+              </div>
             </div>
-            <button onClick={openCreateModal} className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--brand)] text-white rounded text-[11px] font-semibold hover:bg-[var(--brand)]/90 transition">
-              <Plus size={12} />
+            <button onClick={openCreateModal} className="flex items-center gap-1.5 px-4 py-2.5 bg-[var(--brand)] text-white rounded-lg text-sm font-semibold hover:bg-[var(--brand)]/90 transition">
+              <Plus size={14} />
               Nuevo
             </button>
           </div>
         }
       >
         <div className="overflow-auto max-h-[calc(100vh-22rem)]">
-          <table className="w-full text-left border-collapse min-w-[700px]">
-            <thead className="sticky top-0 bg-[var(--card)]">
-              <tr className="border-b border-border text-[11px] uppercase tracking-wider font-semibold text-text-secondary">
-                <th className="py-2 px-4">Proveedor</th>
-                <th className="py-2 px-4">CUIT</th>
-                <th className="py-2 px-4 hidden md:table-cell">Contacto</th>
-                <th className="py-2 px-4 text-center">Artículos</th>
-                <th className="py-2 px-4 text-center">Estado</th>
-                <th className="py-2 px-4 text-center">Acciones</th>
+          <table className="w-full text-left border-collapse min-w-[700px]" style={{ tableLayout: "fixed" }}>
+            <colgroup>
+              <col style={{ width: "25%" }} />
+              <col style={{ width: "12%" }} />
+              <col style={{ width: "20%" }} />
+              <col style={{ width: "10%" }} />
+              <col style={{ width: "10%" }} />
+              <col style={{ width: "13%" }} />
+            </colgroup>
+            <thead className="sticky top-0 bg-[var(--panel)]">
+              <tr className="border-b-2 border-[var(--border)] text-xs uppercase tracking-wider font-bold text-[var(--text-secondary)]">
+                <th
+                  className="py-3.5 px-4 cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors"
+                  onClick={() => handleSortCycle("nombre")}
+                  title={getSortTooltip("nombre")}
+                >
+                  <div className="flex items-center gap-2">Proveedor {renderSortIndicator("nombre")}</div>
+                </th>
+                <th
+                  className="py-3.5 px-4 cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors"
+                  onClick={() => handleSortCycle("cuit")}
+                  title={getSortTooltip("cuit")}
+                >
+                  <div className="flex items-center gap-2">CUIT {renderSortIndicator("cuit")}</div>
+                </th>
+                <th className="py-3.5 px-4 hidden md:table-cell">Contacto</th>
+                <th
+                  className="py-3.5 px-4 text-center cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors"
+                  onClick={() => handleSortCycle("productos")}
+                  title={getSortTooltip("productos")}
+                >
+                  <div className="flex items-center justify-center gap-2">Artículos {renderSortIndicator("productos")}</div>
+                </th>
+                <th
+                  className="py-3.5 px-4 text-center cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors"
+                  onClick={() => handleSortCycle("activo")}
+                  title={getSortTooltip("activo")}
+                >
+                  <div className="flex items-center justify-center gap-2">Estado {renderSortIndicator("activo")}</div>
+                </th>
+                <th className="py-3.5 px-4 text-center">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border/60 text-sm text-text-muted">
-              {filteredProveedores.map((prov) => (
+            <tbody className="divide-y divide-[var(--border)]/60 text-[13px] text-[var(--text-muted)]">
+              {sortedProveedores.map((prov) => (
                 <tr
                   key={prov.id}
                   onClick={() => openDetailModal(prov)}
-                  className={`group hover:bg-border/30 transition-colors duration-150 cursor-pointer ${
+                  className={`group hover:bg-[var(--panel)] transition-colors duration-150 cursor-pointer ${
                     !prov.activo ? "opacity-60" : ""
                   }`}
                 >
-                  <td className="py-2 px-4">
+                  <td className="py-3 px-4">
                     <div className="flex items-center gap-2">
                       <div
-                        className={`w-7 h-7 rounded flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0 ${
                           prov.activo
-                            ? "bg-brand-light text-brand border border-brand/20"
-                            : "bg-border text-text-secondary border border-border"
+                            ? "bg-[var(--brand-light)] text-[var(--brand)] border border-[var(--brand)]/20"
+                            : "bg-[var(--border)] text-[var(--text-secondary)] border border-[var(--border)]"
                         }`}
                       >
-                        <Building2 size={12} />
+                        <Building2 size={14} />
                       </div>
-                      <div>
-                        <p className="font-semibold text-text text-sm leading-tight group-hover:text-brand transition-colors">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-[var(--text)] text-sm leading-tight group-hover:text-[var(--brand)] transition-colors truncate">
                           {prov.nombre}
                         </p>
                         {prov.direccion && (
-                          <p className="text-[11px] text-text-secondary mt-0.5 flex items-center gap-1">
-                            <MapPin size={9} className="text-text-secondary" />
+                          <p className="text-[11px] text-[var(--text-secondary)] mt-0.5 flex items-center gap-1 truncate">
+                            <MapPin size={9} className="text-[var(--text-secondary)] shrink-0" />
                             {prov.direccion}
                           </p>
                         )}
                       </div>
                     </div>
                   </td>
-                  <td className="py-2 px-4">
-                    <span className="font-mono text-xs text-text-muted">{prov.cuit}</span>
+                  <td className="py-3 px-4">
+                    <span className="font-mono text-sm text-[var(--text-muted)]">{prov.cuit}</span>
                   </td>
-                  <td className="py-2 px-4 hidden md:table-cell">
+                  <td className="py-3 px-4 hidden md:table-cell">
                     <div className="space-y-0.5">
                       {prov.email && (
-                        <p className="text-xs text-text-muted flex items-center gap-1">
-                          <Mail size={9} className="text-text-secondary shrink-0" />
+                        <p className="text-sm text-[var(--text-muted)] flex items-center gap-1">
+                          <Mail size={10} className="text-[var(--text-secondary)] shrink-0" />
                           {prov.email}
                         </p>
                       )}
                       {prov.telefono && (
-                        <p className="text-xs text-text-secondary flex items-center gap-1">
-                          <Phone size={9} className="text-text-secondary shrink-0" />
+                        <p className="text-sm text-[var(--text-secondary)] flex items-center gap-1">
+                          <Phone size={10} className="text-[var(--text-secondary)] shrink-0" />
                           {prov.telefono}
                         </p>
                       )}
                       {!prov.email && !prov.telefono && (
-                        <p className="text-[11px] text-text-secondary italic">Sin datos</p>
+                        <p className="text-[11px] text-[var(--text-secondary)] italic">Sin datos</p>
                       )}
                     </div>
                   </td>
-                  <td className="py-2 px-4 text-center">
-                    <Badge variant="default" size="sm" className="font-mono text-[11px]">
-                      {prov._count.productos}
-                    </Badge>
+                  <td className="py-3 px-4 text-center font-semibold text-[var(--text)]">
+                    {prov._count.productos}
                   </td>
-                  <td className="py-2 px-4 text-center">
+                  <td className="py-3 px-4 text-center">
                     <Badge variant={prov.activo ? "success" : "danger"} size="sm">
                       {prov.activo ? "Activo" : "Baja"}
                     </Badge>
                   </td>
-                  <td className="py-2 px-4 text-center">
+                  <td className="py-3 px-4 text-center">
                     <div className="flex items-center justify-center gap-1">
                       <Button
                         variant="ghost"
@@ -425,25 +504,16 @@ export default function ProveedoresTable({
                         onClick={(e) => openEditModal(prov, e)}
                         title="Editar"
                       >
-                        <Edit3 size={14} />
+                        <Edit3 size={16} />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={(e) => openConfirmDialog(prov, "toggle", e)}
-                        title={prov.activo ? "Dar de baja" : "Reactivar"}
-                        className={prov.activo ? "hover:text-warning" : "hover:text-success"}
+                        onClick={(e) => openConfirmDialog(prov, e)}
+                        title="Cambiar estado"
+                        className={prov.activo ? "hover:text-[var(--warning)]" : "hover:text-[var(--success)]"}
                       >
-                        {prov.activo ? <UserX size={14} /> : <UserCheck size={14} />}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => openConfirmDialog(prov, "delete", e)}
-                        title="Eliminar"
-                        className="hover:text-danger"
-                      >
-                        <Trash2 size={14} />
+                        {prov.activo ? <UserX size={16} /> : <UserCheck size={16} />}
                       </Button>
                     </div>
                   </td>
@@ -459,7 +529,7 @@ export default function ProveedoresTable({
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <div className="p-2 bg-brand-light rounded-[var(--radius-md)] text-brand border border-brand/10">
+              <div className="p-2 bg-[var(--brand-light)] rounded-[var(--radius-md)] text-[var(--brand)] border border-[var(--brand)]/10">
                 {editingProv ? <Edit3 size={18} /> : <Plus size={18} />}
               </div>
               {editingProv ? "Editar Proveedor" : "Nuevo Proveedor"}
@@ -473,13 +543,13 @@ export default function ProveedoresTable({
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {formError && (
-              <div className="flex items-center gap-2 p-3 rounded-[var(--radius-md)] bg-danger-light border border-danger/20 text-danger text-xs">
+              <div className="flex items-center gap-2 p-3 rounded-[var(--radius-md)] bg-[var(--danger-light)] border border-[var(--danger)]/20 text-[var(--danger)] text-xs">
                 <AlertTriangle size={14} className="shrink-0" />
                 {formError}
               </div>
             )}
             {formSuccess && (
-              <div className="flex items-center gap-2 p-3 rounded-[var(--radius-md)] bg-success-light border border-success/20 text-success text-xs">
+              <div className="flex items-center gap-2 p-3 rounded-[var(--radius-md)] bg-[var(--success-light)] border border-[var(--success)]/20 text-[var(--success)] text-xs">
                 <CheckCircle2 size={14} className="shrink-0" />
                 {editingProv
                   ? "Proveedor actualizado correctamente"
@@ -487,7 +557,6 @@ export default function ProveedoresTable({
               </div>
             )}
 
-            {/* Nombre / Razón Social */}
             <FormField label="Razón Social / Empresa" required>
               <Input
                 id="input-prov-nombre"
@@ -499,7 +568,6 @@ export default function ProveedoresTable({
               />
             </FormField>
 
-            {/* CUIT + Contacto */}
             <div className="grid grid-cols-2 gap-3">
               <FormField label="CUIT" required>
                 <Input
@@ -522,7 +590,6 @@ export default function ProveedoresTable({
               </FormField>
             </div>
 
-            {/* Correo + Teléfono */}
             <div className="grid grid-cols-2 gap-3">
               <FormField label="Correo Electrónico">
                 <Input
@@ -544,7 +611,6 @@ export default function ProveedoresTable({
               </FormField>
             </div>
 
-            {/* Dirección */}
             <FormField label="Dirección Comercial">
               <Input
                 id="input-prov-direccion"
@@ -555,8 +621,7 @@ export default function ProveedoresTable({
               />
             </FormField>
 
-            {/* Submit */}
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-[var(--border)]">
               <Button
                 type="button"
                 variant="secondary"
@@ -583,21 +648,20 @@ export default function ProveedoresTable({
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
           {selectedProv && (
             <>
-              {/* Upper profile header */}
-              <div className="bg-gradient-to-r from-bg to-panel px-6 py-5 border-b border-border flex items-start justify-between">
+              <div className="bg-gradient-to-r from-[var(--bg)] to-[var(--panel)] px-6 py-5 border-b border-[var(--border)] flex items-start justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-[var(--radius-lg)] bg-brand-light text-brand border border-brand/20 flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-[var(--radius-lg)] bg-[var(--brand-light)] text-[var(--brand)] border border-[var(--brand)]/20 flex items-center justify-center">
                     <Building2 size={24} />
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-text leading-tight">
+                    <h3 className="text-xl font-bold text-[var(--text)] leading-tight">
                       {selectedProv.nombre}
                     </h3>
                     <div className="flex items-center gap-3 mt-1.5">
-                      <span className="font-mono text-xs text-text-secondary">
+                      <span className="font-mono text-xs text-[var(--text-secondary)]">
                         CUIT: {selectedProv.cuit}
                       </span>
-                      <span className="w-1.5 h-1.5 rounded-full bg-border" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-[var(--border)]" />
                       <Badge variant={selectedProv.activo ? "success" : "danger"} size="sm">
                         {selectedProv.activo ? "Activo" : "Inactivo"}
                       </Badge>
@@ -606,8 +670,7 @@ export default function ProveedoresTable({
                 </div>
               </div>
 
-              {/* Tab selection */}
-              <div className="flex border-b border-border bg-panel/20 px-4">
+              <div className="flex border-b border-[var(--border)] bg-[var(--panel)]/20 px-4">
                 {[
                   { id: "info", label: "Ficha Técnica", icon: <Info size={14} /> },
                   { id: "productos", label: "Productos del Catálogo", icon: <Package size={14} /> },
@@ -618,8 +681,8 @@ export default function ProveedoresTable({
                     onClick={() => setActiveTab(tab.id as any)}
                     className={`flex items-center gap-2 px-4 py-3.5 text-xs font-semibold tracking-wide border-b-2 transition-all ${
                       activeTab === tab.id
-                        ? "border-brand text-brand bg-brand-light/5"
-                        : "border-transparent text-text-secondary hover:text-text-muted hover:bg-border/20"
+                        ? "border-[var(--brand)] text-[var(--brand)] bg-[var(--brand-light)]/5"
+                        : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text-muted)] hover:bg-[var(--border)]/20"
                     }`}
                   >
                     {tab.icon}
@@ -628,35 +691,33 @@ export default function ProveedoresTable({
                 ))}
               </div>
 
-              {/* Tab Contents */}
               <div className="p-6 max-h-[55vh] overflow-y-auto min-h-[300px]">
                 {loadingDetails ? (
-                  <div className="flex flex-col items-center justify-center py-20 text-text-secondary gap-3">
-                    <Loader2 size={32} className="text-brand animate-spin" />
+                  <div className="flex flex-col items-center justify-center py-20 text-[var(--text-secondary)] gap-3">
+                    <Loader2 size={32} className="text-[var(--brand)] animate-spin" />
                     <p className="text-sm font-medium">Consultando registros históricos...</p>
                   </div>
                 ) : (
                   <>
-                    {/* Ficha Técnica Tab */}
                     {activeTab === "info" && (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-4">
-                          <h4 className="text-xs font-bold uppercase tracking-wider text-text-secondary">
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">
                             Información de la Empresa
                           </h4>
-                          <div className="space-y-3 bg-bg p-4 rounded-[var(--radius-lg)] border border-border">
+                          <div className="space-y-3 bg-[var(--bg)] p-4 rounded-[var(--radius-lg)] border border-[var(--border)]">
                             <div>
-                              <span className="text-[10px] uppercase font-bold text-text-secondary">Razón Social</span>
-                              <p className="text-sm font-semibold text-text">{selectedProv.nombre}</p>
+                              <span className="text-[10px] uppercase font-bold text-[var(--text-secondary)]">Razón Social</span>
+                              <p className="text-sm font-semibold text-[var(--text)]">{selectedProv.nombre}</p>
                             </div>
                             <div>
-                              <span className="text-[10px] uppercase font-bold text-text-secondary">CUIT Fiscal</span>
-                              <p className="text-sm font-mono text-text-muted">{selectedProv.cuit}</p>
+                              <span className="text-[10px] uppercase font-bold text-[var(--text-secondary)]">CUIT Fiscal</span>
+                              <p className="text-sm font-mono text-[var(--text-muted)]">{selectedProv.cuit}</p>
                             </div>
                             <div>
-                              <span className="text-[10px] uppercase font-bold text-text-secondary">Fecha de Registro</span>
-                              <p className="text-sm text-text-muted flex items-center gap-1.5 mt-0.5">
-                                <Calendar size={13} className="text-text-secondary" />
+                              <span className="text-[10px] uppercase font-bold text-[var(--text-secondary)]">Fecha de Registro</span>
+                              <p className="text-sm text-[var(--text-muted)] flex items-center gap-1.5 mt-0.5">
+                                <Calendar size={13} className="text-[var(--text-secondary)]" />
                                 {new Date(selectedProv.creadoEn).toLocaleDateString("es-AR", {
                                   year: "numeric",
                                   month: "long",
@@ -668,34 +729,34 @@ export default function ProveedoresTable({
                         </div>
 
                         <div className="space-y-4">
-                          <h4 className="text-xs font-bold uppercase tracking-wider text-text-secondary">
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">
                             Datos de Contacto
                           </h4>
-                          <div className="space-y-3 bg-bg p-4 rounded-[var(--radius-lg)] border border-border">
+                          <div className="space-y-3 bg-[var(--bg)] p-4 rounded-[var(--radius-lg)] border border-[var(--border)]">
                             <div>
-                              <span className="text-[10px] uppercase font-bold text-text-secondary">Responsable Comercial</span>
-                              <p className="text-sm font-semibold text-text">
+                              <span className="text-[10px] uppercase font-bold text-[var(--text-secondary)]">Responsable Comercial</span>
+                              <p className="text-sm font-semibold text-[var(--text)]">
                                 {selectedProv.contactoResponsable || "No especificado"}
                               </p>
                             </div>
                             <div>
-                              <span className="text-[10px] uppercase font-bold text-text-secondary">Teléfono Directo</span>
-                              <p className="text-sm text-brand font-semibold flex items-center gap-1.5 mt-0.5">
+                              <span className="text-[10px] uppercase font-bold text-[var(--text-secondary)]">Teléfono Directo</span>
+                              <p className="text-sm text-[var(--brand)] font-semibold flex items-center gap-1.5 mt-0.5">
                                 <Phone size={13} />
                                 {selectedProv.telefono || "No especificado"}
                               </p>
                             </div>
                             <div>
-                              <span className="text-[10px] uppercase font-bold text-text-secondary">Correo Electrónico</span>
-                              <p className="text-sm text-text-muted flex items-center gap-1.5 mt-0.5">
-                                <Mail size={13} className="text-text-secondary" />
+                              <span className="text-[10px] uppercase font-bold text-[var(--text-secondary)]">Correo Electrónico</span>
+                              <p className="text-sm text-[var(--text-muted)] flex items-center gap-1.5 mt-0.5">
+                                <Mail size={13} className="text-[var(--text-secondary)]" />
                                 {selectedProv.email || "No especificado"}
                               </p>
                             </div>
                             <div>
-                              <span className="text-[10px] uppercase font-bold text-text-secondary">Domicilio Fiscal</span>
-                              <p className="text-sm text-text-muted flex items-center gap-1.5 mt-0.5">
-                                <MapPin size={13} className="text-text-secondary shrink-0" />
+                              <span className="text-[10px] uppercase font-bold text-[var(--text-secondary)]">Domicilio Fiscal</span>
+                              <p className="text-sm text-[var(--text-muted)] flex items-center gap-1.5 mt-0.5">
+                                <MapPin size={13} className="text-[var(--text-secondary)] shrink-0" />
                                 {selectedProv.direccion || "No especificado"}
                               </p>
                             </div>
@@ -704,19 +765,18 @@ export default function ProveedoresTable({
                       </div>
                     )}
 
-                    {/* Catálogo de Productos Tab */}
                     {activeTab === "productos" && (
                       <div className="space-y-3">
                         {linkedProducts.length === 0 ? (
-                          <div className="text-center py-12 text-text-secondary bg-bg/20 rounded-[var(--radius-lg)] border border-border/50">
+                          <div className="text-center py-12 text-[var(--text-secondary)] bg-[var(--bg)]/20 rounded-[var(--radius-lg)] border border-[var(--border)]/50">
                             <Package size={32} className="mx-auto mb-2 opacity-20" />
                             <p className="text-sm font-semibold">Sin productos asociados</p>
                             <p className="text-xs">No hay productos en inventario vinculados a este proveedor.</p>
                           </div>
                         ) : (
-                          <div className="overflow-hidden rounded-[var(--radius-lg)] border border-border bg-bg/30">
+                          <div className="overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--bg)]/30">
                             <table className="w-full text-xs text-left">
-                              <thead className="bg-bg/60 text-text-secondary uppercase font-semibold text-[10px] tracking-wider border-b border-border">
+                              <thead className="bg-[var(--bg)]/60 text-[var(--text-secondary)] uppercase font-semibold text-[10px] tracking-wider border-b border-[var(--border)]">
                                 <tr>
                                   <th className="py-2.5 px-4">Producto</th>
                                   <th className="py-2.5 px-4">Categoría</th>
@@ -725,13 +785,13 @@ export default function ProveedoresTable({
                                   <th className="py-2.5 px-4 text-center">Stock</th>
                                 </tr>
                               </thead>
-                              <tbody className="divide-y divide-border/50">
+                              <tbody className="divide-y divide-[var(--border)]/50">
                                 {linkedProducts.map((prod) => (
-                                  <tr key={prod.id} className="hover:bg-border/20">
-                                    <td className="py-2.5 px-4 font-semibold text-text">{prod.nombre}</td>
-                                    <td className="py-2.5 px-4 text-text-muted">{prod.categoria.nombre}</td>
-                                    <td className="py-2.5 px-4 text-right text-text-muted font-mono">${prod.precioCompra.toFixed(2)}</td>
-                                    <td className="py-2.5 px-4 text-right text-brand font-mono font-semibold">${prod.precioVenta.toFixed(2)}</td>
+                                  <tr key={prod.id} className="hover:bg-[var(--border)]/20">
+                                    <td className="py-2.5 px-4 font-semibold text-[var(--text)]">{prod.nombre}</td>
+                                    <td className="py-2.5 px-4 text-[var(--text-muted)]">{prod.categoria.nombre}</td>
+                                    <td className="py-2.5 px-4 text-right text-[var(--text-muted)] font-mono">${prod.precioCompra.toFixed(2)}</td>
+                                    <td className="py-2.5 px-4 text-right text-[var(--brand)] font-mono font-semibold">${prod.precioVenta.toFixed(2)}</td>
                                     <td className="py-2.5 px-4 text-center">
                                       <Badge
                                         variant={prod.cantidad <= prod.stockMinimo ? "danger" : "success"}
@@ -750,11 +810,10 @@ export default function ProveedoresTable({
                       </div>
                     )}
 
-                    {/* Historial de Abastecimiento Tab */}
                     {activeTab === "historial" && (
                       <div className="space-y-4">
                         {purchaseHistory.length === 0 ? (
-                          <div className="text-center py-12 text-text-secondary bg-bg/20 rounded-[var(--radius-lg)] border border-border/50">
+                          <div className="text-center py-12 text-[var(--text-secondary)] bg-[var(--bg)]/20 rounded-[var(--radius-lg)] border border-[var(--border)]/50">
                             <History size={32} className="mx-auto mb-2 opacity-20" />
                             <p className="text-sm font-semibold">Sin compras registradas</p>
                             <p className="text-xs">No se registran transacciones de abastecimiento con este proveedor.</p>
@@ -764,43 +823,41 @@ export default function ProveedoresTable({
                             {purchaseHistory.map((compra) => (
                               <div
                                 key={compra.id}
-                                className="rounded-[var(--radius-lg)] border border-border bg-bg/40 p-4 space-y-3"
+                                className="rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--bg)]/40 p-4 space-y-3"
                               >
-                                {/* Purchase general info */}
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-border/60 text-[11px]">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-[var(--border)]/60 text-[11px]">
                                   <div className="flex items-center gap-3">
-                                    <span className="font-semibold text-text bg-border px-2 py-0.5 rounded">
+                                    <span className="font-semibold text-[var(--text)] bg-[var(--border)] px-2 py-0.5 rounded">
                                       Compra #{compra.id}
                                     </span>
-                                    <span className="text-text-secondary flex items-center gap-1">
+                                    <span className="text-[var(--text-secondary)] flex items-center gap-1">
                                       <Calendar size={11} />
                                       {new Date(compra.fecha).toLocaleDateString("es-AR")} {new Date(compra.fecha).toLocaleTimeString("es-AR", { hour: '2-digit', minute: '2-digit' })}
                                     </span>
                                   </div>
                                   <div className="flex items-center gap-4">
-                                    <span className="text-text-secondary flex items-center gap-1">
-                                      <Shield size={11} className="text-brand" />
-                                      Por: <strong className="text-text-muted font-semibold">{compra.usuario.nombreCompleto}</strong>
+                                    <span className="text-[var(--text-secondary)] flex items-center gap-1">
+                                      <Shield size={11} className="text-[var(--brand)]" />
+                                      Por: <strong className="text-[var(--text-muted)] font-semibold">{compra.usuario.nombreCompleto}</strong>
                                     </span>
-                                    <span className="text-brand font-bold font-mono text-xs">
+                                    <span className="text-[var(--brand)] font-bold font-mono text-xs">
                                       Total: ${compra.total.toFixed(2)}
                                     </span>
                                   </div>
                                 </div>
 
-                                {/* Purchase items list */}
                                 <div className="space-y-1">
                                   {compra.detalles.map((det) => (
                                     <div
                                       key={det.id}
-                                      className="flex justify-between items-center text-xs py-1 px-2 rounded hover:bg-border/50"
+                                      className="flex justify-between items-center text-xs py-1 px-2 rounded hover:bg-[var(--border)]/50"
                                     >
-                                      <div className="text-text-muted font-medium">{det.producto.nombre}</div>
-                                      <div className="flex items-center gap-6 font-mono text-text-secondary text-[11px]">
+                                      <div className="text-[var(--text-muted)] font-medium">{det.producto.nombre}</div>
+                                      <div className="flex items-center gap-6 font-mono text-[var(--text-secondary)] text-[11px]">
                                         <span>
                                           {det.cantidad} uds × ${det.costoUnitario.toFixed(2)}
                                         </span>
-                                        <span className="text-text-muted font-semibold">${det.subtotal.toFixed(2)}</span>
+                                        <span className="text-[var(--text-muted)] font-semibold">${det.subtotal.toFixed(2)}</span>
                                       </div>
                                     </div>
                                   ))}
@@ -815,15 +872,14 @@ export default function ProveedoresTable({
                 )}
               </div>
 
-              {/* Bottom info banner */}
-              <div className="bg-panel px-6 py-4 border-t border-border flex items-center justify-between text-xs text-text-secondary">
+              <div className="bg-[var(--panel)] px-6 py-4 border-t border-[var(--border)] flex items-center justify-between text-xs text-[var(--text-secondary)]">
                 <span className="flex items-center gap-1.5">
-                  <Info size={13} className="text-brand" />
+                  <Info size={13} className="text-[var(--brand)]" />
                   Doble clic en un proveedor para consultar su ficha analítica.
                 </span>
                 <span>
                   Total Compras Consolidadas:{" "}
-                  <strong className="text-brand font-semibold font-mono">
+                  <strong className="text-[var(--brand)] font-semibold font-mono">
                     {purchaseHistory.length}
                   </strong>
                 </span>
@@ -833,48 +889,34 @@ export default function ProveedoresTable({
         </DialogContent>
       </Dialog>
 
-      {/* 5. Confirm Dialog */}
+      {/* 5. Confirm Dialog — solo toggle */}
       <Dialog open={confirmDialog.open} onOpenChange={(open) => setConfirmDialog({ ...confirmDialog, open })}>
         <DialogContent className="max-w-sm">
           <div className="flex flex-col items-center text-center">
-            <div
-              className={`p-3 rounded-[var(--radius-lg)] border mb-4 ${
-                confirmDialog.type === "toggle"
-                  ? "bg-warning-light border-warning/20 text-warning"
-                  : "bg-danger-light border-danger/20 text-danger"
-              }`}
-            >
-              {confirmDialog.type === "toggle" ? (
-                confirmDialog.isActive ? (
-                  <UserX size={24} />
-                ) : (
-                  <UserCheck size={24} />
-                )
+            <div className="p-3 rounded-[var(--radius-lg)] border mb-4 bg-[var(--warning-light)] border-[var(--warning)]/20 text-[var(--warning)]">
+              {confirmDialog.isActive ? (
+                <UserX size={24} />
               ) : (
-                <Trash2 size={24} />
+                <UserCheck size={24} />
               )}
             </div>
 
-            <h3 className="text-base font-bold text-text uppercase tracking-wide">
-              {confirmDialog.type === "toggle"
-                ? confirmDialog.isActive
-                  ? "Dar de Baja Proveedor"
-                  : "Reactivar Proveedor"
-                : "Eliminar Proveedor"}
+            <h3 className="text-base font-bold text-[var(--text)] uppercase tracking-wide">
+              {confirmDialog.isActive
+                ? "Dar de Baja Proveedor"
+                : "Reactivar Proveedor"}
             </h3>
 
-            <p className="text-xs text-text-muted mt-2">
+            <p className="text-xs text-[var(--text-muted)] mt-2">
               ¿Está seguro de que desea{" "}
-              {confirmDialog.type === "toggle"
-                ? confirmDialog.isActive
-                  ? "dar de baja de forma lógica a"
-                  : "reactivar a"
-                : "eliminar físicamente del sistema a"}{" "}
-              <strong className="text-text-muted">{confirmDialog.provName}</strong>?
+              {confirmDialog.isActive
+                ? "dar de baja de forma lógica a"
+                : "reactivar a"}{" "}
+              <strong className="text-[var(--text-muted)]">{confirmDialog.provName}</strong>?
             </p>
 
             {confirmDialog.errorMsg && (
-              <div className="flex items-start gap-2 p-3 mt-3.5 rounded-[var(--radius-md)] bg-danger-light border border-danger/20 text-danger text-left text-[11px] leading-relaxed">
+              <div className="flex items-start gap-2 p-3 mt-3.5 rounded-[var(--radius-md)] bg-[var(--danger-light)] border border-[var(--danger)]/20 text-[var(--danger)] text-left text-[11px] leading-relaxed">
                 <AlertTriangle size={14} className="shrink-0 mt-0.5" />
                 <span>{confirmDialog.errorMsg}</span>
               </div>
@@ -889,12 +931,8 @@ export default function ProveedoresTable({
               </Button>
               <Button
                 id="btn-confirm-prov-action"
-                variant={confirmDialog.type === "toggle" ? (confirmDialog.isActive ? "warning" : "success") : "danger"}
-                onClick={
-                  confirmDialog.type === "toggle"
-                    ? handleToggleEstado
-                    : handleEliminarReal
-                }
+                variant={confirmDialog.isActive ? "warning" : "success"}
+                onClick={handleToggleEstado}
               >
                 Confirmar
               </Button>

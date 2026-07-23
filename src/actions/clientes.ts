@@ -3,6 +3,25 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
+export type VentaCliente = {
+  id: number;
+  fecha: string;
+  total: number;
+  estado: string;
+  metodoPago: string | null;
+  tipoComprobante: string | null;
+  cuotas: number | null;
+  vendedor: string;
+  productos: number;
+  detalles: {
+    id: number;
+    producto: string;
+    cantidad: number;
+    precioUnitario: number;
+    subtotal: number;
+  }[];
+};
+
 export type ClienteConVentas = {
   id: number;
   nombre: string;
@@ -15,6 +34,9 @@ export type ClienteConVentas = {
   creadoEn: Date;
   _count: {
     ventas: number;
+  };
+  _sum: {
+    ventas: number | null;
   };
 };
 
@@ -42,7 +64,7 @@ export async function getClientes(
       ];
     }
 
-    return (await prisma.cliente.findMany({
+    const rows = await prisma.cliente.findMany({
       where: whereClause,
       include: {
         _count: {
@@ -52,6 +74,21 @@ export async function getClientes(
         },
       },
       orderBy: { nombre: "asc" },
+    });
+
+    const ventasTotals = await prisma.venta.groupBy({
+      by: ["clienteId"],
+      _sum: { total: true },
+      where: { clienteId: { in: rows.map((r) => r.id) } },
+    });
+
+    const totalsMap = new Map(
+      ventasTotals.map((t) => [t.clienteId, t._sum.total ?? 0])
+    );
+
+    return rows.map((r) => ({
+      ...r,
+      _sum: { ventas: totalsMap.get(r.id) ?? 0 },
     })) as any;
   } catch (error) {
     console.error("Error en getClientes:", error);
@@ -211,6 +248,50 @@ export async function toggleEstadoCliente(
   } catch (error) {
     console.error("Error al cambiar estado del cliente:", error);
     return { error: "Error interno al cambiar el estado del cliente." };
+  }
+}
+
+/**
+ * Obtener todas las ventas de un cliente específico con sus detalles.
+ */
+export async function getVentasCliente(
+  clienteId: number
+): Promise<VentaCliente[]> {
+  try {
+    const ventas = await prisma.venta.findMany({
+      where: { clienteId },
+      include: {
+        detalles: {
+          include: {
+            producto: { select: { nombre: true } },
+          },
+        },
+        usuario: { select: { nombreCompleto: true, username: true } },
+      },
+      orderBy: { fecha: "desc" },
+    });
+
+    return ventas.map((v) => ({
+      id: v.id,
+      fecha: v.fecha.toISOString(),
+      total: Number(v.total),
+      estado: v.estado,
+      metodoPago: v.metodoPago,
+      tipoComprobante: v.tipoComprobante,
+      cuotas: v.cuotas,
+      vendedor: v.usuario.nombreCompleto || v.usuario.username,
+      productos: v.detalles.length,
+      detalles: v.detalles.map((d) => ({
+        id: d.id,
+        producto: d.producto.nombre,
+        cantidad: d.cantidad,
+        precioUnitario: Number(d.precioUnitario),
+        subtotal: Number(d.subtotal),
+      })),
+    }));
+  } catch (error) {
+    console.error("Error en getVentasCliente:", error);
+    return [];
   }
 }
 

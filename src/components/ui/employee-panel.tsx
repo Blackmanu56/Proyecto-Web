@@ -1,9 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import Avatar from "@/components/ui/Avatar";
+import { toast } from "sonner";
 import {
   X,
   Shield,
@@ -16,6 +16,9 @@ import {
   Key,
   UserX,
   UserCheck,
+  Camera,
+  CheckCircle,
+  Loader2,
 } from "lucide-react";
 
 interface EmployeePanelProps {
@@ -36,9 +39,12 @@ interface EmployeePanelProps {
       nombre: string;
     };
   } | null;
+  isPrimaryAdmin?: boolean;
   onEdit?: (user: any) => void;
   onToggle?: (userId: number) => void;
   onChangePassword?: (userId: number) => void;
+  onUploadPhoto?: (userId: number, formData: FormData) => Promise<{ success?: boolean; fotoUrl?: string; error?: string }>;
+  onPhotoUpdated?: (newFotoUrl: string) => void;
 }
 
 // Role config for badge colors
@@ -61,11 +67,19 @@ export function EmployeePanel({
   isOpen,
   onClose,
   user,
+  isPrimaryAdmin = false,
   onEdit,
   onToggle,
   onChangePassword,
+  onUploadPhoto,
+  onPhotoUpdated,
 }: EmployeePanelProps) {
   if (!user) return null;
+
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const roleConfig = ROLE_CONFIG[user.rol.nombre] || {
     variant: "default" as const,
@@ -73,6 +87,41 @@ export function EmployeePanel({
   };
 
   const displayName = user.rol.nombre.replace(/_/g, " ");
+
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const allowed = ["image/jpeg", "image/png", "image/webp"];
+    if (!allowed.includes(file.type)) {
+      toast.error("Formato no permitido. Solo JPG, PNG y WEBP.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("La imagen no puede superar los 5 MB.");
+      return;
+    }
+    setSelectedFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+  };
+
+  const handleUploadPhoto = async () => {
+    if (!selectedFile || !onUploadPhoto) return;
+    setUploading(true);
+    const fd = new FormData();
+    fd.set("foto", selectedFile);
+    const result = await onUploadPhoto(user.id, fd);
+    if (result.error) {
+      toast.error(result.error);
+      setUploading(false);
+      return;
+    }
+    if (result.fotoUrl && onPhotoUpdated) {
+      onPhotoUpdated(result.fotoUrl);
+    }
+    setSelectedFile(null);
+    setPhotoPreview(null);
+    setUploading(false);
+  };
 
   return (
     <>
@@ -122,26 +171,55 @@ export function EmployeePanel({
             )}
           </div>
 
-          {/* User Profile Header */}
-          <div className="flex items-center gap-4">
-            <Avatar
-              fotoUrl={user.fotoUrl}
-              nombreCompleto={user.nombreCompleto}
-              size="xl"
-              activo={user.activo}
-            />
-            <div>
-              <h3 className="text-xl font-bold text-text">{user.nombreCompleto}</h3>
-              <p className="text-sm text-text-secondary">@{user.username}</p>
-              <div className="flex items-center gap-2 mt-2">
-                <Badge variant={roleConfig.variant} size="sm" className="gap-1.5">
-                  {roleConfig.icon}
-                  {displayName}
-                </Badge>
-                <Badge variant={user.activo ? "success" : "danger"} size="sm">
-                  {user.activo ? "Activo" : "Inactivo"}
-                </Badge>
+          {/* Cambiar fotografía button */}
+          {onUploadPhoto && (
+            <div className="flex justify-center">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".jpg,.jpeg,.png,.webp"
+                onChange={handlePhotoSelect}
+                className="hidden"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-brand bg-brand/10 border border-brand/20 rounded-lg hover:bg-brand/20 transition-colors disabled:opacity-50"
+              >
+                <Camera size={14} />
+                Cambiar fotografía
+              </button>
+            </div>
+          )}
+
+          {/* Photo preview */}
+          {photoPreview && (
+            <div className="flex items-center justify-center gap-3">
+              <img src={photoPreview} alt="Preview" className="w-16 h-16 rounded-lg object-cover border border-brand/20" />
+              <div className="flex gap-2">
+                <Button size="sm" onClick={handleUploadPhoto} disabled={uploading}>
+                  {uploading ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />}
+                  Confirmar
+                </Button>
+                <Button size="sm" variant="secondary" onClick={() => { setPhotoPreview(null); setSelectedFile(null); }}>
+                  Cancelar
+                </Button>
               </div>
+            </div>
+          )}
+
+          {/* User Profile Header — NO avatar here */}
+          <div className="text-center">
+            <h3 className="text-xl font-bold text-text">{user.nombreCompleto}</h3>
+            <p className="text-sm text-text-secondary">@{user.username}</p>
+            <div className="flex items-center justify-center gap-2 mt-2">
+              <Badge variant={roleConfig.variant} size="sm" className="gap-1.5">
+                {roleConfig.icon}
+                {displayName}
+              </Badge>
+              <Badge variant={user.activo ? "success" : "danger"} size="sm">
+                {user.activo ? "Activo" : "Inactivo"}
+              </Badge>
             </div>
           </div>
 
@@ -267,7 +345,7 @@ export function EmployeePanel({
                 Cambiar Contraseña
               </Button>
             )}
-            {onToggle && (
+            {onToggle && !isPrimaryAdmin && (
               <Button
                 variant={user.activo ? "danger" : "success"}
                 onClick={() => onToggle(user.id)}
@@ -276,6 +354,11 @@ export function EmployeePanel({
               >
                 {user.activo ? "Desactivar" : "Reactivar"}
               </Button>
+            )}
+            {isPrimaryAdmin && (
+              <div className="flex-1 text-center text-[10px] text-[var(--warning)] bg-[var(--warning-light)] border border-[var(--warning)]/20 rounded-[var(--radius-md)] py-2 px-3">
+                Administrador principal — protegido
+              </div>
             )}
           </div>
         </div>

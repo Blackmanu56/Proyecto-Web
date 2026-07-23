@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { createJWT } from "@/lib/jwt";
+import { parseRoleData } from "@/lib/permissions";
 
 const loginSchema = z.object({
   username: z.string().min(3, "El usuario debe tener al menos 3 caracteres"),
@@ -63,10 +64,12 @@ export async function loginAction(
     }
 
     // 4. Crear JWT
+    const roleData = parseRoleData(user.rol.permisos);
     const token = await createJWT({
       userId: user.id,
       username: user.username,
       role: user.rol.nombre,
+      permissions: roleData.permisos,
       fotoUrl: user.fotoUrl,
     });
 
