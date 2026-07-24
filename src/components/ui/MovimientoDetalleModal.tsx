@@ -9,7 +9,7 @@ interface MovimientoDetalle {
   tipo: string;
   monto: number;
   descripcion: string;
-  fecha: Date;
+  fecha: Date | string;
   usuario: { username: string };
   ventaId?: number | null;
   compraId?: number | null;
@@ -173,3 +173,4 @@ export default function MovimientoDetalleModal({
     </div>
   );
 }
+

@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
-import { Users, Shield } from "lucide-react";
-import UsuariosTable from "@/components/tables/UsuariosTable";
 import RolesTable from "@/components/tables/RolesTable";
+import UsuariosTable from "@/components/tables/UsuariosTable";
+import { Shield,Users } from "lucide-react";
+import { useState } from "react";
 
 type UsuarioConRol = {
   id: number;
@@ -64,7 +64,6 @@ export default function EmpleadosTabs({
 }: EmpleadosTabsProps) {
   const [activeTab, setActiveTab] = useState<"usuarios" | "roles">("usuarios");
   const [currentRoles, setCurrentRoles] = useState<RolCompleto[]>(rolesCompletos);
-  const [isPending, startTransition] = useTransition();
   const [roleCreateModalOpen, setRoleCreateModalOpen] = useState(false);
 
   const handleRefreshRoles = async () => {

@@ -44,10 +44,10 @@ export default async function CajaPage() {
         {/* Terminal Operativo de Caja (Client Component) */}
         <div className="flex-1 min-h-0">
           <CajaTerminal
-            cajaActiva={cajaActiva as any}
-            historialCajas={historialCajas as any}
+            cajaActiva={cajaActiva as React.ComponentProps<typeof CajaTerminal>["cajaActiva"]}
+            historialCajas={historialCajas as React.ComponentProps<typeof CajaTerminal>["historialCajas"]}
             userRole={userRole}
-            user={currentUser as any}
+            user={currentUser as React.ComponentProps<typeof CajaTerminal>["user"]}
           />
         </div>
       </div>

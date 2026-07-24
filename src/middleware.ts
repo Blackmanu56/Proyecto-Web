@@ -1,13 +1,21 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { jwtVerify, SignJWT } from "jose";
+import { jwtVerify, SignJWT, type JWTPayload } from "jose";
 import { getJWTSecret } from "@/lib/jwt";
 
 function getKey() {
   return new TextEncoder().encode(getJWTSecret());
 }
 
-const REFRESH_THRESHOLD_MS = 30 * 60 * 1000;
+function getStringClaim(payload: JWTPayload, claim: string): string | undefined {
+  const value = payload[claim];
+  return typeof value === "string" ? value : undefined;
+}
+
+function getStringArrayClaim(payload: JWTPayload, claim: string): string[] {
+  const value = payload[claim];
+  return Array.isArray(value) && value.every((item) => typeof item === "string") ? value : [];
+}
 
 // Definimos las rutas protegidas y sus permisos mínimos
 const protectedRoutes = [
@@ -32,7 +40,7 @@ export async function middleware(request: NextRequest) {
         await jwtVerify(token, getKey());
         // Si ya está logueado y va a login, redirigir a dashboard
         return NextResponse.redirect(new URL("/dashboard", request.url));
-      } catch (e) {
+      } catch {
         // Token inválido, continuar a login
       }
     }
@@ -59,25 +67,24 @@ export async function middleware(request: NextRequest) {
     try {
       // Verificar token
       const { payload } = await jwtVerify(token, getKey());
-      const userId = (payload as any).userId as number;
-      const userRole = (payload as any).role as string;
+      const userRole = getStringClaim(payload, "role");
 
       // Validar permisos del Rol
-      if (!matchingRoute.roles.includes(userRole)) {
+      if (!userRole || !matchingRoute.roles.includes(userRole)) {
         // No autorizado, redirigir a dashboard
         return NextResponse.redirect(new URL("/dashboard?error=unauthorized", request.url));
       }
 
       // Token refresh: si el token está por vencer (30min), renovarlo
-      const tokenExp = (payload as any).exp as number;
+      const tokenExp = typeof payload.exp === "number" ? payload.exp : undefined;
       const nowSec = Math.floor(Date.now() / 1000);
       if (tokenExp && tokenExp - nowSec < 1800) {
         const newToken = await new SignJWT({
-          userId: (payload as any).userId,
-          username: (payload as any).username,
-          role: (payload as any).role,
-          permissions: (payload as any).permissions,
-          fotoUrl: (payload as any).fotoUrl,
+          userId: payload.userId,
+          username: getStringClaim(payload, "username"),
+          role: userRole,
+          permissions: getStringArrayClaim(payload, "permissions"),
+          fotoUrl: getStringClaim(payload, "fotoUrl") ?? null,
         })
           .setProtectedHeader({ alg: "HS256" })
           .setIssuedAt()
@@ -94,7 +101,7 @@ export async function middleware(request: NextRequest) {
         });
         return response;
       }
-    } catch (e) {
+    } catch {
       // Token corrupto o expirado, limpiar cookie y redirigir a login
       const response = NextResponse.redirect(new URL("/login", request.url));
       response.cookies.delete("session");
@@ -119,3 +126,4 @@ export const config = {
     "/((?!_next/static|_next/image|favicon.ico).*)",
   ],
 };
+

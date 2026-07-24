@@ -80,7 +80,7 @@ export default async function ProveedoresPage() {
         {/* Tabla Interactiva */}
         <div className="flex-1 min-h-0">
           <ProveedoresTable
-            initialProveedores={proveedores as any}
+            initialProveedores={proveedores as React.ComponentProps<typeof ProveedoresTable>["initialProveedores"]}
             onCreateProveedor={createProveedor}
             onUpdateProveedor={updateProveedor}
             onToggleEstado={toggleProveedor}

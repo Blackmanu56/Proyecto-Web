@@ -1,8 +1,47 @@
-import { describe, it, expect } from "vitest";
-import { requirePermission, hasPermission } from "../auth-permissions";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { TokenPayload } from "../jwt";
 
-// ─── Helpers ──────────────────────────────────────────────────
+const mocks = vi.hoisted(() => ({
+  findUnique: vi.fn(),
+}));
+
+vi.mock("../prisma", () => ({
+  prisma: {
+    usuario: {
+      findUnique: mocks.findUnique,
+    },
+  },
+}));
+
+const findUniqueMock = mocks.findUnique;
+
+import { requirePermission, hasPermission } from "../auth-permissions";
+
+function rolePermisos(permisos: string[], activo = true): string {
+  return JSON.stringify({ activo, descripcion: "", permisos });
+}
+
+type MockDbUser = {
+  id: number;
+  username: string;
+  activo: boolean;
+  fotoUrl: string | null;
+  rol: { nombre: string; permisos: string };
+};
+
+function dbUserFromSession(session: TokenPayload, overrides: Partial<MockDbUser> = {}): MockDbUser {
+  return {
+    id: session.userId,
+    username: session.username,
+    activo: true,
+    fotoUrl: session.fotoUrl ?? null,
+    rol: {
+      nombre: session.role,
+      permisos: rolePermisos(session.permissions ?? []),
+    },
+    ...overrides,
+  };
+}
 
 function adminSession(overrides: Partial<TokenPayload> = {}): TokenPayload {
   return {
@@ -34,130 +73,96 @@ function stockSession(overrides: Partial<TokenPayload> = {}): TokenPayload {
   };
 }
 
-// ─── requirePermission ────────────────────────────────────────
+beforeEach(() => {
+  findUniqueMock.mockReset();
+});
 
 describe("requirePermission", () => {
-  // ── Null session ──
-
   it("throws when session is null", async () => {
-    await expect(requirePermission("usuarios.ver", null)).rejects.toThrow(
-      "No autenticado."
-    );
+    await expect(requirePermission("usuarios.ver", null)).rejects.toThrow("No autenticado.");
+    expect(findUniqueMock).not.toHaveBeenCalled();
   });
 
   it("throws when session is undefined", async () => {
-    await expect(requirePermission("usuarios.ver", undefined)).rejects.toThrow(
-      "No autenticado."
+    await expect(requirePermission("usuarios.ver", undefined)).rejects.toThrow("No autenticado.");
+    expect(findUniqueMock).not.toHaveBeenCalled();
+  });
+
+  it("ADMINISTRADOR bypass uses fresh database role", async () => {
+    const session = adminSession({ permissions: [] });
+    findUniqueMock.mockResolvedValueOnce(dbUserFromSession(session));
+
+    const result = await requirePermission("productos.crear", session);
+
+    expect(result.role).toBe("ADMINISTRADOR");
+    expect(findUniqueMock).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 1 } }));
+  });
+
+  it("returns fresh session when permission is present in the database role", async () => {
+    const staleSession = ventasSession({ permissions: [] });
+    findUniqueMock.mockResolvedValueOnce(dbUserFromSession(ventasSession()));
+
+    const result = await requirePermission("ventas.crear", staleSession);
+
+    expect(result.permissions).toEqual(["ventas.ver", "ventas.crear"]);
+  });
+
+  it("rejects when database role no longer has the permission", async () => {
+    const staleSession = ventasSession({ permissions: ["usuarios.ver"] });
+    findUniqueMock.mockResolvedValueOnce(dbUserFromSession(staleSession, {
+      rol: { nombre: "ENCARGADO_VENTAS", permisos: rolePermisos(["ventas.ver"]) },
+    }));
+
+    await expect(requirePermission("ventas.crear", staleSession)).rejects.toThrow(
+      "No tiene permisos para realizar esta acci?n."
     );
   });
 
-  // ── ADMINISTRADOR bypass ──
-
-  it("ADMINISTRADOR bypass: all permissions pass", async () => {
-    const session = adminSession();
-    await expect(requirePermission("usuarios.ver", session)).resolves.toEqual(session);
-    await expect(requirePermission("usuarios.crear", session)).resolves.toEqual(session);
-    await expect(requirePermission("usuarios.editar", session)).resolves.toEqual(session);
-    await expect(requirePermission("ventas.ver", session)).resolves.toEqual(session);
-    await expect(requirePermission("productos.crear", session)).resolves.toEqual(session);
-  });
-
-  // ── Permission present ──
-
-  it("returns session when permission is present", async () => {
+  it("rejects inactive users even with a valid JWT", async () => {
     const session = ventasSession();
-    const result = await requirePermission("ventas.ver", session);
-    expect(result).toEqual(session);
-  });
+    findUniqueMock.mockResolvedValueOnce(dbUserFromSession(session, { activo: false }));
 
-  it("returns session when permission is present (stock)", async () => {
-    const session = stockSession();
-    const result = await requirePermission("productos.ver", session);
-    expect(result).toEqual(session);
-  });
-
-  // ── Permission denied ──
-
-  it("throws when session has no permissions field", async () => {
-    const session = { userId: 1, username: "test", role: "ENCARGADO_VENTAS" } as any;
-    await expect(requirePermission("usuarios.ver", session)).rejects.toThrow(
-      "No tiene permisos para realizar esta acción."
-    );
-  });
-
-  it("throws when permissions array is empty", async () => {
-    const session = ventasSession({ permissions: [] });
-    await expect(requirePermission("usuarios.ver", session)).rejects.toThrow(
-      "No tiene permisos para realizar esta acción."
-    );
-  });
-
-  it("throws when permission is not in the list", async () => {
-    const session = ventasSession();
-    await expect(requirePermission("usuarios.ver", session)).rejects.toThrow(
-      "No tiene permisos para realizar esta acción."
-    );
-  });
-
-  it("ENCARGADO_VENTAS cannot access stock permissions", async () => {
-    const session = ventasSession();
-    await expect(requirePermission("productos.crear", session)).rejects.toThrow(
-      "No tiene permisos para realizar esta acción."
-    );
-  });
-
-  it("ENCARGADO_STOCK cannot access ventas permissions", async () => {
-    const session = stockSession();
     await expect(requirePermission("ventas.crear", session)).rejects.toThrow(
-      "No tiene permisos para realizar esta acción."
+      "Usuario inactivo o no encontrado."
     );
   });
 
-  it("ENCARGADO_STOCK cannot access usuario permissions", async () => {
-    const session = stockSession();
-    await expect(requirePermission("usuarios.ver", session)).rejects.toThrow(
-      "No tiene permisos para realizar esta acción."
+  it("rejects missing users even with a valid JWT", async () => {
+    findUniqueMock.mockResolvedValueOnce(null);
+
+    await expect(requirePermission("ventas.crear", ventasSession())).rejects.toThrow(
+      "Usuario inactivo o no encontrado."
+    );
+  });
+
+  it("rejects inactive roles", async () => {
+    const session = ventasSession();
+    findUniqueMock.mockResolvedValueOnce(dbUserFromSession(session, {
+      rol: { nombre: "ENCARGADO_VENTAS", permisos: rolePermisos(["ventas.crear"], false) },
+    }));
+
+    await expect(requirePermission("ventas.crear", session)).rejects.toThrow(
+      "Rol inactivo o sin permisos vigentes."
     );
   });
 });
 
-// ─── hasPermission ────────────────────────────────────────────
-
 describe("hasPermission", () => {
-  it("returns false for null session", async () => {
+  it("returns false for null or undefined session", async () => {
     expect(await hasPermission("usuarios.ver", null)).toBe(false);
-  });
-
-  it("returns false for undefined session", async () => {
     expect(await hasPermission("usuarios.ver", undefined)).toBe(false);
   });
 
-  it("ADMINISTRADOR always returns true", async () => {
-    const session = adminSession();
-    expect(await hasPermission("anything", session)).toBe(true);
-    expect(await hasPermission("usuarios.crear", session)).toBe(true);
-    expect(await hasPermission("productos.editar", session)).toBe(true);
+  it("keeps render checks lightweight and uses the provided session", async () => {
+    expect(await hasPermission("ventas.crear", ventasSession())).toBe(true);
+    expect(await hasPermission("usuarios.ver", ventasSession())).toBe(false);
+    expect(findUniqueMock).not.toHaveBeenCalled();
   });
 
-  it("returns true when permission exists", async () => {
-    const session = ventasSession();
-    expect(await hasPermission("ventas.ver", session)).toBe(true);
-    expect(await hasPermission("ventas.crear", session)).toBe(true);
-  });
-
-  it("returns false when permission missing", async () => {
-    const session = ventasSession();
-    expect(await hasPermission("usuarios.ver", session)).toBe(false);
-    expect(await hasPermission("productos.crear", session)).toBe(false);
-  });
-
-  it("returns false when permissions is null", async () => {
-    const session = ventasSession({ permissions: null as any });
-    expect(await hasPermission("ventas.ver", session)).toBe(false);
+  it("ADMINISTRADOR returns true for UI checks", async () => {
+    expect(await hasPermission("anything", adminSession())).toBe(true);
   });
 });
-
-// ─── Role-based access matrix ─────────────────────────────────
 
 describe("Role-based access matrix", () => {
   const accessMatrix: Array<{
@@ -190,14 +195,16 @@ describe("Role-based access matrix", () => {
     describe(role, () => {
       for (const perm of can) {
         it(`CAN access ${perm}`, async () => {
-          await expect(requirePermission(perm, session())).resolves.toBeDefined();
+          const s = session();
+          findUniqueMock.mockResolvedValueOnce(dbUserFromSession(s));
+          await expect(requirePermission(perm, s)).resolves.toBeDefined();
         });
       }
       for (const perm of cannot) {
         it(`CANNOT access ${perm}`, async () => {
-          await expect(requirePermission(perm, session())).rejects.toThrow(
-            "No tiene permisos"
-          );
+          const s = session();
+          findUniqueMock.mockResolvedValueOnce(dbUserFromSession(s));
+          await expect(requirePermission(perm, s)).rejects.toThrow("No tiene permisos");
         });
       }
     });

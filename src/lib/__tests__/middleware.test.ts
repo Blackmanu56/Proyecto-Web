@@ -23,7 +23,7 @@ async function signTestToken(payload: Record<string, unknown>) {
     .sign(key);
 }
 
-let middleware: (req: NextRequest, ctx: any) => Promise<NextResponse>;
+let middleware: (req: NextRequest) => Promise<NextResponse>;
 
 beforeAll(async () => {
   const mod = await import("../../middleware");
@@ -36,7 +36,7 @@ describe("middleware — token validation", () => {
   });
 
   it("redirects unauthenticated user to /login for protected route", async () => {
-    const res = await middleware(makeRequest("/dashboard"), {} as any);
+    const res = await middleware(makeRequest("/dashboard"));
     expect(res.status).toBe(307);
     expect(new URL(res.headers.get("location")!).pathname).toBe("/login");
   });
@@ -44,7 +44,7 @@ describe("middleware — token validation", () => {
   it("allows authenticated user with valid role", async () => {
     vi.useFakeTimers();
     const token = await signTestToken({ userId: 1, username: "admin", role: "ADMINISTRADOR" });
-    const res = await middleware(makeRequest("/dashboard", token), {} as any);
+    const res = await middleware(makeRequest("/dashboard", token));
     expect(res.status).not.toBe(307);
     expect(res.headers.get("location")).toBeNull();
   });
@@ -52,7 +52,7 @@ describe("middleware — token validation", () => {
   it("rejects user without matching role", async () => {
     vi.useFakeTimers();
     const token = await signTestToken({ userId: 1, username: "ventas", role: "ENCARGADO_VENTAS" });
-    const res = await middleware(makeRequest("/productos", token), {} as any);
+    const res = await middleware(makeRequest("/productos", token));
     expect(res.status).toBe(307);
     expect(new URL(res.headers.get("location")!).pathname).toBe("/dashboard");
   });
@@ -60,13 +60,13 @@ describe("middleware — token validation", () => {
   it("redirects authenticated user from /login to /dashboard", async () => {
     vi.useFakeTimers();
     const token = await signTestToken({ userId: 1, username: "admin", role: "ADMINISTRADOR" });
-    const res = await middleware(makeRequest("/login", token), {} as any);
+    const res = await middleware(makeRequest("/login", token));
     expect(res.status).toBe(307);
     expect(new URL(res.headers.get("location")!).pathname).toBe("/dashboard");
   });
 
   it("redirects / to /login when not authenticated", async () => {
-    const res = await middleware(makeRequest("/"), {} as any);
+    const res = await middleware(makeRequest("/"));
     expect(res.status).toBe(307);
     expect(new URL(res.headers.get("location")!).pathname).toBe("/login");
   });
@@ -74,13 +74,13 @@ describe("middleware — token validation", () => {
   it("redirects / to /dashboard when authenticated", async () => {
     vi.useFakeTimers();
     const token = await signTestToken({ userId: 1, username: "admin", role: "ADMINISTRADOR" });
-    const res = await middleware(makeRequest("/", token), {} as any);
+    const res = await middleware(makeRequest("/", token));
     expect(res.status).toBe(307);
     expect(new URL(res.headers.get("location")!).pathname).toBe("/dashboard");
   });
 
   it("invalid token gets redirected to /login with cookie deleted", async () => {
-    const res = await middleware(makeRequest("/dashboard", "invalid-token"), {} as any);
+    const res = await middleware(makeRequest("/dashboard", "invalid-token"));
     expect(res.status).toBe(307);
     expect(new URL(res.headers.get("location")!).pathname).toBe("/login");
   });
@@ -109,7 +109,7 @@ describe("middleware — token refresh", () => {
       .setExpirationTime(nowSec + 20 * 60)
       .sign(key);
 
-    const res = await middleware(makeRequest("/dashboard", token), {} as any);
+    const res = await middleware(makeRequest("/dashboard", token));
 
     const setCookie = res.headers.get("set-cookie") || "";
     expect(setCookie).toContain("session=");
@@ -138,7 +138,7 @@ describe("middleware — token refresh", () => {
       .setExpirationTime(nowSec + 12 * 60 * 60)
       .sign(key);
 
-    const res = await middleware(makeRequest("/dashboard", token), {} as any);
+    const res = await middleware(makeRequest("/dashboard", token));
 
     const setCookie = res.headers.get("set-cookie") || "";
     const hasSessionCookie = setCookie.includes("session=");
@@ -172,7 +172,7 @@ describe("middleware — exact path matching", () => {
   it("/ventasreportes does NOT match /ventas route", async () => {
     vi.useFakeTimers();
     const token = await signTestToken({ userId: 1, username: "admin", role: "ADMINISTRADOR" });
-    const res = await middleware(makeRequest("/ventasreportes", token), {} as any);
+    const res = await middleware(makeRequest("/ventasreportes", token));
     expect(res.status).not.toBe(307);
     expect(res.headers.get("location")).toBeNull();
   });
@@ -180,14 +180,14 @@ describe("middleware — exact path matching", () => {
   it("/ventas/123 matches /ventas route", async () => {
     vi.useFakeTimers();
     const token = await signTestToken({ userId: 1, username: "admin", role: "ADMINISTRADOR" });
-    const res = await middleware(makeRequest("/ventas/123", token), {} as any);
+    const res = await middleware(makeRequest("/ventas/123", token));
     expect(res.status).not.toBe(307);
   });
 
   it("/cajareportes does NOT match /caja route", async () => {
     vi.useFakeTimers();
     const token = await signTestToken({ userId: 1, username: "encargado_ventas", role: "ENCARGADO_VENTAS" });
-    const res = await middleware(makeRequest("/cajareportes", token), {} as any);
+    const res = await middleware(makeRequest("/cajareportes", token));
     expect(res.status).not.toBe(307);
     expect(res.headers.get("location")).toBeNull();
   });

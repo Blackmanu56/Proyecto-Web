@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from "react";
+import Image from "next/image";
 import { formatDateShort } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,26 +23,28 @@ import {
   Loader2,
 } from "lucide-react";
 
+type EmployeePanelUser = {
+  id: number;
+  nombreCompleto: string;
+  username: string;
+  dni: string;
+  correo: string | null;
+  telefono: string | null;
+  fotoUrl: string | null;
+  activo: boolean;
+  creadoEn: Date;
+  rol: {
+    id: number;
+    nombre: string;
+  };
+};
+
 interface EmployeePanelProps {
   isOpen: boolean;
   onClose: () => void;
-  user: {
-    id: number;
-    nombreCompleto: string;
-    username: string;
-    dni: string;
-    correo: string | null;
-    telefono: string | null;
-    fotoUrl: string | null;
-    activo: boolean;
-    creadoEn: Date;
-    rol: {
-      id: number;
-      nombre: string;
-    };
-  } | null;
+  user: EmployeePanelUser | null;
   isPrimaryAdmin?: boolean;
-  onEdit?: (user: any) => void;
+  onEdit?: (user: EmployeePanelUser) => void;
   onToggle?: (userId: number) => void;
   onChangePassword?: (userId: number) => void;
   onUploadPhoto?: (userId: number, formData: FormData) => Promise<{ success?: boolean; fotoUrl?: string; error?: string }>;
@@ -64,7 +67,17 @@ const ROLE_CONFIG: Record<string, { variant: "danger" | "success" | "info" | "de
   },
 };
 
-export function EmployeePanel({
+export function EmployeePanel(props: EmployeePanelProps) {
+  if (!props.user) return null;
+
+  return <EmployeePanelContent key={props.user.id} {...props} user={props.user} />;
+}
+
+type EmployeePanelContentProps = Omit<EmployeePanelProps, "user"> & {
+  user: EmployeePanelUser;
+};
+
+function EmployeePanelContent({
   isOpen,
   onClose,
   user,
@@ -74,8 +87,7 @@ export function EmployeePanel({
   onChangePassword,
   onUploadPhoto,
   onPhotoUpdated,
-}: EmployeePanelProps) {
-  if (!user) return null;
+}: EmployeePanelContentProps) {
 
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -158,11 +170,13 @@ export function EmployeePanel({
           {/* Large Photo */}
           <div className="flex justify-center">
             {user.fotoUrl ? (
-              <div className="w-32 h-32 rounded-2xl overflow-hidden border-2 border-brand/30 shadow-lg">
-                <img
+              <div className="relative w-32 h-32 rounded-2xl overflow-hidden border-2 border-brand/30 shadow-lg">
+                <Image
                   src={user.fotoUrl}
-                  alt={user.nombreCompleto}
-                  className="w-full h-full object-cover"
+                  alt={`Foto de ${user.nombreCompleto}`}
+                  fill
+                  sizes="128px"
+                  className="object-cover"
                 />
               </div>
             ) : (
@@ -196,7 +210,8 @@ export function EmployeePanel({
           {/* Photo preview */}
           {photoPreview && (
             <div className="flex items-center justify-center gap-3">
-              <img src={photoPreview} alt="Preview" className="w-16 h-16 rounded-lg object-cover border border-brand/20" />
+              {/* eslint-disable-next-line @next/next/no-img-element -- Preview temporal generado con Blob URL; next/image no optimiza este flujo local del formulario. */}
+              <img src={photoPreview} alt={`Vista previa de foto de ${user.nombreCompleto}`} className="w-16 h-16 rounded-lg object-cover border border-brand/20" />
               <div className="flex gap-2">
                 <Button size="sm" onClick={handleUploadPhoto} disabled={uploading}>
                   {uploading ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />}

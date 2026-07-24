@@ -1,31 +1,28 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle } from "@/components/ui/dialog";
 import { FormField } from "@/components/ui/form-field";
+import { Input } from "@/components/ui/input";
+import { PERMISSIONS,getAllPermissions } from "@/lib/permissions";
 import {
-  Plus,
-  Edit3,
-  Shield,
-  ShieldCheck,
-  ShieldOff,
-  Users,
-  AlertTriangle,
-  CheckCircle2,
-  Copy,
-  Loader2,
-  Eye,
-  EyeOff,
-  Search,
-  Power,
-  PowerOff,
-  ChevronDown,
-  ChevronRight,
+AlertTriangle,
+CheckCircle2,
+ChevronDown,
+ChevronRight,
+Copy,
+Edit3,
+Plus,
+Power,
+PowerOff,
+Search,
+Shield,
+ShieldCheck,
+ShieldOff,
+Users
 } from "lucide-react";
-import { PERMISSIONS, getAllPermissions, type PermissionKey } from "@/lib/permissions";
+import React,{ useState } from "react";
 
 type RolCompleto = {
   id: number;
@@ -76,7 +73,6 @@ export default function RolesTable({
   onExternalCreateModalClose,
 }: RolesTableProps) {
   const [roles, setRoles] = useState<RolCompleto[]>(initialRoles);
-  const [isPending, startTransition] = useTransition();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<"todos" | "activos" | "inactivos">("todos");
 
@@ -178,9 +174,9 @@ export default function RolesTable({
   };
 
   const toggleModulePermissions = (moduleKey: string) => {
-    const module = PERMISSIONS[moduleKey as keyof typeof PERMISSIONS];
-    if (!module) return;
-    const moduleKeys = module.permissions.map(p => p.key);
+    const permissionModule = PERMISSIONS[moduleKey as keyof typeof PERMISSIONS];
+    if (!permissionModule) return;
+    const moduleKeys = permissionModule.permissions.map(p => p.key);
     const allSelected = moduleKeys.every(k => formPermisos.includes(k));
 
     if (allSelected) {
@@ -254,10 +250,10 @@ export default function RolesTable({
   };
 
   const getModulePermCount = (moduleKey: string): { selected: number; total: number } => {
-    const module = PERMISSIONS[moduleKey as keyof typeof PERMISSIONS];
-    if (!module) return { selected: 0, total: 0 };
-    const total = module.permissions.length;
-    const selected = module.permissions.filter(p => formPermisos.includes(p.key)).length;
+    const permissionModule = PERMISSIONS[moduleKey as keyof typeof PERMISSIONS];
+    if (!permissionModule) return { selected: 0, total: 0 };
+    const total = permissionModule.permissions.length;
+    const selected = permissionModule.permissions.filter(p => formPermisos.includes(p.key)).length;
     return { selected, total };
   };
 
@@ -833,3 +829,4 @@ export default function RolesTable({
     </div>
   );
 }
+

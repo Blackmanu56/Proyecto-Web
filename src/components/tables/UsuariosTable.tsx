@@ -1,40 +1,37 @@
 "use client";
 
-import React, { useState, useTransition, useMemo, useCallback, useRef } from "react";
-import type { FilterStatus } from "./StatusFilter";
 import Avatar from "@/components/ui/Avatar";
-import { TableShell } from "@/components/ui/table-shell";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { FormField } from "@/components/ui/form-field";
+import { Button } from "@/components/ui/button";
+import { Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle } from "@/components/ui/dialog";
 import { EmployeePanel } from "@/components/ui/employee-panel";
+import { FormField } from "@/components/ui/form-field";
+import { Input } from "@/components/ui/input";
+import { TableShell } from "@/components/ui/table-shell";
 import {
-  Plus,
-  Edit3,
-  UserX,
-  UserCheck,
-  Shield,
-  ShieldCheck,
-  ShieldAlert,
-  Eye,
-  EyeOff,
-  Users,
-  ChevronDown,
-  AlertTriangle,
-  CheckCircle2,
-  Camera,
-  Trash2,
-  Upload,
-  ImageIcon,
-  CheckCircle,
-  Loader2,
-  Mail,
-  Phone,
-  Crown,
+AlertTriangle,
+CheckCircle2,
+ChevronDown,
+Crown,
+Edit3,
+Eye,
+EyeOff,
+ImageIcon,
+Loader2,
+Mail,
+Phone,
+Plus,
+Shield,
+ShieldAlert,
+ShieldCheck,
+Trash2,
+Upload,
+UserCheck,
+UserX,
+Users
 } from "lucide-react";
-import { PERMISSIONS, parseRoleData } from "@/lib/permissions";
+import React,{ useCallback,useMemo,useRef,useState,useTransition } from "react";
+import type { FilterStatus } from "./StatusFilter";
 
 // ─── Types ────────────────────────────────────────────────────────
 type UsuarioConRol = {
@@ -79,10 +76,6 @@ interface UsuariosTableProps {
 
 // ─── Role Permissions Map ─────────────────────────────────────────
 function PermisosRol({ rolNombre }: { rolNombre: string }) {
-  const roleData = parseRoleData(null);
-  const moduleKey = rolNombre === "ADMINISTRADOR" ? "all" :
-    rolNombre === "ENCARGADO_VENTAS" ? "ventas" : "productos";
-
   const description =
     rolNombre === "ADMINISTRADOR" ? "Acceso completo a todas las funcionalidades del sistema" :
     rolNombre === "ENCARGADO_VENTAS" ? "Gestión de Ventas, Caja y Clientes" :
@@ -153,7 +146,6 @@ function EstadoBadge({ activo }: { activo: boolean }) {
 export default function UsuariosTable({
   initialUsers,
   roles,
-  userPermissions = [],
   onCreateUser,
   onUpdateUser,
   onToggleEstado,
@@ -164,11 +156,11 @@ export default function UsuariosTable({
   const [users, setUsers] = useState<UsuarioConRol[]>(initialUsers);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("activos");
-  const [isPending, startTransition] = useTransition();
 
   // Sorting
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
+  const [, startTransition] = useTransition();
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -720,9 +712,10 @@ export default function UsuariosTable({
             <div className="relative shrink-0">
               {photoPreviewUrl ? (
                 <div className="w-14 h-14 rounded-[var(--radius-lg)] overflow-hidden border border-brand/20">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- Preview temporal generado con Blob URL; next/image no optimiza este flujo local del formulario. */}
                   <img
                     src={photoPreviewUrl}
-                    alt="Preview"
+                    alt="Vista previa de foto de usuario"
                     className="w-full h-full object-cover"
                   />
                 </div>

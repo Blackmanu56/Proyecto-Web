@@ -1,34 +1,30 @@
 "use client";
 
-import React, { useState, useTransition, useRef } from "react";
-import { crearClienteRapido, createVenta, toggleFavorito } from "@/actions/ventas";
-import { formatCurrency, formatDateShort, formatTime24, formatDate } from "@/lib/utils";
+import { crearClienteRapido,createVenta,toggleFavorito } from "@/actions/ventas";
+import Image from "next/image";
+import { formatCurrency,formatDate,formatDateShort,formatTime24 } from "@/lib/utils";
 import {
-  Search,
-  ShoppingCart,
-  Plus,
-  Trash2,
-  Users,
-  AlertTriangle,
-  CheckCircle,
-  FileText,
-  Printer,
-  X,
-  CreditCard,
-  UserPlus,
-  Minus,
-  ArrowRight,
-  Package,
-  Banknote,
-  ArrowLeftRight,
-  BadgePercent,
-  Receipt,
-  Eye,
-  Calculator,
-  Pencil,
-  Star,
-  TrendingUp,
+AlertTriangle,
+ArrowLeftRight,
+ArrowRight,
+Banknote,
+CheckCircle,
+CreditCard,
+Eye,
+Minus,
+Package,
+Plus,
+Printer,
+Search,
+ShoppingCart,
+Star,
+Trash2,
+TrendingUp,
+UserPlus,
+Users,
+X
 } from "lucide-react";
+import React,{ useRef,useState,useTransition } from "react";
 
 interface Product {
   id: number;
@@ -38,6 +34,7 @@ interface Product {
   cantidad: number;
   activo: boolean;
   categoria: { nombre: string };
+  codigo?: string | null;
 }
 
 interface Client {
@@ -87,8 +84,6 @@ const COMPROBANTES: { value: ComprobanteType; label: string; desc: string }[] = 
   { value: "FACTURA_C", label: "Factura C", desc: "Exento" },
 ];
 
-const CUOTAS_OPTIONS = [3, 6, 12, 18];
-
 export default function VentasTerminal({ productos, clientes, usuario, favoritoIds: initialFavoritoIds, ventasPorProducto }: VentasTerminalProps) {
   const [isPending, startTransition] = useTransition();
   const receiptRef = useRef<HTMLDivElement>(null);
@@ -102,7 +97,7 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
   const [favoritoIds, setFavoritoIds] = useState<Set<number>>(() => new Set(initialFavoritoIds));
 
   // Mapa de ventas para lookup rápido
-  const ventasMap = useRef(ventasPorProducto).current;
+  const ventasMap = ventasPorProducto;
 
   // Entidades Seleccionadas
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -344,9 +339,9 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
           cliente: selectedClient!.nombre,
           dni: selectedClient!.dni,
           cuit: selectedClient!.cuit ?? null,
-          telefono: (selectedClient as any).telefono ?? null,
-          direccion: (selectedClient as any).direccion ?? null,
-          email: (selectedClient as any).email ?? null,
+          telefono: selectedClient!.telefono ?? null,
+          direccion: selectedClient!.direccion ?? null,
+          email: selectedClient!.email ?? null,
           total: res.total!,
           subtotal: cartSubtotal,
           descuento: discountAmount,
@@ -364,7 +359,7 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
               cantidad: item.cantidad,
               precio: item.precioVenta,
               subtotal: item.precioVenta * item.cantidad,
-              codigo: (fullProduct as any)?.codigo ?? null,
+              codigo: fullProduct?.codigo ?? null,
             };
           }),
         });
@@ -596,9 +591,15 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
                     <Star size={16} fill={isFavorito ? "currentColor" : "none"} />
                   </button>
 
-                  <div className="w-full h-36 bg-[var(--panel)] rounded flex items-center justify-center mb-1.5 overflow-hidden">
+                  <div className="relative w-full h-36 bg-[var(--panel)] rounded flex items-center justify-center mb-1.5 overflow-hidden">
                     {p.imagen ? (
-                      <img src={p.imagen} alt={p.nombre} className="w-full h-full object-contain" />
+                      <Image
+                        src={p.imagen}
+                        alt={p.nombre}
+                        fill
+                        sizes="(max-width: 1024px) 25vw, 12vw"
+                        className="object-contain"
+                      />
                     ) : (
                       <Package size={32} className="text-[var(--text-secondary)]" />
                     )}
@@ -651,9 +652,15 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
               cart.map(item => (
                 <div key={item.id} className="flex items-center gap-2 p-2 bg-[var(--bg)] border border-[var(--border)] rounded">
                   {/* Imagen */}
-                  <div className="w-9 h-9 bg-[var(--panel)] rounded flex items-center justify-center shrink-0 overflow-hidden">
+                  <div className="relative w-9 h-9 bg-[var(--panel)] rounded flex items-center justify-center shrink-0 overflow-hidden">
                     {item.imagen ? (
-                      <img src={item.imagen} alt={item.nombre} className="w-full h-full object-contain" />
+                      <Image
+                        src={item.imagen}
+                        alt={item.nombre}
+                        fill
+                        sizes="36px"
+                        className="object-contain"
+                      />
                     ) : (
                       <Package size={14} className="text-[var(--text-secondary)]" />
                     )}
@@ -959,7 +966,8 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "2px solid #D62828", paddingBottom: "16px", marginBottom: "16px" }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
-                      <img src="/logo.png" alt="Logo" style={{ height: "48px", width: "auto" }} />
+                      {/* eslint-disable-next-line @next/next/no-img-element -- Logo dentro del comprobante imprimible: se evita el wrapper de next/image para clonar/imprimir HTML estable. */}
+                      <img src="/logo.png" alt="Logo de Chopper Repuestos" style={{ height: "48px", width: "auto" }} />
                       <span style={{ fontSize: "20px", fontWeight: 800, color: "#D62828", textTransform: "uppercase", letterSpacing: "1px" }}>Chopper Repuestos</span>
                     </div>
                     <div style={{ fontSize: "9px", color: "#555", lineHeight: 1.5 }}>
@@ -995,16 +1003,16 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
                       <span style={{ color: "#777", fontWeight: 600 }}>DNI/CUIT:</span>
                       <span style={{ color: "#1a1a1a" }}>{selectedClient?.dni}{selectedClient?.cuit ? ` / ${selectedClient.cuit}` : ""}</span>
                     </div>
-                    {(selectedClient as any)?.telefono && (
+                    {selectedClient?.telefono && (
                       <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", fontSize: "9px" }}>
                         <span style={{ color: "#777", fontWeight: 600 }}>Teléfono:</span>
-                        <span style={{ color: "#1a1a1a" }}>{(selectedClient as any).telefono}</span>
+                        <span style={{ color: "#1a1a1a" }}>{selectedClient.telefono}</span>
                       </div>
                     )}
-                    {(selectedClient as any)?.email && (
+                    {selectedClient?.email && (
                       <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", fontSize: "9px" }}>
                         <span style={{ color: "#777", fontWeight: 600 }}>Email:</span>
-                        <span style={{ color: "#1a1a1a" }}>{(selectedClient as any).email}</span>
+                        <span style={{ color: "#1a1a1a" }}>{selectedClient.email}</span>
                       </div>
                     )}
                   </div>
@@ -1137,7 +1145,8 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "2px solid #D62828", paddingBottom: "16px", marginBottom: "16px" }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
-                      <img src="/logo.png" alt="Logo" style={{ height: "48px", width: "auto" }} />
+                      {/* eslint-disable-next-line @next/next/no-img-element -- Logo dentro del comprobante emitido imprimible: se evita el wrapper de next/image para clonar/imprimir HTML estable. */}
+                      <img src="/logo.png" alt="Logo de Chopper Repuestos" style={{ height: "48px", width: "auto" }} />
                       <span style={{ fontSize: "20px", fontWeight: 800, color: "#D62828", textTransform: "uppercase", letterSpacing: "1px" }}>Chopper Repuestos</span>
                     </div>
                     <div style={{ fontSize: "9px", color: "#555", lineHeight: 1.5 }}>

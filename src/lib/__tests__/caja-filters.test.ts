@@ -70,11 +70,11 @@ describe("getConcepto", () => {
   // ── Null-safety: NUNCA debe crashear ──
 
   it("no crashea con null", () => {
-    expect(getConcepto(null as any)).toBe("VENTA");
+    expect(getConcepto(null as unknown as MovimientoInput)).toBe("VENTA");
   });
 
   it("no crashea con undefined", () => {
-    expect(getConcepto(undefined as any)).toBe("VENTA");
+    expect(getConcepto(undefined as unknown as MovimientoInput)).toBe("VENTA");
   });
 
   it("no crashea con objeto vacío", () => {
@@ -83,11 +83,11 @@ describe("getConcepto", () => {
   });
 
   it("no crashea con descripcion undefined", () => {
-    expect(getConcepto(mov({ descripcion: undefined as any }))).toBe("VENTA");
+    expect(getConcepto(mov({ descripcion: undefined }))).toBe("VENTA");
   });
 
   it("no crashea con descripcion null", () => {
-    expect(getConcepto(mov({ descripcion: null as any }))).toBe("VENTA");
+    expect(getConcepto(mov({ descripcion: null as unknown as string }))).toBe("VENTA");
   });
 
   it("no crashea con descripcion vacía", () => {
@@ -96,7 +96,7 @@ describe("getConcepto", () => {
 
   it("no crashea con tipo undefined", () => {
     // Sin tipo explícito → default GASTO
-    expect(getConcepto(mov({ tipo: undefined as any }))).toBe("GASTO");
+    expect(getConcepto(mov({ tipo: undefined }))).toBe("GASTO");
   });
 
   it("no crashea con usuario undefined", () => {
@@ -160,15 +160,15 @@ describe("getTipoVisual", () => {
   });
 
   it("no crashea con null", () => {
-    expect(getTipoVisual(null as any)).toEqual({ label: "MOVIMIENTO", variant: "default" });
+    expect(getTipoVisual(null as unknown as MovimientoInput)).toEqual({ label: "MOVIMIENTO", variant: "default" });
   });
 
   it("no crashea con undefined", () => {
-    expect(getTipoVisual(undefined as any)).toEqual({ label: "MOVIMIENTO", variant: "default" });
+    expect(getTipoVisual(undefined as unknown as MovimientoInput)).toEqual({ label: "MOVIMIENTO", variant: "default" });
   });
 
   it("no crashea con descripcion undefined", () => {
-    const v = getTipoVisual(mov({ descripcion: undefined as any }));
+    const v = getTipoVisual(mov({ descripcion: undefined }));
     expect(v.variant).toBeDefined();
   });
 
@@ -195,7 +195,7 @@ describe("enrichMovimientos", () => {
   });
 
   it("retorna [] con no-array", () => {
-    expect(enrichMovimientos("not an array" as any)).toEqual([]);
+    expect(enrichMovimientos("not an array" as unknown as MovimientoInput[])).toEqual([]);
   });
 
   it("ordena por fecha ascendente", () => {
@@ -226,14 +226,14 @@ describe("enrichMovimientos", () => {
   it("filtra movimientos sin descripcion", () => {
     const result = enrichMovimientos([
       mov({ descripcion: "OK" }),
-      mov({ descripcion: undefined as any }),
+      mov({ descripcion: undefined }),
       mov({ descripcion: "También OK" }),
     ]);
     expect(result).toHaveLength(2);
   });
 
   it("maneja movimientos con monto undefined", () => {
-    const result = enrichMovimientos([mov({ monto: undefined as any })]);
+    const result = enrichMovimientos([mov({ monto: undefined })]);
     expect(result[0].monto).toBe(0);
   });
 });
@@ -263,11 +263,11 @@ describe("filtrarMovimientos", () => {
   });
 
   it("retorna [] con null", () => {
-    expect(filtrarMovimientos(null as any, noFiltros)).toEqual([]);
+    expect(filtrarMovimientos(null as unknown as MovimientoEnriched[], noFiltros)).toEqual([]);
   });
 
   it("retorna todos con null filtros", () => {
-    expect(filtrarMovimientos(base, null as any)).toHaveLength(5);
+    expect(filtrarMovimientos(base, null as unknown as Parameters<typeof filtrarMovimientos>[1])).toHaveLength(5);
   });
 
   // ── Naturaleza ──
@@ -404,7 +404,7 @@ describe("filtrarMovimientos", () => {
 
 describe("getUsuariosUnicos", () => {
   it("retorna [] con null", () => {
-    expect(getUsuariosUnicos(null as any)).toEqual([]);
+    expect(getUsuariosUnicos(null as unknown as MovimientoEnriched[])).toEqual([]);
   });
 
   it("retorna [] con array vacío", () => {
@@ -431,7 +431,7 @@ describe("getUsuariosUnicos", () => {
 
   it("ignora movimientos sin usuario", () => {
     const result = getUsuariosUnicos([
-      enriched({ usuario: undefined as any }),
+      enriched({ usuario: undefined }),
       enriched({ usuario: { username: "admin" } }),
     ]);
     expect(result).toHaveLength(1);
@@ -442,7 +442,7 @@ describe("getUsuariosUnicos", () => {
 
 describe("calcularTotales", () => {
   it("retorna ceros con null", () => {
-    expect(calcularTotales(null as any)).toEqual({ totalIngresos: 0, totalEgresos: 0, saldoFinal: 0 });
+    expect(calcularTotales(null as unknown as MovimientoEnriched[])).toEqual({ totalIngresos: 0, totalEgresos: 0, saldoFinal: 0 });
   });
 
   it("retorna ceros con array vacío", () => {

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useActionState, useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { loginAction } from "@/actions/auth";
 import {
@@ -229,15 +230,13 @@ export default function LoginPage() {
                     className="relative w-full overflow-hidden"
                     style={{ flex: "1 1 55%", minHeight: "340px" }}
                   >
-                    <img
+                    <Image
                       src="/logo.png"
-                      alt="Chopper Repuestos"
+                      alt="Logo de Chopper Repuestos"
+                      fill
+                      priority
+                      sizes="50vw"
                       style={{
-                        position: "absolute",
-                        top: "0",
-                        left: "0",
-                        width: "100%",
-                        height: "100%",
                         objectFit: "cover",
                         filter: "drop-shadow(0 4px 30px rgba(214,40,40,0.15))",
                       }}

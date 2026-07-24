@@ -1,50 +1,47 @@
 "use client";
 
-import React, { useState, useTransition, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { createCategoria,createMarca,getCategorias,getCategoriasWithCount,getMarcasActivas,getMarcasWithCount,toggleCategoriaActivo,toggleMarcaActivo,updateCategoria,updateMarca } from "@/actions/auxiliares";
+import Image from "next/image";
 import {
-  createProducto,
-  updateProducto,
-  restarStock,
+createProducto,
+restarStock,
+updateProducto,
 } from "@/actions/productos";
-import { createCategoria, deleteCategoria, updateCategoria, toggleCategoriaActivo, getCategoriasWithCount, getCategorias, createMarca, updateMarca, toggleMarcaActivo, getMarcasWithCount, getMarcasActivas } from "@/actions/auxiliares";
-import { formatCurrency } from "@/lib/utils";
-import type { FilterStatus } from "./StatusFilter";
-import { TableShell } from "@/components/ui/table-shell";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { FormField } from "@/components/ui/form-field";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import DarBajaModal from "@/components/ui/DarBajaModal";
-import ReactivarModal from "@/components/ui/ReactivarModal";
-import HistorialModal from "@/components/ui/HistorialModal";
 import AdminEntityModal from "@/components/ui/AdminEntityModal";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import DarBajaModal from "@/components/ui/DarBajaModal";
+import { Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle } from "@/components/ui/dialog";
+import { FormField } from "@/components/ui/form-field";
+import HistorialModal from "@/components/ui/HistorialModal";
+import { Input } from "@/components/ui/input";
+import ReactivarModal from "@/components/ui/ReactivarModal";
 import RestarStockModal from "@/components/ui/RestarStockModal";
+import { TableShell } from "@/components/ui/table-shell";
+import { formatCurrency } from "@/lib/utils";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
-  Plus,
-  Search,
-  Edit2,
-  RotateCcw,
-  AlertTriangle,
-  FolderOpen,
-  Package,
-  CheckCircle,
-  Truck,
-  Layers,
-  TrendingDown,
-  MoreHorizontal,
-  ArrowUpDown,
-  Columns3,
-  Tag,
-  Trash2,
-  X,
-  Image as ImageIcon,
-  DollarSign,
-  BarChart3,
-  Info,
+AlertTriangle,
+ArrowUpDown,
+BarChart3,
+CheckCircle,
+Columns3,
+DollarSign,
+Edit2,
+FolderOpen,
+Info,
+Layers,
+MoreHorizontal,
+Package,
+Plus,
+RotateCcw,
+Tag,
+TrendingDown,
+Truck
 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import React,{ useCallback,useEffect,useRef,useState,useTransition } from "react";
+import type { FilterStatus } from "./StatusFilter";
 
 /* ────────────────────── Types ────────────────────── */
 
@@ -328,7 +325,7 @@ export default function ProductosTable({
   }, [sortDir]);
 
   /* ── Column visibility ── */
-  const [colVis, setColVis] = useState<Record<string, boolean>>(getDefaultColumnVisibility);
+  const [colVis, setColVis] = useState<Record<string, boolean>>(loadColumnVisibility);
   const [colMenuOpen, setColMenuOpen] = useState(false);
   const colMenuRef = useRef<HTMLDivElement>(null);
 
@@ -379,10 +376,6 @@ export default function ProductosTable({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  /* ── Load column visibility from localStorage after mount ── */
-  useEffect(() => {
-    setColVis(loadColumnVisibility());
-  }, []);
 
   /* ── Add menu click outside ── */
   useEffect(() => {
@@ -864,9 +857,15 @@ export default function ProductosTable({
                     {vis("nombre") && (
                       <td className="py-3 px-4">
                         <div className="flex items-center space-x-3">
-                          <div className="w-9 h-9 flex-shrink-0 rounded-lg overflow-hidden bg-[var(--border)] flex items-center justify-center">
+                          <div className="relative w-9 h-9 flex-shrink-0 rounded-lg overflow-hidden bg-[var(--border)] flex items-center justify-center">
                             {p.imagen ? (
-                              <img src={p.imagen} alt={p.nombre} className="w-full h-full object-cover" />
+                              <Image
+                                src={p.imagen}
+                                alt={p.nombre}
+                                fill
+                                sizes="36px"
+                                className="object-cover"
+                              />
                             ) : (
                               <Package size={14} className="text-[var(--text-secondary)]" />
                             )}
@@ -986,7 +985,7 @@ export default function ProductosTable({
                   onChange={setMarcaValue}
                   options={uniqueBrands}
                   placeholder="Buscar o crear marca..."
-                  onCreateNew={(v) => { /* Brand is just a string, no server action needed */ }}
+                  onCreateNew={() => { /* Brand is just a string, no server action needed */ }}
                 />
               </FormField>
               <FormField label="Categoría" required className="mb-0">
@@ -1031,7 +1030,8 @@ export default function ProductosTable({
               <div className="flex flex-col items-center gap-2">
                 {imagePreview ? (
                   <div className="w-[140px] h-[140px] rounded-[var(--radius-md)] overflow-hidden border-2 border-[var(--border)] bg-[var(--bg)]">
-                    <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                    {/* eslint-disable-next-line @next/next/no-img-element -- Preview del formulario: puede ser Blob URL generada con URL.createObjectURL, incompatible con next/image. */}
+                    <img src={imagePreview} alt="Vista previa del producto" className="w-full h-full object-cover" />
                   </div>
                 ) : (
                   <div className="w-[140px] h-[140px] rounded-[var(--radius-md)] bg-[var(--border)] flex items-center justify-center border-2 border-dashed border-[var(--border-hover)]">

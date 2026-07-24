@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import type { ReporteVenta, ReporteCierre, ReporteProducto, ReporteEmpleado, PaginatedResult } from "@/actions/informes";
 import "./report.css";
 import { BarChart3, Wallet, Package, Users, UserCheck, Building } from "lucide-react";
 import VentasReport from "./VentasReport";
@@ -11,6 +12,12 @@ import ClientesReport from "./ClientesReport";
 import ProveedoresReport from "./ProveedoresReport";
 
 type TabId = "ventas" | "cierres" | "productos" | "empleados" | "clientes" | "proveedores";
+
+type UsuarioOption = { id: number; username: string; nombreCompleto: string };
+type NombreOption = { id: number; nombre: string };
+type ClienteReportRow = { id: number; nombre: string; dni: string; totalGastado: number; frecuencia: number; ultimaCompra: string | null; cantidadCompras: number };
+type ProveedorReportRow = { id: number; nombre: string; cuit: string; productosCount: number; valorStock: number; stockBajoCount: number; ultimaCompra: string | null };
+type MetodoPagoOption = { metodo: string | null; count: number; total: number };
 
 const ALLOWED_TABS: Record<TabId, string[]> = {
   ventas: ["ADMINISTRADOR", "ENCARGADO_VENTAS"],
@@ -31,17 +38,17 @@ const TAB_META: Record<TabId, { label: string; icon: React.ReactNode }> = {
 };
 
 interface Props {
-  initialVentas: any;
-  initialCierres: any;
-  initialProductos: any;
-  initialEmpleados: any;
-  initialClientes?: any;
-  initialProveedores?: any;
-  usuarios: any[];
-  categorias: any[];
-  proveedores: any[];
-  clientesDistinct?: any[];
-  metodosPago?: any[];
+  initialVentas: { ventas: ReporteVenta[]; totales: { cantidad: number; total: number; promedio: number } };
+  initialCierres: ReporteCierre[];
+  initialProductos: ReporteProducto[];
+  initialEmpleados: ReporteEmpleado[];
+  initialClientes?: PaginatedResult<ClienteReportRow>;
+  initialProveedores?: PaginatedResult<ProveedorReportRow>;
+  usuarios: UsuarioOption[];
+  categorias: NombreOption[];
+  proveedores: NombreOption[];
+  clientesDistinct?: NombreOption[];
+  metodosPago?: MetodoPagoOption[];
   userRole: string;
 }
 
@@ -55,8 +62,6 @@ export default function InformesTabs({
   usuarios,
   categorias,
   proveedores,
-  clientesDistinct,
-  metodosPago,
   userRole,
 }: Props) {
   const availableTabs = (Object.keys(ALLOWED_TABS) as TabId[]).filter(
@@ -76,7 +81,7 @@ export default function InformesTabs({
         });
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [activeTab]);
 
   const renderTab = () => {

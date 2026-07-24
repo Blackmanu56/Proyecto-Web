@@ -1,33 +1,32 @@
 ﻿"use client";
 
-import React, { useState, useTransition, useMemo, useCallback } from "react";
-import type { FilterStatus } from "./StatusFilter";
-import { TableShell } from "@/components/ui/table-shell";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle } from "@/components/ui/dialog";
 import { FormField } from "@/components/ui/form-field";
+import { Input } from "@/components/ui/input";
+import { TableShell } from "@/components/ui/table-shell";
+import { formatDate,formatDateShort } from "@/lib/utils";
 import {
-  Plus,
-  Edit3,
-  UserX,
-  UserCheck,
-  Building2,
-  Phone,
-  Mail,
-  MapPin,
-  Package,
-  Calendar,
-  AlertTriangle,
-  CheckCircle2,
-  History,
-  Info,
-  CheckCircle,
-  Loader2,
-  Shield,
+AlertTriangle,
+Building2,
+Calendar,
+CheckCircle2,
+Edit3,
+History,
+Info,
+Loader2,
+Mail,
+MapPin,
+Package,
+Phone,
+Plus,
+Shield,
+UserCheck,
+UserX
 } from "lucide-react";
-import { formatDateShort, formatDate } from "@/lib/utils";
+import React,{ useCallback,useMemo,useState,useTransition } from "react";
+import type { FilterStatus } from "./StatusFilter";
 
 // ─── Types ────────────────────────────────────────────────────────
 type ProveedorConDetalles = {
@@ -90,8 +89,8 @@ interface ProveedoresTableProps {
   onUpdateProveedor: (id: number, formData: FormData) => Promise<{ success?: boolean; error?: string }>;
   onToggleEstado: (id: number) => Promise<{ success?: boolean; error?: string }>;
   onSearch: (query: string, soloActivos: boolean) => Promise<ProveedorConDetalles[]>;
-  onGetProductos: (id: number) => Promise<any[]>;
-  onGetHistorial: (id: number) => Promise<any[]>;
+  onGetProductos: (id: number) => Promise<ProductoVinculado[]>;
+  onGetHistorial: (id: number) => Promise<CompraHistorial[]>;
 }
 
 export default function ProveedoresTable({
@@ -106,11 +105,11 @@ export default function ProveedoresTable({
   const [proveedores, setProveedores] = useState<ProveedorConDetalles[]>(initialProveedores);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("activos");
-  const [isPending, startTransition] = useTransition();
 
   // Sorting
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
+  const [, startTransition] = useTransition();
 
   // Modales
   const [modalOpen, setModalOpen] = useState(false);
@@ -284,13 +283,6 @@ export default function ProveedoresTable({
     } finally {
       setLoadingDetails(false);
     }
-  };
-
-  const closeDetailModal = () => {
-    setDetailModalOpen(false);
-    setSelectedProv(null);
-    setLinkedProducts([]);
-    setPurchaseHistory([]);
   };
 
   // ─── Actions handlers ───────────────────────────────────────
@@ -679,7 +671,7 @@ export default function ProveedoresTable({
                 ].map((tab) => (
                   <button
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
+                    onClick={() => setActiveTab(tab.id as typeof activeTab)}
                     className={`flex items-center gap-2 px-4 py-3.5 text-xs font-semibold tracking-wide border-b-2 transition-all ${
                       activeTab === tab.id
                         ? "border-[var(--brand)] text-[var(--brand)] bg-[var(--brand-light)]/5"

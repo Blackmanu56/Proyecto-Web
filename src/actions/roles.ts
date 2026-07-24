@@ -1,9 +1,9 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
-import { parseRoleData, serializeRoleData, DEFAULT_ROLE_PERMISSIONS, ROLE_DESCRIPTIONS, getAllPermissions } from "@/lib/permissions";
-import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/lib/auth-permissions";
+import { ROLE_DESCRIPTIONS,getAllPermissions,parseRoleData,serializeRoleData } from "@/lib/permissions";
+import { prisma } from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
 
 export type RolCompleto = {
   id: number;

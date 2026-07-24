@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { reactivarProducto } from "@/actions/productos";
 import {
   Dialog,
@@ -20,7 +20,13 @@ interface ReactivarModalProps {
   onSuccess?: () => void;
 }
 
-export default function ReactivarModal({
+export default function ReactivarModal(props: ReactivarModalProps) {
+  if (!props.open) return null;
+
+  return <ReactivarModalContent key={props.producto.id} {...props} />;
+}
+
+function ReactivarModalContent({
   open,
   onOpenChange,
   producto,
@@ -30,15 +36,6 @@ export default function ReactivarModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-
-  useEffect(() => {
-    if (open) {
-      setObservacion("");
-      setLoading(false);
-      setError(null);
-      setSuccess(false);
-    }
-  }, [open]);
 
   const handleSubmit = async () => {
     setLoading(true);
@@ -60,8 +57,8 @@ export default function ReactivarModal({
       setLoading(false);
       onSuccess?.();
       setTimeout(() => onOpenChange(false), 1200);
-    } catch (err: any) {
-      setError(err.message || "Error al reactivar el producto");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error al reactivar el producto");
       setLoading(false);
     }
   };

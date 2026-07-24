@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { getErrorMessage } from "@/lib/error-message";
 import {
   Dialog,
   DialogContent,
@@ -50,11 +51,11 @@ export interface AdminEntityModalProps {
   /** Load all entities with count */
   loadData: () => Promise<EntityWithCount[]>;
   /** Create a new entity */
-  createItem: (nombre: string) => Promise<any>;
+  createItem: (nombre: string) => Promise<unknown>;
   /** Update an existing entity */
-  updateItem: (id: number, nombre: string) => Promise<any>;
+  updateItem: (id: number, nombre: string) => Promise<unknown>;
   /** Toggle active status */
-  toggleItemActivo: (id: number, activo: boolean) => Promise<any>;
+  toggleItemActivo: (id: number, activo: boolean) => Promise<unknown>;
 }
 
 /* ────────────────────── Component ────────────────────── */
@@ -107,15 +108,17 @@ export default function AdminEntityModal({
   }, [loadData]);
 
   useEffect(() => {
-    if (open) {
-      refreshData();
+    if (!open) return;
+
+    queueMicrotask(() => {
+      void refreshData();
       setSearch("");
       setFilter("activas");
       setNewName("");
       setEditingId(null);
       setNotification(null);
       setConfirmInactivate(null);
-    }
+    });
   }, [open, refreshData]);
 
   /* ── Notification ── */
@@ -153,8 +156,8 @@ export default function AdminEntityModal({
       showNotification("success", `${entityName} creada exitosamente.`);
       await refreshData();
       onRefresh();
-    } catch (err: any) {
-      showNotification("error", err.message || `Error al crear ${entityName}.`);
+    } catch (err: unknown) {
+      showNotification("error", getErrorMessage(err, `Error al crear ${entityName}.`));
     } finally {
       setCreating(false);
     }
@@ -171,10 +174,10 @@ export default function AdminEntityModal({
         showNotification("success", `${entityName} actualizada exitosamente.`);
         await refreshData();
         onRefresh();
-      } catch (err: any) {
+      } catch (err: unknown) {
         showNotification(
           "error",
-          err.message || `Error al actualizar ${entityName}.`
+          getErrorMessage(err, `Error al actualizar ${entityName}.`)
         );
       } finally {
         setLoading(false);
@@ -197,10 +200,10 @@ export default function AdminEntityModal({
       );
       await refreshData();
       onRefresh();
-    } catch (err: any) {
+    } catch (err: unknown) {
       showNotification(
         "error",
-        err.message || "Error al cambiar estado."
+        getErrorMessage(err, "Error al cambiar estado.")
       );
     } finally {
       setLoading(false);

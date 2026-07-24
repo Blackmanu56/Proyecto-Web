@@ -60,8 +60,8 @@ export default async function VentasPage() {
         {/* Terminal Interactivo (Client Component) */}
         <div className="flex-1 min-h-0">
           <VentasTerminal
-            productos={productos as any}
-            clientes={clientes as any}
+            productos={productos as React.ComponentProps<typeof VentasTerminal>["productos"]}
+            clientes={clientes as React.ComponentProps<typeof VentasTerminal>["clientes"]}
             usuario={usuario}
             favoritoIds={favoritoIds}
             ventasPorProducto={Object.fromEntries(ventasMap)}

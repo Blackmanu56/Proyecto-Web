@@ -1,54 +1,47 @@
 "use client";
 
-import React, { useState, useTransition, useMemo, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import {
-  abrirCaja,
-  cerrarCaja,
-  registrarGastoCaja
+abrirCaja,
+cerrarCaja,
+registrarGastoCaja
 } from "@/actions/caja";
-import ConfirmarCierreModal from "@/components/ui/ConfirmarCierreModal";
-import MovimientoDetalleModal from "@/components/ui/MovimientoDetalleModal";
-import { formatCurrency, formatDate, formatTime24, formatDateShort, formatShiftDuration } from "@/lib/utils";
-import { TableShell } from "@/components/ui/table-shell";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import ConfirmarCierreModal from "@/components/ui/ConfirmarCierreModal";
 import { Input } from "@/components/ui/input";
+import MovimientoDetalleModal from "@/components/ui/MovimientoDetalleModal";
+import { TableShell } from "@/components/ui/table-shell";
+import {
+calcularTotales,
+enrichMovimientos,
+filtrarMovimientos,
+getTipoVisual,
+getUsuariosUnicos,
+type MovimientoEnriched
+} from "@/lib/caja-filters";
+import { formatCurrency,formatDate,formatDateShort,formatTime24 } from "@/lib/utils";
 import { isSameDay } from "date-fns";
 import {
-  getConcepto,
-  getTipoVisual,
-  enrichMovimientos,
-  filtrarMovimientos,
-  getUsuariosUnicos,
-  calcularTotales,
-  type MovimientoEnriched,
-} from "@/lib/caja-filters";
-import {
-  Coins,
-  Lock,
-  Unlock,
-  PlusCircle,
-  MinusCircle,
-  Calendar,
-  User,
-  Activity,
-  AlertTriangle,
-  History,
-  TrendingUp,
-  TrendingDown,
-  Wallet,
-  Search,
-  Filter,
-  X,
-  Printer,
-  Download,
-  Clock,
-  Receipt,
-  ShoppingBag,
-  RotateCcw,
-  AlertCircle,
+Activity,
+AlertCircle,
+AlertTriangle,
+Calendar,
+Clock,
+Download,
+Filter,
+History,
+Lock,
+MinusCircle,
+PlusCircle,
+Printer,
+RotateCcw,
+Search,
+Unlock,
+User,
+X
 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import React,{ useEffect,useMemo,useState,useTransition } from "react";
 
 interface Movimiento {
   id: number;
@@ -97,7 +90,6 @@ interface CajaTerminalProps {
 export default function CajaTerminal({
   cajaActiva,
   historialCajas,
-  userRole,
   user,
 }: CajaTerminalProps) {
   const router = useRouter();
@@ -109,7 +101,7 @@ export default function CajaTerminal({
 
   const [showCerrarModal, setShowCerrarModal] = useState(false);
   const [showDetalleModal, setShowDetalleModal] = useState(false);
-  const [movimientoSeleccionado, setMovimientoSeleccionado] = useState<Movimiento | null>(null);
+  const [movimientoSeleccionado, setMovimientoSeleccionado] = useState<MovimientoEnriched | null>(null);
 
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -138,10 +130,6 @@ export default function CajaTerminal({
   const duracionMinutos = duracionMins % 60;
   const duracionStr = `${String(duracionHoras).padStart(2, "0")}h ${String(duracionMinutos).padStart(2, "0")}m`;
 
-  const userDisplay = user
-    ? user.nombreCompleto || `@${user.username}`
-    : null;
-
   const handleAbrir = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
@@ -162,7 +150,7 @@ export default function CajaTerminal({
     setShowCerrarModal(true);
   };
 
-  const confirmarCierre = (observacion?: string) => {
+  const confirmarCierre = () => {
     if (!cajaActiva) return;
     startTransition(async () => {
       const res = await cerrarCaja(cajaActiva.id);
@@ -187,15 +175,14 @@ export default function CajaTerminal({
     [cajaActiva]
   );
 
-  const filtros: { naturaleza: string; concepto: string; usuario: string; busqueda: string } = {
-    naturaleza: filtroNaturaleza,
-    concepto: filtroConcepto,
-    usuario: filtroUsuario,
-    busqueda: filtroBusqueda,
-  };
-
   const movimientosFiltrados = useMemo(
-    () => filtrarMovimientos(movimientosConSaldo, filtros),
+    () =>
+      filtrarMovimientos(movimientosConSaldo, {
+        naturaleza: filtroNaturaleza,
+        concepto: filtroConcepto,
+        usuario: filtroUsuario,
+        busqueda: filtroBusqueda,
+      }),
     [movimientosConSaldo, filtroNaturaleza, filtroConcepto, filtroUsuario, filtroBusqueda]
   );
 
@@ -325,7 +312,7 @@ export default function CajaTerminal({
   };
 
   const openDetalle = (mov: MovimientoEnriched) => {
-    setMovimientoSeleccionado(mov as any);
+    setMovimientoSeleccionado(mov);
     setShowDetalleModal(true);
   };
 
@@ -742,7 +729,8 @@ export default function CajaTerminal({
       <div id="caja-print-report" className="caja-print-source">
 
         <div className="cj-header">
-          <img src="/logo.png" alt="Chopper Repuestos" className="cj-logo" />
+          {/* eslint-disable-next-line @next/next/no-img-element -- Logo de reporte imprimible: el HTML de impresion necesita la ruta directa sin wrapper de next/image. */}
+          <img src="/logo.png" alt="Logo de Chopper Repuestos" className="cj-logo" />
           <div className="cj-header-center">
             <div className="cj-title">Libro Diario de Caja</div>
             <div className="cj-subtitle">Chopper Repuestos — Sistema de Gestión Integral</div>

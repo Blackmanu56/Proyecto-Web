@@ -1,14 +1,10 @@
-import React from "react";
+import { createRole,getRolesCompletos,toggleRoleEstado,updateRole } from "@/actions/roles";
+import { actualizarUsuario,crearUsuario,getRoles,getUsuarios,toggleEstadoUsuario } from "@/actions/usuarios";
 import { getSession } from "@/lib/auth.server";
-import { getUsuarios, getRoles, crearUsuario, actualizarUsuario, toggleEstadoUsuario } from "@/actions/usuarios";
-import { getRolesCompletos, createRole, updateRole, toggleRoleEstado } from "@/actions/roles";
 import { parseRoleData } from "@/lib/permissions";
-import UsuariosTable from "@/components/tables/UsuariosTable";
-import RolesTable from "@/components/tables/RolesTable";
-import { Users, Shield } from "lucide-react";
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import fs from "fs/promises";
+import { revalidatePath } from "next/cache";
 import path from "path";
 
 const AVATARS_DIR = path.join(process.cwd(), "public", "uploads", "avatars");
@@ -89,7 +85,7 @@ async function uploadUserPhoto(
     revalidatePath("/empleados");
     revalidatePath("/informes");
     return { success: true, fotoUrl };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error al subir foto:", error);
     return { error: "Error interno al subir la foto." };
   }
@@ -119,7 +115,7 @@ async function deleteUserPhoto(userId: number): Promise<{ success?: boolean; err
     revalidatePath("/empleados");
     revalidatePath("/informes");
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error al eliminar foto:", error);
     return { error: "Error interno al eliminar la foto." };
   }
@@ -184,7 +180,7 @@ export default async function EmpleadosPage() {
     <div className="fixed inset-0 top-[5.5rem] bg-[var(--bg)] flex flex-col overflow-hidden z-10">
       <div className="flex-1 flex flex-col min-h-0 p-2 lg:p-3">
         <EmpleadosTabs
-          initialUsers={usuarios as any}
+          initialUsers={usuarios as React.ComponentProps<typeof EmpleadosTabs>["initialUsers"]}
           roles={roles}
           rolesCompletos={rolesCompletos}
           userPermissions={userPermissions}

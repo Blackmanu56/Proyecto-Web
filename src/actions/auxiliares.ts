@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/lib/auth-permissions";
+import { getErrorMessage } from "@/lib/error-message";
 
 /**
  * Obtener listado de categorías activas para comboboxes
@@ -48,8 +49,8 @@ export async function deleteCategoria(id: number) {
     await prisma.categoria.delete({ where: { id } });
     revalidatePath("/productos");
     return { success: true };
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error: unknown) {
+    return { error: getErrorMessage(error) };
   }
 }
 
@@ -109,8 +110,8 @@ export async function updateCategoria(id: number, nombre: string) {
     const cat = await prisma.categoria.update({ where: { id }, data: { nombre } });
     revalidatePath("/productos");
     return cat;
-  } catch (error: any) {
-    if (error.message?.includes("Ya existe")) throw error;
+  } catch (error: unknown) {
+    if (getErrorMessage(error).includes("Ya existe")) throw error;
     throw new Error("Error al actualizar la categoría");
   }
 }
@@ -124,7 +125,7 @@ export async function toggleCategoriaActivo(id: number, activo: boolean) {
     const cat = await prisma.categoria.update({ where: { id }, data: { activo } });
     revalidatePath("/productos");
     return cat;
-  } catch (error) {
+  } catch {
     throw new Error("Error al cambiar estado de la categoría");
   }
 }
@@ -170,8 +171,8 @@ export async function createMarca(nombre: string) {
     if (existing) throw new Error("Ya existe una marca con ese nombre.");
     const marca = await prisma.marca.create({ data: { nombre } });
     return marca;
-  } catch (error: any) {
-    if (error.message?.includes("Ya existe")) throw error;
+  } catch (error: unknown) {
+    if (getErrorMessage(error).includes("Ya existe")) throw error;
     throw new Error("Error al crear la marca");
   }
 }
@@ -187,8 +188,8 @@ export async function updateMarca(id: number, nombre: string) {
     const marca = await prisma.marca.update({ where: { id }, data: { nombre } });
     revalidatePath("/productos");
     return marca;
-  } catch (error: any) {
-    if (error.message?.includes("Ya existe")) throw error;
+  } catch (error: unknown) {
+    if (getErrorMessage(error).includes("Ya existe")) throw error;
     throw new Error("Error al actualizar la marca");
   }
 }
@@ -202,7 +203,7 @@ export async function toggleMarcaActivo(id: number, activo: boolean) {
     const marca = await prisma.marca.update({ where: { id }, data: { activo } });
     revalidatePath("/productos");
     return marca;
-  } catch (error) {
+  } catch {
     throw new Error("Error al cambiar estado de la marca");
   }
 }

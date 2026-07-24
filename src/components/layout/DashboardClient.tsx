@@ -4,7 +4,7 @@ import React, { useState, useEffect, useTransition, useCallback } from "react";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
 import { getDashboardChartData } from "@/actions/informes";
-import type { DashboardPeriod, DashboardChartType } from "@/actions/informes";
+import type { DashboardPeriod, DashboardChartType, DashboardData } from "@/actions/informes";
 import {
   AreaChart,
   Area,
@@ -56,11 +56,29 @@ const CHART_TYPE_OPTIONS: { value: DashboardChartType; label: string }[] = [
 
 const STORAGE_KEY = "dashboard-filters";
 
+type ChartPoint = { name: string; value: number };
+type EvolutionPoint = { fecha: string; total: number };
+type TooltipPayloadEntry = { name?: string; value: number };
+
+type CustomTooltipProps = {
+  active?: boolean;
+  payload?: TooltipPayloadEntry[];
+  label?: string;
+  formatter?: (value: number) => React.ReactNode;
+};
+
+type PieTooltipProps = {
+  active?: boolean;
+  payload?: ChartPoint[];
+  chartType: DashboardChartType;
+  total: number;
+};
+
 /* ──────────────────────────────────────────────
    CUSTOM TOOLTIP — guaranteed dark, no inheritance
    ────────────────────────────────────────────── */
 
-function CustomTooltip({ active, payload, label, formatter }: any) {
+function CustomTooltip({ active, payload, label, formatter }: CustomTooltipProps) {
   if (!active || !payload?.length) return null;
   return (
     <div
@@ -76,7 +94,7 @@ function CustomTooltip({ active, payload, label, formatter }: any) {
       {label && (
         <p style={{ color: "#94a3b8", fontSize: "12px", marginBottom: "6px", fontWeight: 600 }}>{label}</p>
       )}
-      {payload.map((entry: any, i: number) => (
+      {payload.map((entry, i) => (
         <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: "16px", alignItems: "center" }}>
           <span style={{ color: "#ffffff", fontSize: "13px", fontWeight: 500 }}>{entry.name || "Ventas"}</span>
           <span style={{ color: "#d62828", fontSize: "14px", fontWeight: 700, fontFamily: "monospace" }}>
@@ -88,7 +106,7 @@ function CustomTooltip({ active, payload, label, formatter }: any) {
   );
 }
 
-function PieTooltip({ active, payload, chartType, total }: any) {
+function PieTooltip({ active, payload, chartType, total }: PieTooltipProps) {
   if (!active || !payload?.length) return null;
   const data = payload[0];
   const pct = total > 0 ? ((data.value / total) * 100).toFixed(0) : "0";
@@ -341,7 +359,7 @@ function PieLegend({
    ────────────────────────────────────────────── */
 
 interface DashboardClientProps {
-  data: any;
+  data: DashboardData;
   userName: string;
   role: string;
   formattedDate: string;
@@ -354,22 +372,13 @@ export default function DashboardClient({ data, userName, role, formattedDate }:
   const statCards = getStatCards(data, role);
 
   // ── Filter state ──
-  const [period, setPeriod] = useState<DashboardPeriod>("ultimos7");
-  const [chartType, setChartType] = useState<DashboardChartType>("categorias");
+  const [{ period, chartType }, setFilters] = useState(loadFilters);
   const [isPending, startTransition] = useTransition();
 
   // ── Chart data (server-fetched) ──
-  const [evolutionData, setEvolutionData] = useState<{ fecha: string; total: number }[]>(data.ventasGrafico);
-  const [pieData, setPieData] = useState<{ name: string; value: number }[]>(data.categoriaVentas);
-  const [initialized, setInitialized] = useState(false);
+  const [evolutionData, setEvolutionData] = useState<EvolutionPoint[]>(data.ventasGrafico);
+  const [pieData, setPieData] = useState<ChartPoint[]>(data.categoriaVentas);
 
-  // ── Load saved filters from localStorage on mount ──
-  useEffect(() => {
-    const saved = loadFilters();
-    setPeriod(saved.period);
-    setChartType(saved.chartType);
-    setInitialized(true);
-  }, []);
 
   // ── Fetch filtered data when filters change (after init) ──
   const fetchChartData = useCallback(
@@ -388,17 +397,16 @@ export default function DashboardClient({ data, userName, role, formattedDate }:
   );
 
   useEffect(() => {
-    if (!initialized) return;
     saveFilters(period, chartType);
     if (period === "ultimos7" && chartType === "categorias" && evolutionData.length > 0 && pieData.length > 0) {
       return;
     }
     fetchChartData(period, chartType);
-  }, [initialized, period, chartType, fetchChartData, evolutionData.length, pieData.length]);
+  }, [period, chartType, fetchChartData, evolutionData.length, pieData.length]);
 
   // ── Filter handlers ──
-  const handlePeriodChange = (p: DashboardPeriod) => setPeriod(p);
-  const handleChartTypeChange = (ct: DashboardChartType) => setChartType(ct);
+  const handlePeriodChange = (p: DashboardPeriod) => setFilters((current) => ({ ...current, period: p }));
+  const handleChartTypeChange = (ct: DashboardChartType) => setFilters((current) => ({ ...current, chartType: ct }));
 
   // ── Chart titles ──
   const evolutionTitle =
@@ -417,7 +425,7 @@ export default function DashboardClient({ data, userName, role, formattedDate }:
       ? "Productos Más Vendidos"
       : "Ventas por Marca";
 
-  const pieTotal = pieData.reduce((sum: number, e: any) => sum + e.value, 0);
+  const pieTotal = pieData.reduce((sum, entry) => sum + entry.value, 0);
 
   return (
     <div className="space-y-4" style={{ animation: "dashboard-fadeIn 0.3s ease-out" }}>
@@ -453,7 +461,7 @@ export default function DashboardClient({ data, userName, role, formattedDate }:
                 <p className="text-sm">Sin movimientos</p>
               </div>
             ) : (
-              cajaMovimientosRecientes.slice(0, 10).map((mov: any) => {
+              cajaMovimientosRecientes.slice(0, 10).map((mov) => {
                 const isIncome = mov.tipo === "INGRESO";
                 return (
                   <div
@@ -622,7 +630,7 @@ export default function DashboardClient({ data, userName, role, formattedDate }:
                         paddingAngle={3}
                         dataKey="value"
                       >
-                        {pieData.map((_: any, index: number) => (
+                        {pieData.map((_, index) => (
                           <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                         ))}
                       </Pie>
@@ -659,7 +667,7 @@ export default function DashboardClient({ data, userName, role, formattedDate }:
    STAT CARDS BUILDER
    ────────────────────────────────────────────── */
 
-function getStatCards(data: any, role: string) {
+function getStatCards(data: DashboardData, role: string) {
   const { stats } = data;
 
   const allStats: StatCardProps[] = [

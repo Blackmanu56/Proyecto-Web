@@ -26,7 +26,7 @@ export type LoginState = {
  * Acción de servidor para manejar el inicio de sesión
  */
 export async function loginAction(
-  prevState: any,
+  prevState: unknown,
   formData: FormData
 ): Promise<LoginState> {
   const username = formData.get("username") as string;
@@ -105,7 +105,7 @@ export async function loginAction(
 
     return { success: true };
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error en loginAction:", error);
     return { error: "Error interno del servidor. Intente más tarde." };
   }

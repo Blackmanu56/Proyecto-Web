@@ -89,8 +89,8 @@ export default function RestarStockModal({
       } else {
         setError(res.error || "Error al restar stock.");
       }
-    } catch (err: any) {
-      setError(err.message || "Error inesperado.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error inesperado.");
     } finally {
       setLoading(false);
     }

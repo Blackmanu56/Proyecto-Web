@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Image from "next/image";
 
 interface AvatarProps {
   fotoUrl: string | null;
@@ -11,10 +12,10 @@ interface AvatarProps {
 }
 
 const SIZE_MAP = {
-  sm: { container: "w-8 h-8", text: "text-xs" },
-  md: { container: "w-9 h-9", text: "text-xs" },
-  lg: { container: "w-12 h-12", text: "text-sm" },
-  xl: { container: "w-16 h-16", text: "text-lg" },
+  sm: { container: "w-8 h-8", text: "text-xs", image: "32px" },
+  md: { container: "w-9 h-9", text: "text-xs", image: "36px" },
+  lg: { container: "w-12 h-12", text: "text-sm", image: "48px" },
+  xl: { container: "w-16 h-16", text: "text-lg", image: "64px" },
 };
 
 function getInitials(name: string): string {
@@ -39,12 +40,14 @@ export default function Avatar({
   // If there's a photo URL and it hasn't errored, show the image
   if (fotoUrl && !imgError) {
     return (
-      <div className={`shrink-0 ${dims.container} ${className}`}>
-        <img
+      <div className={`relative shrink-0 ${dims.container} ${className}`}>
+        <Image
           src={fotoUrl}
-          alt={nombreCompleto}
+          alt={`Foto de ${nombreCompleto}`}
+          fill
+          sizes={dims.image}
           onError={() => setImgError(true)}
-          className="w-full h-full rounded-full object-cover border"
+          className="rounded-full object-cover border"
           style={{
             borderColor: activo
               ? "rgba(99,102,241,0.2)"

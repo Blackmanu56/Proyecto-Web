@@ -1,7 +1,10 @@
 "use server";
 
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { getSession } from "@/lib/auth.server";
+import { requirePermission } from "@/lib/auth-permissions";
 
 export type VentaCliente = {
   id: number;
@@ -48,7 +51,8 @@ export async function getClientes(
   soloActivos: boolean = true
 ): Promise<ClienteConVentas[]> {
   try {
-    const whereClause: any = {};
+    await requirePermission("clientes.ver", await getSession());
+    const whereClause: Prisma.ClienteWhereInput = {};
 
     if (soloActivos) {
       whereClause.activo = true;
@@ -86,10 +90,10 @@ export async function getClientes(
       ventasTotals.map((t) => [t.clienteId, t._sum.total ?? 0])
     );
 
-    return rows.map((r) => ({
+    return rows.map((r): ClienteConVentas => ({
       ...r,
       _sum: { ventas: totalsMap.get(r.id) ?? 0 },
-    })) as any;
+    }));
   } catch (error) {
     console.error("Error en getClientes:", error);
     return [];
@@ -103,6 +107,7 @@ export async function crearCliente(
   formData: FormData
 ): Promise<{ success?: boolean; error?: string }> {
   try {
+    await requirePermission("clientes.crear", await getSession());
     const nombre = formData.get("nombre") as string;
     const dni = formData.get("dni") as string;
     const cuit = (formData.get("cuit") as string) || null;
@@ -161,6 +166,7 @@ export async function actualizarCliente(
   formData: FormData
 ): Promise<{ success?: boolean; error?: string }> {
   try {
+    await requirePermission("clientes.editar", await getSession());
     const nombre = formData.get("nombre") as string;
     const dni = formData.get("dni") as string;
     const cuit = (formData.get("cuit") as string) || null;
@@ -216,10 +222,10 @@ export async function actualizarCliente(
  * Restringe la reactivación a usuarios administradores.
  */
 export async function toggleEstadoCliente(
-  id: number,
-  userRole: string
+  id: number
 ): Promise<{ success?: boolean; error?: string }> {
   try {
+    const session = await requirePermission("clientes.estado", await getSession());
     const cliente = await prisma.cliente.findUnique({
       where: { id },
     });
@@ -229,7 +235,7 @@ export async function toggleEstadoCliente(
     }
 
     // Restricción: Si el cliente está INACTIVO y se lo quiere activar, sólo ADMIN puede hacerlo
-    if (!cliente.activo && userRole !== "ADMINISTRADOR") {
+    if (!cliente.activo && session.role !== "ADMINISTRADOR") {
       return {
         error: "Permisos insuficientes: Solo un Administrador puede reactivar un cliente desactivado.",
       };
@@ -258,6 +264,7 @@ export async function getVentasCliente(
   clienteId: number
 ): Promise<VentaCliente[]> {
   try {
+    await requirePermission("clientes.historial", await getSession());
     const ventas = await prisma.venta.findMany({
       where: { clienteId },
       include: {
@@ -303,6 +310,7 @@ export async function eliminarClienteReal(
   id: number
 ): Promise<{ success?: boolean; error?: string }> {
   try {
+    await requirePermission("clientes.estado", await getSession());
     const cliente = await prisma.cliente.findUnique({
       where: { id },
       include: {

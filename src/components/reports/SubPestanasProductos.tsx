@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect, useTransition } from "react";
 import { getRentabilidadProductos, getReposicionProductos, getSinMovimientoProductos } from "@/actions/informes";
@@ -7,6 +7,9 @@ import { RefreshCw, TrendingUp, Package, Truck, Ban, Printer } from "lucide-reac
 import DataTable from "@/components/ui/DataTable";
 
 type SubTabId = "resumen" | "rentabilidad" | "reposicion" | "sinMovimiento";
+type RentabilidadRow = Awaited<ReturnType<typeof getRentabilidadProductos>>["data"][number];
+type ReposicionRow = Awaited<ReturnType<typeof getReposicionProductos>>["data"][number];
+type SinMovimientoRow = Awaited<ReturnType<typeof getSinMovimientoProductos>>["data"][number];
 
 const SUB_TABS: { id: SubTabId; label: string; icon: React.ReactNode }[] = [
   { id: "resumen", label: "Resumen", icon: <Package size={14} /> },
@@ -19,9 +22,9 @@ export default function SubPestanasProductos({ categoriaId, proveedorId }: { cat
   const [activeTab, setActiveTab] = useState<SubTabId>("resumen");
   const [isPending, startTransition] = useTransition();
 
-  const [rentabilidad, setRentabilidad] = useState<any[] | null>(null);
-  const [reposicion, setReposicion] = useState<any[] | null>(null);
-  const [sinMovimiento, setSinMovimiento] = useState<any[] | null>(null);
+  const [rentabilidad, setRentabilidad] = useState<RentabilidadRow[] | null>(null);
+  const [reposicion, setReposicion] = useState<ReposicionRow[] | null>(null);
+  const [sinMovimiento, setSinMovimiento] = useState<SinMovimientoRow[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [printSection, setPrintSection] = useState<string | null>(null);
 
@@ -105,13 +108,13 @@ export default function SubPestanasProductos({ categoriaId, proveedorId }: { cat
               columns={[
                 { header: "Producto", accessor: "producto" },
                 { header: "Categoría", accessor: "categoria" },
-                { header: "P. Compra", accessor: (r: any) => formatCurrency(r.precioCompra), className: "text-right" },
-                { header: "P. Venta", accessor: (r: any) => formatCurrency(r.precioVenta), className: "text-right" },
-                { header: "Margen %", accessor: (r: any) => r.margenPorc + "%", className: "text-right text-emerald-400" },
-                { header: "Vendido", accessor: (r: any) => r.vendido + " uds.", className: "text-right" },
+                { header: "P. Compra", accessor: (r: RentabilidadRow) => formatCurrency(r.precioCompra), className: "text-right" },
+                { header: "P. Venta", accessor: (r: RentabilidadRow) => formatCurrency(r.precioVenta), className: "text-right" },
+                { header: "Margen %", accessor: (r: RentabilidadRow) => r.margenPorc + "%", className: "text-right text-emerald-400" },
+                { header: "Vendido", accessor: (r: RentabilidadRow) => r.vendido + " uds.", className: "text-right" },
               ]}
               data={rentabilidad}
-              keyExtractor={(r: any) => r.id}
+              keyExtractor={(r: RentabilidadRow) => r.id}
               emptyMessage="Sin datos de rentabilidad."
             />
           )}
@@ -123,10 +126,10 @@ export default function SubPestanasProductos({ categoriaId, proveedorId }: { cat
                 { header: "Stock", accessor: "stockActual", className: "text-right text-amber-400" },
                 { header: "Stock Mín.", accessor: "stockMinimo", className: "text-right" },
                 { header: "Proveedor", accessor: "proveedor" },
-                { header: "Sugerencia", accessor: (r: any) => r.sugerencia + " uds.", className: "text-right text-emerald-400" },
+                { header: "Sugerencia", accessor: (r: ReposicionRow) => r.sugerencia + " uds.", className: "text-right text-emerald-400" },
               ]}
               data={reposicion}
-              keyExtractor={(r: any) => r.id}
+              keyExtractor={(r: ReposicionRow) => r.id}
               emptyMessage="No hay productos por reponer."
             />
           )}
@@ -137,11 +140,11 @@ export default function SubPestanasProductos({ categoriaId, proveedorId }: { cat
                 { header: "Producto", accessor: "producto" },
                 { header: "Categoría", accessor: "categoria" },
                 { header: "Stock", accessor: "stockActual", className: "text-right" },
-                { header: "P. Venta", accessor: (r: any) => formatCurrency(r.precioVenta), className: "text-right" },
-                { header: "Últ. Venta", accessor: (r: any) => r.ultimaVenta || "\u2014" },
+                { header: "P. Venta", accessor: (r: SinMovimientoRow) => formatCurrency(r.precioVenta), className: "text-right" },
+                { header: "Últ. Venta", accessor: (r: SinMovimientoRow) => r.ultimaVenta || "\u2014" },
               ]}
               data={sinMovimiento}
-              keyExtractor={(r: any) => r.id}
+              keyExtractor={(r: SinMovimientoRow) => r.id}
               emptyMessage="No hay productos sin movimiento."
             />
           )}

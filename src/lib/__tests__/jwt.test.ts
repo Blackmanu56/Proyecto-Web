@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { SignJWT, jwtVerify } from "jose";
 import { readFileSync } from "fs";
+import { SignJWT } from "jose";
 import { resolve } from "path";
+import { afterEach,beforeEach,describe,expect,it,vi } from "vitest";
 
 // ─── getJWTSecret ─────────────────────────────────────────────
 

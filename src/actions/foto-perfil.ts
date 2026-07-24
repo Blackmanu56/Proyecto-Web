@@ -93,7 +93,7 @@ export async function subirFotoPerfil(
 
     revalidatePath("/empleados");
     return { success: true, fotoUrl: publicUrl(filename) };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error al subir foto de perfil:", error);
     return { error: "Error interno al subir la foto." };
   }
@@ -135,7 +135,7 @@ export async function eliminarFotoPerfil(
 
     revalidatePath("/empleados");
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error al eliminar foto de perfil:", error);
     return { error: "Error interno al eliminar la foto." };
   }

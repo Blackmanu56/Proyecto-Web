@@ -1,7 +1,6 @@
-import * as React from "react";
-import { cn } from "@/lib/utils";
-import { Search, Inbox, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Inbox,Search,X } from "lucide-react";
+import * as React from "react";
 
 export interface TableShellProps {
   title: string;

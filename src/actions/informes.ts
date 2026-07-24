@@ -1,8 +1,9 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
-import { formatDate, formatDateShort, formatTime24 } from "@/lib/utils";
 import { requirePermission } from "@/lib/auth-permissions";
+import { prisma } from "@/lib/prisma";
+import { formatDate,formatDateShort } from "@/lib/utils";
+import type { Prisma } from "@prisma/client";
 
 export interface DashboardData {
   stats: {
@@ -349,7 +350,7 @@ export async function getReporteVentas(
   ): Promise<{ ventas: ReporteVenta[]; totales: { cantidad: number; total: number; promedio: number } }> {
   try {
     await requirePermission("informes.ver");
-    const where: any = {};
+    const where: Prisma.VentaWhereInput = {};
 
     if (fechaDesde || fechaHasta) {
       where.fecha = {};
@@ -448,7 +449,7 @@ export async function getReporteCierres(
   ): Promise<ReporteCierre[]> {
   try {
     await requirePermission("informes.ver");
-    const where: any = {};
+    const where: Prisma.CajaWhereInput = {};
 
     if (fechaDesde || fechaHasta) {
       where.fechaApertura = {};
@@ -551,7 +552,7 @@ export async function getReporteProductos(
   ): Promise<ReporteProducto[]> {
   try {
     await requirePermission("informes.ver");
-    const where: any = {};
+    const where: Prisma.ProductoWhereInput = {};
     if (activo !== undefined) where.activo = activo;
     if (categoriaId) where.categoriaId = categoriaId;
     if (proveedorId) where.proveedorId = proveedorId;
@@ -663,7 +664,7 @@ export async function getReporteEmpleados(
   ): Promise<ReporteEmpleado[]> {
   try {
     await requirePermission("informes.ver");
-    const whereVentas: any = {};
+    const whereVentas: Prisma.VentaWhereInput = {};
     if (fechaDesde || fechaHasta) {
       whereVentas.fecha = {};
       if (fechaDesde) whereVentas.fecha.gte = new Date(fechaDesde);
@@ -685,7 +686,7 @@ export async function getReporteEmpleados(
       },
     });
 
-    const whereCierres: any = {};
+    const whereCierres: Prisma.CajaWhereInput = {};
     if (fechaDesde || fechaHasta) {
       whereCierres.fechaApertura = {};
       if (fechaDesde) whereCierres.fechaApertura.gte = new Date(fechaDesde);
@@ -744,18 +745,40 @@ export async function getUsuariosActivos() {
 
 // ─── Helpers ─────────────────────────────────────────────────
 
-function buildDateFilter(fechaDesde?: string, fechaHasta?: string, field: string = "fecha") {
-  const filter: any = {};
-  if (fechaDesde || fechaHasta) {
-    filter[field] = {};
-    if (fechaDesde) filter[field].gte = new Date(fechaDesde);
-    if (fechaHasta) {
-      const hasta = new Date(fechaHasta);
-      hasta.setHours(23, 59, 59, 999);
-      filter[field].lte = hasta;
-    }
+type DateRangeFilter = { gte?: Date; lte?: Date };
+
+function buildDateFilter(fechaDesde?: string, fechaHasta?: string): Prisma.VentaWhereInput;
+function buildDateFilter(fechaDesde: string | undefined, fechaHasta: string | undefined, field: "fechaApertura"): Prisma.CajaWhereInput;
+function buildDateFilter(
+  fechaDesde?: string,
+  fechaHasta?: string,
+  field: "fecha" | "fechaApertura" = "fecha"
+): Prisma.VentaWhereInput | Prisma.CajaWhereInput {
+  if (!fechaDesde && !fechaHasta) return {};
+
+  const range: DateRangeFilter = {};
+  if (fechaDesde) range.gte = new Date(fechaDesde);
+  if (fechaHasta) {
+    const hasta = new Date(fechaHasta);
+    hasta.setHours(23, 59, 59, 999);
+    range.lte = hasta;
   }
-  return filter;
+
+  return field === "fechaApertura" ? { fechaApertura: range } : { fecha: range };
+}
+
+function buildMovimientoCajaDateFilter(fechaDesde?: string, fechaHasta?: string): Prisma.MovimientoCajaWhereInput {
+  if (!fechaDesde && !fechaHasta) return {};
+
+  const range: DateRangeFilter = {};
+  if (fechaDesde) range.gte = new Date(fechaDesde);
+  if (fechaHasta) {
+    const hasta = new Date(fechaHasta);
+    hasta.setHours(23, 59, 59, 999);
+    range.lte = hasta;
+  }
+
+  return { fecha: range };
 }
 
 function paginate(page: number = 1, limit: number = 50): { skip: number; take: number } {
@@ -773,7 +796,7 @@ export async function getClientesReport(filters: ReportFilters = {}): Promise<Pa
     await requirePermission("informes.ver");
     const page = filters.page || 1;
     const { skip, take } = paginate(page);
-    const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta, "fecha");
+    const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta);
 
     const clientes = await prisma.cliente.findMany({
       where: { activo: true },
@@ -828,7 +851,7 @@ export async function getProveedoresReport(filters: ReportFilters = {}): Promise
     const page = filters.page || 1;
     const { skip, take } = paginate(page);
 
-    const whereProveedor: any = {};
+    const whereProveedor: Prisma.ProveedorWhereInput = {};
     if (filters.proveedorId) whereProveedor.id = filters.proveedorId;
     if (filters.categoriaId) {
       whereProveedor.productos = { some: { categoriaId: filters.categoriaId } };
@@ -890,7 +913,7 @@ export async function getVentasPorProducto(filters: ReportFilters = {}): Promise
     const { skip, take } = paginate(page);
     const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta);
 
-    const whereDetalle: any = {};
+    const whereDetalle: Prisma.DetalleVentaWhereInput = {};
     if (dateFilter.fecha) whereDetalle.venta = { fecha: dateFilter.fecha };
     if (filters.categoriaId) whereDetalle.producto = { categoriaId: filters.categoriaId };
     if (filters.productoId) whereDetalle.productoId = filters.productoId;
@@ -942,7 +965,7 @@ export async function getVentasPorCategoria(filters: ReportFilters = {}): Promis
   try {
     await requirePermission("informes.ver");
     const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta);
-    const whereDetalle: any = {};
+    const whereDetalle: Prisma.DetalleVentaWhereInput = {};
     if (dateFilter.fecha) whereDetalle.venta = { fecha: dateFilter.fecha };
 
     const detalles = await prisma.detalleVenta.findMany({
@@ -983,7 +1006,7 @@ export async function getVentasPorCliente(filters: ReportFilters = {}): Promise<
     const { skip, take } = paginate(page);
     const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta);
 
-    const whereVenta: any = { ...dateFilter };
+    const whereVenta: Prisma.VentaWhereInput = { ...dateFilter };
     if (filters.clienteId) whereVenta.clienteId = filters.clienteId;
 
     const ventas = await prisma.venta.findMany({
@@ -1026,7 +1049,7 @@ export async function getVentasPorVendedorComision(filters: ReportFilters = {}):
     const { skip, take } = paginate(page);
     const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta);
 
-    const whereVenta: any = { ...dateFilter };
+    const whereVenta: Prisma.VentaWhereInput = { ...dateFilter };
     if (filters.usuarioId) whereVenta.usuarioId = filters.usuarioId;
 
     const ventas = await prisma.venta.findMany({
@@ -1070,7 +1093,7 @@ export async function getTopProductos(filters: ReportFilters = {}, limit: number
   try {
     await requirePermission("informes.ver");
     const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta);
-    const whereDetalle: any = {};
+    const whereDetalle: Prisma.DetalleVentaWhereInput = {};
     if (dateFilter.fecha) whereDetalle.venta = { fecha: dateFilter.fecha };
     if (filters.categoriaId) whereDetalle.producto = { categoriaId: filters.categoriaId };
     if (filters.productoId) whereDetalle.productoId = filters.productoId;
@@ -1117,7 +1140,7 @@ export async function getBottomProductos(filters: ReportFilters = {}, limit: num
   try {
     await requirePermission("informes.ver");
     const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta);
-    const whereDetalle: any = {};
+    const whereDetalle: Prisma.DetalleVentaWhereInput = {};
     if (dateFilter.fecha) whereDetalle.venta = { fecha: dateFilter.fecha };
 
     const detalles = await prisma.detalleVenta.findMany({
@@ -1164,9 +1187,7 @@ export async function getCierresMovimientos(filters: ReportFilters = {}): Promis
     await requirePermission("informes.ver");
     const page = filters.page || 1;
     const { skip, take } = paginate(page);
-    const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta);
-
-    const where: any = { ...dateFilter };
+    const where: Prisma.MovimientoCajaWhereInput = buildMovimientoCajaDateFilter(filters.fechaDesde, filters.fechaHasta);
     if (filters.usuarioId) where.usuarioId = filters.usuarioId;
 
     const [movimientos, total] = await Promise.all([
@@ -1209,7 +1230,7 @@ export async function getCierresDiferencias(filters: ReportFilters = {}): Promis
     const { skip, take } = paginate(page);
     const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta, "fechaApertura");
 
-    const where: any = { ...dateFilter, NOT: { totalContado: null } };
+    const where: Prisma.CajaWhereInput = { ...dateFilter, NOT: { totalContado: null } };
     if (filters.usuarioId) where.usuarioId = filters.usuarioId;
 
     const cajas = await prisma.caja.findMany({
@@ -1256,7 +1277,7 @@ export async function getRentabilidadProductos(filters: ReportFilters = {}): Pro
     const page = filters.page || 1;
     const { skip, take } = paginate(page);
 
-    const whereProducto: any = { activo: true };
+    const whereProducto: Prisma.ProductoWhereInput = { activo: true };
     if (filters.categoriaId) whereProducto.categoriaId = filters.categoriaId;
     if (filters.proveedorId) whereProducto.proveedorId = filters.proveedorId;
 
@@ -1341,7 +1362,7 @@ export async function getSinMovimientoProductos(filters: ReportFilters = {}): Pr
     const page = filters.page || 1;
     const { skip, take } = paginate(page);
 
-    const whereProducto: any = { activo: true };
+    const whereProducto: Prisma.ProductoWhereInput = { activo: true };
     if (filters.categoriaId) whereProducto.categoriaId = filters.categoriaId;
     if (filters.proveedorId) whereProducto.proveedorId = filters.proveedorId;
 
@@ -1387,11 +1408,11 @@ export async function getRankingVendedores(filters: ReportFilters = {}): Promise
     await requirePermission("informes.ver");
     const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta);
 
-    const whereUsuario: any = { activo: true };
+    const whereUsuario: Prisma.UsuarioWhereInput = { activo: true };
     if (filters.rol) whereUsuario.rol = { nombre: filters.rol };
     if (filters.usuarioId) whereUsuario.id = filters.usuarioId;
 
-    const whereVentas: any = { ...dateFilter };
+    const whereVentas: Prisma.VentaWhereInput = { ...dateFilter };
 
     const usuarios = await prisma.usuario.findMany({
       where: whereUsuario,
@@ -1600,7 +1621,7 @@ export async function getStockBajo(filters: ReportFilters = {}): Promise<Paginat
     const page = filters.page || 1;
     const { skip, take } = paginate(page);
 
-    const where: any = {
+    const where: Prisma.ProductoWhereInput = {
       activo: true,
       cantidad: { lte: prisma.producto.fields.stockMinimo },
     };
@@ -1669,7 +1690,7 @@ export async function getDashboardChartData(
 
     // ── Calcular rango de fechas según período ──
     let fechaDesde: Date;
-    let fechaHasta: Date = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 23, 59, 59);
+    const fechaHasta: Date = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 23, 59, 59);
 
     switch (period) {
       case "diario":

@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth.server";
 import { saveFile, deleteFile } from "@/lib/upload";
-import { MotivoEstadoProducto } from "@prisma/client";
+import { MotivoEstadoProducto, Prisma } from "@prisma/client";
 import { requirePermission } from "@/lib/auth-permissions";
 
 const productoSchema = z.object({
@@ -30,7 +30,7 @@ export async function getProductos(
   activo?: boolean
 ) {
   try {
-    const whereClause: any = {};
+    const whereClause: Prisma.ProductoWhereInput = {};
 
     if (activo !== undefined) {
       whereClause.activo = activo;
@@ -173,9 +173,9 @@ export async function createProducto(formData: FormData) {
 
     revalidatePath("/productos");
     return { success: true, producto };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error en createProducto:", error);
-    return { error: error.message || "Error al agregar el producto" };
+    return { error: error instanceof Error ? error.message : "Error al agregar el producto" };
   }
 }
 
@@ -300,9 +300,9 @@ export async function updateProducto(id: number, formData: FormData) {
 
     revalidatePath("/productos");
     return { success: true, producto: result };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error en updateProducto:", error);
-    return { error: error.message || "Error al actualizar el producto" };
+    return { error: error instanceof Error ? error.message : "Error al actualizar el producto" };
   }
 }
 
@@ -365,9 +365,9 @@ export async function darBajaProducto(
 
     revalidatePath("/productos");
     return { success: true, producto: result };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error en darBajaProducto:", error);
-    return { error: error.message || "Error al dar de baja el producto" };
+    return { error: error instanceof Error ? error.message : "Error al dar de baja el producto" };
   }
 }
 
@@ -413,9 +413,9 @@ export async function reactivarProducto(id: number, observacion?: string) {
 
     revalidatePath("/productos");
     return { success: true, producto: result };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error en reactivarProducto:", error);
-    return { error: error.message || "Error al reactivar el producto" };
+    return { error: error instanceof Error ? error.message : "Error al reactivar el producto" };
   }
 }
 
@@ -446,7 +446,7 @@ export async function getHistorialEstado(productoId: number) {
  * Crea marcas nuevas si no existen.
  */
 export async function asignarMarcasAutomaticamente() {
-  const session = await requirePermission("productos.marcas", await getSession());
+  await requirePermission("productos.marcas", await getSession());
 
   // Reglas de asignación: marca → palabras clave en el nombre
   const reglas: { marca: string; keywords: string[] }[] = [
@@ -507,9 +507,9 @@ export async function asignarMarcasAutomaticamente() {
       marcasCreadas,
       total: productos.length,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error en asignarMarcasAutomaticamente:", error);
-    return { error: error.message || "Error al asignar marcas" };
+    return { error: error instanceof Error ? error.message : "Error al asignar marcas" };
   }
 }
 
@@ -575,8 +575,8 @@ export async function restarStock(
       stockAnterior: result.stockAnterior,
       stockNuevo: result.stockNuevo,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error en restarStock:", error);
-    return { error: error.message || "Error al restar stock" };
+    return { error: error instanceof Error ? error.message : "Error al restar stock" };
   }
 }

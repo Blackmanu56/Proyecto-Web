@@ -1,5 +1,6 @@
 "use server";
 
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
@@ -30,7 +31,7 @@ export type RolOption = {
 
 // Get all users with their roles
 export async function getUsuarios(query: string = "", soloActivos: boolean = true): Promise<UsuarioConRol[]> {
-  const where: any = {};
+  const where: Prisma.UsuarioWhereInput = {};
   
   if (soloActivos) {
     where.activo = true;
@@ -51,7 +52,7 @@ export async function getUsuarios(query: string = "", soloActivos: boolean = tru
       rol: { select: { id: true, nombre: true } },
     },
     orderBy: { id: "asc" },
-  }) as any;
+  });
 }
 
 // Get all roles for the dropdown
@@ -65,7 +66,7 @@ export async function getRoles(): Promise<RolOption[]> {
 // Create a new user
 export async function crearUsuario(formData: FormData): Promise<{ success?: boolean; error?: string; id?: number }> {
   try {
-    const session = await requirePermission("usuarios.crear", await getSession());
+    await requirePermission("usuarios.crear", await getSession());
 
     const username = formData.get("username") as string;
     const password = formData.get("password") as string;
@@ -113,7 +114,7 @@ export async function crearUsuario(formData: FormData): Promise<{ success?: bool
     revalidatePath("/empleados");
     revalidatePath("/informes");
     return { success: true, id: created.id };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error al crear usuario:", error);
     return { error: "Error interno al crear el usuario." };
   }
@@ -122,7 +123,7 @@ export async function crearUsuario(formData: FormData): Promise<{ success?: bool
 // Update an existing user — with primary admin role protection
 export async function actualizarUsuario(id: number, formData: FormData): Promise<{ success?: boolean; error?: string }> {
   try {
-    const session = await requirePermission("usuarios.editar", await getSession());
+    await requirePermission("usuarios.editar", await getSession());
 
     const username = formData.get("username") as string;
     const password = formData.get("password") as string;
@@ -185,7 +186,7 @@ export async function actualizarUsuario(id: number, formData: FormData): Promise
       }
     }
     
-    const data: any = {
+    const data: Prisma.UsuarioUncheckedUpdateInput = {
       username,
       nombreCompleto,
       dni,
@@ -210,7 +211,7 @@ export async function actualizarUsuario(id: number, formData: FormData): Promise
     revalidatePath("/empleados");
     revalidatePath("/informes");
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error al actualizar usuario:", error);
     return { error: "Error interno al actualizar el usuario." };
   }
@@ -219,7 +220,7 @@ export async function actualizarUsuario(id: number, formData: FormData): Promise
 // Logical delete (baja lógica) — with primary admin protection
 export async function toggleEstadoUsuario(id: number): Promise<{ success?: boolean; error?: string }> {
   try {
-    const session = await requirePermission("usuarios.estado", await getSession());
+    await requirePermission("usuarios.estado", await getSession());
 
     const usuario = await prisma.usuario.findUnique({ where: { id } });
     if (!usuario) {
@@ -264,8 +265,9 @@ export async function toggleEstadoUsuario(id: number): Promise<{ success?: boole
     revalidatePath("/empleados");
     revalidatePath("/informes");
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error al cambiar estado:", error);
     return { error: "Error interno al cambiar el estado del usuario." };
   }
 }
+

@@ -1,21 +1,40 @@
-﻿"use client";
+"use client";
 
-import React, { useState, useEffect, useTransition, useCallback, useRef, useMemo } from "react";
-import { getReporteVentas, getVentasPorProducto, getVentasPorCategoria, getVentasPorCliente, getVentasPorVendedorComision, getTopProductos, getBottomProductos } from "@/actions/informes";
-import { formatCurrency, formatDateShort } from "@/lib/utils";
-import {
-  Search, Calendar, User, RefreshCw, TrendingUp, List, Eye, Printer,
-  DollarSign, ShoppingCart, Users, Percent, Award, BarChart3, PieChart,
-} from "lucide-react";
-import StatCard from "@/components/ui/StatCard";
-import ChartWrapper, { CHART_COLORS } from "@/components/ui/ChartWrapper";
+import { getBottomProductos,getReporteVentas,getTopProductos,getVentasPorCategoria,getVentasPorCliente,getVentasPorProducto,getVentasPorVendedorComision } from "@/actions/informes";
+import ChartWrapper,{ CHART_COLORS } from "@/components/ui/ChartWrapper";
 import DataTable from "@/components/ui/DataTable";
+import StatCard from "@/components/ui/StatCard";
+import { formatCurrency,formatDateShort } from "@/lib/utils";
+import {
+Award,BarChart3,
+Calendar,
+DollarSign,
+Eye,
+List,
+Percent,
+Printer,
+RefreshCw,
+Search,
+ShoppingCart,
+User,
+Users
+} from "lucide-react";
+import React,{ useCallback,useEffect,useMemo,useRef,useState,useTransition } from "react";
+import { Bar,BarChart,CartesianGrid,Cell,Pie,PieChart as RePie,XAxis,YAxis } from "recharts";
 import DetalleVentaModal from "./DetalleVentaModal";
 import TicketModal from "./TicketModal";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, PieChart as RePie, Pie, Cell, LineChart, Line, AreaChart, Area } from "recharts";
+
+type VentasReportData = Awaited<ReturnType<typeof getReporteVentas>>;
+type VentaRow = VentasReportData["ventas"][number];
+type VentasPorProductoRow = Awaited<ReturnType<typeof getVentasPorProducto>>["data"][number];
+type VentasPorCategoriaRow = Awaited<ReturnType<typeof getVentasPorCategoria>>["data"][number];
+type VentasPorClienteRow = Awaited<ReturnType<typeof getVentasPorCliente>>["data"][number];
+type VentasPorVendedorRow = Awaited<ReturnType<typeof getVentasPorVendedorComision>>["data"][number];
+type TopProductoRow = Awaited<ReturnType<typeof getTopProductos>>["data"][number];
+type BottomProductoRow = Awaited<ReturnType<typeof getBottomProductos>>["data"][number];
 
 interface Props {
-  initialData: any;
+  initialData: VentasReportData;
   usuarios: { id: number; username: string; nombreCompleto: string }[];
   userRole: string;
 }
@@ -44,7 +63,7 @@ function DataSection({ title, loading, onLoad, loaded, children }: {
   );
 }
 
-export default function VentasReport({ initialData, usuarios, userRole }: Props) {
+export default function VentasReport({ initialData, usuarios }: Props) {
   const [data, setData] = useState(initialData);
   const [fechaDesde, setFechaDesde] = useState(new Date().toISOString().split("T")[0]);
   const [fechaHasta, setFechaHasta] = useState(new Date().toISOString().split("T")[0]);
@@ -52,12 +71,12 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
   const [searchText, setSearchText] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  const [ventasPorProd, setVentasPorProd] = useState<any[] | null>(null);
-  const [ventasPorCat, setVentasPorCat] = useState<any[] | null>(null);
-  const [ventasPorCli, setVentasPorCli] = useState<any[] | null>(null);
-  const [ventasPorVend, setVentasPorVend] = useState<any[] | null>(null);
-  const [topProds, setTopProds] = useState<any[] | null>(null);
-  const [bottomProds, setBottomProds] = useState<any[] | null>(null);
+  const [ventasPorProd, setVentasPorProd] = useState<VentasPorProductoRow[] | null>(null);
+  const [ventasPorCat, setVentasPorCat] = useState<VentasPorCategoriaRow[] | null>(null);
+  const [ventasPorCli, setVentasPorCli] = useState<VentasPorClienteRow[] | null>(null);
+  const [ventasPorVend, setVentasPorVend] = useState<VentasPorVendedorRow[] | null>(null);
+  const [topProds, setTopProds] = useState<TopProductoRow[] | null>(null);
+  const [bottomProds, setBottomProds] = useState<BottomProductoRow[] | null>(null);
   const [loadingSection, setLoadingSection] = useState<string | null>(null);
   const [printSection, setPrintSection] = useState<string | null>(null);
 
@@ -74,7 +93,7 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
     });
   }, [fechaDesde, fechaHasta, usuarioId]);
 
-  const loadSection = useCallback(async (section: string, fetcher: () => Promise<any>) => {
+  const loadSection = useCallback(async (section: string, fetcher: () => Promise<unknown>) => {
     setLoadingSection(section);
     try { await fetcher(); }
     finally { setLoadingSection(null); }
@@ -94,26 +113,26 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
   const ventasFiltradas = useMemo(() => {
     const v = data.ventas || [];
     if (!searchText) return v;
-    return v.filter((x: any) =>
+    return v.filter((x: VentaRow) =>
       (x.cliente || "").toLowerCase().includes(searchText.toLowerCase()) ||
       (x.usuario || "").toLowerCase().includes(searchText.toLowerCase())
     );
   }, [data, searchText]);
 
   const totales = useMemo(() => {
-    const v = ventasFiltradas as any[];
+    const v = ventasFiltradas;
     const cantidad = v.length;
-    const total = v.reduce((s: number, x: any) => s + (x.total || 0), 0);
+    const total = v.reduce((s, x) => s + (x.total || 0), 0);
     const promedio = cantidad > 0 ? total / cantidad : 0;
     return { cantidad, total, promedio };
   }, [ventasFiltradas]);
 
   const clientesUnicos = useMemo(() => {
-    return new Set((data.ventas || []).map((v: any) => v.cliente)).size;
+    return new Set((data.ventas || []).map((v) => v.cliente)).size;
   }, [data]);
 
   const ventasHoy = useMemo(() => {
-    return (data.ventas || []).filter((v: any) => {
+    return (data.ventas || []).filter((v) => {
       try { return new Date(v.fecha).toDateString() === new Date().toDateString(); }
       catch { return false; }
     }).length;
@@ -238,7 +257,7 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
               <tbody className="divide-y divide-slate-800/50 print:divide-gray-300">
                 {ventasFiltradas.length === 0 ? (
                   <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">Sin ventas en el período.</td></tr>
-                ) : (ventasFiltradas as any[]).map((venta: any) => (
+                ) : ventasFiltradas.map((venta) => (
                   <tr key={venta.id} className="hover:bg-slate-800/30 transition-colors">
                     <td className="px-4 py-3 font-bold text-white print:text-black">#{String(venta.id).padStart(4, "0")}</td>
                     <td className="px-4 py-3 text-slate-300 print:text-gray-700 text-xs">{venta.fecha}</td>
@@ -271,28 +290,28 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
           </div>
           <div className="grid grid-cols-1 gap-4">
           <DataSection title="Ventas por Producto" loading={loadingSection === "prod"} onLoad={() => loadSection("prod", () => getVentasPorProducto({ fechaDesde, fechaHasta, page: 1 }).then(r => setVentasPorProd(r.data)))} loaded={ventasPorProd !== null}>
-            {ventasPorProd && <DataTable columns={[{ header: "Producto", accessor: "producto" }, { header: "Cat.", accessor: "categoria" }, { header: "Cant.", accessor: "cantidad", className: "text-right" }, { header: "Subtotal", accessor: (r: any) => formatCurrency(r.subtotal), className: "text-right" }, { header: "Ganancia", accessor: (r: any) => formatCurrency(r.ganancia), className: "text-right" }]} data={ventasPorProd} keyExtractor={(r: any) => r.productoId} />}
+            {ventasPorProd && <DataTable columns={[{ header: "Producto", accessor: "producto" }, { header: "Cat.", accessor: "categoria" }, { header: "Cant.", accessor: "cantidad", className: "text-right" }, { header: "Subtotal", accessor: (r: VentasPorProductoRow) => formatCurrency(r.subtotal), className: "text-right" }, { header: "Ganancia", accessor: (r: VentasPorProductoRow) => formatCurrency(r.ganancia), className: "text-right" }]} data={ventasPorProd} keyExtractor={(r: VentasPorProductoRow) => r.productoId} />}
           </DataSection>
 
           <DataSection title="Ventas por Categoría" loading={loadingSection === "cat"} onLoad={() => loadSection("cat", () => getVentasPorCategoria({ fechaDesde, fechaHasta }).then(r => setVentasPorCat(r.data)))} loaded={ventasPorCat !== null}>
-            {ventasPorCat && <DataTable columns={[{ header: "Categoría", accessor: "categoria" }, { header: "Cant.", accessor: "cantidad", className: "text-right" }, { header: "Subtotal", accessor: (r: any) => formatCurrency(r.subtotal), className: "text-right" }, { header: "Ganancia", accessor: (r: any) => formatCurrency(r.ganancia), className: "text-right" }]} data={ventasPorCat} keyExtractor={(r: any) => r.categoria} />}
+            {ventasPorCat && <DataTable columns={[{ header: "Categoría", accessor: "categoria" }, { header: "Cant.", accessor: "cantidad", className: "text-right" }, { header: "Subtotal", accessor: (r: VentasPorCategoriaRow) => formatCurrency(r.subtotal), className: "text-right" }, { header: "Ganancia", accessor: (r: VentasPorCategoriaRow) => formatCurrency(r.ganancia), className: "text-right" }]} data={ventasPorCat} keyExtractor={(r: VentasPorCategoriaRow) => r.categoria} />}
           </DataSection>
 
           <DataSection title="Ventas por Cliente" loading={loadingSection === "cli"} onLoad={() => loadSection("cli", () => getVentasPorCliente({ fechaDesde, fechaHasta, page: 1 }).then(r => setVentasPorCli(r.data)))} loaded={ventasPorCli !== null}>
-            {ventasPorCli && <DataTable columns={[{ header: "Cliente", accessor: "cliente" }, { header: "Compras", accessor: "cantidad", className: "text-right" }, { header: "Total", accessor: (r: any) => formatCurrency(r.total), className: "text-right" }]} data={ventasPorCli} keyExtractor={(r: any) => r.clienteId} />}
+            {ventasPorCli && <DataTable columns={[{ header: "Cliente", accessor: "cliente" }, { header: "Compras", accessor: "cantidad", className: "text-right" }, { header: "Total", accessor: (r: VentasPorClienteRow) => formatCurrency(r.total), className: "text-right" }]} data={ventasPorCli} keyExtractor={(r: VentasPorClienteRow) => r.clienteId} />}
           </DataSection>
 
           <DataSection title="Ventas por Vendedor" loading={loadingSection === "vend"} onLoad={() => loadSection("vend", () => getVentasPorVendedorComision({ fechaDesde, fechaHasta, page: 1 }).then(r => setVentasPorVend(r.data)))} loaded={ventasPorVend !== null}>
-            {ventasPorVend && <DataTable columns={[{ header: "Vendedor", accessor: "vendedor" }, { header: "Ventas", accessor: "cantidadVentas", className: "text-right" }, { header: "Total", accessor: (r: any) => formatCurrency(r.totalVendido), className: "text-right" }, { header: "Comisión", accessor: (r: any) => formatCurrency(r.comision), className: "text-right" }]} data={ventasPorVend} keyExtractor={(r: any) => r.usuarioId} />}
+            {ventasPorVend && <DataTable columns={[{ header: "Vendedor", accessor: "vendedor" }, { header: "Ventas", accessor: "cantidadVentas", className: "text-right" }, { header: "Total", accessor: (r: VentasPorVendedorRow) => formatCurrency(r.totalVendido), className: "text-right" }, { header: "Comisión", accessor: (r: VentasPorVendedorRow) => formatCurrency(r.comision), className: "text-right" }]} data={ventasPorVend} keyExtractor={(r: VentasPorVendedorRow) => r.usuarioId} />}
           </DataSection>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <DataSection title="Top Productos" loading={loadingSection === "top"} onLoad={() => loadSection("top", () => getTopProductos({ fechaDesde, fechaHasta }, 10).then(r => setTopProds(r.data)))} loaded={topProds !== null}>
-              {topProds && <DataTable columns={[{ header: "Producto", accessor: "producto" }, { header: "Cat.", accessor: "categoria" }, { header: "Cant.", accessor: "cantidad", className: "text-right" }, { header: "Ingreso", accessor: (r: any) => formatCurrency(r.ingreso), className: "text-right" }]} data={topProds} keyExtractor={(r: any) => r.productoId} />}
+              {topProds && <DataTable columns={[{ header: "Producto", accessor: "producto" }, { header: "Cat.", accessor: "categoria" }, { header: "Cant.", accessor: "cantidad", className: "text-right" }, { header: "Ingreso", accessor: (r: TopProductoRow) => formatCurrency(r.ingreso), className: "text-right" }]} data={topProds} keyExtractor={(r: TopProductoRow) => r.productoId} />}
             </DataSection>
 
             <DataSection title="Bottom Productos" loading={loadingSection === "bottom"} onLoad={() => loadSection("bottom", () => getBottomProductos({ fechaDesde, fechaHasta }, 10).then(r => setBottomProds(r.data)))} loaded={bottomProds !== null}>
-              {bottomProds && <DataTable columns={[{ header: "Producto", accessor: "producto" }, { header: "Cat.", accessor: "categoria" }, { header: "Cant.", accessor: "cantidad", className: "text-right" }, { header: "Ingreso", accessor: (r: any) => formatCurrency(r.ingreso), className: "text-right" }]} data={bottomProds} keyExtractor={(r: any) => r.productoId} />}
+              {bottomProds && <DataTable columns={[{ header: "Producto", accessor: "producto" }, { header: "Cat.", accessor: "categoria" }, { header: "Cant.", accessor: "cantidad", className: "text-right" }, { header: "Ingreso", accessor: (r: BottomProductoRow) => formatCurrency(r.ingreso), className: "text-right" }]} data={bottomProds} keyExtractor={(r: BottomProductoRow) => r.productoId} />}
             </DataSection>
           </div>
         </div>

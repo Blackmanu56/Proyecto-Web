@@ -26,7 +26,7 @@ export async function deleteFile(url: string): Promise<void> {
   const filepath = path.join(process.cwd(), "public", url);
   try {
     await fs.unlink(filepath);
-  } catch (error) {
+  } catch {
     // File may not exist, ignore
   }
 }

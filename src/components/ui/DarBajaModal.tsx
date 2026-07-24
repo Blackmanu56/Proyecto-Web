@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { MotivoEstadoProducto } from "@prisma/client";
 import { darBajaProducto } from "@/actions/productos";
 import {
@@ -30,7 +30,13 @@ const MOTIVOS: { value: MotivoEstadoProducto; label: string }[] = [
   { value: "OTRO", label: "Otro" },
 ];
 
-export default function DarBajaModal({
+export default function DarBajaModal(props: DarBajaModalProps) {
+  if (!props.open) return null;
+
+  return <DarBajaModalContent key={props.producto.id} {...props} />;
+}
+
+function DarBajaModalContent({
   open,
   onOpenChange,
   producto,
@@ -41,16 +47,6 @@ export default function DarBajaModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-
-  useEffect(() => {
-    if (open) {
-      setMotivo("");
-      setObservacion("");
-      setLoading(false);
-      setError(null);
-      setSuccess(false);
-    }
-  }, [open]);
 
   const observacionRequired = motivo === "OTRO";
   const canSubmit =
@@ -80,8 +76,8 @@ export default function DarBajaModal({
       setLoading(false);
       onSuccess?.();
       setTimeout(() => onOpenChange(false), 1200);
-    } catch (err: any) {
-      setError(err.message || "Error al dar de baja el producto");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error al dar de baja el producto");
       setLoading(false);
     }
   };

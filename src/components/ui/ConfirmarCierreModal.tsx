@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { formatCurrency, formatTime24, formatDate, formatShiftDuration } from "@/lib/utils";
-import { Lock, X, Loader2, Scale, AlertTriangle, CheckCircle2, Eye, Clock, TrendingUp, ArrowUpRight, ArrowDownLeft } from "lucide-react";
+import { formatCurrency,formatDate,formatShiftDuration } from "@/lib/utils";
+import { AlertTriangle,ArrowDownLeft,ArrowUpRight,CheckCircle2,Clock,Eye,Loader2,Lock,Scale,TrendingUp,X } from "lucide-react";
+import { useState } from "react";
 
 interface ConfirmarCierreModalProps {
   open: boolean;
@@ -17,13 +17,17 @@ interface ConfirmarCierreModalProps {
   saldoFinal?: number;
 }
 
-export default function ConfirmarCierreModal({
-  open,
+export default function ConfirmarCierreModal(props: ConfirmarCierreModalProps) {
+  if (!props.open) return null;
+
+  return <ConfirmarCierreModalContent key={String(props.fechaApertura ?? "cierre")} {...props} />;
+}
+
+function ConfirmarCierreModalContent({
   onClose,
   onConfirm,
   isPending,
   montoInicial,
-  totalVentas,
   totalEgresos,
   totalIngresos,
   fechaApertura,
@@ -33,23 +37,11 @@ export default function ConfirmarCierreModal({
   const [observacion, setObservacion] = useState("");
   const [showObservacion, setShowObservacion] = useState(false);
 
-  useEffect(() => {
-    if (open) {
-      setMontoContado("");
-      setObservacion("");
-      setShowObservacion(false);
-    }
-  }, [open]);
-
-  if (!open) return null;
-
   const saldoEsperado = saldoFinal ?? (montoInicial + totalIngresos - totalEgresos);
   const montoContadoNum = montoContado === "" ? null : Number(montoContado);
   const diferencia = montoContadoNum !== null ? montoContadoNum - saldoEsperado : null;
-  const tieneDiferencia = diferencia !== null && Math.abs(diferencia) > 0.01;
   const esCuadrada = diferencia !== null && diferencia === 0;
   const esSobrante = diferencia !== null && diferencia > 0;
-  const esFaltante = diferencia !== null && diferencia < 0;
 
   return (
     <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4">

@@ -1,50 +1,47 @@
 "use client";
 
-import React, { useState, useTransition, useEffect, useMemo, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import {
-  crearCliente,
-  actualizarCliente,
-  toggleEstadoCliente,
-  eliminarClienteReal,
-  getVentasCliente,
-  ClienteConVentas,
-  VentaCliente,
+actualizarCliente,
+ClienteConVentas,
+crearCliente,
+eliminarClienteReal,
+getVentasCliente,
+toggleEstadoCliente,
+VentaCliente,
 } from "@/actions/clientes";
-import { TableShell } from "@/components/ui/table-shell";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
+Dialog,
+DialogContent,
+DialogDescription,
+DialogHeader,
+DialogTitle,
 } from "@/components/ui/dialog";
 import { FormField } from "@/components/ui/form-field";
-import { formatCurrency, formatDateShort } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import { TableShell } from "@/components/ui/table-shell";
+import { formatCurrency,formatDateShort } from "@/lib/utils";
 import {
-  Plus,
-  Edit3,
-  UserX,
-  UserCheck,
-  CheckCircle,
-  AlertTriangle,
-  Users,
-  Phone,
-  Mail,
-  MapPin,
-  Calendar,
-  FileText,
-  Trash2,
-  X,
-  Loader2,
-  ShoppingBag,
-  DollarSign,
-  Clock,
-  Info,
+AlertTriangle,
+Calendar,
+CheckCircle,
+Clock,
+DollarSign,
+Edit3,
+Loader2,
+Mail,
+MapPin,
+Phone,
+Plus,
+ShoppingBag,
+Trash2,
+UserCheck,
+Users,
+UserX
 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import React,{ useCallback,useMemo,useState,useTransition } from "react";
 
 type SortField =
   | "nombre"
@@ -57,6 +54,7 @@ type SortField =
   | "totalGastado";
 
 type SortDir = "asc" | "desc" | null;
+type FilterStatus = "activos" | "inactivos" | "todos";
 
 interface ClientesTableProps {
   initialClientes: ClienteConVentas[];
@@ -71,7 +69,7 @@ export default function ClientesTable({
   const [isPending, startTransition] = useTransition();
 
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState<"activos" | "inactivos" | "todos">("activos");
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>("activos");
   const [sortField, setSortField] = useState<SortField>("nombre");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
@@ -138,7 +136,7 @@ export default function ClientesTable({
   };
 
   const filteredClientes = useMemo(() => {
-    let result = initialClientes.filter((c) => {
+    const result = initialClientes.filter((c) => {
       const q = search.toLowerCase();
       const matchesSearch =
         c.nombre.toLowerCase().includes(q) ||
@@ -254,7 +252,7 @@ export default function ClientesTable({
     startTransition(async () => {
       let res;
       if (confirmDialog.type === "toggle") {
-        res = await toggleEstadoCliente(confirmDialog.clienteId, userRole);
+        res = await toggleEstadoCliente(confirmDialog.clienteId);
       } else {
         res = await eliminarClienteReal(confirmDialog.clienteId);
       }
@@ -345,27 +343,6 @@ export default function ClientesTable({
     return new Date(ventasCliente[0].fecha);
   }, [ventasCliente]);
 
-  const SortHeader = ({
-    field,
-    label,
-    className = "",
-  }: {
-    field: SortField;
-    label: string;
-    className?: string;
-  }) => (
-    <th
-      className={`py-2 px-4 cursor-pointer select-none hover:text-text hover:bg-[var(--border)]/30 transition-colors ${className}`}
-      onClick={() => handleSortCycle(field)}
-      title={getSortTooltip(field)}
-    >
-      <div className="flex items-center gap-1.5">
-        {label}
-        {renderSortIndicator(field)}
-      </div>
-    </th>
-  );
-
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Stats Header */}
@@ -419,7 +396,7 @@ export default function ClientesTable({
                 />
                 <select
                   value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value as any)}
+                  onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
                   className="pl-7 pr-6 py-2 bg-bg border border-border rounded-lg text-text text-sm focus:outline-none focus:border-brand appearance-none cursor-pointer"
                 >
                   <option value="todos">Todos</option>
@@ -1112,20 +1089,20 @@ export default function ClientesTable({
                 confirmDialog.isActive ? (
                   <>
                     ¿Está seguro de que desea dar de baja al cliente{" "}
-                    <strong className="text-text">"{confirmDialog.clienteName}"</strong>?
+                    <strong className="text-text">&quot;{confirmDialog.clienteName}&quot;</strong>?
                     El registro ya no estará disponible para nuevas ventas.
                   </>
                 ) : (
                   <>
                     ¿Desea reactivar al cliente{" "}
-                    <strong className="text-text">"{confirmDialog.clienteName}"</strong>?
+                    <strong className="text-text">&quot;{confirmDialog.clienteName}&quot;</strong>?
                     Volverá a figurar en las listas de selección.
                   </>
                 )
               ) : (
                 <>
                   ¿Está completamente seguro de eliminar permanentemente al cliente{" "}
-                  <strong className="text-text">"{confirmDialog.clienteName}"</strong>?
+                  <strong className="text-text">&quot;{confirmDialog.clienteName}&quot;</strong>?
                   Esta acción no se puede deshacer.
                 </>
               )}
@@ -1193,3 +1170,5 @@ function InfoRow({
     </div>
   );
 }
+
+

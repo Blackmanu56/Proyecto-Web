@@ -24,7 +24,7 @@ export default async function RootLayout({
   const session = await getSession();
 
   // Fetch fresh user data from DB for latest fotoUrl (JWT may be stale)
-  let shellUser: any = null;
+  let shellUser: React.ComponentProps<typeof AppShell>["user"] = null;
   if (session) {
     const userFromDb = await prisma.usuario.findUnique({
       where: { id: session.userId },

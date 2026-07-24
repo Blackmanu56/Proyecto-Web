@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import Avatar from "@/components/ui/Avatar";
@@ -54,7 +55,7 @@ const navItems: NavItem[] = [
   { name: "Informes", path: "/informes", icon: BarChart3, roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS", "ENCARGADO_STOCK"] },
 ];
 
-export default function Navbar({ user, currentPath }: NavbarProps) {
+export default function Navbar({ user }: NavbarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -122,9 +123,11 @@ export default function Navbar({ user, currentPath }: NavbarProps) {
           href="/dashboard"
           className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 flex items-center z-10 group"
         >
-          <img
+          <Image
             src="/logo.png"
-            alt="Chopper Repuestos"
+            alt="Logo de Chopper Repuestos"
+            width={160}
+            height={72}
             className="h-[4.5rem] w-auto object-contain rounded-lg drop-shadow-[0_2px_12px_rgba(0,0,0,0.5)] transition-all duration-300 group-hover:scale-105 group-hover:brightness-110 group-hover:drop-shadow-[0_4px_16px_rgba(0,0,0,0.6)]"
           />
         </Link>

@@ -1,30 +1,53 @@
-﻿"use client";
+"use client";
 
-import React, { useState, useEffect, useTransition, useMemo, useCallback } from "react";
-import { getReporteCierres, getDetalleCierre, getCierresDiferencias } from "@/actions/informes";
-import { formatCurrency, formatDate } from "@/lib/utils";
-import {
-  Search, Calendar, User, RefreshCw, Wallet, Eye, X, Loader2,
-  CheckCircle, XCircle, Printer, TrendingUp, TrendingDown,
-  DollarSign, BadgePercent, ChevronDown, ChevronRight,
-  Coins, ArrowUpRight, ArrowDownLeft, Lock, FileText,
-  Clock, Hash, Info, AlertTriangle, Receipt,
-} from "lucide-react";
-import StatCard from "@/components/ui/StatCard";
+import { getCierresDiferencias,getDetalleCierre,getReporteCierres } from "@/actions/informes";
+import type { DetalleCierreCompleto, ReporteCierre } from "@/actions/informes";
 import DataTable from "@/components/ui/DataTable";
+import StatCard from "@/components/ui/StatCard";
+import { formatCurrency,formatDate } from "@/lib/utils";
+import {
+AlertTriangle,
+ArrowDownLeft,
+ArrowUpRight,
+BadgePercent,
+Calendar,
+CheckCircle,
+ChevronDown,ChevronRight,
+Clock,
+Coins,
+DollarSign,
+Eye,
+FileText,
+Info,
+Loader2,
+Printer,
+Receipt,
+RefreshCw,
+Search,
+TrendingUp,
+User,
+Wallet,
+X,
+XCircle
+} from "lucide-react";
+import { useCallback,useEffect,useMemo,useState,useTransition } from "react";
+
+type CierreRow = ReporteCierre & { totalContado?: number | null };
+type MovimientoCierre = DetalleCierreCompleto["movimientos"][number];
+type CierreDiferenciaRow = Awaited<ReturnType<typeof getCierresDiferencias>>["data"][number];
 
 interface Props {
-  initialData: any[];
+  initialData: CierreRow[];
   usuarios: { id: number; username: string; nombreCompleto: string }[];
   userRole: string;
 }
 
 // ─── Shared detail content (used by modal AND print) ───────────
-function CierreDetailView({ detalleData }: { detalleData: any }) {
-  const ingresos = detalleData?.movimientos?.filter((m: any) => m.tipo === "INGRESO") || [];
-  const egresos = detalleData?.movimientos?.filter((m: any) => m.tipo === "EGRESO") || [];
-  const totalIngresos = ingresos.reduce((s: number, m: any) => s + m.monto, 0);
-  const totalEgresos = egresos.reduce((s: number, m: any) => s + m.monto, 0);
+function CierreDetailView({ detalleData }: { detalleData: DetalleCierreCompleto }) {
+  const ingresos = detalleData?.movimientos?.filter((m) => m.tipo === "INGRESO") || [];
+  const egresos = detalleData?.movimientos?.filter((m) => m.tipo === "EGRESO") || [];
+  const totalIngresos = ingresos.reduce((s, m) => s + m.monto, 0);
+  const totalEgresos = egresos.reduce((s, m) => s + m.monto, 0);
   const resultadoNeto = totalIngresos - totalEgresos;
 
   return (
@@ -109,7 +132,7 @@ function CierreDetailView({ detalleData }: { detalleData: any }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-emerald-500/5 print:divide-emerald-200">
-                {ingresos.map((m: any) => (
+                {ingresos.map((m: MovimientoCierre) => (
                   <tr key={m.id} className="hover:bg-emerald-500/5 print:hover:bg-transparent transition-colors">
                     <td className="px-3 py-2 text-slate-400 print:text-gray-600 font-mono">
                       {m.fecha?.split(" ")[1] || m.fecha}
@@ -143,7 +166,7 @@ function CierreDetailView({ detalleData }: { detalleData: any }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-rose-500/5 print:divide-red-200">
-                {egresos.map((m: any) => (
+                {egresos.map((m: MovimientoCierre) => (
                   <tr key={m.id} className="hover:bg-rose-500/5 print:hover:bg-transparent transition-colors">
                     <td className="px-3 py-2 text-slate-400 print:text-gray-600 font-mono">
                       {m.fecha?.split(" ")[1] || m.fecha}
@@ -204,10 +227,10 @@ function CierreDetailView({ detalleData }: { detalleData: any }) {
 function CierreDetailPrintView({ cajaId }: {
   cajaId: number;
 }) {
-  const [detalleData, setDetalleData] = useState<any>(null);
+  const [detalleData, setDetalleData] = useState<DetalleCierreCompleto | null>(null);
 
   useEffect(() => {
-    getDetalleCierre(cajaId).then((res: any) => setDetalleData(res));
+    getDetalleCierre(cajaId).then((res) => setDetalleData(res));
   }, [cajaId]);
 
   useEffect(() => {
@@ -243,11 +266,11 @@ function DetalleCierreModal({ cajaId, onClose, onPrint }: {
   onClose: () => void;
   onPrint: (id: number) => void;
 }) {
-  const [detalleData, setDetalleData] = useState<any>(null);
+  const [detalleData, setDetalleData] = useState<DetalleCierreCompleto | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getDetalleCierre(cajaId).then((res: any) => { setDetalleData(res); setLoading(false); });
+    getDetalleCierre(cajaId).then((res) => { setDetalleData(res); setLoading(false); });
   }, [cajaId]);
 
   return (
@@ -291,7 +314,7 @@ function DetalleCierreModal({ cajaId, onClose, onPrint }: {
 }
 
 // ─── Main component ────────────────────────────────────────────
-export default function CierresReport({ initialData, usuarios, userRole }: Props) {
+export default function CierresReport({ initialData, usuarios }: Props) {
   const [data, setData] = useState(initialData);
   const [fechaDesde, setFechaDesde] = useState(new Date().toISOString().split("T")[0]);
   const [fechaHasta, setFechaHasta] = useState(new Date().toISOString().split("T")[0]);
@@ -300,7 +323,7 @@ export default function CierresReport({ initialData, usuarios, userRole }: Props
   const [tipoDiff, setTipoDiff] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  const [diferencias, setDiferencias] = useState<any[] | null>(null);
+  const [diferencias, setDiferencias] = useState<CierreDiferenciaRow[] | null>(null);
   const [detalleCajaId, setDetalleCajaId] = useState<number | null>(null);
   const [loadingSection, setLoadingSection] = useState<string | null>(null);
   const [printSection, setPrintSection] = useState<string | null>(null);
@@ -315,7 +338,7 @@ export default function CierresReport({ initialData, usuarios, userRole }: Props
     });
   };
 
-  const loadSection = async (section: string, fetcher: () => Promise<any>) => {
+  const loadSection = async (section: string, fetcher: () => Promise<unknown>) => {
     setLoadingSection(section);
     try { await fetcher(); }
     finally { setLoadingSection(null); }
@@ -356,18 +379,18 @@ export default function CierresReport({ initialData, usuarios, userRole }: Props
   }, [printSection]);
 
   const cierresFiltrados = useMemo(() => {
-    let c = data as any[];
-    if (tipoDiff === "positiva") c = c.filter((x: any) => { const d = ((x.totalContado ?? x.totalEsperado) - x.totalEsperado); return d > 0; });
-    if (tipoDiff === "negativa") c = c.filter((x: any) => { const d = ((x.totalContado ?? x.totalEsperado) - x.totalEsperado); return d < 0; });
+    let c = data;
+    if (tipoDiff === "positiva") c = c.filter((x: CierreRow) => { const d = ((x.totalContado ?? x.totalEsperado) - x.totalEsperado); return d > 0; });
+    if (tipoDiff === "negativa") c = c.filter((x: CierreRow) => { const d = ((x.totalContado ?? x.totalEsperado) - x.totalEsperado); return d < 0; });
     return c;
   }, [data, tipoDiff]);
 
   const kpis = useMemo(() => {
     const c = cierresFiltrados;
     const total = c.length;
-    const cerrados = c.filter((x: any) => x.estado === "CERRADA").length;
-    const conDiff = c.filter((x: any) => { const d = ((x.totalContado ?? x.totalEsperado) - x.totalEsperado); return d !== 0; }).length;
-    const sumaDiff = c.reduce((s: number, x: any) => s + ((x.totalContado ?? x.totalEsperado) - x.totalEsperado), 0);
+    const cerrados = c.filter((x: CierreRow) => x.estado === "CERRADA").length;
+    const conDiff = c.filter((x: CierreRow) => { const d = ((x.totalContado ?? x.totalEsperado) - x.totalEsperado); return d !== 0; }).length;
+    const sumaDiff = c.reduce((s, x) => s + ((x.totalContado ?? x.totalEsperado) - x.totalEsperado), 0);
     return [
       { label: "Cierres", value: total.toString(), icon: <Wallet size={18} />, color: "indigo" as const },
       { label: "Cerrados", value: cerrados.toString(), icon: <CheckCircle size={18} />, color: "emerald" as const },
@@ -378,7 +401,7 @@ export default function CierresReport({ initialData, usuarios, userRole }: Props
 
   const hasDiferencias = diferencias && diferencias.length > 0;
   const totalDiffAmount = diferencias
-    ? diferencias.reduce((s: number, d: any) => s + Math.abs(d.diferencia ?? 0), 0)
+    ? diferencias.reduce((s, d) => s + Math.abs(d.diferencia ?? 0), 0)
     : 0;
 
   return (
@@ -465,7 +488,7 @@ export default function CierresReport({ initialData, usuarios, userRole }: Props
               <tbody className="divide-y divide-slate-800/50 print:divide-gray-300">
                 {cierresFiltrados.length === 0 ? (
                   <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-500">Sin cierres en el período.</td></tr>
-                ) : cierresFiltrados.map((c: any) => (
+                ) : cierresFiltrados.map((c) => (
                   <tr key={c.id} className="hover:bg-slate-800/30 transition-colors">
                     <td className="px-4 py-3 font-bold text-white">#{c.id}</td>
                     <td className="px-4 py-3 text-xs text-slate-300">{c.fechaApertura}</td>
@@ -537,15 +560,15 @@ export default function CierresReport({ initialData, usuarios, userRole }: Props
                 <div className="p-3">
                   <DataTable
                     columns={[
-                      { header: "#", accessor: (r: any) => "#" + r.id },
+                      { header: "#", accessor: (r: CierreDiferenciaRow) => "#" + r.id },
                       { header: "Usuario", accessor: "usuario" },
                       { header: "Apertura", accessor: "fechaApertura" },
-                      { header: "Esperado", accessor: (r: any) => formatCurrency(r.totalEsperado), className: "text-right font-mono" },
-                      { header: "Contado", accessor: (r: any) => r.totalContado !== null ? formatCurrency(r.totalContado) : "\u2014", className: "text-right font-mono" },
-                      { header: "Dif.", accessor: (r: any) => <span className={r.diferencia && r.diferencia >= 0 ? "text-emerald-400 font-bold" : "text-rose-400 font-bold"}>{r.diferencia !== null ? formatCurrency(r.diferencia) : "\u2014"}</span>, className: "text-right" },
+                      { header: "Esperado", accessor: (r: CierreDiferenciaRow) => formatCurrency(r.totalEsperado), className: "text-right font-mono" },
+                      { header: "Contado", accessor: (r: CierreDiferenciaRow) => r.totalContado !== null ? formatCurrency(r.totalContado) : "\u2014", className: "text-right font-mono" },
+                      { header: "Dif.", accessor: (r: CierreDiferenciaRow) => <span className={r.diferencia && r.diferencia >= 0 ? "text-emerald-400 font-bold" : "text-rose-400 font-bold"}>{r.diferencia !== null ? formatCurrency(r.diferencia) : "\u2014"}</span>, className: "text-right" },
                     ]}
                     data={diferencias}
-                    keyExtractor={(r: any) => r.id}
+                    keyExtractor={(r: CierreDiferenciaRow) => r.id}
                   />
                 </div>
               </div>
@@ -575,7 +598,7 @@ export default function CierresReport({ initialData, usuarios, userRole }: Props
                   <p className="text-xs text-slate-500 text-center py-6">No hay datos en el período seleccionado.</p>
                 ) : (
                   <div className="space-y-2">
-                    {cierresFiltrados.slice(0, 10).map((c: any) => {
+                    {cierresFiltrados.slice(0, 10).map((c) => {
                       const diff = (c.totalContado ?? c.totalEsperado) - c.totalEsperado;
                       return (
                         <div key={c.id} className="flex items-center justify-between text-xs py-1.5 px-2 rounded-lg hover:bg-slate-700/30">
