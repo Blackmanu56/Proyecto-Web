@@ -8,8 +8,7 @@
     "start": "next start",
     "lint": "eslint .",
     "test": "vitest run",
-    "db:seed": "npx prisma db seed",
-    "db:verify-interns": "tsx scripts/verify-intern-activity.ts"
+    "db:seed": "npx prisma db seed"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts",
