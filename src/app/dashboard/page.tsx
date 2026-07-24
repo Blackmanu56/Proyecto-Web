@@ -1,5 +1,6 @@
 import React from "react";
 import { getSession } from "@/lib/auth.server";
+import { hasPermission } from "@/lib/auth-permissions";
 import { getDashboardData } from "@/actions/informes";
 import DashboardClient from "@/components/layout/DashboardClient";
 
@@ -20,6 +21,7 @@ export default async function DashboardPage() {
 
   const dashboardData = await getDashboardData();
   const formattedDate = getFormattedDate();
+  const canAccessCaja = await hasPermission("caja.ver", session);
 
   return (
     <div className="flex-1 bg-[var(--bg)] px-5 py-2">
@@ -29,6 +31,7 @@ export default async function DashboardPage() {
           userName={session?.username ?? "Usuario"}
           role={session?.role ?? "ADMINISTRADOR"}
           formattedDate={formattedDate}
+          canAccessCaja={canAccessCaja}
         />
       </div>
     </div>

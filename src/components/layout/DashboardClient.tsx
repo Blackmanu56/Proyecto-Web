@@ -363,9 +363,10 @@ interface DashboardClientProps {
   userName: string;
   role: string;
   formattedDate: string;
+  canAccessCaja: boolean;
 }
 
-export default function DashboardClient({ data, userName, role, formattedDate }: DashboardClientProps) {
+export default function DashboardClient({ data, userName, role, formattedDate, canAccessCaja }: DashboardClientProps) {
   const { cajaMovimientosRecientes } = data;
 
   const greeting = getGreeting(userName);
@@ -449,9 +450,11 @@ export default function DashboardClient({ data, userName, role, formattedDate }:
               </div>
               <h3 className="text-sm font-bold text-[var(--text)]">Actividad Reciente</h3>
             </div>
-            <Link href="/caja" className="text-xs text-[var(--brand)] hover:underline font-semibold">
-              Ver historial
-            </Link>
+            {canAccessCaja && (
+              <Link href="/caja" className="text-xs text-[var(--brand)] hover:underline font-semibold">
+                Ver historial
+              </Link>
+            )}
           </div>
 
           <div className="divide-y divide-[var(--border)]/60 overflow-y-auto flex-1 min-h-0">
