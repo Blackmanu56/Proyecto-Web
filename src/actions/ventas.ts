@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth.server";
+import { requirePermission } from "@/lib/auth-permissions";
+import { validateVentaPayload } from "@/lib/ventas-validation";
 
 interface VentaItem {
   productoId: number;
@@ -18,10 +20,7 @@ export async function crearClienteRapido(
   telefono: string,
   email: string
 ) {
-  const session = await getSession();
-  if (!session || !["ADMINISTRADOR", "ENCARGADO_VENTAS"].includes(session.role)) {
-    return { error: "No tiene permisos para realizar esta acción." };
-  }
+  await requirePermission("clientes.crear", await getSession());
 
   if (!nombre || !dni) {
     return { error: "El nombre y el DNI son obligatorios." };
@@ -49,9 +48,9 @@ export async function crearClienteRapido(
       success: true,
       cliente: { id: cliente.id, nombre: cliente.nombre, dni: cliente.dni, cuit: cliente.cuit },
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error en crearClienteRapido:", error);
-    return { error: error.message || "Error al registrar el cliente." };
+    return { error: error instanceof Error ? error.message : "Error al registrar el cliente." };
   }
 }
 
@@ -88,9 +87,9 @@ export async function toggleFavorito(productoId: number) {
       });
       return { success: true, favorito: true };
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error en toggleFavorito:", error);
-    return { error: error.message || "Error al actualizar favorito." };
+    return { error: error instanceof Error ? error.message : "Error al actualizar favorito." };
   }
 }
 
@@ -106,22 +105,39 @@ export async function createVenta(
   tipoComprobante: string,
   cuotas?: number | null
 ) {
-  const session = await getSession();
-  if (!session || !["ADMINISTRADOR", "ENCARGADO_VENTAS"].includes(session.role)) {
-    throw new Error("No tiene permisos para realizar esta acción.");
-  }
-
-  if (items.length === 0) {
-    throw new Error("El carrito de compras está vacío.");
-  }
-
-  if (!metodoPago) {
-    throw new Error("Debe seleccionar una forma de pago.");
-  }
-
   try {
+    const session = await requirePermission("ventas.crear", await getSession());
+    const payload = validateVentaPayload({
+      clienteId,
+      items,
+      metodoPago,
+      descuentoTipo,
+      montoDescuento,
+      tipoComprobante,
+      cuotas: cuotas ?? null,
+    });
+
+    if (!payload.success) {
+      return { error: payload.error };
+    }
+
+    const ventaInput = payload.data;
+
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Validar que la caja esté abierta
+      const cliente = await tx.cliente.findUnique({
+        where: { id: ventaInput.clienteId },
+        select: { id: true, activo: true },
+      });
+
+      if (!cliente) {
+        throw new Error("Cliente no encontrado.");
+      }
+
+      if (!cliente.activo) {
+        throw new Error("El cliente seleccionado est? dado de baja.");
+      }
+
+      // 1. Validar que la caja est? abierta
       const cajaAbierta = await tx.caja.findFirst({
         where: { estado: "ABIERTA" },
       });
@@ -133,8 +149,8 @@ export async function createVenta(
       let totalVenta = 0.0;
       const detallesAGuardar = [];
 
-      // 2. Validar existencias y calcular costos/precios
-      for (const item of items) {
+      // 2. Validar existencias y calcular costos/precios desde la base
+      for (const item of ventaInput.items) {
         const prod = await tx.producto.findUnique({
           where: { id: item.productoId },
         });
@@ -144,11 +160,16 @@ export async function createVenta(
         }
 
         if (!prod.activo) {
-          throw new Error(`El producto '${prod.nombre}' está dado de baja.`);
+          throw new Error(`El producto '${prod.nombre}' est? dado de baja.`);
         }
 
-        if (prod.cantidad < item.cantidad) {
+        if (!Number.isInteger(prod.cantidad) || prod.cantidad < item.cantidad) {
           throw new Error(`Stock insuficiente para '${prod.nombre}'. Disponible: ${prod.cantidad} u.`);
+        }
+
+        const precioVenta = Number(prod.precioVenta);
+        if (!Number.isFinite(precioVenta) || precioVenta < 0) {
+          throw new Error(`El producto '${prod.nombre}' tiene un precio inv?lido.`);
         }
 
         await tx.producto.update({
@@ -156,38 +177,52 @@ export async function createVenta(
           data: { cantidad: { decrement: item.cantidad } },
         });
 
-        const subtotal = item.cantidad * prod.precioVenta;
+        const subtotal = item.cantidad * precioVenta;
+        if (!Number.isFinite(subtotal) || subtotal < 0) {
+          throw new Error(`Subtotal inv?lido para '${prod.nombre}'.`);
+        }
+
         totalVenta += subtotal;
 
         detallesAGuardar.push({
           productoId: item.productoId,
           cantidad: item.cantidad,
-          precioUnitario: prod.precioVenta,
-          subtotal: subtotal,
+          precioUnitario: precioVenta,
+          subtotal,
         });
       }
 
-      // 3. Aplicar descuento
+      if (!Number.isFinite(totalVenta) || totalVenta <= 0) {
+        throw new Error("El total de la venta no es v?lido.");
+      }
+
+      // 3. Aplicar descuento validado
       let descuentoAplicado = 0;
-      if (descuentoTipo === "PORCENTAJE" && montoDescuento > 0) {
-        descuentoAplicado = totalVenta * (montoDescuento / 100);
-      } else if (descuentoTipo === "MONTO" && montoDescuento > 0) {
-        descuentoAplicado = Math.min(montoDescuento, totalVenta);
+      if (ventaInput.descuentoTipo === "PORCENTAJE" && ventaInput.montoDescuento > 0) {
+        descuentoAplicado = totalVenta * (ventaInput.montoDescuento / 100);
+      } else if (ventaInput.descuentoTipo === "MONTO" && ventaInput.montoDescuento > 0) {
+        if (ventaInput.montoDescuento > totalVenta) {
+          throw new Error("El descuento no puede superar el total de la venta.");
+        }
+        descuentoAplicado = ventaInput.montoDescuento;
       }
 
       const totalFinal = totalVenta - descuentoAplicado;
+      if (!Number.isFinite(totalFinal) || totalFinal < 0) {
+        throw new Error("El total final de la venta no es v?lido.");
+      }
 
       // 4. Crear cabecera de la Venta
       const venta = await tx.venta.create({
         data: {
-          clienteId: clienteId,
+          clienteId: ventaInput.clienteId,
           usuarioId: session.userId,
           total: totalFinal,
-          metodoPago: metodoPago,
-          descuentoTipo: descuentoTipo || null,
+          metodoPago: ventaInput.metodoPago,
+          descuentoTipo: ventaInput.descuentoTipo,
           montoDescuento: descuentoAplicado,
-          tipoComprobante: tipoComprobante || null,
-          cuotas: (metodoPago === "TARJETA_CREDITO" && cuotas) ? cuotas : null,
+          tipoComprobante: ventaInput.tipoComprobante,
+          cuotas: ventaInput.cuotas,
           detalles: {
             create: detallesAGuardar,
           },
@@ -202,7 +237,7 @@ export async function createVenta(
           ventaId: venta.id,
           tipo: "INGRESO",
           monto: totalFinal,
-          descripcion: `${tipoComprobante || 'Venta'} Nº ${venta.id} - ${metodoPago}${descuentoAplicado > 0 ? ` (Dto: $${descuentoAplicado.toFixed(2)})` : ''}`,
+          descripcion: `${ventaInput.tipoComprobante} N? ${venta.id} - ${ventaInput.metodoPago}${descuentoAplicado > 0 ? ` (Dto: $${descuentoAplicado.toFixed(2)})` : ""}`,
         },
       });
 
@@ -222,10 +257,10 @@ export async function createVenta(
     return {
       success: true,
       ventaId: result.id,
-      total: result.total,
+      total: Number(result.total),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error en createVenta:", error);
-    return { error: error.message || "Error al registrar la venta" };
+    return { error: error instanceof Error ? error.message : "Error al registrar la venta" };
   }
 }

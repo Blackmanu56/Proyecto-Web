@@ -1,8 +1,9 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect, useTransition, useMemo, useCallback } from "react";
 import { getReporteCierres, getCierresDiferencias } from "@/actions/informes";
-import { formatCurrency } from "@/lib/utils";
+import type { ReporteCierre } from "@/actions/informes";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   Search, Calendar, User, RefreshCw, Wallet, Eye, ChevronUp, Loader2,
   CheckCircle, XCircle, Printer, TrendingUp,
@@ -15,14 +16,17 @@ import ResultadoBadge from "./ResultadoBadge";
 import CierreAccordionRow from "./CierreAccordionRow";
 import CierreDetailPrintView from "./CierreDetailPrintView";
 
+type CierreRow = ReporteCierre & { totalContado?: number | null };
+type CierreDiferenciaRow = Awaited<ReturnType<typeof getCierresDiferencias>>["data"][number];
+
 interface Props {
-  initialData: any[];
+  initialData: CierreRow[];
   usuarios: { id: number; username: string; nombreCompleto: string }[];
   userRole: string;
 }
 
-// ─── Main component ────────────────────────────────────────────
-export default function CierresReport({ initialData, usuarios, userRole }: Props) {
+// â”€â”€â”€ Main component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+export default function CierresReport({ initialData, usuarios }: Props) {
   const [data, setData] = useState(initialData);
   const [fechaDesde, setFechaDesde] = useState(new Date().toISOString().split("T")[0]);
   const [fechaHasta, setFechaHasta] = useState(new Date().toISOString().split("T")[0]);
@@ -46,7 +50,7 @@ export default function CierresReport({ initialData, usuarios, userRole }: Props
     });
   };
 
-  const loadSection = async (section: string, fetcher: () => Promise<any>) => {
+  const loadSection = async (section: string, fetcher: () => Promise<unknown>) => {
     setLoadingSection(section);
     try { await fetcher(); }
     finally { setLoadingSection(null); }
@@ -86,18 +90,18 @@ export default function CierresReport({ initialData, usuarios, userRole }: Props
   }, [printSection]);
 
   const cierresFiltrados = useMemo(() => {
-    let c = data as any[];
-    if (tipoDiff === "positiva") c = c.filter((x: any) => { const d = ((x.totalContado ?? x.totalEsperado) - x.totalEsperado); return d > 0; });
-    if (tipoDiff === "negativa") c = c.filter((x: any) => { const d = ((x.totalContado ?? x.totalEsperado) - x.totalEsperado); return d < 0; });
+    let c = data;
+    if (tipoDiff === "positiva") c = c.filter((x: CierreRow) => { const d = ((x.totalContado ?? x.totalEsperado) - x.totalEsperado); return d > 0; });
+    if (tipoDiff === "negativa") c = c.filter((x: CierreRow) => { const d = ((x.totalContado ?? x.totalEsperado) - x.totalEsperado); return d < 0; });
     return c;
   }, [data, tipoDiff]);
 
   const kpis = useMemo(() => {
     const c = cierresFiltrados;
     const total = c.length;
-    const cerrados = c.filter((x: any) => x.estado === "CERRADA").length;
-    const conDiff = c.filter((x: any) => { const d = ((x.totalContado ?? x.totalEsperado) - x.totalEsperado); return d !== 0; }).length;
-    const sumaDiff = c.reduce((s: number, x: any) => s + ((x.totalContado ?? x.totalEsperado) - x.totalEsperado), 0);
+    const cerrados = c.filter((x: CierreRow) => x.estado === "CERRADA").length;
+    const conDiff = c.filter((x: CierreRow) => { const d = ((x.totalContado ?? x.totalEsperado) - x.totalEsperado); return d !== 0; }).length;
+    const sumaDiff = c.reduce((s, x) => s + ((x.totalContado ?? x.totalEsperado) - x.totalEsperado), 0);
     return [
       { label: "Cierres", value: total.toString(), icon: <Wallet size={18} />, color: "indigo" as const },
       { label: "Cerrados", value: cerrados.toString(), icon: <CheckCircle size={18} />, color: "emerald" as const },
@@ -108,7 +112,7 @@ export default function CierresReport({ initialData, usuarios, userRole }: Props
 
   const hasDiferencias = diferencias && diferencias.length > 0;
   const totalDiffAmount = diferencias
-    ? diferencias.reduce((s: number, d: any) => s + Math.abs(d.diferencia ?? 0), 0)
+    ? diferencias.reduce((s, d) => s + Math.abs(d.diferencia ?? 0), 0)
     : 0;
 
   return (
@@ -148,8 +152,8 @@ export default function CierresReport({ initialData, usuarios, userRole }: Props
           <h1 className="text-2xl font-black uppercase tracking-wide">CHOPPER REPUESTOS</h1>
           <p className="text-sm text-gray-600 mt-1">Informe de Cierres de Caja</p>
           <div className="flex justify-center gap-6 text-xs text-gray-500 mt-2">
-            <span>Período: {fechaDesde} al {fechaHasta}</span>
-            <span>Generado: {new Date().toLocaleDateString("es-AR")} {new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}</span>
+            <span>PerÃ­odo: {fechaDesde} al {fechaHasta}</span>
+            <span>Generado: {formatDate(new Date())}</span>
             <span>Usuario: {usuarios.find(u => u.id === usuarioId)?.nombreCompleto || "Todos"}</span>
           </div>
           <hr className="my-3 border-gray-300" />
@@ -159,7 +163,7 @@ export default function CierresReport({ initialData, usuarios, userRole }: Props
           <div className="flex items-center justify-end mb-2 print:hidden">
             <button onClick={() => setPrintSection("kpis")}
               className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
-              title="Imprimir esta sección">
+              title="Imprimir esta secciÃ³n">
               <Printer size={12} />
             </button>
           </div>
@@ -172,7 +176,7 @@ export default function CierresReport({ initialData, usuarios, userRole }: Props
           <div className="flex items-center justify-end mb-2 print:hidden">
             <button onClick={() => setPrintSection("table")}
               className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
-              title="Imprimir esta sección">
+              title="Imprimir esta secciÃ³n">
               <Printer size={12} />
             </button>
           </div>
@@ -195,7 +199,7 @@ export default function CierresReport({ initialData, usuarios, userRole }: Props
               </thead>
               <tbody className="divide-y divide-slate-800/50 print:divide-gray-300">
                 {cierresFiltrados.length === 0 ? (
-                  <tr><td colSpan={10} className="px-4 py-8 text-center text-slate-500">Sin cierres en el período.</td></tr>
+                  <tr><td colSpan={10} className="px-4 py-8 text-center text-slate-500">Sin cierres en el perÃ­odo.</td></tr>
                 ) : cierresFiltrados.map((c: any) => (
                   <React.Fragment key={c.id}>
                     <tr className={`transition-colors ${expandedCierreId === c.id ? "bg-slate-800/20" : "hover:bg-slate-800/30"}`}>
@@ -246,7 +250,7 @@ export default function CierresReport({ initialData, usuarios, userRole }: Props
           <div className="flex items-center justify-end mb-2 print:hidden">
             <button onClick={() => setPrintSection("secondary")}
               className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
-              title="Imprimir esta sección">
+              title="Imprimir esta secciÃ³n">
               <Printer size={12} />
             </button>
           </div>
@@ -286,29 +290,29 @@ export default function CierresReport({ initialData, usuarios, userRole }: Props
                 <div className="p-3">
                   <DataTable
                     columns={[
-                      { header: "#", accessor: (r: any) => "#" + r.id },
+                      { header: "#", accessor: (r: CierreDiferenciaRow) => "#" + r.id },
                       { header: "Usuario", accessor: "usuario" },
                       { header: "Apertura", accessor: "fechaApertura" },
-                      { header: "Esperado", accessor: (r: any) => formatCurrency(r.totalEsperado), className: "text-right font-mono" },
-                      { header: "Contado", accessor: (r: any) => r.totalContado !== null ? formatCurrency(r.totalContado) : "\u2014", className: "text-right font-mono" },
-                      { header: "Dif.", accessor: (r: any) => <span className={r.diferencia && r.diferencia >= 0 ? "text-emerald-400 font-bold" : "text-rose-400 font-bold"}>{r.diferencia !== null ? formatCurrency(r.diferencia) : "\u2014"}</span>, className: "text-right" },
+                      { header: "Esperado", accessor: (r: CierreDiferenciaRow) => formatCurrency(r.totalEsperado), className: "text-right font-mono" },
+                      { header: "Contado", accessor: (r: CierreDiferenciaRow) => r.totalContado !== null ? formatCurrency(r.totalContado) : "\u2014", className: "text-right font-mono" },
+                      { header: "Dif.", accessor: (r: CierreDiferenciaRow) => <span className={r.diferencia && r.diferencia >= 0 ? "text-emerald-400 font-bold" : "text-rose-400 font-bold"}>{r.diferencia !== null ? formatCurrency(r.diferencia) : "\u2014"}</span>, className: "text-right" },
                     ]}
                     data={diferencias}
-                    keyExtractor={(r: any) => r.id}
+                    keyExtractor={(r: CierreDiferenciaRow) => r.id}
                   />
                 </div>
               </div>
             )}
           </div>
 
-          {/* Diferencias Diarias & Métodos de Pago (collapsible) */}
+          {/* Diferencias Diarias & MÃ©todos de Pago (collapsible) */}
           <button
             onClick={() => setShowSecondary(!showSecondary)}
             className="w-full flex items-center justify-between px-4 py-3 bg-slate-800/50 rounded-xl border border-slate-700/50 text-sm font-semibold text-slate-300 hover:bg-slate-700/50 transition print:hidden"
           >
             <span className="flex items-center gap-2">
               <FileText size={14} className="text-slate-400" />
-              Información secundaria
+              InformaciÃ³n secundaria
             </span>
             {showSecondary ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
           </button>
@@ -321,10 +325,10 @@ export default function CierresReport({ initialData, usuarios, userRole }: Props
                   Diferencias Diarias
                 </h3>
                 {cierresFiltrados.length === 0 ? (
-                  <p className="text-xs text-slate-500 text-center py-6">No hay datos en el período seleccionado.</p>
+                  <p className="text-xs text-slate-500 text-center py-6">No hay datos en el perÃ­odo seleccionado.</p>
                 ) : (
                   <div className="space-y-2">
-                    {cierresFiltrados.slice(0, 10).map((c: any) => {
+                    {cierresFiltrados.slice(0, 10).map((c) => {
                       const diff = (c.totalContado ?? c.totalEsperado) - c.totalEsperado;
                       return (
                         <div key={c.id} className="flex items-center justify-between text-xs py-1.5 px-2 rounded-lg hover:bg-slate-700/30">
@@ -339,7 +343,7 @@ export default function CierresReport({ initialData, usuarios, userRole }: Props
                       );
                     })}
                     {cierresFiltrados.length > 10 && (
-                      <p className="text-xs text-slate-500 text-center pt-1">...y {cierresFiltrados.length - 10} más</p>
+                      <p className="text-xs text-slate-500 text-center pt-1">...y {cierresFiltrados.length - 10} mÃ¡s</p>
                     )}
                   </div>
                 )}
@@ -348,9 +352,9 @@ export default function CierresReport({ initialData, usuarios, userRole }: Props
               <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-4">
                 <h3 className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-2">
                   <DollarSign size={14} className="text-amber-400" />
-                  Métodos de Pago
+                  MÃ©todos de Pago
                 </h3>
-                <p className="text-xs text-slate-500 text-center py-6">Los métodos de pago se muestran en el informe de Finanzas.</p>
+                <p className="text-xs text-slate-500 text-center py-6">Los mÃ©todos de pago se muestran en el informe de Finanzas.</p>
               </div>
             </div>
           )}
@@ -365,3 +369,4 @@ export default function CierresReport({ initialData, usuarios, userRole }: Props
     </div>
   );
 }
+

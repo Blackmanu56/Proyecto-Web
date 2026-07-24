@@ -46,11 +46,11 @@ export default async function ProductosPage({ searchParams }: PageProps) {
     <div className="fixed inset-0 top-[5.5rem] bg-[var(--bg)] flex flex-col overflow-hidden z-10">
       <div className="flex-1 flex flex-col min-h-0 p-2 lg:p-3">
         {/* Encabezado */}
-        <div className="flex items-center justify-center gap-2 shrink-0 mb-1">
-          <div className="p-1.5 bg-[var(--brand-light)] rounded-lg text-[var(--brand)]">
-            <Package size={16} />
+        <div className="flex items-center justify-center gap-3 shrink-0 mb-2">
+          <div className="p-2 bg-[var(--brand-light)] rounded-lg text-[var(--brand)]">
+            <Package size={22} />
           </div>
-          <h1 className="text-base lg:text-lg font-extrabold text-[var(--text)] tracking-tight">
+          <h1 className="text-xl lg:text-2xl font-extrabold text-[var(--text)] tracking-tight">
             Control de Inventario
           </h1>
         </div>
@@ -58,9 +58,9 @@ export default async function ProductosPage({ searchParams }: PageProps) {
         {/* Tabla Interactiva */}
         <div className="flex-1 min-h-0">
           <ProductosTable
-            initialProducts={productos as any}
+            initialProducts={productos as React.ComponentProps<typeof ProductosTable>["initialProducts"]}
             categorias={categorias}
-            proveedores={proveedores as any}
+            proveedores={proveedores as React.ComponentProps<typeof ProductosTable>["proveedores"]}
             userRole={userRole}
           />
         </div>

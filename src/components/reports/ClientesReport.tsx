@@ -1,24 +1,44 @@
 "use client";
 
-import React, { useState, useEffect, useTransition, useCallback, useMemo } from "react";
 import {
-  getClientesReport, getFrecuenciaComprasCliente, getVentasPorCliente,
+getClientesReport,getFrecuenciaComprasCliente,getVentasPorCliente,
 } from "@/actions/informes";
+import ChartWrapper,{ CHART_COLORS } from "@/components/ui/ChartWrapper";
+import DataTable from "@/components/ui/DataTable";
+import StatCard from "@/components/ui/StatCard";
 import { formatCurrency } from "@/lib/utils";
 import {
-  Search, Calendar, RefreshCw, Printer, ShoppingCart, Users,
-  TrendingUp, DollarSign, Clock, Award, UserPlus,
+Award,
+Calendar,
+Clock,
+DollarSign,
+Printer,
+RefreshCw,
+Search,
+TrendingUp,
+UserPlus,
+Users
 } from "lucide-react";
-import StatCard from "@/components/ui/StatCard";
-import ChartWrapper, { CHART_COLORS } from "@/components/ui/ChartWrapper";
-import DataTable from "@/components/ui/DataTable";
+import React,{ useCallback,useEffect,useMemo,useState,useTransition } from "react";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  PieChart as RePie, Pie, Cell, LineChart, Line,
+Bar,
+BarChart,
+CartesianGrid,
+Cell,
+Line,
+LineChart,
+Pie,
+PieChart as RePie,
+XAxis,YAxis,
 } from "recharts";
 
+type ClientesReportResult = Awaited<ReturnType<typeof getClientesReport>>;
+type ClienteReportRow = ClientesReportResult["data"][number];
+type VentasPorClienteRow = Awaited<ReturnType<typeof getVentasPorCliente>>["data"][number];
+type FrecuenciaComprasRow = Awaited<ReturnType<typeof getFrecuenciaComprasCliente>>["data"][number];
+
 interface Props {
-  initialData?: any;
+  initialData?: ClientesReportResult;
   userRole?: string;
 }
 
@@ -46,16 +66,16 @@ function DataSection({ title, loading, onLoad, loaded, children }: {
   );
 }
 
-export default function ClientesReport({ initialData, userRole }: Props) {
-  const [clientes, setClientes] = useState<any[]>([]);
+export default function ClientesReport({}: Props) {
+  const [clientes, setClientes] = useState<ClienteReportRow[]>([]);
   const [clientesTotal, setClientesTotal] = useState(0);
   const [fechaDesde, setFechaDesde] = useState(new Date().toISOString().split("T")[0]);
   const [fechaHasta, setFechaHasta] = useState(new Date().toISOString().split("T")[0]);
   const [searchText, setSearchText] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  const [ventasPorCli, setVentasPorCli] = useState<any[] | null>(null);
-  const [frecuenciaData, setFrecuenciaData] = useState<any[] | null>(null);
+  const [ventasPorCli, setVentasPorCli] = useState<VentasPorClienteRow[] | null>(null);
+  const [frecuenciaData, setFrecuenciaData] = useState<FrecuenciaComprasRow[] | null>(null);
   const [loadingSection, setLoadingSection] = useState<string | null>(null);
   const [printSection, setPrintSection] = useState<string | null>(null);
 
@@ -69,7 +89,7 @@ export default function ClientesReport({ initialData, userRole }: Props) {
     });
   }, [fechaDesde, fechaHasta, searchText]);
 
-  const loadSection = useCallback(async (section: string, fetcher: () => Promise<any>) => {
+  const loadSection = useCallback(async (section: string, fetcher: () => Promise<unknown>) => {
     setLoadingSection(section);
     try { await fetcher(); }
     finally { setLoadingSection(null); }
@@ -88,13 +108,13 @@ export default function ClientesReport({ initialData, userRole }: Props) {
 
   const kpiData = useMemo(() => {
     const total = clientesTotal;
-    const activos = clientes.filter((c: any) => c.cantidadCompras > 0).length;
-    const nuevos = clientes.filter((c: any) => c.cantidadCompras === 1).length;
-    const totalGastado = clientes.reduce((s: number, c: any) => s + c.totalGastado, 0);
-    const totalCompras = clientes.reduce((s: number, c: any) => s + c.cantidadCompras, 0);
+    const activos = clientes.filter((c: ClienteReportRow) => c.cantidadCompras > 0).length;
+    const nuevos = clientes.filter((c: ClienteReportRow) => c.cantidadCompras === 1).length;
+    const totalGastado = clientes.reduce((s, c) => s + c.totalGastado, 0);
+    const totalCompras = clientes.reduce((s, c) => s + c.cantidadCompras, 0);
     const ticketProm = totalCompras > 0 ? totalGastado / totalCompras : 0;
     const frecProm = clientes.length > 0
-      ? clientes.reduce((s: number, c: any) => s + (c.frecuencia || 0), 0) / clientes.length
+      ? clientes.reduce((s, c) => s + (c.frecuencia || 0), 0) / clientes.length
       : 0;
 
     return [
@@ -108,16 +128,16 @@ export default function ClientesReport({ initialData, userRole }: Props) {
   }, [clientes, clientesTotal]);
 
   const clientesNuevos = useMemo(() =>
-    clientes.filter((c: any) => c.cantidadCompras === 1),
+    clientes.filter((c: ClienteReportRow) => c.cantidadCompras === 1),
   [clientes]);
 
   const clientesInactivos = useMemo(() =>
-    clientes.filter((c: any) => c.cantidadCompras === 0),
+    clientes.filter((c: ClienteReportRow) => c.cantidadCompras === 0),
   [clientes]);
 
   const gastoTendencia = useMemo(() => {
-    const sorted = [...clientes].sort((a: any, b: any) => b.totalGastado - a.totalGastado);
-    return sorted.slice(0, 20).map((c: any, i: number) => ({
+    const sorted = [...clientes].sort((a, b) => b.totalGastado - a.totalGastado);
+    return sorted.slice(0, 20).map((c, i) => ({
       rank: i + 1,
       cliente: c.nombre.length > 12 ? c.nombre.substring(0, 12) + "..." : c.nombre,
       gasto: c.totalGastado,
@@ -192,12 +212,12 @@ export default function ClientesReport({ initialData, userRole }: Props) {
               { header: "Nombre", accessor: "nombre" },
               { header: "DNI", accessor: "dni" },
               { header: "Compras", accessor: "cantidadCompras", className: "text-right" },
-              { header: "Total Gastado", accessor: (r: any) => formatCurrency(r.totalGastado), className: "text-right" },
-              { header: "Frecuencia", accessor: (r: any) => r.frecuencia > 0 ? `${r.frecuencia} días` : "—", className: "text-right" },
-              { header: "Última Compra", accessor: (r: any) => r.ultimaCompra || "—" },
+              { header: "Total Gastado", accessor: (r: ClienteReportRow) => formatCurrency(r.totalGastado), className: "text-right" },
+              { header: "Frecuencia", accessor: (r: ClienteReportRow) => r.frecuencia > 0 ? `${r.frecuencia} días` : "—", className: "text-right" },
+              { header: "Última Compra", accessor: (r: ClienteReportRow) => r.ultimaCompra || "—" },
             ]}
             data={clientes}
-            keyExtractor={(r: any) => r.id}
+            keyExtractor={(r: ClienteReportRow) => r.id}
             emptyMessage="Sin clientes en el período."
           />
         </div>
@@ -225,7 +245,7 @@ export default function ClientesReport({ initialData, userRole }: Props) {
               <RePie>
                 <Pie data={frecuenciaData ? (() => {
                   const cats: Record<string, number> = {};
-                  frecuenciaData.forEach((f: any) => { cats[f.categoria] = (cats[f.categoria] || 0) + 1; });
+                  frecuenciaData.forEach((f: FrecuenciaComprasRow) => { cats[f.categoria] = (cats[f.categoria] || 0) + 1; });
                   return Object.entries(cats).map(([name, value]) => ({ name, value }));
                 })() : []} dataKey="value" cx="50%" cy="50%" outerRadius={80} label={({ name }) => name}>
                   {[0, 1, 2, 3, 4].map((i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
@@ -261,8 +281,8 @@ export default function ClientesReport({ initialData, userRole }: Props) {
               <DataTable columns={[
                 { header: "Cliente", accessor: "cliente" },
                 { header: "Compras", accessor: "cantidad", className: "text-right" },
-                { header: "Total", accessor: (r: any) => formatCurrency(r.total), className: "text-right" },
-              ]} data={ventasPorCli} keyExtractor={(r: any) => r.clienteId} />
+                { header: "Total", accessor: (r: VentasPorClienteRow) => formatCurrency(r.total), className: "text-right" },
+              ]} data={ventasPorCli} keyExtractor={(r: VentasPorClienteRow) => r.clienteId} />
             )}
           </DataSection>
 
@@ -273,9 +293,9 @@ export default function ClientesReport({ initialData, userRole }: Props) {
               <DataTable columns={[
                 { header: "Cliente", accessor: "cliente" },
                 { header: "Compras", accessor: "cantidadCompras", className: "text-right" },
-                { header: "Frecuencia", accessor: (r: any) => r.frecuenciaDias > 0 ? `${r.frecuenciaDias} días` : "—", className: "text-right" },
+                { header: "Frecuencia", accessor: (r: FrecuenciaComprasRow) => r.frecuenciaDias > 0 ? `${r.frecuenciaDias} días` : "—", className: "text-right" },
                 { header: "Categoría", accessor: "categoria" },
-              ]} data={frecuenciaData} keyExtractor={(r: any) => r.clienteId} />
+              ]} data={frecuenciaData} keyExtractor={(r: FrecuenciaComprasRow) => r.clienteId} />
             )}
           </DataSection>
 
@@ -285,11 +305,11 @@ export default function ClientesReport({ initialData, userRole }: Props) {
               <DataTable
                 columns={[
                   { header: "Nombre", accessor: "nombre" },
-                  { header: "Gasto", accessor: (r: any) => formatCurrency(r.totalGastado), className: "text-right" },
-                  { header: "Últ. Compra", accessor: (r: any) => r.ultimaCompra || "—" },
+                  { header: "Gasto", accessor: (r: ClienteReportRow) => formatCurrency(r.totalGastado), className: "text-right" },
+                  { header: "Últ. Compra", accessor: (r: ClienteReportRow) => r.ultimaCompra || "—" },
                 ]}
                 data={clientesNuevos.slice(0, 10)}
-                keyExtractor={(r: any) => r.id}
+                keyExtractor={(r: ClienteReportRow) => r.id}
                 emptyMessage="Sin clientes nuevos en el período."
               />
             </div>
@@ -300,10 +320,10 @@ export default function ClientesReport({ initialData, userRole }: Props) {
                 columns={[
                   { header: "Nombre", accessor: "nombre" },
                   { header: "DNI", accessor: "dni" },
-                  { header: "Últ. Compra", accessor: (r: any) => r.ultimaCompra || "—" },
+                  { header: "Últ. Compra", accessor: (r: ClienteReportRow) => r.ultimaCompra || "—" },
                 ]}
                 data={clientesInactivos.slice(0, 10)}
-                keyExtractor={(r: any) => r.id}
+                keyExtractor={(r: ClienteReportRow) => r.id}
                 emptyMessage="Sin clientes inactivos."
               />
             </div>

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
@@ -27,8 +27,10 @@ import {
 
 /* ─── Types ─────────────────────────────────────────────────── */
 
+type VentasReportData = Awaited<ReturnType<typeof getReporteVentas>>;
+
 interface Props {
-  initialData: any;
+  initialData: VentasReportData;
   usuarios: { id: number; username: string; nombreCompleto: string }[];
   userRole: string;
 }
@@ -43,16 +45,16 @@ interface PeriodOption {
 const PERIOD_OPTIONS: PeriodOption[] = [
   { key: "hoy", label: "Hoy" },
   { key: "ayer", label: "Ayer" },
-  { key: "7d", label: "Últimos 7 días" },
+  { key: "7d", label: "Ãšltimos 7 dÃ­as" },
   { key: "mes", label: "Este mes" },
   { key: "mes_anterior", label: "Mes anterior" },
-  { key: "anio", label: "Este año" },
+  { key: "anio", label: "Este aÃ±o" },
   { key: "personalizado", label: "Personalizado" },
 ];
 
 type ChartGranularity = "dia" | "semana" | "mes" | "anio";
 
-/* ─── Helpers ───────────────────────────────────────────────── */
+/* â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 function getDateRange(period: PeriodKey): { desde: string; hasta: string } {
   const today = new Date();
@@ -89,7 +91,7 @@ function getDateRange(period: PeriodKey): { desde: string; hasta: string } {
   }
 }
 
-/* ─── Ranking Card Subcomponents ────────────────────────────── */
+/* â”€â”€â”€ Ranking Card Subcomponents â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 function ProductRankingCard({
   item,
@@ -111,7 +113,7 @@ function ProductRankingCard({
         <p className="text-sm font-semibold text-[var(--text)] truncate">{item.producto}</p>
         <div className="flex items-center gap-2 mt-1">
           <span className="text-xs text-[var(--text-muted)]">{item.cantidad} uds</span>
-          <span className="text-xs text-[var(--text-muted)]">·</span>
+          <span className="text-xs text-[var(--text-muted)]">Â·</span>
           <span className="text-xs text-[var(--text-muted)]">{formatCurrency(item.ingreso)}</span>
         </div>
         <div className="mt-1.5 h-1.5 rounded-full bg-[var(--border)]">
@@ -142,7 +144,7 @@ function ClientRankingCard({
         <p className="text-sm font-semibold text-[var(--text)] truncate">{item.cliente}</p>
         <div className="flex items-center gap-2 mt-1">
           <span className="text-xs text-[var(--text-muted)]">{item.cantidad} compras</span>
-          <span className="text-xs text-[var(--text-muted)]">·</span>
+          <span className="text-xs text-[var(--text-muted)]">Â·</span>
           <span className="text-xs font-semibold text-[var(--success)]">{formatCurrency(item.total)}</span>
         </div>
       </div>
@@ -171,9 +173,9 @@ function SellerRankingCard({
         <p className="text-sm font-semibold text-[var(--text)] truncate">{item.vendedor}</p>
         <div className="flex items-center gap-3 mt-1 flex-wrap">
           <span className="text-xs text-[var(--text-muted)]">{item.cantidadVentas} ventas</span>
-          <span className="text-xs text-[var(--text-muted)]">·</span>
+          <span className="text-xs text-[var(--text-muted)]">Â·</span>
           <span className="text-xs font-semibold text-[var(--success)]">{formatCurrency(item.totalVendido)}</span>
-          <span className="text-xs text-[var(--text-muted)]">·</span>
+          <span className="text-xs text-[var(--text-muted)]">Â·</span>
           <span className="text-xs text-[var(--text-muted)]">Prom: {formatCurrency(avg)}</span>
         </div>
         <div className="mt-1.5 h-1.5 rounded-full bg-[var(--border)]">
@@ -187,10 +189,10 @@ function SellerRankingCard({
   );
 }
 
-/* ─── Main Component ────────────────────────────────────────── */
+/* â”€â”€â”€ Main Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 export default function VentasReport({ initialData, usuarios, userRole }: Props) {
-  // ── Core state ──
+  // â”€â”€ Core state â”€â”€
   const [data, setData] = useState(initialData);
   const [fechaDesde, setFechaDesde] = useState(new Date().toISOString().split("T")[0]);
   const [fechaHasta, setFechaHasta] = useState(new Date().toISOString().split("T")[0]);
@@ -201,17 +203,17 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
   const [searchText, setSearchText] = useState("");
   const [isPending, setIsPending] = useState(false);
 
-  // ── Period selector ──
+  // â”€â”€ Period selector â”€â”€
   const [activePeriod, setActivePeriod] = useState<PeriodKey>("7d");
 
-  // ── Filter toggle ──
+  // â”€â”€ Filter toggle â”€â”€
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  // ── Chart data ──
+  // â”€â”€ Chart data â”€â”€
   const [evolucionData, setEvolucionData] = useState<{ periodo: string; ventas: number; ganancia: number; fechaInicio: string; fechaFin: string }[]>([]);
   const [chartGranularity, setChartGranularity] = useState<ChartGranularity>("dia");
 
-  // ── Secondary chart data (auto-loaded) ──
+  // â”€â”€ Secondary chart data (auto-loaded) â”€â”€
   const [ventasPorCat, setVentasPorCat] = useState<any[] | null>(null);
   const [topProds, setTopProds] = useState<any[] | null>(null);
   const [ventasPorVend, setVentasPorVend] = useState<any[] | null>(null);
@@ -220,11 +222,11 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
 
 
 
-  // ── Modals ──
+  // â”€â”€ Modals â”€â”€
   const [detalleVentaId, setDetalleVentaId] = useState<number | null>(null);
   const [ticketVentaId, setTicketVentaId] = useState<number | null>(null);
 
-  // ── Filtered ventas for text search (oldest first) ──
+  // â”€â”€ Filtered ventas for text search (oldest first) â”€â”€
   const ventasFiltradas = useMemo(() => {
     const v = data.ventas || [];
     const filtered = !searchText
@@ -236,21 +238,21 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
     return [...filtered].reverse();
   }, [data, searchText]);
 
-  // ── KPI calculations ──
+  // â”€â”€ KPI calculations â”€â”€
   const totales = useMemo(() => {
-    const v = ventasFiltradas as any[];
+    const v = ventasFiltradas;
     const cantidad = v.length;
-    const total = v.reduce((s: number, x: any) => s + (x.total || 0), 0);
+    const total = v.reduce((s, x) => s + (x.total || 0), 0);
     const promedio = cantidad > 0 ? total / cantidad : 0;
     const productosVendidos = v.reduce((s: number, x: any) => s + (x.cantidadProductos || 0), 0);
     return { cantidad, total, promedio, productosVendidos };
   }, [ventasFiltradas]);
 
   const clientesUnicos = useMemo(() => {
-    return new Set((data.ventas || []).map((v: any) => v.cliente)).size;
+    return new Set((data.ventas || []).map((v) => v.cliente)).size;
   }, [data]);
 
-  // ── Estimated ganancia (from evolucion data) ──
+  // â”€â”€ Estimated ganancia (from evolucion data) â”€â”€
   const gananciaEstimada = useMemo(() => {
     return evolucionData.reduce((sum, d) => sum + d.ganancia, 0);
   }, [evolucionData]);
@@ -261,32 +263,32 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
       value: formatCurrency(totales.total),
       icon: <DollarSign size={18} />,
       color: "emerald" as const,
-      trend: { direction: "up" as const, value: "vs período anterior" },
+      trend: { direction: "up" as const, value: "vs perÃ­odo anterior" },
     },
     {
       label: "Cantidad de Ventas",
       value: totales.cantidad.toString(),
       icon: <ShoppingCart size={18} />,
       color: "indigo" as const,
-      trend: { direction: "up" as const, value: "vs período anterior" },
+      trend: { direction: "up" as const, value: "vs perÃ­odo anterior" },
     },
     {
       label: "Productos Vendidos",
       value: totales.productosVendidos.toString(),
       icon: <Package size={18} />,
       color: "sky" as const,
-      trend: { direction: "up" as const, value: "vs período anterior" },
+      trend: { direction: "up" as const, value: "vs perÃ­odo anterior" },
     },
     {
       label: "Clientes Atendidos",
       value: clientesUnicos.toString(),
       icon: <Users size={18} />,
       color: "rose" as const,
-      trend: { direction: "up" as const, value: "vs período anterior" },
+      trend: { direction: "up" as const, value: "vs perÃ­odo anterior" },
     },
   ], [totales, clientesUnicos]);
 
-  // ── Period change handler ──
+  // â”€â”€ Period change handler â”€â”€
   const handlePeriodChange = useCallback(async (period: PeriodKey) => {
     setActivePeriod(period);
     if (period === "personalizado") return;
@@ -319,7 +321,7 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
     }
   }, [usuarioId, clienteId, chartGranularity]);
 
-  // ── Search handler ──
+  // â”€â”€ Search handler â”€â”€
   const handleSearch = useCallback(async () => {
     setIsPending(true);
     setFiltersOpen(false);
@@ -347,7 +349,7 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
     }
   }, [fechaDesde, fechaHasta, usuarioId, clienteId, chartGranularity]);
 
-  // ── Load evolution chart ──
+  // â”€â”€ Load evolution chart â”€â”€
   const loadEvolutionChart = useCallback(async () => {
     try {
       const result = await getEvolucionVentas(fechaDesde || undefined, fechaHasta || undefined, chartGranularity);
@@ -357,7 +359,7 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
     }
   }, [fechaDesde, fechaHasta, chartGranularity]);
 
-  // ── Load all secondary charts ──
+  // â”€â”€ Load all secondary charts â”€â”€
   const loadAllSecondaryCharts = useCallback(async () => {
     setLoadingCharts(true);
     try {
@@ -379,7 +381,7 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
     }
   }, [fechaDesde, fechaHasta]);
 
-  // ── Initial load: set default period and load all data ──
+  // â”€â”€ Initial load: set default period and load all data â”€â”€
   useEffect(() => {
     const range = getDateRange("7d");
     setFechaDesde(range.desde);
@@ -416,7 +418,7 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Reload evolution chart when granularity changes (skip initial mount) ──
+  // â”€â”€ Reload evolution chart when granularity changes (skip initial mount) â”€â”€
   const isFirstRender = useRef(true);
   useEffect(() => {
     if (isFirstRender.current) {
@@ -429,12 +431,12 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chartGranularity]);
 
-  // ── Print handler ──
+  // â”€â”€ Print handler â”€â”€
   const handlePrint = () => window.print();
 
 
 
-  // ── Chart data for secondary charts ──
+  // â”€â”€ Chart data for secondary charts â”€â”€
   const categoryPieData = useMemo(() => {
     if (!ventasPorCat) return [];
     return ventasPorCat.map((c: any) => ({
@@ -446,7 +448,7 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
   const topProdsBarData = useMemo(() => {
     if (!topProds) return [];
     return topProds.slice(0, 8).map((p: any) => ({
-      name: p.producto.length > 22 ? p.producto.slice(0, 20) + "…" : p.producto,
+      name: p.producto.length > 22 ? p.producto.slice(0, 20) + "â€¦" : p.producto,
       cantidad: p.cantidad,
       ingreso: p.ingreso,
     }));
@@ -470,7 +472,7 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
     }));
   }, [ventasPorCli]);
 
-  // ── Top 5 for ranking cards ──
+  // â”€â”€ Top 5 for ranking cards â”€â”€
   const top5Products = useMemo(() => (topProds || []).slice(0, 5), [topProds]);
   const top5Clients = useMemo(() => (ventasPorCli || []).slice(0, 5), [ventasPorCli]);
   const topSellers = useMemo(() => (ventasPorVend || []).slice(0, 5), [ventasPorVend]);
@@ -486,7 +488,7 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
   const inputClass =
     "w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/40 focus:border-[var(--brand)] transition";
 
-  // ── Custom tooltip for evolution chart ──
+  // â”€â”€ Custom tooltip for evolution chart â”€â”€
   const EvolutionTooltip = ({ active, payload, granularity }: any) => {
     if (!active || !payload?.length) return null;
     const data = payload[0]?.payload;
@@ -515,7 +517,7 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
     return (
       <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 shadow-lg text-xs" style={{ minWidth: 200 }}>
         <div className="font-bold text-[var(--text)] mb-2 pb-1 border-b border-[var(--border)]">
-          📅 {fechaCompleta}
+          ðŸ“… {fechaCompleta}
         </div>
         <div className="flex items-center justify-between mb-1">
           <span className="text-[var(--text-muted)] flex items-center gap-1.5">
@@ -541,9 +543,9 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
 
   return (
     <div className="space-y-4">
-      {/* ═══════════════════════════════════════════════════════
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
           SECTION 1: FILTERS + PERIOD (single bar)
-          ═══════════════════════════════════════════════════════ */}
+          â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl overflow-hidden">
         {/* Toggle + Period row */}
         <div className="flex items-center gap-4 px-4 py-3">
@@ -566,7 +568,7 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
 
           <div className="flex items-center gap-2 shrink-0">
             <Calendar size={14} className="text-[var(--text-muted)]" />
-            <span className="text-xs font-semibold text-[var(--text-muted)]">Período:</span>
+            <span className="text-xs font-semibold text-[var(--text-muted)]">PerÃ­odo:</span>
             <select
               value={activePeriod}
               onChange={(e) => handlePeriodChange(e.target.value as PeriodKey)}
@@ -646,10 +648,10 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
                   className={inputClass}
                 />
               </div>
-              {/* Categoría */}
+              {/* CategorÃ­a */}
               <div>
                 <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
-                  <Package size={12} /> Categoría
+                  <Package size={12} /> CategorÃ­a
                 </label>
                 <select
                   value={categoriaId || ""}
@@ -672,10 +674,10 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
                   className={inputClass}
                 />
               </div>
-              {/* Búsqueda */}
+              {/* BÃºsqueda */}
               <div>
                 <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
-                  <Search size={12} /> Búsqueda
+                  <Search size={12} /> BÃºsqueda
                 </label>
                 <input
                   type="text"
@@ -714,9 +716,9 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
         )}
       </div>
 
-      {/* ═══════════════════════════════════════════════════════
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
           PRINTABLE CONTENT
-          ═══════════════════════════════════════════════════════ */}
+          â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       <div className="print:bg-white print:text-black space-y-4">
         {/* Print header */}
         <div className="hidden print:block text-center mb-6">
@@ -726,7 +728,7 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
           <hr className="my-2 border-gray-300" />
         </div>
 
-        {/* ─── Summary Row (same metrics as KPI cards) ─── */}
+        {/* â”€â”€â”€ Summary Row (same metrics as KPI cards) â”€â”€â”€ */}
         <div className="bg-[var(--panel)] border border-[var(--border)] rounded-xl p-4">
           <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-3">Resumen</h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -753,11 +755,11 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
           </div>
         </div>
 
-        {/* ─── Evolution Chart (full-width) ─── */}
+        {/* â”€â”€â”€ Evolution Chart (full-width) â”€â”€â”€ */}
         <div className="report-section" data-section-id="evolution">
           <div className="bg-[var(--panel)] rounded-xl p-4 border border-[var(--border)]">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-[var(--text-muted)]">Evolución de Ventas</h3>
+              <h3 className="text-sm font-semibold text-[var(--text-muted)]">EvoluciÃ³n de Ventas</h3>
               <div className="flex items-center gap-1 print:hidden">
                 {(["dia", "semana", "mes", "anio"] as ChartGranularity[]).map((g) => {
                   const labels: Record<ChartGranularity, string> = {
@@ -821,14 +823,14 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
                 </ResponsiveContainer>
               ) : (
                 <div className="flex items-center justify-center h-full text-[var(--text-secondary)]">
-                  Sin datos para el período seleccionado
+                  Sin datos para el perÃ­odo seleccionado
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* ─── Secondary Charts (3-column grid) ─── */}
+        {/* â”€â”€â”€ Secondary Charts (3-column grid) â”€â”€â”€ */}
         <div className="report-section" data-section-id="charts">
 
 
@@ -843,9 +845,9 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* Ventas por Categoría — PieChart */}
+              {/* Ventas por CategorÃ­a â€” PieChart */}
               <div className="bg-[var(--panel)] rounded-xl p-4 border border-[var(--border)]">
-                <h3 className="text-sm font-semibold text-[var(--text-muted)] mb-4">Ventas por Categoría</h3>
+                <h3 className="text-sm font-semibold text-[var(--text-muted)] mb-4">Ventas por CategorÃ­a</h3>
                 {categoryPieData.length > 0 ? (
                   <div className="flex items-center gap-4">
                     {/* Pie */}
@@ -893,12 +895,12 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
                   </div>
                 ) : (
                   <div className="flex items-center justify-center h-[220px] text-[var(--text-secondary)] text-sm">
-                    Sin datos de categorías
+                    Sin datos de categorÃ­as
                   </div>
                 )}
               </div>
 
-              {/* Top Productos — horizontal BarChart */}
+              {/* Top Productos â€” horizontal BarChart */}
               <div className="bg-[var(--panel)] rounded-xl p-4 border border-[var(--border)]">
                 <h3 className="text-sm font-semibold text-[var(--text-muted)] mb-4">Top Productos</h3>
                 <div style={{ width: "100%", height: 300 }}>
@@ -925,7 +927,7 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
                 </div>
               </div>
 
-              {/* Top Clientes — horizontal BarChart */}
+              {/* Top Clientes â€” horizontal BarChart */}
               <div className="bg-[var(--panel)] rounded-xl p-4 border border-[var(--border)]">
                 <h3 className="text-sm font-semibold text-[var(--text-muted)] mb-4">Top Clientes</h3>
                 <div style={{ width: "100%", height: 300 }}>
@@ -955,7 +957,7 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
           )}
         </div>
 
-        {/* ─── Top 5 Rankings ─── */}
+        {/* â”€â”€â”€ Top 5 Rankings â”€â”€â”€ */}
         <div className="report-section" data-section-id="rankings">
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -1012,7 +1014,7 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
           </div>
         </div>
 
-        {/* ─── Sales Table ─── */}
+        {/* â”€â”€â”€ Sales Table â”€â”€â”€ */}
         <div className="report-section" data-section-id="table">
           <div className="flex items-center justify-between mb-2 print:hidden">
             <h3 className="text-sm font-semibold text-[var(--text-muted)]">
@@ -1044,7 +1046,7 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
                   {ventasFiltradas.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="px-4 py-8 text-center text-[var(--text-secondary)]">
-                        Sin ventas en el período.
+                        Sin ventas en el perÃ­odo.
                       </td>
                     </tr>
                   ) : (
@@ -1096,7 +1098,7 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
         </div>
       </div>
 
-      {/* ─── Modals ─── */}
+      {/* â”€â”€â”€ Modals â”€â”€â”€ */}
       {detalleVentaId && (
         <DetalleVentaModal
           ventaId={detalleVentaId}
@@ -1114,3 +1116,4 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
     </div>
   );
 }
+

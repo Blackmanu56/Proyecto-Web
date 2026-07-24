@@ -1,8 +1,9 @@
-﻿"use server";
+"use server";
 
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { getSession } from "@/lib/auth.server";
+import { requirePermission } from "@/lib/auth-permissions";
 
 export type ProveedorConDetalles = {
   id: number;
@@ -44,7 +45,7 @@ export async function getProveedores(
   query: string = "",
   soloActivos: boolean = true
 ): Promise<ProveedorConDetalles[]> {
-  const where: any = {};
+  const where: Prisma.ProveedorWhereInput = {};
 
   if (soloActivos) {
     where.activo = true;
@@ -59,7 +60,7 @@ export async function getProveedores(
     ];
   }
 
-  return (await prisma.proveedor.findMany({
+  return await prisma.proveedor.findMany({
     where,
     include: {
       _count: {
@@ -70,7 +71,7 @@ export async function getProveedores(
       },
     },
     orderBy: { id: "asc" },
-  })) as any;
+  });
 }
 
 // Create a new supplier
@@ -79,10 +80,7 @@ export async function crearProveedor(
 ): Promise<{ success?: boolean; error?: string }> {
   try {
     // Verificar permisos
-    const session = await getSession();
-    if (!session || !["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(session.role)) {
-      return { error: "No tiene permisos para realizar esta acción." };
-    }
+    await requirePermission("proveedores.crear");
 
     const nombre = formData.get("nombre") as string;
     const contactoResponsable = (formData.get("contactoResponsable") as string) || null;
@@ -98,7 +96,7 @@ export async function crearProveedor(
     // Check unique CUIT
     const existingCuit = await prisma.proveedor.findUnique({ where: { cuit } });
     if (existingCuit) {
-      return { error: "El CUIT ya est├í registrado por otro proveedor." };
+      return { error: "El CUIT ya está registrado por otro proveedor." };
     }
 
     // Check unique Email if provided
@@ -107,7 +105,7 @@ export async function crearProveedor(
         where: { email },
       });
       if (existingEmail) {
-        return { error: "El correo electr├│nico ya est├í registrado." };
+        return { error: "El correo electrónico ya está registrado." };
       }
     }
 
@@ -124,7 +122,7 @@ export async function crearProveedor(
 
     revalidatePath("/proveedores");
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error al crear proveedor:", error);
     return { error: "Error interno al crear el proveedor." };
   }
@@ -137,10 +135,7 @@ export async function actualizarProveedor(
 ): Promise<{ success?: boolean; error?: string }> {
   try {
     // Verificar permisos
-    const session = await getSession();
-    if (!session || !["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(session.role)) {
-      return { error: "No tiene permisos para realizar esta acción." };
-    }
+    await requirePermission("proveedores.editar");
 
     const nombre = formData.get("nombre") as string;
     const contactoResponsable = (formData.get("contactoResponsable") as string) || null;
@@ -158,7 +153,7 @@ export async function actualizarProveedor(
       where: { cuit, NOT: { id } },
     });
     if (existingCuit) {
-      return { error: "El CUIT ya est├í registrado por otro proveedor." };
+      return { error: "El CUIT ya está registrado por otro proveedor." };
     }
 
     // Check unique Email excluding current if provided
@@ -167,7 +162,7 @@ export async function actualizarProveedor(
         where: { email, NOT: { id } },
       });
       if (existingEmail) {
-        return { error: "El correo electr├│nico ya est├í registrado por otro proveedor." };
+        return { error: "El correo electrónico ya está registrado por otro proveedor." };
       }
     }
 
@@ -185,22 +180,19 @@ export async function actualizarProveedor(
 
     revalidatePath("/proveedores");
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error al actualizar proveedor:", error);
     return { error: "Error interno al actualizar el proveedor." };
   }
 }
 
-// Logical delete (baja l├│gica)
+// Logical delete (baja lógica)
 export async function toggleEstadoProveedor(
   id: number
 ): Promise<{ success?: boolean; error?: string }> {
   try {
     // Verificar permisos
-    const session = await getSession();
-    if (!session || !["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(session.role)) {
-      return { error: "No tiene permisos para realizar esta acci├│n." };
-    }
+    await requirePermission("proveedores.estado");
 
     const proveedor = await prisma.proveedor.findUnique({ where: { id } });
     if (!proveedor) {
@@ -214,7 +206,7 @@ export async function toggleEstadoProveedor(
 
     revalidatePath("/proveedores");
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error al cambiar estado de proveedor:", error);
     return { error: "Error interno al cambiar el estado del proveedor." };
   }
@@ -226,10 +218,7 @@ export async function eliminarProveedorReal(
 ): Promise<{ success?: boolean; error?: string }> {
   try {
     // Verificar permisos (solo administradores pueden eliminar definitivamente)
-    const session = await getSession();
-    if (!session || session.role !== "ADMINISTRADOR") {
-      return { error: "Solo los administradores pueden eliminar proveedores del sistema." };
-    }
+    await requirePermission("proveedores.estado");
 
     const proveedor = await prisma.proveedor.findUnique({
       where: { id },
@@ -251,7 +240,7 @@ export async function eliminarProveedorReal(
     if (proveedor._count.productos > 0 || proveedor._count.compras > 0) {
       return {
         error:
-          "No se puede eliminar f├¡sicamente este proveedor porque tiene productos asociados o historial de compras. Utilice la 'Baja L├│gica' en su lugar para desactivarlo.",
+          "No se puede eliminar físicamente este proveedor porque tiene productos asociados o historial de compras. Utilice la 'Baja Lógica' en su lugar para desactivarlo.",
       };
     }
 
@@ -261,8 +250,8 @@ export async function eliminarProveedorReal(
 
     revalidatePath("/proveedores");
     return { success: true };
-  } catch (error: any) {
-    console.error("Error al eliminar proveedor f├¡sicamente:", error);
+  } catch (error: unknown) {
+    console.error("Error al eliminar proveedor físicamente:", error);
     return { error: "Error interno al eliminar el proveedor." };
   }
 }
@@ -294,8 +283,8 @@ export async function getHistorialAbastecimiento(
       orderBy: { fecha: "desc" },
     });
 
-    return compras as any;
-  } catch (error: any) {
+    return compras;
+  } catch (error: unknown) {
     console.error("Error al obtener historial de abastecimiento:", error);
     return [];
   }
@@ -320,3 +309,4 @@ export async function getProveedorProductos(proveedorId: number) {
     return [];
   }
 }
+

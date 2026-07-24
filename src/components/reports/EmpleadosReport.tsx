@@ -1,24 +1,37 @@
-﻿"use client";
+"use client";
 
-import React, { useState, useEffect, useTransition, useMemo } from "react";
-import { getReporteEmpleados, getRankingVendedores, getActividadRecienteVendedores, getVentasPorVendedorComision } from "@/actions/informes";
-import { formatCurrency } from "@/lib/utils";
-import Avatar from "@/components/ui/Avatar";
-import StatCard from "@/components/ui/StatCard";
-import ChartWrapper, { CHART_COLORS } from "@/components/ui/ChartWrapper";
+import { getActividadRecienteVendedores,getRankingVendedores,getReporteEmpleados,getVentasPorVendedorComision } from "@/actions/informes";
+import ChartWrapper,{ CHART_COLORS } from "@/components/ui/ChartWrapper";
 import DataTable from "@/components/ui/DataTable";
+import StatCard from "@/components/ui/StatCard";
+import { formatCurrency } from "@/lib/utils";
 import {
-  Search, Calendar, RefreshCw, Users, TrendingUp, Wallet, Printer, Star,
-  UserCheck, Award, Medal,
+Award,
+Calendar,
+Medal,
+Printer,
+RefreshCw,
+Search,
+Star,
+TrendingUp,
+UserCheck,
+Users,
+Wallet,
 } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, AreaChart, Area, Tooltip } from "recharts";
+import { useEffect,useMemo,useState,useTransition } from "react";
+import { Area,AreaChart,Bar,BarChart,CartesianGrid,XAxis,YAxis } from "recharts";
+
+type EmpleadoReportRow = Awaited<ReturnType<typeof getReporteEmpleados>>[number];
+type RankingVendedorRow = Awaited<ReturnType<typeof getRankingVendedores>>["data"][number];
+type ActividadVendedorRow = Awaited<ReturnType<typeof getActividadRecienteVendedores>>["data"][number];
+type VentasPorVendedorRow = Awaited<ReturnType<typeof getVentasPorVendedorComision>>["data"][number];
 
 interface Props {
-  initialData: any[];
+  initialData: EmpleadoReportRow[];
   userRole: string;
 }
 
-export default function EmpleadosReport({ initialData, userRole }: Props) {
+export default function EmpleadosReport({ initialData }: Props) {
   const [data, setData] = useState(initialData);
   const [fechaDesde, setFechaDesde] = useState(new Date().toISOString().split("T")[0]);
   const [fechaHasta, setFechaHasta] = useState(new Date().toISOString().split("T")[0]);
@@ -26,9 +39,9 @@ export default function EmpleadosReport({ initialData, userRole }: Props) {
   const [searchUser, setSearchUser] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  const [ranking, setRanking] = useState<any[] | null>(null);
-  const [actividad, setActividad] = useState<any[] | null>(null);
-  const [ventasPorVend, setVentasPorVend] = useState<any[] | null>(null);
+  const [ranking, setRanking] = useState<RankingVendedorRow[] | null>(null);
+  const [actividad, setActividad] = useState<ActividadVendedorRow[] | null>(null);
+  const [ventasPorVend, setVentasPorVend] = useState<VentasPorVendedorRow[] | null>(null);
   const [loadingSection, setLoadingSection] = useState<string | null>(null);
   const [printSection, setPrintSection] = useState<string | null>(null);
 
@@ -40,7 +53,7 @@ export default function EmpleadosReport({ initialData, userRole }: Props) {
     });
   };
 
-  const loadSection = async (section: string, fetcher: () => Promise<any>) => {
+  const loadSection = async (section: string, fetcher: () => Promise<unknown>) => {
     setLoadingSection(section);
     try { await fetcher(); }
     finally { setLoadingSection(null); }
@@ -58,9 +71,9 @@ export default function EmpleadosReport({ initialData, userRole }: Props) {
   }, [printSection]);
 
   const empleadosFiltrados = useMemo(() => {
-    let e = data as any[];
-    if (rolFiltro) e = e.filter((x: any) => x.rol === rolFiltro);
-    if (searchUser) e = e.filter((x: any) =>
+    let e = data;
+    if (rolFiltro) e = e.filter((x: EmpleadoReportRow) => x.rol === rolFiltro);
+    if (searchUser) e = e.filter((x: EmpleadoReportRow) =>
       (x.nombreCompleto || "").toLowerCase().includes(searchUser.toLowerCase()) ||
       (x.username || "").toLowerCase().includes(searchUser.toLowerCase())
     );
@@ -70,12 +83,12 @@ export default function EmpleadosReport({ initialData, userRole }: Props) {
   const kpis = useMemo(() => {
     const e = empleadosFiltrados;
     const total = e.length;
-    const totalVentas = e.reduce((s: number, x: any) => s + (x.ventasCount || 0), 0);
-    const totalVendido = e.reduce((s: number, x: any) => s + (x.totalVendido || 0), 0);
-    const conVentas = e.filter((x: any) => (x.ventasCount || 0) > 0);
+    const totalVentas = e.reduce((s, x) => s + (x.ventasCount || 0), 0);
+    const totalVendido = e.reduce((s, x) => s + (x.totalVendido || 0), 0);
+    const conVentas = e.filter((x: EmpleadoReportRow) => (x.ventasCount || 0) > 0);
     const promEmpleado = conVentas.length > 0 ? totalVendido / conVentas.length : 0;
-    const mejor = e.reduce((best: any, x: any) => (x.totalVendido > (best?.totalVendido || 0) ? x : best), null);
-    const peor = e.reduce((worst: any, x: any) => ((x.totalVendido < (worst?.totalVendido || Infinity) && x.totalVendido > 0) ? x : worst), null);
+    const mejor = e.reduce((best: EmpleadoReportRow | null, x) => (x.totalVendido > (best?.totalVendido || 0) ? x : best), null);
+    const peor = e.reduce((worst: EmpleadoReportRow | null, x) => ((x.totalVendido < (worst?.totalVendido || Infinity) && x.totalVendido > 0) ? x : worst), null);
     return [
       { label: "Empleados", value: total.toString(), icon: <Users size={18} />, color: "indigo" as const },
       { label: "Activos", value: total.toString(), icon: <UserCheck size={18} />, color: "emerald" as const },
@@ -190,14 +203,14 @@ export default function EmpleadosReport({ initialData, userRole }: Props) {
               <h3 className="text-sm font-semibold text-slate-300">Ranking Vendedores</h3>
               <DataTable
                 columns={[
-                  { header: "#", accessor: (r: any) => "#" + r.usuarioId },
+                  { header: "#", accessor: (r: RankingVendedorRow) => "#" + r.usuarioId },
                   { header: "Vendedor", accessor: "vendedor" },
                   { header: "Rol", accessor: "rol" },
                   { header: "Ventas", accessor: "ventas", className: "text-right" },
-                  { header: "Total", accessor: (r: any) => formatCurrency(r.totalVendido), className: "text-right" },
-                  { header: "Promedio", accessor: (r: any) => formatCurrency(r.promedioVenta), className: "text-right" },
+                  { header: "Total", accessor: (r: RankingVendedorRow) => formatCurrency(r.totalVendido), className: "text-right" },
+                  { header: "Promedio", accessor: (r: RankingVendedorRow) => formatCurrency(r.promedioVenta), className: "text-right" },
                 ]}
-                data={ranking} keyExtractor={(r: any) => r.usuarioId} emptyMessage="Sin datos de ranking." />
+                data={ranking} keyExtractor={(r: RankingVendedorRow) => r.usuarioId} emptyMessage="Sin datos de ranking." />
             </div>
           )}
 
@@ -217,12 +230,12 @@ export default function EmpleadosReport({ initialData, userRole }: Props) {
               <DataTable
                 columns={[
                   { header: "Vendedor", accessor: "vendedor" },
-                  { header: "Últ. Venta", accessor: (r: any) => r.ultimaVenta || "\u2014" },
-                  { header: "Últ. Cierre", accessor: (r: any) => r.ultimoCierre || "\u2014" },
+                  { header: "Últ. Venta", accessor: (r: ActividadVendedorRow) => r.ultimaVenta || "\u2014" },
+                  { header: "Últ. Cierre", accessor: (r: ActividadVendedorRow) => r.ultimoCierre || "\u2014" },
                   { header: "Hoy", accessor: "ventasHoy", className: "text-right" },
                   { header: "Semana", accessor: "ventasSemana", className: "text-right" },
                 ]}
-                data={actividad} keyExtractor={(r: any) => r.usuarioId} emptyMessage="Sin actividad registrada." />
+                data={actividad} keyExtractor={(r: ActividadVendedorRow) => r.usuarioId} emptyMessage="Sin actividad registrada." />
             </div>
           )}
 
@@ -243,10 +256,10 @@ export default function EmpleadosReport({ initialData, userRole }: Props) {
                 columns={[
                   { header: "Vendedor", accessor: "vendedor" },
                   { header: "Ventas", accessor: "cantidadVentas", className: "text-right" },
-                  { header: "Total", accessor: (r: any) => formatCurrency(r.totalVendido), className: "text-right" },
-                  { header: "Comisión", accessor: (r: any) => formatCurrency(r.comision), className: "text-right" },
+                  { header: "Total", accessor: (r: VentasPorVendedorRow) => formatCurrency(r.totalVendido), className: "text-right" },
+                  { header: "Comisión", accessor: (r: VentasPorVendedorRow) => formatCurrency(r.comision), className: "text-right" },
                 ]}
-                data={ventasPorVend} keyExtractor={(r: any) => r.usuarioId} emptyMessage="Sin ventas registradas." />
+                data={ventasPorVend} keyExtractor={(r: VentasPorVendedorRow) => r.usuarioId} emptyMessage="Sin ventas registradas." />
             </div>
           )}
         </div>

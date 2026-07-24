@@ -9,7 +9,7 @@ interface ReportFiltersState {
 }
 
 interface UseReportOptions<T> {
-  fetchFn: (filters: ReportFiltersState & { page?: number }) => Promise<T>;
+  fetchFn: (filters: ReportFiltersState & { search?: string; page?: number }) => Promise<T>;
   defaultFilters?: Partial<ReportFiltersState>;
   autoFetch?: boolean;
 }
@@ -34,7 +34,7 @@ export function useReport<T>({ fetchFn, defaultFilters = {}, autoFetch = true }:
       const callId = ++fetchCountRef.current;
 
       try {
-        const params: any = { ...filters };
+        const params: ReportFiltersState & { search?: string; page?: number } = { ...filters };
         if (search) params.search = search;
         if (page !== undefined) params.page = page;
 
@@ -77,7 +77,9 @@ export function useReport<T>({ fetchFn, defaultFilters = {}, autoFetch = true }:
 
   useEffect(() => {
     if (autoFetch) {
-      fetchData();
+      queueMicrotask(() => {
+        void fetchData();
+      });
     }
   }, [autoFetch, fetchData]);
 

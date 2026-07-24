@@ -1,7 +1,8 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect, useTransition, useMemo } from "react";
 import { getReporteProductos, getProductosMasVendidos, getProductosMayorIngreso } from "@/actions/informes";
+import type { ReporteProducto } from "@/actions/informes";
 import { formatCurrency } from "@/lib/utils";
 import {
   RefreshCw, Package, TrendingUp, DollarSign, Filter, Printer,
@@ -12,8 +13,10 @@ import ChartWrapper, { CHART_COLORS } from "@/components/ui/ChartWrapper";
 import SubPestanasProductos from "./SubPestanasProductos";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, PieChart as RePie, Pie, Cell } from "recharts";
 
+type TopProductoRow = Awaited<ReturnType<typeof getProductosMasVendidos>>[number];
+
 interface Props {
-  initialData: any[];
+  initialData: ReporteProducto[];
   categorias: { id: number; nombre: string }[];
   proveedores: { id: number; nombre: string }[];
   userRole: string;
@@ -28,7 +31,7 @@ const VIEW_TABS: { id: ViewMode; label: string; icon: React.ComponentType<{ size
   { id: "mayorIngreso", label: "Mayor Ingreso", icon: DollarSign },
 ];
 
-function applyStockFilter(productos: any[], filter: StockFilter): any[] {
+function applyStockFilter(productos: ReporteProducto[], filter: StockFilter): ReporteProducto[] {
   switch (filter) {
     case "sinStock": return productos.filter((p) => p.cantidad === 0);
     case "stockBajo": return productos.filter((p) => p.cantidad > 0 && p.cantidad <= p.stockMinimo);
@@ -37,13 +40,13 @@ function applyStockFilter(productos: any[], filter: StockFilter): any[] {
   }
 }
 
-export default function ProductosReport({ initialData, categorias, proveedores, userRole }: Props) {
+export default function ProductosReport({ initialData, categorias, proveedores }: Props) {
   const [allData, setAllData] = useState(initialData);
   const [viewMode, setViewMode] = useState<ViewMode>("todos");
   const [stockFilter, setStockFilter] = useState<StockFilter>("todos");
   const [categoriaId, setCategoriaId] = useState<number | undefined>(undefined);
   const [proveedorId, setProveedorId] = useState<number | undefined>(undefined);
-  const [topList, setTopList] = useState<any[]>([]);
+  const [topList, setTopList] = useState<TopProductoRow[]>([]);
   const [printSection, setPrintSection] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -54,9 +57,9 @@ export default function ProductosReport({ initialData, categorias, proveedores, 
 
   const kpis = useMemo(() => {
     const total = allData.length;
-    const activos = allData.filter((p: any) => p.activo).length;
-    const valorVenta = allData.reduce((s: number, p: any) => s + p.cantidad * p.precioVenta, 0);
-    const valorCompra = allData.reduce((s: number, p: any) => s + p.cantidad * p.precioCompra, 0);
+    const activos = allData.filter((p) => p.activo).length;
+    const valorVenta = allData.reduce((s, p) => s + p.cantidad * p.precioVenta, 0);
+    const valorCompra = allData.reduce((s, p) => s + p.cantidad * p.precioCompra, 0);
     const margenProm = valorCompra > 0 ? ((valorVenta - valorCompra) / valorCompra) * 100 : 0;
     return [
       { label: "Total Productos", value: total.toString(), icon: <Package size={18} />, color: "indigo" as const },
@@ -241,8 +244,8 @@ export default function ProductosReport({ initialData, categorias, proveedores, 
               <tbody className="divide-y divide-slate-800/50 print:divide-gray-300">
                 {(viewMode === "masVendidos" || viewMode === "mayorIngreso") && (
                   topList.length === 0 ? (
-                    <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-500">Presione "Buscar" para cargar.</td></tr>
-                  ) : topList.map((item: any, idx: number) => (
+                    <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-500">Presione &quot;Buscar&quot; para cargar.</td></tr>
+                  ) : topList.map((item, idx) => (
                     <tr key={idx} className="hover:bg-slate-800/30 transition-colors">
                       <td className="px-4 py-3 font-semibold text-white"><span className="text-xs text-slate-500 mr-2">#{idx + 1}</span>{item.nombre}</td>
                       <td className="px-4 py-3 text-slate-400">{item.categoria}</td>
@@ -252,7 +255,7 @@ export default function ProductosReport({ initialData, categorias, proveedores, 
                 )}
                 {viewMode === "todos" && (data.length === 0 ? (
                   <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-500">No se encontraron productos.</td></tr>
-                ) : data.map((p: any) => {
+                ) : data.map((p) => {
                   const isStockBajo = p.cantidad > 0 && p.cantidad <= p.stockMinimo;
                   const isSinStock = p.cantidad === 0;
                   return (

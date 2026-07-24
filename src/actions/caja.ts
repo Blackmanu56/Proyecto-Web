@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth.server";
+import { requirePermission } from "@/lib/auth-permissions";
+import { getErrorMessage } from "@/lib/error-message";
 
 /**
  * Obtiene la caja actualmente abierta (si existe) junto con sus movimientos recientes
@@ -53,10 +55,7 @@ export async function getHistorialCajas() {
  * Abre una nueva caja con un monto inicial
  */
 export async function abrirCaja(montoInicial: number) {
-  const session = await getSession();
-  if (!session || !["ADMINISTRADOR", "ENCARGADO_VENTAS"].includes(session.role)) {
-    throw new Error("No tiene permisos para realizar esta acción.");
-  }
+  const session = await requirePermission("caja.abrir", await getSession());
 
   if (montoInicial < 0) {
     throw new Error("El monto inicial no puede ser negativo.");
@@ -100,9 +99,9 @@ export async function abrirCaja(montoInicial: number) {
     revalidatePath("/caja");
     revalidatePath("/dashboard");
     return { success: true, cajaId: res.id };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error en abrirCaja:", error);
-    return { error: error.message || "Error al abrir la caja" };
+    return { error: getErrorMessage(error, "Error al abrir la caja") };
   }
 }
 
@@ -110,10 +109,7 @@ export async function abrirCaja(montoInicial: number) {
  * Cierra la caja activa asentando la fecha final
  */
 export async function cerrarCaja(id: number) {
-  const session = await getSession();
-  if (!session || !["ADMINISTRADOR", "ENCARGADO_VENTAS"].includes(session.role)) {
-    throw new Error("No tiene permisos para realizar esta acción.");
-  }
+  await requirePermission("caja.cerrar", await getSession());
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -142,9 +138,9 @@ export async function cerrarCaja(id: number) {
     revalidatePath("/caja");
     revalidatePath("/dashboard");
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error en cerrarCaja:", error);
-    return { error: error.message || "Error al cerrar la caja" };
+    return { error: getErrorMessage(error, "Error al cerrar la caja") };
   }
 }
 
@@ -152,10 +148,7 @@ export async function cerrarCaja(id: number) {
  * Registra un movimiento de gasto (Egreso) manual en la caja activa
  */
 export async function registrarGastoCaja(formData: FormData) {
-  const session = await getSession();
-  if (!session || !["ADMINISTRADOR", "ENCARGADO_VENTAS"].includes(session.role)) {
-    throw new Error("No tiene permisos para realizar esta acción.");
-  }
+  const session = await requirePermission("caja.egresos", await getSession());
 
   const descripcion = formData.get("descripcion") as string;
   const monto = Number(formData.get("monto"));
@@ -203,8 +196,8 @@ export async function registrarGastoCaja(formData: FormData) {
 
     revalidatePath("/caja");
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error en registrarGastoCaja:", error);
-    return { error: error.message || "Error al registrar el gasto" };
+    return { error: getErrorMessage(error, "Error al registrar el gasto") };
   }
 }

@@ -1,36 +1,37 @@
 "use client";
 
-import React, { useState, useTransition, useRef } from "react";
-import type { FilterStatus } from "./StatusFilter";
 import Avatar from "@/components/ui/Avatar";
-import { TableShell } from "@/components/ui/table-shell";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { FormField } from "@/components/ui/form-field";
+import { Button } from "@/components/ui/button";
+import { Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle } from "@/components/ui/dialog";
 import { EmployeePanel } from "@/components/ui/employee-panel";
+import { FormField } from "@/components/ui/form-field";
+import { Input } from "@/components/ui/input";
+import { TableShell } from "@/components/ui/table-shell";
 import {
-  Plus,
-  Edit3,
-  UserX,
-  UserCheck,
-  Shield,
-  ShieldCheck,
-  ShieldAlert,
-  Eye,
-  EyeOff,
-  Users,
-  ChevronDown,
-  AlertTriangle,
-  CheckCircle2,
-  Camera,
-  Trash2,
-  Upload,
-  ImageIcon,
-  CheckCircle,
-  Loader2,
+AlertTriangle,
+CheckCircle2,
+ChevronDown,
+Crown,
+Edit3,
+Eye,
+EyeOff,
+ImageIcon,
+Loader2,
+Mail,
+Phone,
+Plus,
+Shield,
+ShieldAlert,
+ShieldCheck,
+Trash2,
+Upload,
+UserCheck,
+UserX,
+Users
 } from "lucide-react";
+import React,{ useCallback,useMemo,useRef,useState,useTransition } from "react";
+import type { FilterStatus } from "./StatusFilter";
 
 // ─── Types ────────────────────────────────────────────────────────
 type UsuarioConRol = {
@@ -52,11 +53,19 @@ type UsuarioConRol = {
 type RolOption = {
   id: number;
   nombre: string;
+  activo?: boolean;
 };
+
+// ─── Sort ─────────────────────────────────────────────────────────
+type SortField = "nombreCompleto" | "username" | "dni" | "correo" | "rol" | "activo";
+type SortDir = "asc" | "desc" | null;
+
+const TEXT_SORT_FIELDS = new Set<SortField>(["nombreCompleto", "username", "correo", "rol"]);
 
 interface UsuariosTableProps {
   initialUsers: UsuarioConRol[];
   roles: RolOption[];
+  userPermissions?: string[];
   onCreateUser: (formData: FormData) => Promise<{ success?: boolean; error?: string; id?: number }>;
   onUpdateUser: (id: number, formData: FormData) => Promise<{ success?: boolean; error?: string }>;
   onToggleEstado: (id: number) => Promise<{ success?: boolean; error?: string }>;
@@ -66,75 +75,54 @@ interface UsuariosTableProps {
 }
 
 // ─── Role Permissions Map ─────────────────────────────────────────
-const PERMISOS_POR_ROL: Record<string, { label: string; permisos: string[] }> = {
-  ADMINISTRADOR: {
-    label: "Acceso Completo",
-    permisos: [
-      "Dashboard",
-      "Ventas",
-      "Caja",
-      "Cierre de caja",
-      "Informes",
-      "Productos",
-      "Stock",
-      "Proveedores",
-      "Empleados",
-      "Clientes",
-    ],
-  },
-  ENCARGADO_VENTAS: {
-    label: "Gestión de Ventas y Caja",
-    permisos: [
-      "Registrar ventas",
-      "Gestionar cobros",
-      "Abrir caja",
-      "Cerrar caja",
-      "Emitir comprobantes",
-      "Consultar productos",
-      "Consultar stock disponible",
-      "Registrar clientes",
-      "Ver historial de ventas",
-      "Informes (solo del área designada)",
-    ],
-  },
-  ENCARGADO_STOCK: {
-    label: "Gestión de Inventario",
-    permisos: [
-      "Registrar entrada de productos",
-      "Registrar salida de productos",
-      "Actualizar stock",
-      "Gestionar proveedores",
-      "Consultar productos",
-      "Controlar faltantes",
-      "Generar alertas de bajo stock",
-      "Consultar movimientos de stock",
-      "Informes (solo del área designada)",
-    ],
-  },
-};
+function PermisosRol({ rolNombre }: { rolNombre: string }) {
+  const description =
+    rolNombre === "ADMINISTRADOR" ? "Acceso completo a todas las funcionalidades del sistema" :
+    rolNombre === "ENCARGADO_VENTAS" ? "Gestión de Ventas, Caja y Clientes" :
+    rolNombre === "ENCARGADO_STOCK" ? "Gestión de Inventario y Proveedores" : "";
+
+  const permCount =
+    rolNombre === "ADMINISTRADOR" ? 41 :
+    rolNombre === "ENCARGADO_VENTAS" ? 21 :
+    rolNombre === "ENCARGADO_STOCK" ? 16 : 0;
+
+  const config: Record<string, { variant: "danger" | "success" | "info" | "default"; icon: React.ReactNode }> = {
+    ADMINISTRADOR: { variant: "danger", icon: <ShieldCheck size={12} /> },
+    ENCARGADO_VENTAS: { variant: "success", icon: <Shield size={12} /> },
+    ENCARGADO_STOCK: { variant: "info", icon: <ShieldAlert size={12} /> },
+  };
+
+  const style = config[rolNombre] || { variant: "default" as const, icon: <Shield size={12} /> };
+
+  return (
+    <div className="p-3 rounded-[var(--radius-lg)] bg-border/50 border border-border">
+      <p className="text-[10px] font-semibold text-text-muted mb-2 flex items-center gap-2">
+        <Shield size={12} className="text-brand" />
+        Permisos del Rol
+      </p>
+      <div className="flex items-center gap-2 mb-2">
+        <Badge variant={style.variant} size="sm" className="gap-1.5">
+          {style.icon}
+          {rolNombre.replace(/_/g, " ")}
+        </Badge>
+        <span className="text-[10px] font-mono text-text-secondary">
+          {permCount} permisos
+        </span>
+      </div>
+      <p className="text-[10px] text-text-secondary">{description}</p>
+    </div>
+  );
+}
 
 // ─── Role Badge Component ─────────────────────────────────────────
 function RolBadge({ rolNombre }: { rolNombre: string }) {
   const config: Record<string, { variant: "danger" | "success" | "info" | "default"; icon: React.ReactNode }> = {
-    ADMINISTRADOR: {
-      variant: "danger",
-      icon: <ShieldCheck size={12} />,
-    },
-    ENCARGADO_VENTAS: {
-      variant: "success",
-      icon: <Shield size={12} />,
-    },
-    ENCARGADO_STOCK: {
-      variant: "info",
-      icon: <ShieldAlert size={12} />,
-    },
+    ADMINISTRADOR: { variant: "danger", icon: <ShieldCheck size={12} /> },
+    ENCARGADO_VENTAS: { variant: "success", icon: <Shield size={12} /> },
+    ENCARGADO_STOCK: { variant: "info", icon: <ShieldAlert size={12} /> },
   };
 
-  const style = config[rolNombre] || {
-    variant: "default" as const,
-    icon: <Shield size={12} />,
-  };
-
+  const style = config[rolNombre] || { variant: "default" as const, icon: <Shield size={12} /> };
   const displayName = rolNombre.replace(/_/g, " ");
 
   return (
@@ -154,32 +142,6 @@ function EstadoBadge({ activo }: { activo: boolean }) {
   );
 }
 
-// ─── Permission List ──────────────────────────────────────────────
-function PermisosRol({ rolNombre }: { rolNombre: string }) {
-  const info = PERMISOS_POR_ROL[rolNombre];
-  if (!info) return null;
-
-  return (
-    <div className="mt-4 p-4 rounded-[var(--radius-lg)] bg-border/50 border border-border">
-      <p className="text-xs font-semibold text-text-muted mb-3 flex items-center gap-2">
-        <Shield size={14} className="text-brand" />
-        Permisos del Rol: <span className="text-brand">{info.label}</span>
-      </p>
-      <div className="grid grid-cols-2 gap-1.5">
-        {info.permisos.map((perm) => (
-          <div
-            key={perm}
-            className="flex items-center gap-2 text-[11px] text-text-muted py-1 px-2 rounded-[var(--radius-md)] bg-bg/50"
-          >
-            <CheckCircle2 size={10} className="text-success shrink-0" />
-            {perm}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 // ─── Main Component ───────────────────────────────────────────────
 export default function UsuariosTable({
   initialUsers,
@@ -194,7 +156,11 @@ export default function UsuariosTable({
   const [users, setUsers] = useState<UsuarioConRol[]>(initialUsers);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("activos");
-  const [isPending, startTransition] = useTransition();
+
+  // Sorting
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>(null);
+  const [, startTransition] = useTransition();
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -219,11 +185,19 @@ export default function UsuariosTable({
     userId: number;
     userName: string;
     isActive: boolean;
-  }>({ open: false, userId: 0, userName: "", isActive: true });
+    error: string | null;
+  }>({ open: false, userId: 0, userName: "", isActive: true, error: null });
 
   // EmployeePanel state
   const [employeePanelOpen, setEmployeePanelOpen] = useState(false);
   const [selectedUserForPanel, setSelectedUserForPanel] = useState<UsuarioConRol | null>(null);
+
+  // Compute the primary admin: the user with ADMINISTRADOR role and lowest ID
+  const primaryAdminId = useMemo(() => {
+    const admins = users.filter(u => u.rol.nombre === "ADMINISTRADOR");
+    if (admins.length === 0) return null;
+    return admins.reduce((min, u) => (u.id < min.id ? u : min), admins[0]).id;
+  }, [users]);
 
   // ─── Search handler ───────────────────────────────────────────
   const handleSearch = (query: string) => {
@@ -252,6 +226,59 @@ export default function UsuariosTable({
     if (filterStatus === "inactivos") return !u.activo;
     return true;
   });
+
+  // ─── Sort handlers ───────────────────────────────────────────
+  const handleSortCycle = useCallback((field: SortField) => {
+    if (sortField === field) {
+      if (sortDir === "asc") setSortDir("desc");
+      else if (sortDir === "desc") setSortDir(null);
+      else setSortDir("asc");
+    } else {
+      setSortField(field);
+      setSortDir("asc");
+    }
+  }, [sortField, sortDir]);
+
+  const getSortTooltip = (field: SortField): string => {
+    const isText = TEXT_SORT_FIELDS.has(field);
+    if (sortField !== field || sortDir === null) return isText ? "Ordenar de A a Z" : "Ordenar de menor a mayor";
+    if (sortDir === "asc") return isText ? "Ordenar de Z a A" : "Ordenar de mayor a menor";
+    return "Quitar ordenamiento";
+  };
+
+  const renderSortIndicator = (field: SortField) => {
+    const isActive = sortField === field && sortDir !== null;
+    const isText = TEXT_SORT_FIELDS.has(field);
+    const color = isActive ? "text-[var(--brand)]" : "opacity-40";
+    let label: string;
+    if (!isActive) {
+      label = isText ? "A–Z ↕" : "1–9 ↕";
+    } else if (sortDir === "asc") {
+      label = isText ? "A–Z ↑" : "1–9 ↑";
+    } else {
+      label = isText ? "Z–A ↓" : "1–9 ↓";
+    }
+    return <span className={`text-[9px] font-medium tracking-normal whitespace-nowrap ${color}`}>{label}</span>;
+  };
+
+  // ─── Sorted users ──────────────────────────────────────────
+  const sortedUsers = useMemo(() => {
+    const result = [...filteredUsers];
+    if (!sortField || !sortDir) return result;
+    result.sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case "nombreCompleto": cmp = a.nombreCompleto.localeCompare(b.nombreCompleto); break;
+        case "username": cmp = a.username.localeCompare(b.username); break;
+        case "dni": cmp = a.dni.localeCompare(b.dni); break;
+        case "correo": cmp = (a.correo || "").localeCompare(b.correo || ""); break;
+        case "rol": cmp = a.rol.nombre.localeCompare(b.rol.nombre); break;
+        case "activo": cmp = (a.activo ? 0 : 1) - (b.activo ? 0 : 1); break;
+      }
+      return sortDir === "desc" ? -cmp : cmp;
+    });
+    return result;
+  }, [filteredUsers, sortField, sortDir]);
 
   // ─── Open modal ───────────────────────────────────────────────
   const openCreateModal = () => {
@@ -341,12 +368,21 @@ export default function UsuariosTable({
   // ─── Toggle active status ────────────────────────────────────
   const handleToggleEstado = async () => {
     const { userId } = confirmDialog;
-    setConfirmDialog({ ...confirmDialog, open: false });
+    setConfirmDialog({ ...confirmDialog, open: false, error: null });
 
     const result = await onToggleEstado(userId);
     if (result.success) {
       const results = await onSearch(searchQuery, false);
       setUsers(results);
+    } else if (result.error) {
+      // Re-open dialog with error
+      setConfirmDialog({
+        open: true,
+        userId,
+        userName: confirmDialog.userName,
+        isActive: confirmDialog.isActive,
+        error: result.error,
+      });
     }
   };
 
@@ -424,91 +460,134 @@ export default function UsuariosTable({
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* 1. Stats Cards — compacto */}
-      <div className="grid grid-cols-3 gap-2 shrink-0 mb-2">
-        <div className="bg-card border border-border p-2.5 rounded-lg flex items-center justify-between shadow-[var(--shadow-sm)]">
+      {/* 1. Stats Cards */}
+      <div className="grid grid-cols-3 gap-4 shrink-0 mb-4">
+        <div className="bg-[var(--panel)] border border-[var(--border)] p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] hover:shadow-md transition-shadow">
           <div>
-            <p className="text-[10px] text-text-secondary font-bold uppercase tracking-wider">Total Usuarios</p>
-            <p className="text-lg font-extrabold text-text">{users.length}</p>
+            <p className="text-xs text-[var(--text-secondary)] font-bold uppercase tracking-wider">Total Usuarios</p>
+            <p className="text-2xl font-extrabold text-[var(--text)]">{users.length}</p>
           </div>
-          <div className="p-1.5 bg-brand-light rounded text-brand">
-            <Users size={14} />
+          <div className="p-2.5 bg-[var(--brand-light)] rounded-lg text-[var(--brand)]">
+            <Users size={20} />
           </div>
         </div>
 
-        <div className="bg-card border border-border p-2.5 rounded-lg flex items-center justify-between shadow-[var(--shadow-sm)]">
+        <div className="bg-[var(--panel)] border border-[var(--border)] p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] hover:shadow-md transition-shadow">
           <div>
-            <p className="text-[10px] text-text-secondary font-bold uppercase tracking-wider">Activos</p>
-            <p className="text-lg font-extrabold text-success">{users.filter((u) => u.activo).length}</p>
+            <p className="text-xs text-[var(--text-secondary)] font-bold uppercase tracking-wider">Activos</p>
+            <p className="text-2xl font-extrabold text-[var(--success)]">{users.filter((u) => u.activo).length}</p>
           </div>
-          <div className="p-1.5 bg-success-light rounded text-success">
-            <UserCheck size={14} />
+          <div className="p-2.5 bg-[var(--success-light)] rounded-lg text-[var(--success)]">
+            <UserCheck size={20} />
           </div>
         </div>
 
-        <div className="bg-card border border-border p-2.5 rounded-lg flex items-center justify-between shadow-[var(--shadow-sm)]">
+        <div className="bg-[var(--panel)] border border-[var(--border)] p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] hover:shadow-md transition-shadow">
           <div>
-            <p className="text-[10px] text-text-secondary font-bold uppercase tracking-wider">Inactivos</p>
-            <p className="text-lg font-extrabold text-danger">{users.filter((u) => !u.activo).length}</p>
+            <p className="text-xs text-[var(--text-secondary)] font-bold uppercase tracking-wider">Inactivos</p>
+            <p className="text-2xl font-extrabold text-[var(--danger)]">{users.filter((u) => !u.activo).length}</p>
           </div>
-          <div className="p-1.5 bg-danger-light rounded text-danger">
-            <UserX size={14} />
+          <div className="p-2.5 bg-[var(--danger-light)] rounded-lg text-[var(--danger)]">
+            <UserX size={20} />
           </div>
         </div>
       </div>
 
       {/* 2. TableShell */}
       <TableShell
-        title="Gestión de Usuarios"
+        title="Usuarios"
         searchPlaceholder="Buscar por nombre, DNI, usuario..."
         searchValue={searchQuery}
         onSearchChange={handleSearch}
-        isEmpty={filteredUsers.length === 0}
+        isEmpty={sortedUsers.length === 0}
         emptyMessage="No se encontraron usuarios"
         emptyIcon={<Users size={32} className="opacity-40" />}
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative">
-              <CheckCircle className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" size={12} />
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
-                className="pl-7 pr-6 py-1.5 bg-bg border border-border rounded text-text text-[11px] focus:outline-none focus:border-brand appearance-none cursor-pointer"
-              >
-                <option value="todos">Todos</option>
-                <option value="activos">Activos</option>
-                <option value="inactivos">Inactivos</option>
-              </select>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Estado</label>
+              <div className="relative">
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
+                  className="pl-3 pr-7 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-[var(--text)] text-sm focus:outline-none focus:border-[var(--brand)] appearance-none cursor-pointer min-w-[130px]"
+                >
+                  <option value="todos">Todos</option>
+                  <option value="activos">Activos</option>
+                  <option value="inactivos">Inactivos</option>
+                </select>
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                  <svg className="w-3 h-3 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                </div>
+              </div>
             </div>
-            <button onClick={openCreateModal} className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--brand)] text-white rounded text-[11px] font-semibold hover:bg-[var(--brand)]/90 transition">
-              <Plus size={12} />
-              Nuevo
+            <button onClick={openCreateModal} className="flex items-center gap-1.5 px-4 py-2.5 bg-[var(--brand)] text-white rounded-lg text-sm font-semibold hover:bg-[var(--brand)]/90 transition">
+              <Plus size={14} />
+              Nuevo usuario
             </button>
           </div>
         }
       >
         <div className="overflow-auto max-h-[calc(100vh-22rem)]">
-          <table className="w-full text-left border-collapse min-w-[600px]">
-            <thead className="sticky top-0 bg-[var(--card)]">
-              <tr className="border-b border-border text-[11px] uppercase tracking-wider font-semibold text-text-secondary">
-                <th className="py-2 px-4">Usuario</th>
-                <th className="py-2 px-4">DNI</th>
-                <th className="py-2 px-4 hidden md:table-cell">Contacto</th>
-                <th className="py-2 px-4">Rol</th>
-                <th className="py-2 px-4 text-center">Estado</th>
-                <th className="py-2 px-4 text-center">Acciones</th>
+          <table className="w-full text-left border-collapse min-w-[700px]" style={{ tableLayout: "fixed" }}>
+            <colgroup>
+              <col style={{ width: "25%" }} />
+              <col style={{ width: "12%" }} />
+              <col style={{ width: "20%" }} />
+              <col style={{ width: "15%" }} />
+              <col style={{ width: "10%" }} />
+              <col style={{ width: "18%" }} />
+            </colgroup>
+            <thead className="sticky top-0 bg-[var(--panel)]">
+              <tr className="border-b-2 border-[var(--border)] text-xs uppercase tracking-wider font-bold text-[var(--text-secondary)]">
+                <th
+                  className="py-3.5 px-4 cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors"
+                  onClick={() => handleSortCycle("nombreCompleto")}
+                  title={getSortTooltip("nombreCompleto")}
+                >
+                  <div className="flex items-center gap-2">Usuario {renderSortIndicator("nombreCompleto")}</div>
+                </th>
+                <th
+                  className="py-3.5 px-4 cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors"
+                  onClick={() => handleSortCycle("dni")}
+                  title={getSortTooltip("dni")}
+                >
+                  <div className="flex items-center gap-2">DNI {renderSortIndicator("dni")}</div>
+                </th>
+                <th
+                  className="py-3.5 px-4 cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors"
+                  onClick={() => handleSortCycle("correo")}
+                  title={getSortTooltip("correo")}
+                >
+                  <div className="flex items-center gap-2">Contacto {renderSortIndicator("correo")}</div>
+                </th>
+                <th
+                  className="py-3.5 px-4 cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors"
+                  onClick={() => handleSortCycle("rol")}
+                  title={getSortTooltip("rol")}
+                >
+                  <div className="flex items-center gap-2">Rol {renderSortIndicator("rol")}</div>
+                </th>
+                <th
+                  className="py-3.5 px-4 text-center cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors"
+                  onClick={() => handleSortCycle("activo")}
+                  title={getSortTooltip("activo")}
+                >
+                  <div className="flex items-center justify-center gap-2">Estado {renderSortIndicator("activo")}</div>
+                </th>
+                <th className="py-3.5 px-4 text-center">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border/60 text-sm text-text-muted">
-              {filteredUsers.map((user) => (
+            <tbody className="divide-y divide-[var(--border)]/60 text-sm text-[var(--text-muted)]">
+              {sortedUsers.map((user) => (
                 <tr
                   key={user.id}
                   onClick={() => openEmployeePanel(user)}
-                  className={`group hover:bg-border/30 transition-colors duration-150 cursor-pointer ${
+                  className={`group hover:bg-[var(--panel)] transition-colors duration-150 cursor-pointer ${
                     !user.activo ? "opacity-60" : ""
                   }`}
                 >
-                  <td className="py-2 px-4">
+                  <td className="py-2.5 px-4">
                     <div className="flex items-center gap-2">
                       <Avatar
                         fotoUrl={user.fotoUrl}
@@ -516,64 +595,91 @@ export default function UsuariosTable({
                         size="md"
                         activo={user.activo}
                       />
-                      <div>
-                        <p className="font-semibold text-text text-sm leading-tight">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-[var(--text)] text-sm leading-tight group-hover:text-[var(--brand)] transition-colors truncate">
                           {user.nombreCompleto}
                         </p>
-                        <p className="text-[11px] text-text-secondary mt-0.5">
+                        <p className="text-[11px] text-[var(--text-secondary)] mt-0.5 truncate">
                           @{user.username}
                         </p>
                       </div>
                     </div>
                   </td>
-                  <td className="py-2 px-4">
-                    <span className="font-mono text-xs text-text-muted">{user.dni}</span>
+                  <td className="py-2.5 px-4">
+                    <span className="font-mono text-sm text-[var(--text-muted)]">{user.dni}</span>
                   </td>
-                  <td className="py-2 px-4 hidden md:table-cell">
-                    <div className="space-y-0.5">
+                  <td className="py-2.5 px-4">
+                    <div className="space-y-1">
                       {user.correo && (
-                        <p className="text-xs text-text-muted">{user.correo}</p>
+                        <p className="text-sm text-[var(--text-muted)] flex items-center gap-1.5">
+                          <Mail size={12} className="text-[var(--text-secondary)] shrink-0" />
+                          {user.correo}
+                        </p>
                       )}
                       {user.telefono && (
-                        <p className="text-xs text-text-secondary">{user.telefono}</p>
+                        <p className="text-sm text-[var(--text-secondary)] flex items-center gap-1.5">
+                          <Phone size={12} className="text-[var(--text-secondary)] shrink-0" />
+                          {user.telefono}
+                        </p>
                       )}
                       {!user.correo && !user.telefono && (
-                        <p className="text-[11px] text-text-secondary italic">Sin datos</p>
+                        <p className="text-sm text-[var(--text-secondary)] italic">Sin datos</p>
                       )}
                     </div>
                   </td>
-                  <td className="py-2 px-4">
-                    <RolBadge rolNombre={user.rol.nombre} />
+                  <td className="py-2.5 px-4">
+                    <div className="flex items-center gap-1.5">
+                      <RolBadge rolNombre={user.rol.nombre} />
+                      {user.id === primaryAdminId && (
+                        <span
+                          className="text-[var(--warning)] opacity-80 shrink-0"
+                          title="Este es el administrador principal y no puede darse de baja"
+                        >
+                          <Crown size={14} />
+                        </span>
+                      )}
+                    </div>
                   </td>
-                  <td className="py-2 px-4 text-center">
+                  <td className="py-2.5 px-4 text-center">
                     <EstadoBadge activo={user.activo} />
                   </td>
-                  <td className="py-2 px-4 text-center">
+                  <td className="py-2.5 px-4 text-center">
                     <div className="flex items-center justify-center gap-1">
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => openEditModal(user)}
+                        onClick={(e) => { e.stopPropagation(); openEditModal(user); }}
                         title="Editar"
                       >
-                        <Edit3 size={14} />
+                        <Edit3 size={16} />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          setConfirmDialog({
-                            open: true,
-                            userId: user.id,
-                            userName: user.nombreCompleto,
-                            isActive: user.activo,
-                          })
-                        }
-                        title={user.activo ? "Dar de baja" : "Reactivar"}
-                        className={user.activo ? "hover:text-danger" : "hover:text-success"}
-                      >
-                        {user.activo ? <UserX size={14} /> : <UserCheck size={14} />}
-                      </Button>
+                      {user.id === primaryAdminId ? (
+                        <span
+                          className="inline-flex items-center justify-center w-8 h-8 rounded-md text-[var(--text-secondary)]/40 cursor-not-allowed"
+                          title="Este es el administrador principal del sistema y no puede darse de baja."
+                        >
+                          <UserX size={16} />
+                        </span>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setConfirmDialog({
+                              open: true,
+                              userId: user.id,
+                              userName: user.nombreCompleto,
+                              isActive: user.activo,
+                              error: null,
+                            });
+                          }}
+                          title={user.activo ? "Cambiar estado" : "Cambiar estado"}
+                          className={user.activo ? "hover:text-[var(--warning)]" : "hover:text-[var(--success)]"}
+                        >
+                          {user.activo ? <UserX size={16} /> : <UserCheck size={16} />}
+                        </Button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -585,7 +691,7 @@ export default function UsuariosTable({
 
       {/* 3. Create/Edit Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <div className="p-2 bg-brand-light rounded-[var(--radius-md)] text-brand border border-brand/10">
@@ -601,43 +707,40 @@ export default function UsuariosTable({
           </DialogHeader>
 
           {/* ── Photo Upload Section ──────────────────────────── */}
-          <div className="p-5 border-b border-border">
-            <p className="text-xs font-semibold text-text-muted mb-3 flex items-center gap-2">
-              <Camera size={14} />
-              Foto de Perfil
-            </p>
-            <div className="flex items-center gap-4">
-              {/* Preview */}
-              <div className="relative shrink-0">
-                {photoPreviewUrl ? (
-                  <div className="w-16 h-16 rounded-[var(--radius-lg)] overflow-hidden border border-brand/20">
-                    <img
-                      src={photoPreviewUrl}
-                      alt="Preview"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                ) : editingUser?.fotoUrl ? (
-                  <Avatar
-                    fotoUrl={editingUser.fotoUrl}
-                    nombreCompleto={editingUser.nombreCompleto}
-                    size="xl"
-                    activo={editingUser.activo}
+          <div className="flex items-center gap-4 p-4 border-b border-border">
+            {/* Preview */}
+            <div className="relative shrink-0">
+              {photoPreviewUrl ? (
+                <div className="w-14 h-14 rounded-[var(--radius-lg)] overflow-hidden border border-brand/20">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- Preview temporal generado con Blob URL; next/image no optimiza este flujo local del formulario. */}
+                  <img
+                    src={photoPreviewUrl}
+                    alt="Vista previa de foto de usuario"
+                    className="w-full h-full object-cover"
                   />
-                ) : (
-                  <div className="w-16 h-16 rounded-[var(--radius-lg)] bg-border border border-border flex items-center justify-center text-text-secondary">
-                    <ImageIcon size={24} />
-                  </div>
-                )}
-                {photoUploading && (
-                  <div className="absolute inset-0 rounded-[var(--radius-lg)] bg-black/50 flex items-center justify-center">
-                    <Loader2 size={20} className="animate-spin text-brand" />
-                  </div>
-                )}
-              </div>
+                </div>
+              ) : editingUser?.fotoUrl ? (
+                <Avatar
+                  fotoUrl={editingUser.fotoUrl}
+                  nombreCompleto={editingUser.nombreCompleto}
+                  size="lg"
+                  activo={editingUser.activo}
+                />
+              ) : (
+                <div className="w-14 h-14 rounded-[var(--radius-lg)] bg-border border border-border flex items-center justify-center text-text-secondary">
+                  <ImageIcon size={20} />
+                </div>
+              )}
+              {photoUploading && (
+                <div className="absolute inset-0 rounded-[var(--radius-lg)] bg-black/50 flex items-center justify-center">
+                  <Loader2 size={18} className="animate-spin text-brand" />
+                </div>
+              )}
+            </div>
 
-              {/* Buttons */}
-              <div className="flex flex-col gap-2">
+            {/* Buttons & info */}
+            <div className="flex flex-col gap-1.5 min-w-0">
+              <div className="flex items-center gap-2">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -645,38 +748,36 @@ export default function UsuariosTable({
                   onChange={handleFileSelect}
                   className="hidden"
                 />
-                <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={triggerFileInput}
+                  disabled={photoUploading}
+                >
+                  <Upload size={12} />
+                  {selectedPhotoFile ? "Cambiar" : editingUser?.fotoUrl ? "Cambiar" : "Subir foto"}
+                </Button>
+                {(editingUser?.fotoUrl || photoPreviewUrl) && (
                   <Button
                     type="button"
                     variant="secondary"
                     size="sm"
-                    onClick={triggerFileInput}
+                    onClick={
+                      photoPreviewUrl
+                        ? () => {
+                            setSelectedPhotoFile(null);
+                            setPhotoPreviewUrl(null);
+                          }
+                        : () => handleDeletePhotoNow(editingUser!.id)
+                    }
                     disabled={photoUploading}
+                    className="hover:text-danger"
                   >
-                    <Upload size={12} />
-                    {selectedPhotoFile ? "Cambiar foto" : editingUser?.fotoUrl ? "Cambiar foto" : "Subir foto"}
+                    <Trash2 size={12} />
+                    {photoPreviewUrl ? "Cancelar" : "Eliminar"}
                   </Button>
-                  {(editingUser?.fotoUrl || photoPreviewUrl) && (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      onClick={
-                        photoPreviewUrl
-                          ? () => {
-                              setSelectedPhotoFile(null);
-                              setPhotoPreviewUrl(null);
-                            }
-                          : () => handleDeletePhotoNow(editingUser!.id)
-                      }
-                      disabled={photoUploading}
-                      className="hover:text-danger"
-                    >
-                      <Trash2 size={12} />
-                      {photoPreviewUrl ? "Cancelar" : "Eliminar"}
-                    </Button>
-                  )}
-                </div>
+                )}
                 {selectedPhotoFile && editingUser && (
                   <Button
                     type="button"
@@ -686,13 +787,13 @@ export default function UsuariosTable({
                     disabled={photoUploading}
                   >
                     <CheckCircle2 size={12} />
-                    Guardar foto
+                    Guardar
                   </Button>
                 )}
-                <p className="text-[10px] text-text-secondary">
-                  JPG, PNG o WEBP. Máx 5 MB.
-                </p>
               </div>
+              <p className="text-[10px] text-text-secondary">
+                JPG, PNG o WEBP. Máx 5 MB.
+              </p>
             </div>
           </div>
 
@@ -714,122 +815,137 @@ export default function UsuariosTable({
               </div>
             )}
 
-            {/* Nombre completo */}
-            <FormField label="Nombre Completo" required>
-              <Input
-                id="input-nombre"
-                name="nombreCompleto"
-                type="text"
-                required
-                defaultValue={editingUser?.nombreCompleto || ""}
-                placeholder="Ej: Juan Carlos Pérez"
-              />
-            </FormField>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Left column */}
+              <div className="space-y-3">
+                {/* Nombre completo */}
+                <FormField label="Nombre Completo" required>
+                  <Input
+                    id="input-nombre"
+                    name="nombreCompleto"
+                    type="text"
+                    required
+                    defaultValue={editingUser?.nombreCompleto || ""}
+                    placeholder="Ej: Juan Carlos Pérez"
+                  />
+                </FormField>
 
-            {/* DNI + Username row */}
-            <div className="grid grid-cols-2 gap-3">
-              <FormField label="DNI" required>
-                <Input
-                  id="input-dni"
-                  name="dni"
-                  type="text"
-                  required
-                  defaultValue={editingUser?.dni || ""}
-                  placeholder="Ej: 35123456"
-                />
-              </FormField>
-              <FormField label="Usuario" required>
-                <Input
-                  id="input-username"
-                  name="username"
-                  type="text"
-                  required
-                  defaultValue={editingUser?.username || ""}
-                  placeholder="Ej: jperez"
-                />
-              </FormField>
-            </div>
+                {/* DNI */}
+                <FormField label="DNI" required>
+                  <Input
+                    id="input-dni"
+                    name="dni"
+                    type="text"
+                    required
+                    defaultValue={editingUser?.dni || ""}
+                    placeholder="Ej: 35123456"
+                  />
+                </FormField>
 
-            {/* Correo + Teléfono row */}
-            <div className="grid grid-cols-2 gap-3">
-              <FormField label="Correo Electrónico">
-                <Input
-                  id="input-correo"
-                  name="correo"
-                  type="email"
-                  defaultValue={editingUser?.correo || ""}
-                  placeholder="correo@ejemplo.com"
-                />
-              </FormField>
-              <FormField label="Teléfono">
-                <Input
-                  id="input-telefono"
-                  name="telefono"
-                  type="text"
-                  defaultValue={editingUser?.telefono || ""}
-                  placeholder="Ej: 3764123456"
-                />
-              </FormField>
-            </div>
+                {/* Username */}
+                <FormField label="Usuario" required>
+                  <Input
+                    id="input-username"
+                    name="username"
+                    type="text"
+                    required
+                    defaultValue={editingUser?.username || ""}
+                    placeholder="Ej: jperez"
+                  />
+                </FormField>
 
-            {/* Password */}
-            <FormField
-              label="Contraseña"
-              required={!editingUser}
-              error={editingUser ? undefined : undefined}
-            >
-              <div className="relative">
-                <Input
-                  id="input-password"
-                  name="password"
-                  type={showPassword ? "text" : "password"}
+                {/* Correo */}
+                <FormField label="Correo Electrónico">
+                  <Input
+                    id="input-correo"
+                    name="correo"
+                    type="email"
+                    defaultValue={editingUser?.correo || ""}
+                    placeholder="correo@ejemplo.com"
+                  />
+                </FormField>
+
+                {/* Teléfono */}
+                <FormField label="Teléfono">
+                  <Input
+                    id="input-telefono"
+                    name="telefono"
+                    type="text"
+                    defaultValue={editingUser?.telefono || ""}
+                    placeholder="Ej: 3764123456"
+                  />
+                </FormField>
+              </div>
+
+              {/* Right column */}
+              <div className="space-y-3">
+                {/* Password */}
+                <FormField
+                  label="Contraseña"
                   required={!editingUser}
-                  placeholder={
-                    editingUser ? "••••••••" : "Mínimo 4 caracteres"
-                  }
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-muted transition-colors"
+                  error={editingUser ? undefined : undefined}
                 >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-              {editingUser && (
-                <p className="text-[10px] text-text-secondary mt-1">
-                  Dejar vacío para mantener la actual
-                </p>
-              )}
-            </FormField>
+                  <div className="relative">
+                    <Input
+                      id="input-password"
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      required={!editingUser}
+                      placeholder={
+                        editingUser ? "••••••••" : "Mínimo 4 caracteres"
+                      }
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-muted transition-colors"
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  {editingUser && (
+                    <p className="text-[10px] text-text-secondary mt-1">
+                      Dejar vacío para mantener la actual
+                    </p>
+                  )}
+                </FormField>
 
-            {/* Role selector */}
-            <FormField label="Rol" required>
-              <div className="relative">
-                <select
-                  id="select-rol"
-                  value={selectedRolId}
-                  onChange={(e) => setSelectedRolId(Number(e.target.value))}
-                  className="w-full px-4 py-2.5 rounded-[var(--radius-md)] bg-bg border border-border text-text text-sm appearance-none focus:outline-none focus:border-brand transition-all cursor-pointer"
-                >
-                  {roles.map((rol) => (
-                    <option key={rol.id} value={rol.id}>
-                      {rol.nombre.replace(/_/g, " ")}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown
-                  size={16}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none"
-                />
-              </div>
-            </FormField>
+                {/* Role selector */}
+                <FormField label="Rol" required>
+                  <div className="relative">
+                    <select
+                      id="select-rol"
+                      value={selectedRolId}
+                      onChange={(e) => setSelectedRolId(Number(e.target.value))}
+                      disabled={editingUser?.id === primaryAdminId}
+                      className="w-full px-4 py-2.5 rounded-[var(--radius-md)] bg-bg border border-border text-text text-sm appearance-none focus:outline-none focus:border-brand transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {roles.filter(r => r.activo !== false).map((rol) => (
+                        <option key={rol.id} value={rol.id}>
+                          {rol.nombre.replace(/_/g, " ")}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown
+                      size={16}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none"
+                    />
+                  </div>
+                  {editingUser?.id === primaryAdminId && (
+                    <p className="text-[10px] text-[var(--warning)] mt-1 flex items-center gap-1">
+                      <Crown size={10} />
+                      El administrador principal no puede cambiar su rol
+                    </p>
+                  )}
+                </FormField>
 
-            {/* Role permissions preview */}
-            <PermisosRol rolNombre={selectedRolNombre} />
+                {/* Role permissions preview */}
+                <PermisosRol rolNombre={selectedRolNombre} />
+              </div>
+            </div>
 
             {/* Submit */}
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
+            <div className="sticky bottom-0 bg-[var(--panel)] border-t border-[var(--border)] p-4 flex items-center justify-end gap-3 -mx-5 -mb-5 mt-4">
               <Button
                 type="button"
                 variant="secondary"
@@ -852,7 +968,7 @@ export default function UsuariosTable({
       </Dialog>
 
       {/* 4. Confirm Dialog */}
-      <Dialog open={confirmDialog.open} onOpenChange={(open) => setConfirmDialog({ ...confirmDialog, open })}>
+      <Dialog open={confirmDialog.open} onOpenChange={(open) => setConfirmDialog({ ...confirmDialog, open, error: null })}>
         <DialogContent className="max-w-sm">
           <div className="flex flex-col items-center text-center">
             <div
@@ -893,11 +1009,17 @@ export default function UsuariosTable({
                 </>
               )}
             </p>
+            {confirmDialog.error && (
+              <div className="flex items-center gap-2 p-3 mt-3 rounded-[var(--radius-md)] bg-[var(--danger-light)] border border-[var(--danger)]/20 text-[var(--danger)] text-xs w-full">
+                <AlertTriangle size={14} className="shrink-0" />
+                {confirmDialog.error}
+              </div>
+            )}
             <div className="flex items-center gap-3 mt-6 w-full">
               <Button
                 variant="secondary"
                 onClick={() =>
-                  setConfirmDialog({ ...confirmDialog, open: false })
+                  setConfirmDialog({ ...confirmDialog, open: false, error: null })
                 }
                 className="flex-1"
               >
@@ -921,6 +1043,7 @@ export default function UsuariosTable({
         isOpen={employeePanelOpen}
         onClose={closeEmployeePanel}
         user={selectedUserForPanel}
+        isPrimaryAdmin={selectedUserForPanel?.id === primaryAdminId}
         onEdit={(user) => {
           closeEmployeePanel();
           openEditModal(user);
@@ -932,7 +1055,13 @@ export default function UsuariosTable({
             userId,
             userName: selectedUserForPanel?.nombreCompleto || "",
             isActive: selectedUserForPanel?.activo || false,
+            error: null,
           });
+        }}
+        onUploadPhoto={onUploadPhoto}
+        onPhotoUpdated={(newFotoUrl) => {
+          setSelectedUserForPanel((prev) => prev ? { ...prev, fotoUrl: newFotoUrl } : prev);
+          onSearch(searchQuery, false).then(setUsers);
         }}
       />
     </div>

@@ -5,7 +5,6 @@ import {
   crearProveedor,
   actualizarProveedor,
   toggleEstadoProveedor,
-  eliminarProveedorReal,
   getHistorialAbastecimiento,
   getProveedorProductos,
 } from "@/actions/proveedores";
@@ -31,11 +30,6 @@ async function updateProveedor(id: number, formData: FormData) {
 async function toggleProveedor(id: number) {
   "use server";
   return await toggleEstadoProveedor(id);
-}
-
-async function deleteProveedor(id: number) {
-  "use server";
-  return await eliminarProveedorReal(id);
 }
 
 async function getProductos(id: number) {
@@ -74,11 +68,11 @@ export default async function ProveedoresPage() {
     <div className="fixed inset-0 top-[5.5rem] bg-[var(--bg)] flex flex-col overflow-hidden z-10">
       <div className="flex-1 flex flex-col min-h-0 p-2 lg:p-3">
         {/* Encabezado */}
-        <div className="flex items-center justify-center gap-2 shrink-0 mb-1">
-          <div className="p-1.5 bg-[var(--brand-light)] rounded-lg text-[var(--brand)]">
-            <Truck size={16} />
+        <div className="flex items-center justify-center gap-3 shrink-0 mb-2">
+          <div className="p-2 bg-[var(--brand-light)] rounded-lg text-[var(--brand)]">
+            <Truck size={22} />
           </div>
-          <h1 className="text-base lg:text-lg font-extrabold text-[var(--text)] tracking-tight">
+          <h1 className="text-xl lg:text-2xl font-extrabold text-[var(--text)] tracking-tight">
             Gestión de Proveedores
           </h1>
         </div>
@@ -86,11 +80,10 @@ export default async function ProveedoresPage() {
         {/* Tabla Interactiva */}
         <div className="flex-1 min-h-0">
           <ProveedoresTable
-            initialProveedores={proveedores as any}
+            initialProveedores={proveedores as React.ComponentProps<typeof ProveedoresTable>["initialProveedores"]}
             onCreateProveedor={createProveedor}
             onUpdateProveedor={updateProveedor}
             onToggleEstado={toggleProveedor}
-            onEliminarReal={deleteProveedor}
             onSearch={searchProveedores}
             onGetProductos={getProductos}
             onGetHistorial={getHistorial}

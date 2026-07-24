@@ -17,8 +17,14 @@ import {
   PieChart as RePie, Pie, Cell,
 } from "recharts";
 
+type ProveedoresReportResult = Awaited<ReturnType<typeof getProveedoresReport>>;
+type ProveedorReportRow = ProveedoresReportResult["data"][number];
+type SinMovimientoRow = Awaited<ReturnType<typeof getSinMovimientoProductos>>["data"][number];
+type StockBajoRow = Awaited<ReturnType<typeof getStockBajo>>["data"][number];
+type ReposicionRow = Awaited<ReturnType<typeof getReposicionProductos>>["data"][number];
+
 interface Props {
-  initialData?: any;
+  initialData?: ProveedoresReportResult;
   userRole?: string;
 }
 
@@ -46,16 +52,16 @@ function DataSection({ title, loading, onLoad, loaded, children }: {
   );
 }
 
-export default function ProveedoresReport({ initialData, userRole }: Props) {
-  const [proveedores, setProveedores] = useState<any[]>([]);
+export default function ProveedoresReport({}: Props) {
+  const [proveedores, setProveedores] = useState<ProveedorReportRow[]>([]);
   const [proveedoresTotal, setProveedoresTotal] = useState(0);
   const [searchText, setSearchText] = useState("");
   const [estadoFiltro, setEstadoFiltro] = useState("todos");
   const [isPending, startTransition] = useTransition();
 
-  const [sinMovimiento, setSinMovimiento] = useState<any[] | null>(null);
-  const [stockBajo, setStockBajo] = useState<any[] | null>(null);
-  const [reposicion, setReposicion] = useState<any[] | null>(null);
+  const [sinMovimiento, setSinMovimiento] = useState<SinMovimientoRow[] | null>(null);
+  const [stockBajo, setStockBajo] = useState<StockBajoRow[] | null>(null);
+  const [reposicion, setReposicion] = useState<ReposicionRow[] | null>(null);
   const [loadingSection, setLoadingSection] = useState<string | null>(null);
   const [printSection, setPrintSection] = useState<string | null>(null);
 
@@ -70,7 +76,7 @@ export default function ProveedoresReport({ initialData, userRole }: Props) {
     });
   }, [searchText]);
 
-  const loadSection = useCallback(async (section: string, fetcher: () => Promise<any>) => {
+  const loadSection = useCallback(async (section: string, fetcher: () => Promise<unknown>) => {
     setLoadingSection(section);
     try { await fetcher(); }
     finally { setLoadingSection(null); }
@@ -89,17 +95,17 @@ export default function ProveedoresReport({ initialData, userRole }: Props) {
 
   const proveedoresFiltrados = useMemo(() => {
     let p = proveedores;
-    if (estadoFiltro === "activo") p = p.filter((x: any) => x.productosCount > 0);
-    else if (estadoFiltro === "inactivo") p = p.filter((x: any) => x.productosCount === 0);
+    if (estadoFiltro === "activo") p = p.filter((x: ProveedorReportRow) => x.productosCount > 0);
+    else if (estadoFiltro === "inactivo") p = p.filter((x: ProveedorReportRow) => x.productosCount === 0);
     return p;
   }, [proveedores, estadoFiltro]);
 
   const kpiData = useMemo(() => {
     const total = proveedoresTotal;
-    const activos = proveedores.filter((p: any) => p.productosCount > 0).length;
-    const totalProductos = proveedores.reduce((s: number, p: any) => s + p.productosCount, 0);
-    const valorStockTotal = proveedores.reduce((s: number, p: any) => s + p.valorStock, 0);
-    const stockBajoCount = proveedores.reduce((s: number, p: any) => s + p.stockBajoCount, 0);
+    const activos = proveedores.filter((p: ProveedorReportRow) => p.productosCount > 0).length;
+    const totalProductos = proveedores.reduce((s, p) => s + p.productosCount, 0);
+    const valorStockTotal = proveedores.reduce((s, p) => s + p.valorStock, 0);
+    const stockBajoCount = proveedores.reduce((s, p) => s + p.stockBajoCount, 0);
 
     return [
       { label: "Total Proveedores", value: total.toString(), icon: <Truck size={18} />, color: "indigo" as const },
@@ -113,10 +119,10 @@ export default function ProveedoresReport({ initialData, userRole }: Props) {
 
   const provChartData = useMemo(() => {
     return proveedoresFiltrados
-      .filter((p: any) => p.valorStock > 0)
-      .sort((a: any, b: any) => b.valorStock - a.valorStock)
+      .filter((p: ProveedorReportRow) => p.valorStock > 0)
+      .sort((a, b) => b.valorStock - a.valorStock)
       .slice(0, 10)
-      .map((p: any) => ({
+      .map((p: ProveedorReportRow) => ({
         nombre: p.nombre.length > 14 ? p.nombre.substring(0, 14) + "..." : p.nombre,
         valor: p.valorStock,
         productos: p.productosCount,
@@ -125,16 +131,16 @@ export default function ProveedoresReport({ initialData, userRole }: Props) {
 
   const pieChartData = useMemo(() => {
     const top = proveedoresFiltrados
-      .filter((p: any) => p.valorStock > 0)
-      .sort((a: any, b: any) => b.valorStock - a.valorStock)
+      .filter((p: ProveedorReportRow) => p.valorStock > 0)
+      .sort((a, b) => b.valorStock - a.valorStock)
       .slice(0, 8);
     const otros = proveedoresFiltrados
-      .filter((p: any) => p.valorStock > 0)
-      .sort((a: any, b: any) => b.valorStock - a.valorStock)
+      .filter((p: ProveedorReportRow) => p.valorStock > 0)
+      .sort((a, b) => b.valorStock - a.valorStock)
       .slice(8);
-    const otrosValor = otros.reduce((s: number, p: any) => s + p.valorStock, 0);
+    const otrosValor = otros.reduce((s, p) => s + p.valorStock, 0);
     return [
-      ...top.map((p: any) => ({ name: p.nombre.length > 10 ? p.nombre.substring(0, 10) + "..." : p.nombre, value: p.valorStock })),
+      ...top.map((p: ProveedorReportRow) => ({ name: p.nombre.length > 10 ? p.nombre.substring(0, 10) + "..." : p.nombre, value: p.valorStock })),
       ...(otrosValor > 0 ? [{ name: "Otros", value: otrosValor }] : []),
     ];
   }, [proveedoresFiltrados]);
@@ -205,12 +211,12 @@ export default function ProveedoresReport({ initialData, userRole }: Props) {
               { header: "Nombre", accessor: "nombre" },
               { header: "CUIT", accessor: "cuit" },
               { header: "Productos", accessor: "productosCount", className: "text-right" },
-              { header: "Valor Stock", accessor: (r: any) => formatCurrency(r.valorStock), className: "text-right" },
+              { header: "Valor Stock", accessor: (r: ProveedorReportRow) => formatCurrency(r.valorStock), className: "text-right" },
               { header: "Stock Bajo", accessor: "stockBajoCount", className: "text-right" },
-              { header: "Últ. Compra", accessor: (r: any) => r.ultimaCompra || "—" },
+              { header: "Últ. Compra", accessor: (r: ProveedorReportRow) => r.ultimaCompra || "—" },
             ]}
             data={proveedoresFiltrados}
-            keyExtractor={(r: any) => r.id}
+            keyExtractor={(r: ProveedorReportRow) => r.id}
             emptyMessage="Sin proveedores registrados."
           />
         </div>
@@ -271,8 +277,8 @@ export default function ProveedoresReport({ initialData, userRole }: Props) {
                 { header: "Producto", accessor: "producto" },
                 { header: "Categoría", accessor: "categoria" },
                 { header: "Stock", accessor: "stockActual", className: "text-right" },
-                { header: "Precio", accessor: (r: any) => formatCurrency(r.precioVenta), className: "text-right" },
-              ]} data={sinMovimiento} keyExtractor={(r: any) => r.id} />
+                { header: "Precio", accessor: (r: SinMovimientoRow) => formatCurrency(r.precioVenta), className: "text-right" },
+              ]} data={sinMovimiento} keyExtractor={(r: SinMovimientoRow) => r.id} />
             )}
           </DataSection>
 
@@ -284,9 +290,9 @@ export default function ProveedoresReport({ initialData, userRole }: Props) {
                 <DataTable columns={[
                   { header: "Producto", accessor: "producto" },
                   { header: "Proveedor", accessor: "proveedor" },
-                  { header: "Stock Actual", accessor: (r: any) => <span className="text-rose-400 font-bold">{r.stockActual}</span>, className: "text-right" },
+                  { header: "Stock Actual", accessor: (r: StockBajoRow) => <span className="text-rose-400 font-bold">{r.stockActual}</span>, className: "text-right" },
                   { header: "Stock Mín.", accessor: "stockMinimo", className: "text-right" },
-                ]} data={stockBajo} keyExtractor={(r: any) => r.id} />
+                ]} data={stockBajo} keyExtractor={(r: StockBajoRow) => r.id} />
               )}
             </DataSection>
 
@@ -299,8 +305,8 @@ export default function ProveedoresReport({ initialData, userRole }: Props) {
                   { header: "Proveedor", accessor: "proveedor" },
                   { header: "Stock", accessor: "stockActual", className: "text-right" },
                   { header: "Mínimo", accessor: "stockMinimo", className: "text-right" },
-                  { header: "Sugerencia", accessor: (r: any) => r.sugerencia, className: "text-right" },
-                ]} data={reposicion} keyExtractor={(r: any) => r.id} />
+                  { header: "Sugerencia", accessor: (r: ReposicionRow) => r.sugerencia, className: "text-right" },
+                ]} data={reposicion} keyExtractor={(r: ReposicionRow) => r.id} />
               )}
             </DataSection>
           </div>

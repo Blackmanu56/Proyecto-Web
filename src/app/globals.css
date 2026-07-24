@@ -189,17 +189,136 @@ input::-webkit-credentials-autofill-button {
 
 /* ── Print ── */
 @media print {
-  /* Overlay strategy: hide everything except #print-overlay */
-  body.print-active > *:not(#print-overlay) { display: none !important; }
+  /* Force color preservation — prevent browser from stripping colors */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
 
-  /* Overlay: static so print engine flows content across pages naturally */
+  /* Kill ALL dark backgrounds — the black box root cause */
+  html, body {
+    background: #fff !important;
+    min-height: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Hide everything that is NOT the print overlay */
+  body.print-active > *:not(#print-overlay) {
+    display: none !important;
+  }
+
+  /* Also kill the AppShell wrapper background (it's a child of body, but just in case) */
+  body.print-active > div {
+    background: transparent !important;
+    min-height: auto !important;
+    height: auto !important;
+  }
+
+  /* Overlay: the ONLY thing that should exist during print */
   #print-overlay {
     display: block !important;
-    position: static !important;
-    background: #fff !important; color: #000 !important;
+    position: relative !important;
+    background: #fff !important;
+    color: #000 !important;
     padding: 0 !important;
+    margin: 0 !important;
     overflow: visible !important;
     font-family: Arial, Helvetica, sans-serif;
+    width: 100% !important;
+    max-width: none !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Receipt container — fill the page */
+  #print-overlay > div {
+    max-width: none !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 20px !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Force all inline styles to print correctly */
+  #print-overlay table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  #print-overlay table th {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+    background: #D62828 !important;
+    color: #fff !important;
+  }
+
+  #print-overlay table td {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  #print-overlay table tr:nth-child(even) {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+    background: #fafafa !important;
+  }
+
+  /* Force red borders and accents */
+  #print-overlay *[style*="border-bottom: 2px solid #D62828"],
+  #print-overlay *[style*="borderTop: 2px solid #D62828"],
+  #print-overlay *[style*="border-top: 2px solid #D62828"] {
+    border-color: #D62828 !important;
+  }
+
+  /* Force red text */
+  #print-overlay *[style*="color: #D62828"],
+  #print-overlay *[style*="color:#D62828"] {
+    color: #D62828 !important;
+  }
+
+  /* Force red background on badge */
+  #print-overlay *[style*="border: 2px solid #D62828"] {
+    border-color: #D62828 !important;
+    color: #D62828 !important;
+  }
+
+  /* Ensure all text is visible */
+  #print-overlay * {
+    color: inherit !important;
+  }
+
+  /* Override: restore specific colors that should NOT inherit */
+  #print-overlay span[style*="color: #555"],
+  #print-overlay div[style*="color: #555"] {
+    color: #555 !important;
+  }
+
+  #print-overlay span[style*="color: #777"],
+  #print-overlay div[style*="color: #777"] {
+    color: #777 !important;
+  }
+
+  #print-overlay span[style*="color: #999"],
+  #print-overlay div[style*="color: #999"] {
+    color: #999 !important;
+  }
+
+  #print-overlay td[style*="color: #999"] {
+    color: #999 !important;
+  }
+
+  #print-overlay div[style*="color: #1a1a1a"],
+  #print-overlay span[style*="color: #1a1a1a"] {
+    color: #1a1a1a !important;
+  }
+
+  #print-overlay div[style*="color: #333"] {
+    color: #333 !important;
   }
 
   /* Caja report print styles */
@@ -248,7 +367,8 @@ input::-webkit-credentials-autofill-button {
   #print-overlay .cj-summary-value { font-size: 10px; font-weight: 800; margin-top: 1px; color: #000; }
   #print-overlay .cj-footer { margin-top: 12px; border-top: 1px solid #ddd; padding-top: 6px; font-size: 7px; color: #888; text-align: center; }
 
-  @page { size: A4 landscape; margin: 8mm; }
+  /* A4 Portrait for Ventas receipt */
+  @page { size: A4 portrait; margin: 10mm; }
 }
 
 /* Caja print report — off-screen but NOT display:none so browser loads images */
@@ -270,5 +390,15 @@ input::-webkit-credentials-autofill-button {
 /* ── Next.js Dev Tools: move "N" button right to avoid covering content ── */
 nextjs-portal {
   transform: translateX(10px);
+}
+
+/* ── Hide native browser password reveal toggle (Edge/IE) ── */
+input::-ms-reveal {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  position: absolute !important;
+  pointer-events: none !important;
 }
 

@@ -5,6 +5,12 @@ import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { createJWT } from "@/lib/jwt";
+import { parseRoleData } from "@/lib/permissions";
+
+// --- Rate limiting (sliding window, per-username, in-memory) ---
+const loginAttempts = new Map<string, { count: number; windowStart: number }>();
+const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
+const MAX_ATTEMPTS = 10;
 
 const loginSchema = z.object({
   username: z.string().min(3, "El usuario debe tener al menos 3 caracteres"),
@@ -20,7 +26,7 @@ export type LoginState = {
  * Acción de servidor para manejar el inicio de sesión
  */
 export async function loginAction(
-  prevState: any,
+  prevState: unknown,
   formData: FormData
 ): Promise<LoginState> {
   const username = formData.get("username") as string;
@@ -30,6 +36,18 @@ export async function loginAction(
   const validation = loginSchema.safeParse({ username, password });
   if (!validation.success) {
     return { error: validation.error.errors[0].message };
+  }
+
+  // 2. Rate limiting — sliding window per username
+  const now = Date.now();
+  const record = loginAttempts.get(username);
+  if (record && now - record.windowStart < RATE_LIMIT_WINDOW_MS) {
+    if (record.count >= MAX_ATTEMPTS) {
+      return { error: "Demasiados intentos fallidos. Espere un minuto." };
+    }
+    record.count++;
+  } else {
+    loginAttempts.set(username, { count: 1, windowStart: now });
   }
 
   try {
@@ -57,16 +75,21 @@ export async function loginAction(
     }
 
     // 3. Verificar contraseña
-    const passwordMatch = bcrypt.compareSync(password, user.passwordHash);
+    const passwordMatch = await bcrypt.compare(password, user.passwordHash);
     if (!passwordMatch) {
       return { error: "Usuario o contraseña incorrectos" };
     }
 
+    // Limpiar intentos fallidos en login exitoso
+    loginAttempts.delete(username);
+
     // 4. Crear JWT
+    const roleData = parseRoleData(user.rol.permisos);
     const token = await createJWT({
       userId: user.id,
       username: user.username,
       role: user.rol.nombre,
+      permissions: roleData.permisos,
       fotoUrl: user.fotoUrl,
     });
 
@@ -82,7 +105,7 @@ export async function loginAction(
 
     return { success: true };
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error en loginAction:", error);
     return { error: "Error interno del servidor. Intente más tarde." };
   }

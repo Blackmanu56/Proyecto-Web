@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { getDetalleVenta } from "@/actions/informes";
+import type { DetalleVentaCompleto } from "@/actions/informes";
 import { formatCurrency } from "@/lib/utils";
 import { X, Loader2, Package, User, Hash, Calendar, CreditCard, CheckCircle, Printer } from "lucide-react";
 
@@ -12,7 +13,7 @@ interface Props {
 }
 
 export default function DetalleVentaModal({ ventaId, onClose, onPrintTicket }: Props) {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<DetalleVentaCompleto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -117,7 +118,7 @@ export default function DetalleVentaModal({ ventaId, onClose, onPrintTicket }: P
                   Productos ({data.detalles.length})
                 </h3>
                 <div className="space-y-2">
-                  {data.detalles.map((det: any) => (
+                  {data.detalles.map((det) => (
                     <div
                       key={det.id}
                       className="flex items-center justify-between bg-slate-800/30 border border-slate-800 rounded-lg px-4 py-3"

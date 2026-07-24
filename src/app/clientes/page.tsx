@@ -34,7 +34,7 @@ export default async function ClientesPage() {
           <div className="p-1.5 bg-[var(--brand-light)] rounded-lg text-[var(--brand)]">
             <Users size={16} />
           </div>
-          <h1 className="text-base lg:text-lg font-extrabold text-[var(--text)] tracking-tight">
+          <h1 className="text-xl lg:text-2xl font-extrabold text-[var(--text)] tracking-tight">
             Gestión de Clientes
           </h1>
         </div>

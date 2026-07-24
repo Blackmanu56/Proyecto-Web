@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { getDetalleVenta } from "@/actions/informes";
+import type { DetalleVentaCompleto } from "@/actions/informes";
 import { formatCurrency } from "@/lib/utils";
 import { X, Loader2, Printer } from "lucide-react";
 
@@ -11,7 +12,7 @@ interface Props {
 }
 
 export default function TicketModal({ ventaId, onClose }: Props) {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<DetalleVentaCompleto | null>(null);
   const [loading, setLoading] = useState(true);
   const ticketRef = useRef<HTMLDivElement>(null);
 
@@ -100,7 +101,7 @@ export default function TicketModal({ ventaId, onClose }: Props) {
                   <span>DETALLE</span>
                   <span>CANT x PRECIO</span>
                 </div>
-                {data.detalles.map((det: any, index: number) => (
+                {data.detalles.map((det, index) => (
                   <div key={index} className="flex justify-between leading-normal">
                     <span className="truncate max-w-[65%]">{det.producto}</span>
                     <span className="font-mono text-right flex-shrink-0">

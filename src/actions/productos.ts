@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth.server";
 import { saveFile, deleteFile } from "@/lib/upload";
+import { MotivoEstadoProducto, Prisma } from "@prisma/client";
+import { requirePermission } from "@/lib/auth-permissions";
 
 const productoSchema = z.object({
   nombre: z.string().min(2, "El nombre del producto debe tener al menos 2 caracteres"),
@@ -28,7 +30,7 @@ export async function getProductos(
   activo?: boolean
 ) {
   try {
-    const whereClause: any = {};
+    const whereClause: Prisma.ProductoWhereInput = {};
 
     if (activo !== undefined) {
       whereClause.activo = activo;
@@ -68,10 +70,7 @@ export async function getProductos(
  * Crear un nuevo producto en el catálogo
  */
 export async function createProducto(formData: FormData) {
-  const session = await getSession();
-  if (!session || !["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(session.role)) {
-    throw new Error("No tiene permisos para realizar esta acción.");
-  }
+  const session = await requirePermission("productos.crear", await getSession());
 
   const rawData = {
     nombre: formData.get("nombre") as string,
@@ -174,9 +173,9 @@ export async function createProducto(formData: FormData) {
 
     revalidatePath("/productos");
     return { success: true, producto };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error en createProducto:", error);
-    return { error: error.message || "Error al agregar el producto" };
+    return { error: error instanceof Error ? error.message : "Error al agregar el producto" };
   }
 }
 
@@ -184,41 +183,38 @@ export async function createProducto(formData: FormData) {
  * Modificar un producto y registrar reposiciones automáticas
  */
 export async function updateProducto(id: number, formData: FormData) {
-  const session = await getSession();
-  if (!session || !["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(session.role)) {
-    throw new Error("No tiene permisos para realizar esta acción.");
-  }
-
-  const rawData = {
-    nombre: formData.get("nombre") as string,
-    marca: formData.get("marca") as string || null,
-    codigo: formData.get("codigo") as string || null,
-    imagen: formData.get("imagen") as string || null,
-    categoriaId: Number(formData.get("categoriaId")),
-    proveedorId: Number(formData.get("proveedorId")),
-    precioCompra: Number(formData.get("precioCompra")),
-    precioVenta: Number(formData.get("precioVenta")),
-    cantidad: Number(formData.get("cantidad")),
-    stockMinimo: Number(formData.get("stockMinimo")),
-  };
-
-  // Handle file upload if present
-  const file = formData.get("imagenFile") as File | null;
-  if (file && file.size > 0) {
-    // Delete old image if exists
-    if (rawData.imagen) {
-      await deleteFile(rawData.imagen);
-    }
-    const imageUrl = await saveFile(file);
-    rawData.imagen = imageUrl;
-  }
-
-  const validation = productoSchema.safeParse(rawData);
-  if (!validation.success) {
-    throw new Error(validation.error.errors[0].message);
-  }
-
   try {
+    const session = await requirePermission("productos.editar", await getSession());
+
+    const rawData = {
+      nombre: formData.get("nombre") as string,
+      marca: formData.get("marca") as string || null,
+      codigo: formData.get("codigo") as string || null,
+      imagen: formData.get("imagen") as string || null,
+      categoriaId: Number(formData.get("categoriaId")),
+      proveedorId: Number(formData.get("proveedorId")),
+      precioCompra: Number(formData.get("precioCompra")),
+      precioVenta: Number(formData.get("precioVenta")),
+      cantidad: Number(formData.get("cantidad")),
+      stockMinimo: Number(formData.get("stockMinimo")),
+    };
+
+    // Handle file upload if present
+    const file = formData.get("imagenFile") as File | null;
+    if (file && file.size > 0) {
+      // Delete old image if exists
+      if (rawData.imagen) {
+        await deleteFile(rawData.imagen);
+      }
+      const imageUrl = await saveFile(file);
+      rawData.imagen = imageUrl;
+    }
+
+    const validation = productoSchema.safeParse(rawData);
+    if (!validation.success) {
+      throw new Error(validation.error.errors[0].message);
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       // Obtener producto antes de la modificación
       const productoPrevio = await tx.producto.findUnique({
@@ -304,54 +300,283 @@ export async function updateProducto(id: number, formData: FormData) {
 
     revalidatePath("/productos");
     return { success: true, producto: result };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error en updateProducto:", error);
-    return { error: error.message || "Error al actualizar el producto" };
+    return { error: error instanceof Error ? error.message : "Error al actualizar el producto" };
   }
 }
 
 /**
- * Desactivar lógicamente un producto (soft-delete)
+ * Dar de baja un producto (soft-delete con historial)
+ * - Permite inactivar aunque tenga stock
+ * - No modifica el stock
+ * - No crea movimientos de inventario
+ * - Registra historial de cambio de estado
  */
-export async function deleteProducto(id: number) {
-  const session = await getSession();
-  if (!session || !["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(session.role)) {
-    throw new Error("No tiene permisos para realizar esta acción.");
+export async function darBajaProducto(
+  id: number,
+  motivo: MotivoEstadoProducto,
+  observacion?: string
+) {
+  const session = await requirePermission("productos.estado", await getSession());
+
+  // Validar motivo
+  const motivosValidos = Object.values(MotivoEstadoProducto);
+  if (!motivosValidos.includes(motivo)) {
+    throw new Error("Motivo inválido.");
+  }
+
+  // Validar observación obligatoria cuando motivo es OTRO
+  if (motivo === "OTRO" && (!observacion || observacion.trim().length === 0)) {
+    throw new Error("La observación es obligatoria cuando el motivo es 'Otro'.");
   }
 
   try {
-    await prisma.producto.update({
-      where: { id },
-      data: { activo: false },
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Obtener producto actual
+      const producto = await tx.producto.findUnique({ where: { id } });
+      if (!producto) {
+        throw new Error("Producto no encontrado.");
+      }
+      if (!producto.activo) {
+        throw new Error("El producto ya está inactivo.");
+      }
+
+      // 2. Registrar historial de cambio de estado
+      await tx.historialEstado.create({
+        data: {
+          productoId: id,
+          estadoAnterior: "ACTIVO",
+          estadoNuevo: "INACTIVO",
+          motivo,
+          observacion: observacion?.trim() || null,
+          usuarioId: session.userId,
+        },
+      });
+
+      // 3. Desactivar producto (sin modificar stock)
+      const p = await tx.producto.update({
+        where: { id },
+        data: { activo: false },
+      });
+
+      return p;
     });
 
     revalidatePath("/productos");
-    return { success: true };
-  } catch (error: any) {
-    console.error("Error en deleteProducto:", error);
-    return { error: error.message || "Error al eliminar el producto" };
+    return { success: true, producto: result };
+  } catch (error: unknown) {
+    console.error("Error en darBajaProducto:", error);
+    return { error: error instanceof Error ? error.message : "Error al dar de baja el producto" };
   }
 }
 
 /**
- * Reactivar lógicamente un producto desactivado
+ * Reactivar un producto inactivo (con historial)
+ * - Solo puede reactivar un producto que esté inactivo
+ * - Registra historial de cambio de estado
  */
-export async function reactivarProducto(id: number) {
-  const session = await getSession();
-  if (!session || !["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(session.role)) {
-    throw new Error("No tiene permisos para reactivar productos.");
-  }
+export async function reactivarProducto(id: number, observacion?: string) {
+  const session = await requirePermission("productos.estado", await getSession());
 
   try {
-    await prisma.producto.update({
-      where: { id },
-      data: { activo: true },
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Obtener producto actual
+      const producto = await tx.producto.findUnique({ where: { id } });
+      if (!producto) {
+        throw new Error("Producto no encontrado.");
+      }
+      if (producto.activo) {
+        throw new Error("El producto ya está activo.");
+      }
+
+      // 2. Registrar historial de cambio de estado
+      await tx.historialEstado.create({
+        data: {
+          productoId: id,
+          estadoAnterior: "INACTIVO",
+          estadoNuevo: "ACTIVO",
+          motivo: "REACTIVACION",
+          observacion: observacion?.trim() || null,
+          usuarioId: session.userId,
+        },
+      });
+
+      // 3. Reactivar producto
+      const p = await tx.producto.update({
+        where: { id },
+        data: { activo: true },
+      });
+
+      return p;
     });
 
     revalidatePath("/productos");
-    return { success: true };
-  } catch (error: any) {
+    return { success: true, producto: result };
+  } catch (error: unknown) {
     console.error("Error en reactivarProducto:", error);
-    return { error: error.message || "Error al reactivar el producto" };
+    return { error: error instanceof Error ? error.message : "Error al reactivar el producto" };
+  }
+}
+
+/**
+ * Obtener historial de estados de un producto
+ */
+export async function getHistorialEstado(productoId: number) {
+  try {
+    const historial = await prisma.historialEstado.findMany({
+      where: { productoId },
+      include: {
+        usuario: {
+          select: { id: true, username: true, nombreCompleto: true },
+        },
+      },
+      orderBy: { fecha: "desc" },
+    });
+
+    return historial;
+  } catch (error) {
+    console.error("Error en getHistorialEstado:", error);
+    return [];
+  }
+}
+
+/**
+ * Asignar marcas automáticamente a productos existentes basándose en el nombre.
+ * Crea marcas nuevas si no existen.
+ */
+export async function asignarMarcasAutomaticamente() {
+  await requirePermission("productos.marcas", await getSession());
+
+  // Reglas de asignación: marca → palabras clave en el nombre
+  const reglas: { marca: string; keywords: string[] }[] = [
+    { marca: "Honda", keywords: ["honda", "cg 150", "cg150"] },
+    { marca: "Yamaha", keywords: ["yamaha", "fz16", "fz 16"] },
+    { marca: "Suzuki", keywords: ["suzuki", "rm500", "rm 500"] },
+    { marca: "Bajaj", keywords: ["rouser", "ns200", "ns 200"] },
+    { marca: "Pirelli", keywords: ["pirelli"] },
+    { marca: "Motul", keywords: ["motul"] },
+    { marca: "AGM", keywords: ["agm"] },
+  ];
+
+  try {
+    const productos = await prisma.producto.findMany({
+      where: { marcaId: null },
+    });
+
+    let asignados = 0;
+    let marcasCreadas = 0;
+
+    for (const producto of productos) {
+      const nombreLower = producto.nombre.toLowerCase();
+
+      for (const regla of reglas) {
+        const coincide = regla.keywords.some(kw => nombreLower.includes(kw));
+        if (coincide) {
+          // Buscar o crear la marca
+          let marca = await prisma.marca.findFirst({
+            where: { nombre: regla.marca },
+          });
+
+          if (!marca) {
+            marca = await prisma.marca.create({
+              data: { nombre: regla.marca, activo: true },
+            });
+            marcasCreadas++;
+          }
+
+          // Asignar marca al producto
+          await prisma.producto.update({
+            where: { id: producto.id },
+            data: {
+              marcaId: marca.id,
+              marca: marca.nombre,
+            },
+          });
+
+          asignados++;
+          break; // Solo una marca por producto
+        }
+      }
+    }
+
+    revalidatePath("/productos");
+    return {
+      success: true,
+      asignados,
+      marcasCreadas,
+      total: productos.length,
+    };
+  } catch (error: unknown) {
+    console.error("Error en asignarMarcasAutomaticamente:", error);
+    return { error: error instanceof Error ? error.message : "Error al asignar marcas" };
+  }
+}
+
+/**
+ * Restar stock de un producto con auditoría.
+ * Registra el movimiento en historial de estados.
+ */
+export async function restarStock(
+  productoId: number,
+  cantidad: number,
+  motivo: string,
+  observacion?: string
+) {
+  const session = await requirePermission("productos.restar_stock", await getSession());
+
+  if (cantidad <= 0) {
+    throw new Error("La cantidad debe ser mayor a 0.");
+  }
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const producto = await tx.producto.findUnique({
+        where: { id: productoId },
+      });
+
+      if (!producto) {
+        throw new Error("Producto no encontrado.");
+      }
+
+      if (producto.cantidad < cantidad) {
+        throw new Error(
+          `Stock insuficiente. Stock actual: ${producto.cantidad} unidades.`
+        );
+      }
+
+      const stockAnterior = producto.cantidad;
+      const stockNuevo = stockAnterior - cantidad;
+
+      // Actualizar stock
+      await tx.producto.update({
+        where: { id: productoId },
+        data: { cantidad: stockNuevo },
+      });
+
+      // Registrar en historial de estados
+      await tx.historialEstado.create({
+        data: {
+          productoId,
+          estadoAnterior: "ACTIVO",
+          estadoNuevo: "ACTIVO",
+          motivo: "OTRO",
+          observacion: `[RESTAR STOCK] Motivo: ${motivo}. Cantidad descontada: ${cantidad}. Stock anterior: ${stockAnterior}. Stock nuevo: ${stockNuevo}${observacion ? `. Observación: ${observacion}` : ""}`,
+          usuarioId: session.userId,
+        },
+      });
+
+      return { producto, stockAnterior, stockNuevo };
+    });
+
+    revalidatePath("/productos");
+    return {
+      success: true,
+      stockAnterior: result.stockAnterior,
+      stockNuevo: result.stockNuevo,
+    };
+  } catch (error: unknown) {
+    console.error("Error en restarStock:", error);
+    return { error: error instanceof Error ? error.message : "Error al restar stock" };
   }
 }
