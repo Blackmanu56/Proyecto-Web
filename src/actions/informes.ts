@@ -1585,6 +1585,93 @@ export async function getFrecuenciaComprasCliente(): Promise<{
   }
 }
 
+// ─── 30. EVOLUCIÓN DE VENTAS PARA GRÁFICO ───────────────────
+
+export async function getEvolucionVentas(
+  fechaDesde?: string,
+  fechaHasta?: string,
+  agruparPor: "dia" | "semana" | "mes" | "anio" = "dia"
+): Promise<{ data: { periodo: string; ventas: number; ganancia: number; fechaInicio: string; fechaFin: string }[] }> {
+  try {
+    const dateFilter = buildDateFilter(fechaDesde, fechaHasta);
+
+    const ventas = await prisma.venta.findMany({
+      where: dateFilter,
+      include: {
+        detalles: {
+          include: { producto: { select: { precioCompra: true } } },
+        },
+      },
+      orderBy: { fecha: "asc" },
+    });
+
+    const agrupado: Record<string, { ventas: number; costo: number; fecha: Date; fechaFin: Date }> = {};
+    let lastWeekKey = "";
+    let lastMonth = -1;
+    let semanaEnMes = 0;
+
+    for (const v of ventas) {
+      let periodo: string;
+      let fechaFin = v.fecha;
+      if (agruparPor === "anio") {
+        periodo = v.fecha.toLocaleDateString("es-AR", { year: "numeric" });
+      } else if (agruparPor === "mes") {
+        periodo = v.fecha.toLocaleDateString("es-AR", { month: "long", year: "numeric" });
+      } else if (agruparPor === "semana") {
+        // Calcular inicio de semana (lunes) usando fecha local para evitar bug de timezone
+        const y = v.fecha.getFullYear();
+        const m = v.fecha.getMonth();
+        const d = v.fecha.getDate();
+        const dayOfWeek = v.fecha.getDay(); // 0=Dom, 1=Lun, ...
+        const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        const inicioLocal = new Date(y, m, d - diffToMonday);
+        const finLocal = new Date(y, m, d - diffToMonday + 6);
+        fechaFin = finLocal;
+        const weekKey = `${inicioLocal.getFullYear()}-${String(inicioLocal.getMonth() + 1).padStart(2, "0")}-${String(inicioLocal.getDate()).padStart(2, "0")}`;
+        const mesActual = inicioLocal.getMonth();
+        if (weekKey !== lastWeekKey) {
+          if (mesActual !== lastMonth) {
+            semanaEnMes = 1;
+            lastMonth = mesActual;
+          } else {
+            semanaEnMes++;
+          }
+          lastWeekKey = weekKey;
+        }
+        // Calcular número de semana real según el día del mes del lunes
+        const diaDelMes = inicioLocal.getDate();
+        const numSemana = Math.ceil(diaDelMes / 7);
+        const mesLargo = inicioLocal.toLocaleDateString("es-AR", { month: "long" });
+        periodo = `S${numSemana} ${mesLargo}`;
+      } else {
+        periodo = v.fecha.toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "2-digit" });
+      }
+
+      if (!agrupado[periodo]) agrupado[periodo] = { ventas: 0, costo: 0, fecha: v.fecha, fechaFin };
+      agrupado[periodo].ventas += v.total;
+      agrupado[periodo].costo += v.detalles.reduce(
+        (s, d) => s + d.cantidad * d.producto.precioCompra,
+        0
+      );
+    }
+
+    const data = Object.entries(agrupado)
+      .map(([periodo, vals]) => ({
+        periodo,
+        ventas: vals.ventas,
+        ganancia: vals.ventas - vals.costo,
+        fechaInicio: vals.fecha.toISOString(),
+        fechaFin: vals.fechaFin.toISOString(),
+      }))
+      .sort((a, b) => a.fechaInicio.localeCompare(b.fechaInicio));
+
+    return { data };
+  } catch (error) {
+    console.error("Error en getEvolucionVentas:", error);
+    return { data: [] };
+  }
+}
+
 // ─── 29. STOCK BAJO ──────────────────────────────────────────
 
 export async function getStockBajo(filters: ReportFilters = {}): Promise<PaginatedResult<{

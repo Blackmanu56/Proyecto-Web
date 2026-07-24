@@ -1,293 +1,24 @@
 ﻿"use client";
 
 import React, { useState, useEffect, useTransition, useMemo, useCallback } from "react";
-import { getReporteCierres, getDetalleCierre, getCierresDiferencias } from "@/actions/informes";
+import { getReporteCierres, getCierresDiferencias } from "@/actions/informes";
 import { formatCurrency } from "@/lib/utils";
 import {
-  Search, Calendar, User, RefreshCw, Wallet, Eye, X, Loader2,
-  CheckCircle, XCircle, Printer, TrendingUp, TrendingDown,
+  Search, Calendar, User, RefreshCw, Wallet, Eye, ChevronUp, Loader2,
+  CheckCircle, XCircle, Printer, TrendingUp,
   DollarSign, BadgePercent, ChevronDown, ChevronRight,
-  Coins, ArrowUpRight, ArrowDownLeft, Lock, FileText,
-  Clock, Hash, Info, AlertTriangle, Receipt,
+  FileText, AlertTriangle,
 } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
 import DataTable from "@/components/ui/DataTable";
+import ResultadoBadge from "./ResultadoBadge";
+import CierreAccordionRow from "./CierreAccordionRow";
+import CierreDetailPrintView from "./CierreDetailPrintView";
 
 interface Props {
   initialData: any[];
   usuarios: { id: number; username: string; nombreCompleto: string }[];
   userRole: string;
-}
-
-// ─── Shared detail content (used by modal AND print) ───────────
-function CierreDetailView({ detalleData }: { detalleData: any }) {
-  const ingresos = detalleData?.movimientos?.filter((m: any) => m.tipo === "INGRESO") || [];
-  const egresos = detalleData?.movimientos?.filter((m: any) => m.tipo === "EGRESO") || [];
-  const totalIngresos = ingresos.reduce((s: number, m: any) => s + m.monto, 0);
-  const totalEgresos = egresos.reduce((s: number, m: any) => s + m.monto, 0);
-  const resultadoNeto = totalIngresos - totalEgresos;
-
-  return (
-    <div className="space-y-6">
-      {/* Metadata row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-slate-800/50 print:bg-gray-100 rounded-xl p-3.5 border border-slate-700/50 print:border-gray-300">
-          <p className="text-[10px] font-bold text-slate-500 print:text-gray-600 uppercase tracking-wider flex items-center gap-1"><Calendar size={11} /> Apertura</p>
-          <p className="text-sm font-bold text-white print:text-gray-900 mt-1">{detalleData.fechaApertura}</p>
-        </div>
-        <div className="bg-slate-800/50 print:bg-gray-100 rounded-xl p-3.5 border border-slate-700/50 print:border-gray-300">
-          <p className="text-[10px] font-bold text-slate-500 print:text-gray-600 uppercase tracking-wider flex items-center gap-1"><Clock size={11} /> Cierre</p>
-          <p className="text-sm font-bold text-white print:text-gray-900 mt-1">{detalleData.fechaCierre || "\u2014"}</p>
-        </div>
-        <div className="bg-slate-800/50 print:bg-gray-100 rounded-xl p-3.5 border border-slate-700/50 print:border-gray-300">
-          <p className="text-[10px] font-bold text-slate-500 print:text-gray-600 uppercase tracking-wider flex items-center gap-1"><User size={11} /> Usuario</p>
-          <p className="text-sm font-bold text-white print:text-gray-900 mt-1">{detalleData.usuario}</p>
-        </div>
-        <div className="bg-slate-800/50 print:bg-gray-100 rounded-xl p-3.5 border border-slate-700/50 print:border-gray-300">
-          <p className="text-[10px] font-bold text-slate-500 print:text-gray-600 uppercase tracking-wider flex items-center gap-1"><Info size={11} /> Estado</p>
-          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold mt-1 ${
-            detalleData.estado === "ABIERTA"
-              ? "bg-amber-500/10 text-amber-400 print:text-amber-700 print:bg-amber-100 border border-amber-500/20 print:border-amber-300"
-              : "bg-emerald-500/10 text-emerald-400 print:text-emerald-700 print:bg-emerald-100 border border-emerald-500/20 print:border-emerald-300"
-          }`}>
-            {detalleData.estado === "ABIERTA" ? <XCircle size={12} /> : <CheckCircle size={12} />}
-            {detalleData.estado}
-          </span>
-        </div>
-      </div>
-
-      {/* Financial Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        <div className="bg-slate-800/40 print:bg-gray-100 rounded-xl p-3.5 border border-slate-700/50 print:border-gray-300 text-center">
-          <Coins size={16} className="mx-auto mb-1 text-slate-400 print:text-gray-500" />
-          <p className="text-[10px] text-slate-500 print:text-gray-600 font-semibold">Inicial</p>
-          <p className="text-base font-bold text-white print:text-gray-900 font-mono">{formatCurrency(detalleData.montoInicial)}</p>
-        </div>
-        <div className="bg-slate-800/40 print:bg-gray-100 rounded-xl p-3.5 border border-slate-700/50 print:border-gray-300 text-center">
-          <ArrowUpRight size={16} className="mx-auto mb-1 text-emerald-400 print:text-emerald-600" />
-          <p className="text-[10px] text-slate-500 print:text-gray-600 font-semibold">Ingresos</p>
-          <p className="text-base font-bold text-emerald-400 print:text-emerald-600 font-mono">{formatCurrency(totalIngresos)}</p>
-        </div>
-        <div className="bg-slate-800/40 print:bg-gray-100 rounded-xl p-3.5 border border-slate-700/50 print:border-gray-300 text-center">
-          <ArrowDownLeft size={16} className="mx-auto mb-1 text-rose-400 print:text-red-600" />
-          <p className="text-[10px] text-slate-500 print:text-gray-600 font-semibold">Egresos</p>
-          <p className="text-base font-bold text-rose-400 print:text-red-600 font-mono">{formatCurrency(totalEgresos)}</p>
-        </div>
-        <div className="bg-slate-800/40 print:bg-gray-100 rounded-xl p-3.5 border border-slate-700/50 print:border-gray-300 text-center">
-          <Wallet size={16} className="mx-auto mb-1 text-sky-400 print:text-sky-600" />
-          <p className="text-[10px] text-slate-500 print:text-gray-600 font-semibold">Esperado</p>
-          <p className="text-base font-bold text-sky-400 print:text-sky-600 font-mono">{formatCurrency(detalleData.totalEsperado)}</p>
-        </div>
-        <div className="bg-gradient-to-b from-slate-800/40 to-slate-800/20 print:bg-gray-100 rounded-xl p-3.5 border border-slate-700/50 print:border-gray-300 text-center">
-          <BadgePercent size={16} className={"mx-auto mb-1 " + (detalleData.diferencia !== null && detalleData.diferencia !== 0 ? "text-amber-400 print:text-amber-600" : "text-slate-400 print:text-gray-500")} />
-          <p className="text-[10px] text-slate-500 print:text-gray-600 font-semibold">Diferencia</p>
-          {detalleData.diferencia !== null ? (
-            <p className={"text-base font-bold font-mono " + (detalleData.diferencia >= 0 ? "text-emerald-400 print:text-emerald-600" : "text-rose-400 print:text-red-600")}>
-              {detalleData.diferencia > 0 ? "+" : ""}{formatCurrency(detalleData.diferencia)}
-            </p>
-          ) : (
-            <p className="text-base font-bold text-slate-500 print:text-gray-500 font-mono">\u2014</p>
-          )}
-        </div>
-      </div>
-
-      {/* Ingresos */}
-      {ingresos.length > 0 && (
-        <div>
-          <h3 className="text-xs font-bold text-emerald-400 print:text-emerald-700 uppercase tracking-wider mb-2.5 flex items-center gap-2">
-            <ArrowUpRight size={14} />
-            Ingresos ({ingresos.length})
-          </h3>
-          <div className="overflow-hidden rounded-xl border border-emerald-500/10 print:border-emerald-300">
-            <table className="w-full text-[11px]">
-              <thead>
-                <tr className="bg-emerald-500/5 print:bg-emerald-50 border-b border-emerald-500/10 print:border-emerald-300">
-                  <th className="text-left px-3 py-2 text-[10px] font-bold text-emerald-300 print:text-emerald-700 uppercase tracking-wider">Hora</th>
-                  <th className="text-left px-3 py-2 text-[10px] font-bold text-emerald-300 print:text-emerald-700 uppercase tracking-wider">Concepto</th>
-                  <th className="text-right px-3 py-2 text-[10px] font-bold text-emerald-300 print:text-emerald-700 uppercase tracking-wider">Monto</th>
-                  <th className="text-right px-3 py-2 text-[10px] font-bold text-emerald-300 print:text-emerald-700 uppercase tracking-wider">Usuario</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-emerald-500/5 print:divide-emerald-200">
-                {ingresos.map((m: any) => (
-                  <tr key={m.id} className="hover:bg-emerald-500/5 print:hover:bg-transparent transition-colors">
-                    <td className="px-3 py-2 text-slate-400 print:text-gray-600 font-mono">
-                      {m.fecha?.split(" ")[1] || m.fecha}
-                    </td>
-                    <td className="px-3 py-2 text-white print:text-gray-900 font-medium truncate max-w-[200px]">{m.descripcion}</td>
-                    <td className="px-3 py-2 text-right text-emerald-400 print:text-emerald-700 font-bold font-mono">+{formatCurrency(m.monto)}</td>
-                    <td className="px-3 py-2 text-right text-slate-500 print:text-gray-500">@{m.usuario}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Egresos */}
-      {egresos.length > 0 && (
-        <div>
-          <h3 className="text-xs font-bold text-rose-400 print:text-red-700 uppercase tracking-wider mb-2.5 flex items-center gap-2">
-            <ArrowDownLeft size={14} />
-            Egresos ({egresos.length})
-          </h3>
-          <div className="overflow-hidden rounded-xl border border-rose-500/10 print:border-red-300">
-            <table className="w-full text-[11px]">
-              <thead>
-                <tr className="bg-rose-500/5 print:bg-red-50 border-b border-rose-500/10 print:border-red-300">
-                  <th className="text-left px-3 py-2 text-[10px] font-bold text-rose-300 print:text-red-700 uppercase tracking-wider">Hora</th>
-                  <th className="text-left px-3 py-2 text-[10px] font-bold text-rose-300 print:text-red-700 uppercase tracking-wider">Concepto</th>
-                  <th className="text-right px-3 py-2 text-[10px] font-bold text-rose-300 print:text-red-700 uppercase tracking-wider">Monto</th>
-                  <th className="text-right px-3 py-2 text-[10px] font-bold text-rose-300 print:text-red-700 uppercase tracking-wider">Usuario</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-rose-500/5 print:divide-red-200">
-                {egresos.map((m: any) => (
-                  <tr key={m.id} className="hover:bg-rose-500/5 print:hover:bg-transparent transition-colors">
-                    <td className="px-3 py-2 text-slate-400 print:text-gray-600 font-mono">
-                      {m.fecha?.split(" ")[1] || m.fecha}
-                    </td>
-                    <td className="px-3 py-2 text-white print:text-gray-900 font-medium truncate max-w-[200px]">{m.descripcion}</td>
-                    <td className="px-3 py-2 text-right text-rose-400 print:text-red-700 font-bold font-mono">-{formatCurrency(m.monto)}</td>
-                    <td className="px-3 py-2 text-right text-slate-500 print:text-gray-500">@{m.usuario}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {ingresos.length === 0 && egresos.length === 0 && (
-        <div className="text-center py-8 text-slate-500">
-          <Receipt size={32} className="mx-auto mb-2 opacity-30" />
-          <p className="text-sm font-medium">Sin movimientos registrados</p>
-          <p className="text-xs mt-1">Este cierre no tiene movimientos de ingresos ni egresos.</p>
-        </div>
-      )}
-
-      {(ingresos.length > 0 || egresos.length > 0) && (
-        <div className="bg-slate-800/30 print:bg-gray-100 border border-slate-700/50 print:border-gray-300 rounded-xl p-4">
-          <h4 className="text-xs font-bold text-slate-400 print:text-gray-700 uppercase tracking-wider mb-3">Resumen Final</h4>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-            <div>
-              <p className="text-[10px] text-slate-500 print:text-gray-600 font-semibold">Cant. Ingresos</p>
-              <p className="text-base font-bold text-emerald-400 print:text-emerald-700">{ingresos.length}</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-slate-500 print:text-gray-600 font-semibold">Cant. Egresos</p>
-              <p className="text-base font-bold text-rose-400 print:text-red-700">{egresos.length}</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-slate-500 print:text-gray-600 font-semibold">Total Ingresos</p>
-              <p className="text-base font-bold text-emerald-400 print:text-emerald-700 font-mono">{formatCurrency(totalIngresos)}</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-slate-500 print:text-gray-600 font-semibold">Total Egresos</p>
-              <p className="text-base font-bold text-rose-400 print:text-red-700 font-mono">{formatCurrency(totalEgresos)}</p>
-            </div>
-          </div>
-          <div className="mt-3 pt-3 border-t border-slate-700/50 print:border-gray-300 flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400 print:text-gray-700 uppercase tracking-wider">Resultado Neto</span>
-            <span className={"text-lg font-black font-mono " + (resultadoNeto >= 0 ? "text-emerald-400 print:text-emerald-700" : "text-rose-400 print:text-red-700")}>
-              {resultadoNeto >= 0 ? "+" : ""}{formatCurrency(resultadoNeto)}
-            </span>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Print-only view for a single cierre ───────────────────────
-function CierreDetailPrintView({ cajaId }: {
-  cajaId: number;
-}) {
-  const [detalleData, setDetalleData] = useState<any>(null);
-
-  useEffect(() => {
-    getDetalleCierre(cajaId).then((res: any) => setDetalleData(res));
-  }, [cajaId]);
-
-  useEffect(() => {
-    if (detalleData) {
-      const timer = setTimeout(() => window.print(), 150);
-      return () => clearTimeout(timer);
-    }
-  }, [detalleData]);
-
-  if (!detalleData) return null;
-
-  return (
-    <div className="hidden print:block print:bg-white print:text-black">
-      <div className="text-center mb-6">
-        <h1 className="text-2xl font-black uppercase tracking-wide">CHOPPER REPUESTOS</h1>
-        <p className="text-sm text-gray-600 mt-1">Detalle de Cierre #{cajaId}</p>
-        <div className="flex justify-center gap-4 text-xs text-gray-500 mt-2">
-          <span>Apertura: {detalleData.fechaApertura}</span>
-          <span>Cierre: {detalleData.fechaCierre || "\u2014"}</span>
-          <span>Usuario: {detalleData.usuario}</span>
-          <span>Impreso: {new Date().toLocaleDateString("es-AR")} {new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}</span>
-        </div>
-        <hr className="my-3 border-gray-300" />
-      </div>
-      <CierreDetailView detalleData={detalleData} />
-    </div>
-  );
-}
-
-// ─── Modal ─────────────────────────────────────────────────────
-function DetalleCierreModal({ cajaId, onClose, onPrint }: {
-  cajaId: number;
-  onClose: () => void;
-  onPrint: (id: number) => void;
-}) {
-  const [detalleData, setDetalleData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    getDetalleCierre(cajaId).then((res: any) => { setDetalleData(res); setLoading(false); });
-  }, [cajaId]);
-
-  return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-900 border border-slate-700 w-full max-w-2xl rounded-2xl shadow-2xl relative max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 shrink-0">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <Wallet size={18} className="text-sky-400" />
-            Cierre #{cajaId}
-          </h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition"><X size={16} /></button>
-        </div>
-
-        {/* Body */}
-        <div className="px-6 py-5 overflow-y-auto space-y-6">
-          {loading ? (
-            <div className="flex justify-center py-12"><Loader2 size={28} className="animate-spin text-slate-400" /></div>
-          ) : detalleData ? (
-            <CierreDetailView detalleData={detalleData} />
-          ) : (
-            <p className="text-center text-red-400 py-8">Error al cargar detalle.</p>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-slate-800 flex items-center justify-between shrink-0">
-          <button
-            onClick={() => onPrint(cajaId)}
-            disabled={loading || !detalleData}
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition"
-          >
-            <Printer size={14} />
-            Imprimir cierre
-          </button>
-          <button onClick={onClose} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold rounded-lg transition">Cerrar</button>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 // ─── Main component ────────────────────────────────────────────
@@ -301,7 +32,7 @@ export default function CierresReport({ initialData, usuarios, userRole }: Props
   const [isPending, startTransition] = useTransition();
 
   const [diferencias, setDiferencias] = useState<any[] | null>(null);
-  const [detalleCajaId, setDetalleCajaId] = useState<number | null>(null);
+  const [expandedCierreId, setExpandedCierreId] = useState<number | null>(null);
   const [loadingSection, setLoadingSection] = useState<string | null>(null);
   const [printSection, setPrintSection] = useState<string | null>(null);
   const [showSecondary, setShowSecondary] = useState(false);
@@ -323,12 +54,11 @@ export default function CierresReport({ initialData, usuarios, userRole }: Props
 
   const handlePrintDetalle = useCallback((cajaId: number) => {
     setPrintingCajaId(cajaId);
-    setDetalleCajaId(null);
   }, []);
 
   const handlePrint = () => {
-    if (detalleCajaId) {
-      handlePrintDetalle(detalleCajaId);
+    if (expandedCierreId) {
+      handlePrintDetalle(expandedCierreId);
     } else {
       window.print();
     }
@@ -459,32 +189,51 @@ export default function CierresReport({ initialData, usuarios, userRole }: Props
                   <th className="text-right px-4 py-3 text-xs font-bold text-slate-400 uppercase">Ventas</th>
                   <th className="text-right px-4 py-3 text-xs font-bold text-slate-400 uppercase">Esperado</th>
                   <th className="text-center px-4 py-3 text-xs font-bold text-slate-400 uppercase">Estado</th>
+                  <th className="text-center px-4 py-3 text-xs font-bold text-slate-400 uppercase print:hidden">Resultado</th>
                   <th className="text-center px-4 py-3 text-xs font-bold text-slate-400 uppercase print:hidden">Det.</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/50 print:divide-gray-300">
                 {cierresFiltrados.length === 0 ? (
-                  <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-500">Sin cierres en el período.</td></tr>
+                  <tr><td colSpan={10} className="px-4 py-8 text-center text-slate-500">Sin cierres en el período.</td></tr>
                 ) : cierresFiltrados.map((c: any) => (
-                  <tr key={c.id} className="hover:bg-slate-800/30 transition-colors">
-                    <td className="px-4 py-3 font-bold text-white">#{c.id}</td>
-                    <td className="px-4 py-3 text-xs text-slate-300">{c.fechaApertura}</td>
-                    <td className="px-4 py-3 text-xs text-slate-300">{c.fechaCierre || "\u2014"}</td>
-                    <td className="px-4 py-3 text-slate-400">{c.usuario}</td>
-                    <td className="px-4 py-3 text-right text-slate-300">{formatCurrency(c.montoInicial)}</td>
-                    <td className="px-4 py-3 text-right font-bold text-emerald-400">{formatCurrency(c.totalVentas)}</td>
-                    <td className="px-4 py-3 text-right text-slate-300">{formatCurrency(c.montoInicial + c.totalVentas)}</td>
-                    <td className="px-4 py-3 text-center">
-                      {c.estado === "ABIERTA" ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded-full text-[10px] font-bold"><XCircle size={10} />ABIERTA</span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-full text-[10px] font-bold"><CheckCircle size={10} />CERRADA</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center print:hidden">
-                      <button onClick={() => setDetalleCajaId(c.id)} className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-sky-400 hover:bg-slate-700 transition" title="Ver detalle"><Eye size={14} /></button>
-                    </td>
-                  </tr>
+                  <React.Fragment key={c.id}>
+                    <tr className={`transition-colors ${expandedCierreId === c.id ? "bg-slate-800/20" : "hover:bg-slate-800/30"}`}>
+                      <td className="px-4 py-3 font-bold text-white">#{c.id}</td>
+                      <td className="px-4 py-3 text-xs text-slate-300">{c.fechaApertura}</td>
+                      <td className="px-4 py-3 text-xs text-slate-300">{c.fechaCierre || "\u2014"}</td>
+                      <td className="px-4 py-3 text-slate-400">{c.usuario}</td>
+                      <td className="px-4 py-3 text-right text-slate-300">{formatCurrency(c.montoInicial)}</td>
+                      <td className="px-4 py-3 text-right font-bold text-emerald-400">{formatCurrency(c.totalVentas)}</td>
+                      <td className="px-4 py-3 text-right text-slate-300">{formatCurrency(c.montoInicial + c.totalVentas)}</td>
+                      <td className="px-4 py-3 text-center">
+                        {c.estado === "ABIERTA" ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded-full text-[10px] font-bold"><XCircle size={10} />ABIERTA</span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-full text-[10px] font-bold"><CheckCircle size={10} />CERRADA</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center print:hidden">
+                        <ResultadoBadge totalContado={c.totalContado} totalEsperado={c.totalEsperado} />
+                      </td>
+                      <td className="px-4 py-3 text-center print:hidden">
+                        <button
+                          onClick={() => setExpandedCierreId(prev => prev === c.id ? null : c.id)}
+                          className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-sky-400 hover:bg-slate-700 transition"
+                          title={expandedCierreId === c.id ? "Ocultar detalle" : "Ver detalle"}
+                        >
+                          {expandedCierreId === c.id ? <ChevronUp size={14} /> : <Eye size={14} />}
+                        </button>
+                      </td>
+                    </tr>
+                    {expandedCierreId === c.id && (
+                      <tr>
+                        <td colSpan={10} className="p-0">
+                          <CierreAccordionRow cajaId={c.id} onPrint={handlePrintDetalle} />
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>
@@ -607,14 +356,6 @@ export default function CierresReport({ initialData, usuarios, userRole }: Props
           )}
         </div>
       </div>
-
-      {detalleCajaId && (
-        <DetalleCierreModal
-          cajaId={detalleCajaId}
-          onClose={() => setDetalleCajaId(null)}
-          onPrint={handlePrintDetalle}
-        />
-      )}
 
       {printingCajaId && (
         <CierreDetailPrintView

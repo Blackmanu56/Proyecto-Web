@@ -1,0 +1,72 @@
+========================================
+  INSTALACION SGI-REPUESTOS
+========================================
+
+
+--- PARTE 1: INSTALAR PROGRAMAS ---
+
+   - Git:        https://git-scm.com/downloads
+   - Node.js:    https://nodejs.org (version LTS)
+   - Docker:     https://www.docker.com/products/docker-desktop
+
+   Instalar con todo default (next, next, next, finish).
+
+
+--- PARTE 2: DESCARGAR EL PROYECTO ---
+
+   Abrir terminal y escribir:
+
+   git clone -b p5 https://github.com/Blackmanu56/Proyecto-Web.git
+   cd Proyecto-Web
+   notepad .env
+
+   Pegar esto en el bloc de notas y guardar:
+
+   DATABASE_URL="postgresql://user:password@localhost:5433/pasantes_db?schema=public"
+   JWT_SECRET="mi_secreto_super_seguro_para_tesis_2026"
+
+
+--- PARTE 3: CARGAR BASE DE DATOS ---
+
+   Copiar el archivo "backup-sgi.sql" a la carpeta del proyecto.
+
+   Verificar que Docker este abierto.
+
+   En la terminal, ir a la carpeta del proyecto y escribir:
+
+   docker exec -i sgi-repuestos-db-1 psql -U user -d pasantes_db < backup-sgi.sql
+
+   Listo, la base de datos ya tiene todos los datos.
+
+
+--- PARTE 4: LEVANTAR TODO ---
+
+   docker compose up -d
+   npm install
+   npx prisma generate
+   npx prisma migrate deploy
+   npm run dev
+
+   Abrir en el navegador: http://localhost:3000
+
+
+========================================
+  NOTA
+========================================
+
+Si "docker compose up -d" tira error, asegurate de que
+Docker Desktop este abierto (icono de ballena en la barra
+de tareas).
+
+Para activar la virtualizacion:
+  - Reiniciar la PC
+  - Entrar a la BIOS (F2, F10, Del o Sup
+   dependiendo la motherboard)
+  - Buscar "Virtualization Technology" o
+   "VT-x / AMD-V" y activarlo
+  - Guardar y salir
+
+
+========================================
+  CULPA: MANU (obviamente)
+========================================
