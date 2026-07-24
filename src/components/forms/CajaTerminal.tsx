@@ -98,12 +98,14 @@ export default function CajaTerminal({
   const [montoApertura, setMontoApertura] = useState("");
   const [gastoDesc, setGastoDesc] = useState("");
   const [gastoMonto, setGastoMonto] = useState("");
+  const [aperturaCompletada, setAperturaCompletada] = useState(false);
 
   const [showCerrarModal, setShowCerrarModal] = useState(false);
   const [showDetalleModal, setShowDetalleModal] = useState(false);
   const [movimientoSeleccionado, setMovimientoSeleccionado] = useState<MovimientoEnriched | null>(null);
 
   const [errorMsg, setErrorMsg] = useState("");
+  const [cierreErrorMsg, setCierreErrorMsg] = useState("");
 
   const [filtroNaturaleza, setFiltroNaturaleza] = useState("");
   const [filtroConcepto, setFiltroConcepto] = useState("");
@@ -133,6 +135,7 @@ export default function CajaTerminal({
   const handleAbrir = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
+    setAperturaCompletada(false);
     const monto = Number(montoApertura);
     if (isNaN(monto) || monto < 0) {
       setErrorMsg("Ingrese un monto inicial válido.");
@@ -140,23 +143,42 @@ export default function CajaTerminal({
     }
     startTransition(async () => {
       const res = await abrirCaja(monto);
-      if (res.success) { setMontoApertura(""); router.refresh(); }
-      else { setErrorMsg(res.error || "Ocurrió un error al abrir la caja."); }
+      if (res.success) {
+        setMontoApertura("");
+        setAperturaCompletada(true);
+        router.refresh();
+      } else {
+        setAperturaCompletada(false);
+        setErrorMsg(res.error || "Ocurrió un error al abrir la caja.");
+      }
     });
   };
 
   const handleCerrar = () => {
     if (!cajaActiva) return;
+    setCierreErrorMsg("");
     setShowCerrarModal(true);
   };
 
   const confirmarCierre = () => {
     if (!cajaActiva) return;
+    setCierreErrorMsg("");
     startTransition(async () => {
       const res = await cerrarCaja(cajaActiva.id);
-      if (res.success) { router.refresh(); }
-      else { setErrorMsg(res.error || "Error al cerrar la caja."); setShowCerrarModal(false); }
+      if (res.success) {
+        setAperturaCompletada(false);
+        setShowCerrarModal(false);
+        router.refresh();
+      } else {
+        setCierreErrorMsg(res.error || "Error al cerrar la caja.");
+      }
     });
+  };
+
+  const cerrarModalCierre = () => {
+    if (isPending) return;
+    setShowCerrarModal(false);
+    setCierreErrorMsg("");
   };
 
   const handleGasto = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -334,6 +356,14 @@ export default function CajaTerminal({
                 Actualmente no hay ninguna caja operativa abierta. Debe abrir la caja con un saldo inicial en efectivo para poder registrar cobros y reposiciones.
               </p>
             </div>
+            {aperturaCompletada ? (
+              <div className="space-y-3 max-w-xs mx-auto" aria-live="polite">
+                <div className="p-3 bg-[var(--success-light)] border border-[var(--success)]/20 text-[var(--success)] text-xs font-semibold rounded-[var(--radius-md)] flex items-center justify-center space-x-2">
+                  <Unlock size={14} />
+                  <span>Caja abierta correctamente. Actualizando estado...</span>
+                </div>
+              </div>
+            ) : (
             <form onSubmit={handleAbrir} className="space-y-4 max-w-xs mx-auto">
               <div className="space-y-1.5 text-left">
                 <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider block text-center">
@@ -346,7 +376,7 @@ export default function CajaTerminal({
                   onChange={e => setMontoApertura(e.target.value)}
                   className="w-full text-center px-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-[var(--text)] focus:outline-none focus:border-[var(--brand)] text-lg font-mono font-bold transition-colors"
                   required
-                  disabled={isPending}
+                  disabled={isPending || aperturaCompletada}
                 />
               </div>
               {errorMsg && (
@@ -355,10 +385,11 @@ export default function CajaTerminal({
                   <span>{errorMsg}</span>
                 </div>
               )}
-              <Button type="submit" className="w-full py-3" disabled={isPending} loading={isPending} leftIcon={<Unlock size={16} />}>
-                Abrir Caja de Mostrador
+              <Button type="submit" className="w-full py-3" disabled={isPending || aperturaCompletada} loading={isPending || aperturaCompletada} leftIcon={<Unlock size={16} />}>
+                {isPending || aperturaCompletada ? "Abriendo..." : "Abrir Caja de Mostrador"}
               </Button>
             </form>
+            )}
           </div>
 
         /* ── CASO B: Caja Abierta ── */
@@ -706,9 +737,10 @@ export default function CajaTerminal({
     {cajaActiva && (
       <ConfirmarCierreModal
         open={showCerrarModal}
-        onClose={() => !isPending && setShowCerrarModal(false)}
+        onClose={cerrarModalCierre}
         onConfirm={confirmarCierre}
         isPending={isPending}
+        errorMessage={cierreErrorMsg}
         montoInicial={cajaActiva.montoInicial}
         totalVentas={cajaActiva.totalVentas}
         totalIngresos={totalIngresosTurno}

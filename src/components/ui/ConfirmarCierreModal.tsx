@@ -9,6 +9,7 @@ interface ConfirmarCierreModalProps {
   onClose: () => void;
   onConfirm: (observacion?: string) => void;
   isPending: boolean;
+  errorMessage?: string;
   montoInicial: number;
   totalVentas: number;
   totalIngresos: number;
@@ -27,6 +28,7 @@ function ConfirmarCierreModalContent({
   onClose,
   onConfirm,
   isPending,
+  errorMessage,
   montoInicial,
   totalEgresos,
   totalIngresos,
@@ -89,6 +91,13 @@ function ConfirmarCierreModalContent({
           <p className="text-xs text-[var(--text-muted)] font-medium mb-2">
             Revise los valores antes de confirmar el cierre.
           </p>
+
+          {errorMessage && (
+            <div className="p-3 bg-[var(--danger-light)] border border-[var(--danger)]/20 text-[var(--danger)] text-xs font-semibold rounded-xl flex items-start gap-2" aria-live="polite">
+              <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
 
           {/* Saldo Esperado */}
           <div className="flex items-center justify-between bg-[var(--info-light)] border border-[var(--info)]/20 rounded-xl px-4 py-3">
