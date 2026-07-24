@@ -2,7 +2,7 @@
 
 import React, { useState, useTransition, useRef } from "react";
 import { crearClienteRapido, createVenta, toggleFavorito } from "@/actions/ventas";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDateShort, formatTime24, formatDate } from "@/lib/utils";
 import {
   Search,
   ShoppingCart,
@@ -354,7 +354,7 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
           metodoPago: paymentMethod,
           tipoComprobante: comprobanteType,
           cuotas: paymentMethod === "TARJETA_CREDITO" ? cuotas : null,
-          fecha: now.toLocaleDateString("es-AR") + " " + now.toLocaleTimeString("es-AR"),
+          fecha: formatDate(now),
           empleado: usuario?.nombreCompleto || "N/D",
           usuarioSistema: usuario?.username || "N/D",
           detalles: cart.map(item => {
@@ -977,8 +977,8 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
                     </div>
                     <div style={{ fontSize: "9px", color: "#555", lineHeight: 1.6, textAlign: "right" }}>
                       <div>Nº: <strong>0001-00000001</strong></div>
-                      <div>Fecha: <strong>{new Date().toLocaleDateString("es-AR")}</strong></div>
-                      <div>Hora: <strong>{new Date().toLocaleTimeString("es-AR")}</strong></div>
+                      <div>Fecha: <strong>{formatDateShort(new Date())}</strong></div>
+                      <div>Hora: <strong>{formatTime24(new Date())}</strong></div>
                     </div>
                   </div>
                 </div>
@@ -1020,7 +1020,7 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", fontSize: "9px" }}>
                       <span style={{ color: "#777", fontWeight: 600 }}>Emisión:</span>
-                      <span style={{ color: "#1a1a1a" }}>{new Date().toLocaleDateString("es-AR")} {new Date().toLocaleTimeString("es-AR")}</span>
+                      <span style={{ color: "#1a1a1a" }}>{formatDate(new Date())}</span>
                     </div>
                   </div>
                 </div>

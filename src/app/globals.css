@@ -392,3 +392,13 @@ nextjs-portal {
   transform: translateX(10px);
 }
 
+/* ── Hide native browser password reveal toggle (Edge/IE) ── */
+input::-ms-reveal {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  position: absolute !important;
+  pointer-events: none !important;
+}
+

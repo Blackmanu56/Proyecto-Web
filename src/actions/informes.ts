@@ -1,6 +1,8 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { formatDate, formatDateShort, formatTime24 } from "@/lib/utils";
+import { requirePermission } from "@/lib/auth-permissions";
 
 export interface DashboardData {
   stats: {
@@ -36,6 +38,7 @@ export interface DashboardData {
  */
 export async function getDashboardData(): Promise<DashboardData> {
   try {
+    await requirePermission("informes.ver");
     const ahora = new Date();
     const hoyInicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
     const hoyFin = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 23, 59, 59);
@@ -88,12 +91,12 @@ export async function getDashboardData(): Promise<DashboardData> {
     const ventasPorFechaMap: { [key: string]: number } = {};
     for (let i = 6; i >= 0; i--) {
       const d = new Date(ahora.getTime() - i * 24 * 60 * 60 * 1000);
-      const strFecha = d.toLocaleDateString("es-AR", { day: "2-digit", month: "short" });
+      const strFecha = formatDateShort(d);
       ventasPorFechaMap[strFecha] = 0;
     }
 
     ventasRecientes.forEach((v) => {
-      const strFecha = v.fecha.toLocaleDateString("es-AR", { day: "2-digit", month: "short" });
+      const strFecha = formatDateShort(v.fecha);
       if (ventasPorFechaMap[strFecha] !== undefined) {
         ventasPorFechaMap[strFecha] += v.total;
       }
@@ -152,7 +155,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       descripcion: m.descripcion,
       monto: m.monto,
       tipo: m.tipo,
-      fecha: m.fecha.toLocaleDateString("es-AR") + " " + m.fecha.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }),
+      fecha: formatDate(m.fecha),
       username: m.usuario.username,
     }));
 
@@ -343,8 +346,9 @@ export async function getReporteVentas(
   fechaHasta?: string,
   usuarioId?: number,
   clienteId?: number
-): Promise<{ ventas: ReporteVenta[]; totales: { cantidad: number; total: number; promedio: number } }> {
+  ): Promise<{ ventas: ReporteVenta[]; totales: { cantidad: number; total: number; promedio: number } }> {
   try {
+    await requirePermission("informes.ver");
     const where: any = {};
 
     if (fechaDesde || fechaHasta) {
@@ -376,10 +380,7 @@ export async function getReporteVentas(
     return {
       ventas: ventas.map((v) => ({
         id: v.id,
-        fecha:
-          v.fecha.toLocaleDateString("es-AR") +
-          " " +
-          v.fecha.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }),
+        fecha: formatDate(v.fecha),
         cliente: v.cliente.nombre,
         usuario: v.usuario.username,
         total: v.total,
@@ -401,6 +402,7 @@ export async function getReporteVentas(
 
 export async function getDetalleVenta(ventaId: number): Promise<DetalleVentaCompleto | null> {
   try {
+    await requirePermission("informes.ver");
     const venta = await prisma.venta.findUnique({
       where: { id: ventaId },
       include: {
@@ -416,10 +418,7 @@ export async function getDetalleVenta(ventaId: number): Promise<DetalleVentaComp
 
     return {
       id: venta.id,
-      fecha:
-        venta.fecha.toLocaleDateString("es-AR") +
-        " " +
-        venta.fecha.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }),
+      fecha: formatDate(venta.fecha),
       cliente: venta.cliente,
       usuario: venta.usuario,
       total: venta.total,
@@ -446,8 +445,9 @@ export async function getReporteCierres(
   fechaHasta?: string,
   usuarioId?: number,
   estado?: string
-): Promise<ReporteCierre[]> {
+  ): Promise<ReporteCierre[]> {
   try {
+    await requirePermission("informes.ver");
     const where: any = {};
 
     if (fechaDesde || fechaHasta) {
@@ -470,15 +470,8 @@ export async function getReporteCierres(
 
     return cajas.map((c) => ({
       id: c.id,
-      fechaApertura:
-        c.fechaApertura.toLocaleDateString("es-AR") +
-        " " +
-        c.fechaApertura.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }),
-      fechaCierre: c.fechaCierre
-        ? c.fechaCierre.toLocaleDateString("es-AR") +
-          " " +
-          c.fechaCierre.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })
-        : null,
+      fechaApertura: formatDate(c.fechaApertura),
+      fechaCierre: c.fechaCierre ? formatDate(c.fechaCierre) : null,
       usuario: c.usuario.username,
       montoInicial: c.montoInicial,
       totalVentas: c.totalVentas,
@@ -495,6 +488,7 @@ export async function getReporteCierres(
 
 export async function getDetalleCierre(cajaId: number): Promise<DetalleCierreCompleto | null> {
   try {
+    await requirePermission("informes.ver");
     const caja = await prisma.caja.findUnique({
       where: { id: cajaId },
       include: {
@@ -520,15 +514,8 @@ export async function getDetalleCierre(cajaId: number): Promise<DetalleCierreCom
 
     return {
       id: caja.id,
-      fechaApertura:
-        caja.fechaApertura.toLocaleDateString("es-AR") +
-        " " +
-        caja.fechaApertura.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }),
-      fechaCierre: caja.fechaCierre
-        ? caja.fechaCierre.toLocaleDateString("es-AR") +
-          " " +
-          caja.fechaCierre.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })
-        : null,
+      fechaApertura: formatDate(caja.fechaApertura),
+      fechaCierre: caja.fechaCierre ? formatDate(caja.fechaCierre) : null,
       usuario: caja.usuario.username,
       montoInicial: caja.montoInicial,
       totalVentas: caja.totalVentas,
@@ -544,10 +531,7 @@ export async function getDetalleCierre(cajaId: number): Promise<DetalleCierreCom
         tipo: m.tipo,
         monto: m.monto,
         descripcion: m.descripcion,
-        fecha:
-          m.fecha.toLocaleDateString("es-AR") +
-          " " +
-          m.fecha.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }),
+        fecha: formatDate(m.fecha),
         usuario: m.usuario.username,
         ventaId: m.ventaId,
       })),
@@ -564,8 +548,9 @@ export async function getReporteProductos(
   categoriaId?: number,
   proveedorId?: number,
   activo?: boolean
-): Promise<ReporteProducto[]> {
+  ): Promise<ReporteProducto[]> {
   try {
+    await requirePermission("informes.ver");
     const where: any = {};
     if (activo !== undefined) where.activo = activo;
     if (categoriaId) where.categoriaId = categoriaId;
@@ -606,6 +591,7 @@ export async function getReporteProductos(
 
 export async function getProductosMasVendidos(limit: number = 10): Promise<{ nombre: string; cantidad: number; ingreso: number; categoria: string }[]> {
   try {
+    await requirePermission("informes.ver");
     const detalles = await prisma.detalleVenta.findMany({
       include: {
         producto: { select: { nombre: true, categoria: { select: { nombre: true } } } },
@@ -639,6 +625,7 @@ export async function getProductosMasVendidos(limit: number = 10): Promise<{ nom
 
 export async function getProductosMayorIngreso(limit: number = 10): Promise<{ nombre: string; cantidad: number; ingreso: number; categoria: string }[]> {
   try {
+    await requirePermission("informes.ver");
     const detalles = await prisma.detalleVenta.findMany({
       include: {
         producto: { select: { nombre: true, categoria: { select: { nombre: true } } } },
@@ -673,8 +660,9 @@ export async function getProductosMayorIngreso(limit: number = 10): Promise<{ no
 export async function getReporteEmpleados(
   fechaDesde?: string,
   fechaHasta?: string
-): Promise<ReporteEmpleado[]> {
+  ): Promise<ReporteEmpleado[]> {
   try {
+    await requirePermission("informes.ver");
     const whereVentas: any = {};
     if (fechaDesde || fechaHasta) {
       whereVentas.fecha = {};
@@ -738,6 +726,7 @@ export async function getReporteEmpleados(
 
 export async function getUsuariosActivos() {
   try {
+    await requirePermission("informes.ver");
     return await prisma.usuario.findMany({
       where: { activo: true },
       select: { id: true, username: true, nombreCompleto: true },
@@ -781,6 +770,7 @@ export async function getClientesReport(filters: ReportFilters = {}): Promise<Pa
   ultimaCompra: string | null; cantidadCompras: number;
 }>> {
   try {
+    await requirePermission("informes.ver");
     const page = filters.page || 1;
     const { skip, take } = paginate(page);
     const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta, "fecha");
@@ -814,7 +804,7 @@ export async function getClientesReport(filters: ReportFilters = {}): Promise<Pa
         totalGastado,
         frecuencia: Math.round(frecuencia),
         ultimaCompra: fechas.length > 0
-          ? fechas[fechas.length - 1].toLocaleDateString("es-AR")
+          ? formatDateShort(fechas[fechas.length - 1])
           : null,
         cantidadCompras: c.ventas.length,
       };
@@ -834,6 +824,7 @@ export async function getProveedoresReport(filters: ReportFilters = {}): Promise
   valorStock: number; stockBajoCount: number; ultimaCompra: string | null;
 }>> {
   try {
+    await requirePermission("informes.ver");
     const page = filters.page || 1;
     const { skip, take } = paginate(page);
 
@@ -874,7 +865,7 @@ export async function getProveedoresReport(filters: ReportFilters = {}): Promise
         productosCount: productosFiltrados.length,
         valorStock: productosFiltrados.reduce((sum, prod) => sum + prod.precioCompra * prod.cantidad, 0),
         stockBajoCount: productosFiltrados.filter((prod) => prod.cantidad < prod.stockMinimo).length,
-        ultimaCompra: p.compras[0]?.fecha.toLocaleDateString("es-AR") ?? null,
+        ultimaCompra: p.compras[0]?.fecha ? formatDateShort(p.compras[0].fecha) : null,
       };
     });
 
@@ -894,6 +885,7 @@ export async function getVentasPorProducto(filters: ReportFilters = {}): Promise
   subtotal: number; ganancia: number;
 }>> {
   try {
+    await requirePermission("informes.ver");
     const page = filters.page || 1;
     const { skip, take } = paginate(page);
     const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta);
@@ -948,6 +940,7 @@ export async function getVentasPorCategoria(filters: ReportFilters = {}): Promis
   total: number;
 }> {
   try {
+    await requirePermission("informes.ver");
     const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta);
     const whereDetalle: any = {};
     if (dateFilter.fecha) whereDetalle.venta = { fecha: dateFilter.fecha };
@@ -985,6 +978,7 @@ export async function getVentasPorCliente(filters: ReportFilters = {}): Promise<
   clienteId: number; cliente: string; cantidad: number; total: number;
 }>> {
   try {
+    await requirePermission("informes.ver");
     const page = filters.page || 1;
     const { skip, take } = paginate(page);
     const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta);
@@ -1027,6 +1021,7 @@ export async function getVentasPorVendedorComision(filters: ReportFilters = {}):
   comision: number;
 }>> {
   try {
+    await requirePermission("informes.ver");
     const page = filters.page || 1;
     const { skip, take } = paginate(page);
     const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta);
@@ -1073,6 +1068,7 @@ export async function getTopProductos(filters: ReportFilters = {}, limit: number
   total: number;
 }> {
   try {
+    await requirePermission("informes.ver");
     const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta);
     const whereDetalle: any = {};
     if (dateFilter.fecha) whereDetalle.venta = { fecha: dateFilter.fecha };
@@ -1119,6 +1115,7 @@ export async function getBottomProductos(filters: ReportFilters = {}, limit: num
   total: number;
 }> {
   try {
+    await requirePermission("informes.ver");
     const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta);
     const whereDetalle: any = {};
     if (dateFilter.fecha) whereDetalle.venta = { fecha: dateFilter.fecha };
@@ -1164,6 +1161,7 @@ export async function getCierresMovimientos(filters: ReportFilters = {}): Promis
   descripcion: string; fecha: string; usuario: string;
 }>> {
   try {
+    await requirePermission("informes.ver");
     const page = filters.page || 1;
     const { skip, take } = paginate(page);
     const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta);
@@ -1188,7 +1186,7 @@ export async function getCierresMovimientos(filters: ReportFilters = {}): Promis
       tipo: m.tipo,
       monto: m.monto,
       descripcion: m.descripcion,
-      fecha: m.fecha.toLocaleDateString("es-AR") + " " + m.fecha.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }),
+      fecha: formatDate(m.fecha),
       usuario: m.usuario.username,
     }));
 
@@ -1206,6 +1204,7 @@ export async function getCierresDiferencias(filters: ReportFilters = {}): Promis
   totalEsperado: number; totalContado: number | null; diferencia: number | null;
 }>> {
   try {
+    await requirePermission("informes.ver");
     const page = filters.page || 1;
     const { skip, take } = paginate(page);
     const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta, "fechaApertura");
@@ -1226,10 +1225,8 @@ export async function getCierresDiferencias(filters: ReportFilters = {}): Promis
         return {
           id: c.id,
           usuario: c.usuario.username,
-          fechaApertura: c.fechaApertura.toLocaleDateString("es-AR") + " " + c.fechaApertura.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }),
-          fechaCierre: c.fechaCierre
-            ? c.fechaCierre.toLocaleDateString("es-AR") + " " + c.fechaCierre.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })
-            : null,
+          fechaApertura: formatDate(c.fechaApertura),
+          fechaCierre: c.fechaCierre ? formatDate(c.fechaCierre) : null,
           totalEsperado,
           totalContado: c.totalContado,
           diferencia,
@@ -1255,6 +1252,7 @@ export async function getRentabilidadProductos(filters: ReportFilters = {}): Pro
   precioVenta: number; margen: number; margenPorc: number; vendido: number;
 }>> {
   try {
+    await requirePermission("informes.ver");
     const page = filters.page || 1;
     const { skip, take } = paginate(page);
 
@@ -1306,6 +1304,7 @@ export async function getReposicionProductos(): Promise<{
   total: number;
 }> {
   try {
+    await requirePermission("informes.ver");
     const productos = await prisma.producto.findMany({
       where: {
         activo: true,
@@ -1338,6 +1337,7 @@ export async function getSinMovimientoProductos(filters: ReportFilters = {}): Pr
   precioVenta: number; ultimaVenta: string | null;
 }>> {
   try {
+    await requirePermission("informes.ver");
     const page = filters.page || 1;
     const { skip, take } = paginate(page);
 
@@ -1384,6 +1384,7 @@ export async function getRankingVendedores(filters: ReportFilters = {}): Promise
   total: number;
 }> {
   try {
+    await requirePermission("informes.ver");
     const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta);
 
     const whereUsuario: any = { activo: true };
@@ -1432,6 +1433,7 @@ export async function getActividadRecienteVendedores(): Promise<{
   total: number;
 }> {
   try {
+    await requirePermission("informes.ver");
     const ahora = new Date();
     const hoyInicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
     const semanaAtras = new Date(ahora.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -1468,10 +1470,10 @@ export async function getActividadRecienteVendedores(): Promise<{
         usuarioId: u.id,
         vendedor: u.nombreCompleto,
         ultimaVenta: u.ventas[0]?.fecha
-          ? u.ventas[0].fecha.toLocaleDateString("es-AR") + " " + u.ventas[0].fecha.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })
+          ? formatDate(u.ventas[0].fecha)
           : null,
         ultimoCierre: u.cajas[0]?.fechaCierre
-          ? u.cajas[0].fechaCierre.toLocaleDateString("es-AR") + " " + u.cajas[0].fechaCierre.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })
+          ? formatDate(u.cajas[0].fechaCierre)
           : null,
         ventasHoy: u._count.ventas,
         ventasSemana,
@@ -1492,6 +1494,7 @@ export async function getGananciasPeriodo(filters: ReportFilters = {}): Promise<
   total: number;
 }> {
   try {
+    await requirePermission("informes.ver");
     const dateFilter = buildDateFilter(filters.fechaDesde, filters.fechaHasta);
 
     const ventas = await prisma.venta.findMany({
@@ -1510,13 +1513,13 @@ export async function getGananciasPeriodo(filters: ReportFilters = {}): Promise<
     for (const v of ventas) {
       let periodo: string;
       if (agruparPor === "mes") {
-        periodo = v.fecha.toLocaleDateString("es-AR", { month: "short", year: "2-digit" });
+        periodo = formatDateShort(v.fecha);
       } else if (agruparPor === "semana") {
         const inicioSemana = new Date(v.fecha);
         inicioSemana.setDate(inicioSemana.getDate() - inicioSemana.getDay());
-        periodo = inicioSemana.toLocaleDateString("es-AR");
+        periodo = formatDateShort(inicioSemana);
       } else {
-        periodo = v.fecha.toLocaleDateString("es-AR");
+        periodo = formatDateShort(v.fecha);
       }
 
       if (!agrupado[periodo]) agrupado[periodo] = { venta: 0, costo: 0 };
@@ -1547,6 +1550,7 @@ export async function getFrecuenciaComprasCliente(): Promise<{
   total: number;
 }> {
   try {
+    await requirePermission("informes.ver");
     const clientes = await prisma.cliente.findMany({
       where: { activo: true, ventas: { some: {} } },
       include: {
@@ -1592,6 +1596,7 @@ export async function getStockBajo(filters: ReportFilters = {}): Promise<Paginat
   stockMinimo: number; proveedor: string; precioVenta: number;
 }>> {
   try {
+    await requirePermission("informes.ver");
     const page = filters.page || 1;
     const { skip, take } = paginate(page);
 
@@ -1659,6 +1664,7 @@ export async function getDashboardChartData(
   chartType: DashboardChartType = "categorias"
 ): Promise<DashboardChartDataResult> {
   try {
+    await requirePermission("informes.ver");
     const ahora = new Date();
 
     // ── Calcular rango de fechas según período ──
@@ -1741,11 +1747,11 @@ export async function getDashboardChartData(
       const porFecha: { [key: string]: number } = {};
       for (let i = dias - 1; i >= 0; i--) {
         const d = new Date(ahora.getTime() - i * 24 * 60 * 60 * 1000);
-        const label = d.toLocaleDateString("es-AR", { day: "2-digit", month: "short" });
+        const label = formatDateShort(d);
         porFecha[label] = 0;
       }
       ventas.forEach((v) => {
-        const label = v.fecha.toLocaleDateString("es-AR", { day: "2-digit", month: "short" });
+        const label = formatDateShort(v.fecha);
         if (porFecha[label] !== undefined) porFecha[label] += v.total;
       });
       evolutionData = Object.entries(porFecha).map(([fecha, total]) => ({ fecha, total }));

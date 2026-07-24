@@ -23,38 +23,38 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showRecovery, setShowRecovery] = useState(false);
   const [clientError, setClientError] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberUser, setRememberUser] = useState(false);
   const usernameRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
 
   const [state, formAction, isPending] = useActionState(loginAction, {});
+
+  // Load saved username on mount
+  useEffect(() => {
+    const savedUsername = localStorage.getItem("sgi_remembered_user");
+    if (savedUsername && usernameRef.current) {
+      usernameRef.current.value = savedUsername;
+      setRememberUser(true);
+    }
+  }, []);
 
   const handleClearForm = () => {
     if (usernameRef.current) usernameRef.current.value = "";
     if (passwordRef.current) passwordRef.current.value = "";
   };
 
-  // Load remembered username on mount
-  useEffect(() => {
-    const remembered = localStorage.getItem("chopper_remembered_user");
-    if (remembered && usernameRef.current) {
-      usernameRef.current.value = remembered;
-      setRememberMe(true);
-    }
-  }, []);
-
   useEffect(() => {
     if (state.success) {
-      // Save or clear remembered username
-      if (rememberMe && usernameRef.current) {
-        localStorage.setItem("chopper_remembered_user", usernameRef.current.value);
+      // Save or clear username based on rememberUser
+      if (rememberUser && usernameRef.current) {
+        localStorage.setItem("sgi_remembered_user", usernameRef.current.value);
       } else {
-        localStorage.removeItem("chopper_remembered_user");
+        localStorage.removeItem("sgi_remembered_user");
       }
       router.push(from);
       router.refresh();
     }
-  }, [state.success, router, from, rememberMe]);
+  }, [state.success, router, from, rememberUser]);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     setClientError("");
@@ -456,13 +456,13 @@ export default function LoginPage() {
                       <input
                         id="password"
                         name="password"
-                        type="text"
+                        type={showPassword ? "text" : "password"}
                         placeholder="Contraseña"
                         required
                         disabled={isPending}
                         ref={passwordRef}
                         autoComplete="off"
-                        className={`w-full bg-transparent text-sm outline-none placeholder:text-[#64748B] text-[#F1F5F9] ${showPassword ? "password-visible" : "password-mask"}`}
+                        className="w-full bg-transparent text-sm outline-none placeholder:text-[#64748B] text-[#F1F5F9]"
                         style={{
                           padding: "12px 44px 12px 42px",
                           borderRadius: "12px",
@@ -538,57 +538,46 @@ export default function LoginPage() {
                     </div>
                   )}
 
-                  {/* Checkbox row: Recordarme + ¿Olvidaste tu contraseña? */}
+                  {/* Recordar usuario + Olvidaste tu contraseña */}
                   <div
                     className="flex items-center justify-between w-full"
                     style={{
                       animation: "login-staggerIn 400ms ease 560ms both",
                     }}
                   >
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                      <div
-                        className="relative flex items-center justify-center rounded transition-all duration-200"
-                        style={{
-                          width: "16px",
-                          height: "16px",
-                          border: "1.5px solid #3A3F4C",
-                          background: "transparent",
-                        }}
-                      >
+                    <label
+                      className="flex items-center gap-2.5 cursor-pointer select-none group"
+                      style={{ color: "#94A3B8" }}
+                    >
+                      <div className="relative flex items-center justify-center">
                         <input
                           type="checkbox"
-                          className="sr-only peer"
-                          checked={rememberMe}
-                          onChange={(e) => setRememberMe(e.target.checked)}
+                          checked={rememberUser}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setRememberUser(checked);
+                            if (!checked) {
+                              localStorage.removeItem("sgi_remembered_user");
+                            }
+                          }}
+                          className="peer sr-only"
                         />
                         <div
-                          className="absolute inset-0 rounded opacity-0 peer-checked:opacity-100 transition-opacity duration-200 flex items-center justify-center"
-                          style={{ background: "#D62828" }}
+                          className="w-[18px] h-[18px] rounded border-2 transition-all duration-200 flex items-center justify-center"
+                          style={{
+                            borderColor: rememberUser ? "#D62828" : "#3A3F4C",
+                            background: rememberUser ? "#D62828" : "transparent",
+                          }}
                         >
-                          <svg
-                            width="10"
-                            height="10"
-                            viewBox="0 0 12 12"
-                            fill="none"
-                          >
-                            <path
-                              d="M2.5 6L5 8.5L9.5 3.5"
-                              stroke="white"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
+                          {rememberUser && (
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                              <path d="M2 6L5 9L10 3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          )}
                         </div>
                       </div>
-                      <span
-                        className="text-sm"
-                        style={{ color: "#94A3B8" }}
-                      >
-                        Recordarme
-                      </span>
+                      <span className="text-sm group-hover:text-[#F1F5F9] transition-colors duration-200">Recordar usuario</span>
                     </label>
-
                     <button
                       type="button"
                       onClick={() => setShowRecovery(!showRecovery)}

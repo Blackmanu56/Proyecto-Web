@@ -1,9 +1,9 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth.server";
 import { parseRoleData, serializeRoleData, DEFAULT_ROLE_PERMISSIONS, ROLE_DESCRIPTIONS, getAllPermissions } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
+import { requirePermission } from "@/lib/auth-permissions";
 
 export type RolCompleto = {
   id: number;
@@ -38,21 +38,7 @@ export async function createRole(data: {
   descripcion?: string;
   permisos: string[];
 }) {
-  const session = await getSession();
-  if (!session) return { error: "Sesión no válida." };
-
-  const userRecord = await prisma.usuario.findUnique({
-    where: { id: session.userId },
-    include: { rol: true },
-  });
-  if (!userRecord) return { error: "Usuario no encontrado." };
-
-  const roleData = parseRoleData(userRecord.rol.permisos);
-  const is_ADMINISTRADOR = userRecord.rol.nombre === "ADMINISTRADOR";
-  const hasPermission = is_ADMINISTRADOR || roleData.permisos.includes("usuarios.roles");
-  if (!hasPermission) {
-    return { error: "No tiene permisos para administrar roles." };
-  }
+  await requirePermission("usuarios.roles");
 
   if (!data.nombre || data.nombre.trim().length < 2) {
     return { error: "El nombre del rol debe tener al menos 2 caracteres." };
@@ -93,21 +79,7 @@ export async function updateRole(id: number, data: {
   descripcion?: string;
   permisos: string[];
 }) {
-  const session = await getSession();
-  if (!session) return { error: "Sesión no válida." };
-
-  const userRecord = await prisma.usuario.findUnique({
-    where: { id: session.userId },
-    include: { rol: true },
-  });
-  if (!userRecord) return { error: "Usuario no encontrado." };
-
-  const roleData = parseRoleData(userRecord.rol.permisos);
-  const is_ADMINISTRADOR = userRecord.rol.nombre === "ADMINISTRADOR";
-  const hasPermission = is_ADMINISTRADOR || roleData.permisos.includes("usuarios.roles");
-  if (!hasPermission) {
-    return { error: "No tiene permisos para administrar roles." };
-  }
+  await requirePermission("usuarios.roles");
 
   const role = await prisma.rol.findUnique({ where: { id } });
   if (!role) return { error: "Rol no encontrado." };
@@ -168,21 +140,7 @@ export async function updateRole(id: number, data: {
 }
 
 export async function toggleRoleEstado(id: number) {
-  const session = await getSession();
-  if (!session) return { error: "Sesión no válida." };
-
-  const userRecord = await prisma.usuario.findUnique({
-    where: { id: session.userId },
-    include: { rol: true },
-  });
-  if (!userRecord) return { error: "Usuario no encontrado." };
-
-  const currentUserRoleData = parseRoleData(userRecord.rol.permisos);
-  const is_ADMINISTRADOR = userRecord.rol.nombre === "ADMINISTRADOR";
-  const hasPermission = is_ADMINISTRADOR || currentUserRoleData.permisos.includes("usuarios.roles");
-  if (!hasPermission) {
-    return { error: "No tiene permisos para administrar roles." };
-  }
+  await requirePermission("usuarios.roles");
 
   const role = await prisma.rol.findUnique({
     where: { id },
@@ -213,21 +171,7 @@ export async function toggleRoleEstado(id: number) {
 }
 
 export async function deleteRole(id: number) {
-  const session = await getSession();
-  if (!session) return { error: "Sesión no válida." };
-
-  const userRecord = await prisma.usuario.findUnique({
-    where: { id: session.userId },
-    include: { rol: true },
-  });
-  if (!userRecord) return { error: "Usuario no encontrado." };
-
-  const roleData = parseRoleData(userRecord.rol.permisos);
-  const is_ADMINISTRADOR = userRecord.rol.nombre === "ADMINISTRADOR";
-  const hasPermission = is_ADMINISTRADOR || roleData.permisos.includes("usuarios.roles");
-  if (!hasPermission) {
-    return { error: "No tiene permisos para administrar roles." };
-  }
+  await requirePermission("usuarios.roles");
 
   const role = await prisma.rol.findUnique({
     where: { id },

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useTransition, useCallback, useRef, useMemo } from "react";
 import { getReporteVentas, getVentasPorProducto, getVentasPorCategoria, getVentasPorCliente, getVentasPorVendedorComision, getTopProductos, getBottomProductos } from "@/actions/informes";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDateShort } from "@/lib/utils";
 import {
   Search, Calendar, User, RefreshCw, TrendingUp, List, Eye, Printer,
   DollarSign, ShoppingCart, Users, Percent, Award, BarChart3, PieChart,
@@ -195,7 +195,7 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <ChartWrapper title="Ventas Diarias" height={250}>
-              <BarChart data={(data.ventas || []).length > 0 ? [...Array(7)].map((_, i) => { const d = new Date(); d.setDate(d.getDate() - 6 + i); return { fecha: d.toLocaleDateString("es-AR", { day: "2-digit", month: "short" }), total: 0 }; }) : []}>
+                <BarChart data={(data.ventas || []).length > 0 ? [...Array(7)].map((_, i) => { const d = new Date(); d.setDate(d.getDate() - 6 + i); return { fecha: formatDateShort(d), total: 0 }; }) : []}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                 <XAxis dataKey="fecha" stroke="#64748b" tick={{ fontSize: 10 }} />
                 <YAxis stroke="#64748b" tick={{ fontSize: 10 }} />

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from "react";
+import { formatDateShort } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -259,11 +260,7 @@ export function EmployeePanel({
                   Fecha de Registro
                 </span>
                 <span className="font-semibold text-text">
-                  {new Date(user.creadoEn).toLocaleDateString("es-AR", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
+                  {formatDateShort(user.creadoEn)}
                 </span>
               </div>
             </div>

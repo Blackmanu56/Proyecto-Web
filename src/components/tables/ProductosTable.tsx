@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { FormField } from "@/components/ui/form-field";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import DarBajaModal from "@/components/ui/DarBajaModal";
 import ReactivarModal from "@/components/ui/ReactivarModal";
 import HistorialModal from "@/components/ui/HistorialModal";
@@ -39,6 +40,10 @@ import {
   Tag,
   Trash2,
   X,
+  Image as ImageIcon,
+  DollarSign,
+  BarChart3,
+  Info,
 } from "lucide-react";
 
 /* ────────────────────── Types ────────────────────── */
@@ -217,83 +222,74 @@ interface ActionsDropdownProps {
 }
 
 function ActionsDropdown({ product, userRole, onEdit, onDarBaja, onReactivar, onHistorial, onRestarStock }: ActionsDropdownProps) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
   const canEdit = ["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(userRole);
 
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
   return (
-    <div ref={ref} className="relative inline-block">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className={`p-2 rounded-lg transition-colors ${open ? "bg-[var(--border)] text-[var(--text)]" : "hover:bg-[var(--border)]/60 text-[var(--text-secondary)] hover:text-[var(--text)]"}`}
-        title="Acciones"
-      >
-        <MoreHorizontal size={18} />
-      </button>
-      {open && (
-        <div className="absolute right-0 z-40 mt-1 w-56 bg-[var(--panel)] border border-[var(--border)] rounded-[var(--radius-md)] shadow-[var(--shadow-lg)] py-1.5">
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger asChild>
+        <button
+          type="button"
+          className="p-2 rounded-lg transition-colors hover:bg-[var(--border)]/60 text-[var(--text-secondary)] hover:text-[var(--text)] data-[state=open]:bg-[var(--border)] data-[state=open]:text-[var(--text)]"
+          title="Acciones"
+        >
+          <MoreHorizontal size={18} />
+        </button>
+      </DropdownMenu.Trigger>
+
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          side="bottom"
+          align="end"
+          sideOffset={4}
+          className="z-50 w-56 bg-[var(--panel)] border border-[var(--border)] rounded-[var(--radius-md)] shadow-[var(--shadow-lg)] py-1.5"
+        >
           {canEdit && (
-            <button
-              type="button"
-              onClick={() => { onEdit(product); setOpen(false); }}
-              className="w-full text-left px-3.5 py-2.5 text-sm text-[var(--text)] hover:bg-[var(--border)]/60 flex items-center gap-2.5 transition-colors"
+            <DropdownMenu.Item
+              onSelect={() => onEdit(product)}
+              className="w-full text-left px-3.5 py-2.5 text-sm text-[var(--text)] hover:bg-[var(--border)]/60 flex items-center gap-2.5 transition-colors outline-none cursor-pointer"
             >
               <Edit2 size={16} className="text-[var(--text-secondary)]" />
               Editar
-            </button>
+            </DropdownMenu.Item>
           )}
-          <button
-            type="button"
-            onClick={() => { onHistorial(product); setOpen(false); }}
-            className="w-full text-left px-3.5 py-2.5 text-sm text-[var(--text)] hover:bg-[var(--border)]/60 flex items-center gap-2.5 transition-colors"
+          <DropdownMenu.Item
+            onSelect={() => onHistorial(product)}
+            className="w-full text-left px-3.5 py-2.5 text-sm text-[var(--text)] hover:bg-[var(--border)]/60 flex items-center gap-2.5 transition-colors outline-none cursor-pointer"
           >
             <Tag size={16} className="text-[var(--text-secondary)]" />
             Historial de estados
-          </button>
+          </DropdownMenu.Item>
           {canEdit && product.activo && (
-            <button
-              type="button"
-              onClick={() => { onRestarStock(product); setOpen(false); }}
-              className="w-full text-left px-3.5 py-2.5 text-sm text-[var(--warning)] hover:bg-[var(--warning-light)]/20 flex items-center gap-2.5 transition-colors"
+            <DropdownMenu.Item
+              onSelect={() => onRestarStock(product)}
+              className="w-full text-left px-3.5 py-2.5 text-sm text-[var(--warning)] hover:bg-[var(--warning-light)]/20 flex items-center gap-2.5 transition-colors outline-none cursor-pointer"
             >
               <TrendingDown size={16} />
               Restar stock
-            </button>
+            </DropdownMenu.Item>
           )}
-          <div className="my-1 border-t border-[var(--border)]/60" />
+          <DropdownMenu.Separator className="my-1 border-t border-[var(--border)]/60" />
           {canEdit && product.activo && (
-            <button
-              type="button"
-              onClick={() => { onDarBaja(product); setOpen(false); }}
-              className="w-full text-left px-3.5 py-2.5 text-sm text-[var(--danger)] hover:bg-[var(--danger-light)]/20 flex items-center gap-2.5 transition-colors"
+            <DropdownMenu.Item
+              onSelect={() => onDarBaja(product)}
+              className="w-full text-left px-3.5 py-2.5 text-sm text-[var(--danger)] hover:bg-[var(--danger-light)]/20 flex items-center gap-2.5 transition-colors outline-none cursor-pointer"
             >
               <AlertTriangle size={16} />
               Dar de baja
-            </button>
+            </DropdownMenu.Item>
           )}
           {canEdit && !product.activo && (
-            <button
-              type="button"
-              onClick={() => { onReactivar(product); setOpen(false); }}
-              className="w-full text-left px-3.5 py-2.5 text-sm text-[var(--success)] hover:bg-[var(--success-light)]/20 flex items-center gap-2.5 transition-colors"
+            <DropdownMenu.Item
+              onSelect={() => onReactivar(product)}
+              className="w-full text-left px-3.5 py-2.5 text-sm text-[var(--success)] hover:bg-[var(--success-light)]/20 flex items-center gap-2.5 transition-colors outline-none cursor-pointer"
             >
               <RotateCcw size={16} />
               Reactivar
-            </button>
+            </DropdownMenu.Item>
           )}
-        </div>
-      )}
-    </div>
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
   );
 }
 
@@ -955,11 +951,11 @@ export default function ProductosTable({
 
       {/* ═══════════════ MODAL: Agregar / Editar ═══════════════ */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-w-[1300px] max-h-[calc(100vh-40px)] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="px-4 py-2.5 border-b border-[var(--border)]">
             <DialogTitle className="flex items-center gap-2">
-              <div className="p-2 rounded-[var(--radius-md)] bg-[var(--brand-light)] text-[var(--brand)]">
-                <Package size={18} />
+              <div className="p-1.5 rounded-[var(--radius-md)] bg-[var(--brand-light)] text-[var(--brand)]">
+                <Package size={16} />
               </div>
               {editingProduct ? "Editar Repuesto" : "Agregar Nuevo Repuesto"}
             </DialogTitle>
@@ -968,9 +964,10 @@ export default function ProductosTable({
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleFormSubmit} className="space-y-4">
-            {/* Nombre */}
-            <FormField label="Descripción / Nombre del Repuesto" required>
+          <form onSubmit={handleFormSubmit} className="flex-1 overflow-y-auto md:overflow-y-hidden px-4 py-3 space-y-2.5">
+
+            {/* ── Nombre del Repuesto (full width) ── */}
+            <FormField label="Nombre del Repuesto" required className="mb-0">
               <Input
                 name="nombre"
                 type="text"
@@ -980,203 +977,210 @@ export default function ProductosTable({
               />
             </FormField>
 
-            {/* Marca (Combobox) & hidden input */}
-            <FormField label="Marca">
-              <input type="hidden" name="marca" value={marcaValue} />
-              <Combobox
-                value={marcaValue}
-                onChange={setMarcaValue}
-                options={uniqueBrands}
-                placeholder="Buscar o crear marca..."
-                onCreateNew={(v) => { /* Brand is just a string, no server action needed */ }}
-              />
-            </FormField>
-
-            {/* Categoría (Combobox) */}
-            <FormField label="Categoría" required>
-              <Combobox
-                value={categoriaValue}
-                onChange={(v) => setCategoriaValue(v)}
-                options={categorias.map(c => c.nombre)}
-                placeholder="Buscar o crear categoría..."
-                onCreateNew={async (v) => {
-                  try {
-                    const cat = await createCategoria(v);
-                    setCategorias(prev => {
-                      if (prev.some(c => c.id === cat.id)) return prev;
-                      return [...prev, cat].sort((a, b) => a.nombre.localeCompare(b.nombre));
-                    });
-                  } catch { /* ignore */ }
-                }}
-              />
-            </FormField>
-
-            {/* Proveedor */}
-            <FormField label="Proveedor" required>
-              <div className="relative">
-                <Truck className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" size={14} />
-                <select
-                  name="proveedorId"
-                  defaultValue={editingProduct?.proveedor.id || ""}
-                  required
-                  className="w-full pl-9 pr-4 py-2.5 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-[var(--text)] text-sm focus:outline-none focus:border-[var(--brand)] appearance-none"
-                >
-                  <option value="">Seleccione...</option>
-                  {proveedores.map(p => (
-                    <option key={p.id} value={p.id}>{p.nombre}</option>
-                  ))}
-                </select>
-              </div>
-            </FormField>
-
-            {/* Imagen */}
-            <FormField label="Imagen del Producto">
-              <div className="flex items-center space-x-4">
-                <div className="relative flex-shrink-0">
-                  {imagePreview ? (
-                    <div className="w-20 h-20 rounded-[var(--radius-md)] overflow-hidden border border-[var(--border)]">
-                      <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                    </div>
-                  ) : (
-                    <div className="w-20 h-20 rounded-[var(--radius-md)] bg-[var(--border)] flex items-center justify-center">
-                      <Package size={24} className="text-[var(--text-secondary)]" />
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1 space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <label className="inline-flex items-center px-4 py-2 bg-[var(--brand-light)] text-[var(--brand)] border border-[var(--brand)]/20 rounded-[var(--radius-md)] text-sm font-semibold hover:bg-[var(--brand)]/20 cursor-pointer transition">
-                      <span>Seleccionar imagen</span>
-                      <input
-                        type="file"
-                        name="imagenFile"
-                        accept="image/jpeg,image/png,image/webp"
-                        className="sr-only"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file && file.size > 2 * 1024 * 1024) {
-                            alert("La imagen no puede superar 2MB");
-                            e.target.value = "";
-                            return;
-                          }
-                          if (file) {
-                            setImagePreview(URL.createObjectURL(file));
-                          }
-                        }}
-                      />
-                    </label>
-                    {imagePreview && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setImagePreview(null);
-                          const fi = document.querySelector('input[name="imagenFile"]') as HTMLInputElement;
-                          if (fi) fi.value = "";
-                          const hi = document.querySelector('input[name="imagen"]') as HTMLInputElement;
-                          if (hi) hi.value = "";
-                        }}
-                        className="inline-flex items-center px-3 py-2 bg-[var(--danger-light)] text-[var(--danger)] border border-[var(--danger)]/20 rounded-[var(--radius-md)] text-xs font-semibold hover:bg-[var(--danger)]/20 transition"
-                      >
-                        Eliminar imagen
-                      </button>
-                    )}
-                  </div>
-                  <input type="hidden" name="imagen" value={editingProduct?.imagen || ""} />
-                  <p className="text-[10px] text-[var(--text-secondary)]">JPG, PNG o WebP. Máximo 2MB.</p>
-                </div>
-              </div>
-            </FormField>
-
-            {/* Precios */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormField label="Precio Compra (Costo)" required>
-                <Input name="precioCompra" type="number" step="0.01" defaultValue={editingProduct?.precioCompra || ""} required placeholder="0.00" className="font-mono" />
+            {/* ── Row 1: Marca | Categoría | Proveedor ── */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <FormField label="Marca" className="mb-0">
+                <input type="hidden" name="marca" value={marcaValue} />
+                <Combobox
+                  value={marcaValue}
+                  onChange={setMarcaValue}
+                  options={uniqueBrands}
+                  placeholder="Buscar o crear marca..."
+                  onCreateNew={(v) => { /* Brand is just a string, no server action needed */ }}
+                />
               </FormField>
-              <FormField label="Precio Venta (Público)" required>
-                <Input name="precioVenta" type="number" step="0.01" defaultValue={editingProduct?.precioVenta || ""} required placeholder="0.00" className="font-mono" />
+              <FormField label="Categoría" required className="mb-0">
+                <Combobox
+                  value={categoriaValue}
+                  onChange={(v) => setCategoriaValue(v)}
+                  options={categorias.map(c => c.nombre)}
+                  placeholder="Buscar o crear categoría..."
+                  onCreateNew={async (v) => {
+                    try {
+                      const cat = await createCategoria(v);
+                      setCategorias(prev => {
+                        if (prev.some(c => c.id === cat.id)) return prev;
+                        return [...prev, cat].sort((a, b) => a.nombre.localeCompare(b.nombre));
+                      });
+                    } catch { /* ignore */ }
+                  }}
+                />
+              </FormField>
+              <FormField label="Proveedor" required className="mb-0">
+                <div className="relative">
+                  <Truck className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" size={14} />
+                  <select
+                    name="proveedorId"
+                    defaultValue={editingProduct?.proveedor.id || ""}
+                    required
+                    className="w-full pl-9 pr-4 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-[var(--text)] text-sm focus:outline-none focus:border-[var(--brand)] appearance-none"
+                  >
+                    <option value="">Seleccione...</option>
+                    {proveedores.map(p => (
+                      <option key={p.id} value={p.id}>{p.nombre}</option>
+                    ))}
+                  </select>
+                </div>
               </FormField>
             </div>
 
-            {/* Stock */}
-            {editingProduct ? (
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <FormField label="Stock Existencias">
-                    <Input type="number" value={editingProduct.cantidad} disabled placeholder="0" className="font-mono bg-[var(--bg)]/50" />
-                  </FormField>
-                  <FormField label="Cantidad a Reponer">
-                    <Input
-                      type="number"
-                      min="0"
-                      value={cantidadAReponer}
+            {/* ── Row 2: Imagen | Precios+StockMin | Stock ── */}
+            <div className="grid grid-cols-1 md:grid-cols-[150px_1fr_1fr] gap-3">
+
+              {/* Column 1 — Image */}
+              <div className="flex flex-col items-center gap-2">
+                {imagePreview ? (
+                  <div className="w-[140px] h-[140px] rounded-[var(--radius-md)] overflow-hidden border-2 border-[var(--border)] bg-[var(--bg)]">
+                    <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                  </div>
+                ) : (
+                  <div className="w-[140px] h-[140px] rounded-[var(--radius-md)] bg-[var(--border)] flex items-center justify-center border-2 border-dashed border-[var(--border-hover)]">
+                    <Package size={32} className="text-[var(--text-secondary)]" />
+                  </div>
+                )}
+                <div className="flex items-center gap-1.5">
+                  <label className="inline-flex items-center px-2.5 py-1 bg-[var(--brand-light)] text-[var(--brand)] border border-[var(--brand)]/20 rounded-[var(--radius-md)] text-[11px] font-semibold hover:bg-[var(--brand)]/20 cursor-pointer transition">
+                    <span>Seleccionar</span>
+                    <input
+                      type="file"
+                      name="imagenFile"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="sr-only"
                       onChange={(e) => {
-                        const val = e.target.value;
-                        setCantidadAReponer(val === "" ? "" : Math.max(0, parseInt(val) || 0));
+                        const file = e.target.files?.[0];
+                        if (file && file.size > 2 * 1024 * 1024) {
+                          alert("La imagen no puede superar 2MB");
+                          e.target.value = "";
+                          return;
+                        }
+                        if (file) {
+                          setImagePreview(URL.createObjectURL(file));
+                        }
                       }}
-                      placeholder="0"
-                      className="font-mono"
                     />
-                  </FormField>
-                  <FormField label="Nuevo Stock">
-                    <Input
-                      name="cantidad"
-                      type="number"
-                      value={editingProduct.cantidad + (Number(cantidadAReponer) || 0)}
-                      readOnly
-                      placeholder="0"
-                      className="font-mono font-bold bg-[var(--bg)]/50 text-[var(--brand)]"
-                    />
-                  </FormField>
+                  </label>
+                  {imagePreview && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImagePreview(null);
+                        const fi = document.querySelector('input[name="imagenFile"]') as HTMLInputElement;
+                        if (fi) fi.value = "";
+                        const hi = document.querySelector('input[name="imagen"]') as HTMLInputElement;
+                        if (hi) hi.value = "";
+                      }}
+                      className="inline-flex items-center px-2.5 py-1 bg-[var(--danger-light)] text-[var(--danger)] border border-[var(--danger)]/20 rounded-[var(--radius-md)] text-[11px] font-semibold hover:bg-[var(--danger)]/20 transition"
+                    >
+                      Eliminar
+                    </button>
+                  )}
                 </div>
-                <FormField label="Stock de Seguridad Mínimo" required>
-                  <Input name="stockMinimo" type="number" defaultValue={editingProduct.stockMinimo ?? ""} required placeholder="0" className="font-mono" />
-                </FormField>
+                <input type="hidden" name="imagen" value={editingProduct?.imagen || ""} />
+                <p className="text-[10px] text-[var(--text-secondary)]">JPG, PNG o WebP. Max 2MB.</p>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField label="Stock Existencias" required>
-                  <Input name="cantidad" type="number" required placeholder="0" className="font-mono" />
-                </FormField>
-                <FormField label="Stock de Seguridad Mínimo" required>
-                  <Input name="stockMinimo" type="number" required placeholder="0" className="font-mono" />
-                </FormField>
-              </div>
-            )}
 
-            {/* Alerta reposición */}
+              {/* Column 2 — Precios + Stock Mínimo */}
+              <div className="flex flex-col gap-2.5">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <DollarSign size={12} className="text-[var(--brand)]" />
+                  <span className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">Comercial</span>
+                </div>
+                <FormField label="Precio Compra" required className="mb-0">
+                  <Input name="precioCompra" type="number" step="0.01" defaultValue={editingProduct?.precioCompra || ""} required placeholder="0.00" className="font-mono py-2" />
+                </FormField>
+                <FormField label="Precio Venta" required className="mb-0">
+                  <Input name="precioVenta" type="number" step="0.01" defaultValue={editingProduct?.precioVenta || ""} required placeholder="0.00" className="font-mono py-2" />
+                </FormField>
+                {editingProduct ? (
+                  <FormField label="Stock Mínimo" required className="mb-0">
+                    <Input name="stockMinimo" type="number" defaultValue={editingProduct.stockMinimo ?? ""} required placeholder="0" className="font-mono py-2" />
+                  </FormField>
+                ) : (
+                  <FormField label="Stock de Seguridad Mínimo" required className="mb-0">
+                    <Input name="stockMinimo" type="number" required placeholder="0" className="font-mono py-2" />
+                  </FormField>
+                )}
+              </div>
+
+              {/* Column 3 — Stock */}
+              <div className="flex flex-col gap-2.5">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <BarChart3 size={12} className="text-[var(--brand)]" />
+                  <span className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">Stock</span>
+                </div>
+                {editingProduct ? (
+                  <>
+                    <FormField label="Stock Actual" className="mb-0">
+                      <Input type="number" value={editingProduct.cantidad} disabled placeholder="0" className="font-mono bg-[var(--bg)]/50 py-2" />
+                    </FormField>
+                    <FormField label="Cantidad a Reponer" className="mb-0">
+                      <Input
+                        type="number"
+                        min="0"
+                        value={cantidadAReponer}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCantidadAReponer(val === "" ? "" : Math.max(0, parseInt(val) || 0));
+                        }}
+                        placeholder="0"
+                        className="font-mono py-2"
+                      />
+                    </FormField>
+                    <FormField label="Nuevo Stock" className="mb-0">
+                      <div className="relative">
+                        <Input
+                          name="cantidad"
+                          type="number"
+                          value={editingProduct.cantidad + (Number(cantidadAReponer) || 0)}
+                          readOnly
+                          placeholder="0"
+                          className="font-mono font-bold bg-[var(--brand-light)]/40 text-[var(--brand)] border-[var(--brand)]/30 py-2"
+                        />
+                      </div>
+                    </FormField>
+                  </>
+                ) : (
+                  <FormField label="Stock Inicial" required className="mb-0">
+                    <Input name="cantidad" type="number" required placeholder="0" className="font-mono py-2" />
+                  </FormField>
+                )}
+              </div>
+            </div>
+
+            {/* ── Regla Transaccional (one line, no card) ── */}
             {editingProduct && (
-              <div className="p-3.5 bg-[var(--brand-light)]/5 border border-[var(--brand)]/10 rounded-[var(--radius-lg)] text-[11px] text-[var(--text-muted)] leading-normal flex items-start space-x-2">
-                <TrendingDown className="text-[var(--brand)] mt-0.5 flex-shrink-0" size={14} />
-                <span>
-                  <strong>Regla Transaccional:</strong> Si incrementa el stock actual ({editingProduct.cantidad} u), el sistema generará automáticamente una <strong>Compra</strong> y registrará la salida financiera contable en el panel de <strong>Caja</strong>.
-                </span>
+              <div className="flex items-center gap-1.5 text-[11px] text-[var(--text-muted)] py-1">
+                <Info size={12} className="text-[var(--brand)]" />
+                <span><strong>Regla:</strong> Al incrementar stock se registrará una reposición y la salida en Caja.</span>
               </div>
             )}
 
-            {/* Alertas */}
+            {/* ── Alertas ── */}
             {errorMsg && (
-              <div className="p-3 bg-[var(--danger-light)] border border-[var(--danger)]/20 text-[var(--danger)] text-xs font-semibold rounded-[var(--radius-md)] flex items-center space-x-2">
+              <div className="p-2 bg-[var(--danger-light)] border border-[var(--danger)]/20 text-[var(--danger)] text-xs font-semibold rounded-[var(--radius-md)] flex items-center space-x-2">
                 <AlertTriangle size={14} />
                 <span>{errorMsg}</span>
               </div>
             )}
             {successMsg && (
-              <div className="p-3 bg-[var(--success-light)] border border-[var(--success)]/20 text-[var(--success)] text-xs font-semibold rounded-[var(--radius-md)] flex items-center space-x-2">
+              <div className="p-2 bg-[var(--success-light)] border border-[var(--success)]/20 text-[var(--success)] text-xs font-semibold rounded-[var(--radius-md)] flex items-center space-x-2">
                 <CheckCircle size={14} />
                 <span>{successMsg}</span>
               </div>
             )}
 
-            {/* Botones */}
-            <div className="pt-2 flex justify-end space-x-3">
-              <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)} disabled={isPending}>
-                Cancelar
-              </Button>
-              <Button type="submit" loading={isPending} disabled={isPending}>
-                {editingProduct ? "Actualizar Repuesto" : "Agregar Repuesto"}
-              </Button>
-            </div>
           </form>
+
+          {/* ── Footer fijo: Botones ── */}
+          <div className="px-4 py-2.5 border-t border-[var(--border)] flex justify-end gap-3 shrink-0">
+            <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)} disabled={isPending}>
+              Cancelar
+            </Button>
+            <Button type="submit" form={undefined} loading={isPending} disabled={isPending}
+              onClick={(e) => { e.preventDefault(); (e.currentTarget.closest('dialog')?.querySelector('form') as HTMLFormElement)?.requestSubmit(); }}>
+              {editingProduct ? "Guardar cambios" : "Agregar Repuesto"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 

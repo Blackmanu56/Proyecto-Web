@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { getSession } from "@/lib/auth.server";
+import { requirePermission } from "@/lib/auth-permissions";
 
 export type ProveedorConDetalles = {
   id: number;
@@ -79,10 +79,7 @@ export async function crearProveedor(
 ): Promise<{ success?: boolean; error?: string }> {
   try {
     // Verificar permisos
-    const session = await getSession();
-    if (!session || !["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(session.role)) {
-      return { error: "No tiene permisos para realizar esta acción." };
-    }
+    await requirePermission("proveedores.crear");
 
     const nombre = formData.get("nombre") as string;
     const contactoResponsable = (formData.get("contactoResponsable") as string) || null;
@@ -137,10 +134,7 @@ export async function actualizarProveedor(
 ): Promise<{ success?: boolean; error?: string }> {
   try {
     // Verificar permisos
-    const session = await getSession();
-    if (!session || !["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(session.role)) {
-      return { error: "No tiene permisos para realizar esta acción." };
-    }
+    await requirePermission("proveedores.editar");
 
     const nombre = formData.get("nombre") as string;
     const contactoResponsable = (formData.get("contactoResponsable") as string) || null;
@@ -197,10 +191,7 @@ export async function toggleEstadoProveedor(
 ): Promise<{ success?: boolean; error?: string }> {
   try {
     // Verificar permisos
-    const session = await getSession();
-    if (!session || !["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(session.role)) {
-      return { error: "No tiene permisos para realizar esta acci├│n." };
-    }
+    await requirePermission("proveedores.estado");
 
     const proveedor = await prisma.proveedor.findUnique({ where: { id } });
     if (!proveedor) {
@@ -226,10 +217,7 @@ export async function eliminarProveedorReal(
 ): Promise<{ success?: boolean; error?: string }> {
   try {
     // Verificar permisos (solo administradores pueden eliminar definitivamente)
-    const session = await getSession();
-    if (!session || session.role !== "ADMINISTRADOR") {
-      return { error: "Solo los administradores pueden eliminar proveedores del sistema." };
-    }
+    await requirePermission("proveedores.estado");
 
     const proveedor = await prisma.proveedor.findUnique({
       where: { id },

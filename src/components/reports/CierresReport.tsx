@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useTransition, useMemo, useCallback } from "react";
 import { getReporteCierres, getDetalleCierre, getCierresDiferencias } from "@/actions/informes";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   Search, Calendar, User, RefreshCw, Wallet, Eye, X, Loader2,
   CheckCircle, XCircle, Printer, TrendingUp, TrendingDown,
@@ -228,7 +228,7 @@ function CierreDetailPrintView({ cajaId }: {
           <span>Apertura: {detalleData.fechaApertura}</span>
           <span>Cierre: {detalleData.fechaCierre || "\u2014"}</span>
           <span>Usuario: {detalleData.usuario}</span>
-          <span>Impreso: {new Date().toLocaleDateString("es-AR")} {new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}</span>
+          <span>Impreso: {formatDate(new Date())}</span>
         </div>
         <hr className="my-3 border-gray-300" />
       </div>
@@ -419,7 +419,7 @@ export default function CierresReport({ initialData, usuarios, userRole }: Props
           <p className="text-sm text-gray-600 mt-1">Informe de Cierres de Caja</p>
           <div className="flex justify-center gap-6 text-xs text-gray-500 mt-2">
             <span>Período: {fechaDesde} al {fechaHasta}</span>
-            <span>Generado: {new Date().toLocaleDateString("es-AR")} {new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}</span>
+            <span>Generado: {formatDate(new Date())}</span>
             <span>Usuario: {usuarios.find(u => u.id === usuarioId)?.nombreCompleto || "Todos"}</span>
           </div>
           <hr className="my-3 border-gray-300" />

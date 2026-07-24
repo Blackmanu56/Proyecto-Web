@@ -27,6 +27,7 @@ import {
   Loader2,
   Shield,
 } from "lucide-react";
+import { formatDateShort, formatDate } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────
 type ProveedorConDetalles = {
@@ -384,7 +385,7 @@ export default function ProveedoresTable({
             </div>
             <button onClick={openCreateModal} className="flex items-center gap-1.5 px-4 py-2.5 bg-[var(--brand)] text-white rounded-lg text-sm font-semibold hover:bg-[var(--brand)]/90 transition">
               <Plus size={14} />
-              Nuevo
+              Registrar
             </button>
           </div>
         }
@@ -718,11 +719,7 @@ export default function ProveedoresTable({
                               <span className="text-[10px] uppercase font-bold text-[var(--text-secondary)]">Fecha de Registro</span>
                               <p className="text-sm text-[var(--text-muted)] flex items-center gap-1.5 mt-0.5">
                                 <Calendar size={13} className="text-[var(--text-secondary)]" />
-                                {new Date(selectedProv.creadoEn).toLocaleDateString("es-AR", {
-                                  year: "numeric",
-                                  month: "long",
-                                  day: "numeric",
-                                })}
+                                {formatDateShort(selectedProv.creadoEn)}
                               </p>
                             </div>
                           </div>
@@ -832,7 +829,7 @@ export default function ProveedoresTable({
                                     </span>
                                     <span className="text-[var(--text-secondary)] flex items-center gap-1">
                                       <Calendar size={11} />
-                                      {new Date(compra.fecha).toLocaleDateString("es-AR")} {new Date(compra.fecha).toLocaleTimeString("es-AR", { hour: '2-digit', minute: '2-digit' })}
+                                      {formatDate(compra.fecha)}
                                     </span>
                                   </div>
                                   <div className="flex items-center gap-4">

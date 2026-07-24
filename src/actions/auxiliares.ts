@@ -1,8 +1,8 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth.server";
 import { revalidatePath } from "next/cache";
+import { requirePermission } from "@/lib/auth-permissions";
 
 /**
  * Obtener listado de categorías activas para comboboxes
@@ -23,10 +23,7 @@ export async function getCategorias() {
  * Crear una nueva categoría (si ya existe con el mismo nombre, retorna la existente)
  */
 export async function createCategoria(nombre: string) {
-  const session = await getSession();
-  if (!session || !["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(session.role)) {
-    throw new Error("No tiene permisos para realizar esta acción.");
-  }
+  await requirePermission("productos.categorias");
   try {
     const existing = await prisma.categoria.findFirst({ where: { nombre } });
     if (existing) return existing;
@@ -42,10 +39,7 @@ export async function createCategoria(nombre: string) {
  * Eliminar una categoría (solo si no tiene productos asociados)
  */
 export async function deleteCategoria(id: number) {
-  const session = await getSession();
-  if (!session || !["ADMINISTRADOR"].includes(session.role)) {
-    throw new Error("No tiene permisos para eliminar categorías.");
-  }
+  await requirePermission("productos.categorias");
   try {
     const products = await prisma.producto.count({ where: { categoriaId: id } });
     if (products > 0) {
@@ -108,10 +102,7 @@ export async function getCategoriasWithCount() {
  * Actualizar nombre de una categoría
  */
 export async function updateCategoria(id: number, nombre: string) {
-  const session = await getSession();
-  if (!session || !["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(session.role)) {
-    throw new Error("No tiene permisos para realizar esta acción.");
-  }
+  await requirePermission("productos.categorias");
   try {
     const existing = await prisma.categoria.findFirst({ where: { nombre, id: { not: id } } });
     if (existing) throw new Error("Ya existe una categoría con ese nombre.");
@@ -128,10 +119,7 @@ export async function updateCategoria(id: number, nombre: string) {
  * Cambiar estado activo/inactivo de una categoría
  */
 export async function toggleCategoriaActivo(id: number, activo: boolean) {
-  const session = await getSession();
-  if (!session || !["ADMINISTRADOR"].includes(session.role)) {
-    throw new Error("No tiene permisos para realizar esta acción.");
-  }
+  await requirePermission("productos.categorias");
   try {
     const cat = await prisma.categoria.update({ where: { id }, data: { activo } });
     revalidatePath("/productos");
@@ -176,10 +164,7 @@ export async function getMarcasWithCount() {
  * Crear una nueva marca
  */
 export async function createMarca(nombre: string) {
-  const session = await getSession();
-  if (!session || !["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(session.role)) {
-    throw new Error("No tiene permisos para realizar esta acción.");
-  }
+  await requirePermission("productos.marcas");
   try {
     const existing = await prisma.marca.findFirst({ where: { nombre } });
     if (existing) throw new Error("Ya existe una marca con ese nombre.");
@@ -195,10 +180,7 @@ export async function createMarca(nombre: string) {
  * Actualizar nombre de una marca
  */
 export async function updateMarca(id: number, nombre: string) {
-  const session = await getSession();
-  if (!session || !["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(session.role)) {
-    throw new Error("No tiene permisos para realizar esta acción.");
-  }
+  await requirePermission("productos.marcas");
   try {
     const existing = await prisma.marca.findFirst({ where: { nombre, id: { not: id } } });
     if (existing) throw new Error("Ya existe una marca con ese nombre.");
@@ -215,10 +197,7 @@ export async function updateMarca(id: number, nombre: string) {
  * Cambiar estado activo/inactivo de una marca
  */
 export async function toggleMarcaActivo(id: number, activo: boolean) {
-  const session = await getSession();
-  if (!session || !["ADMINISTRADOR"].includes(session.role)) {
-    throw new Error("No tiene permisos para realizar esta acción.");
-  }
+  await requirePermission("productos.marcas");
   try {
     const marca = await prisma.marca.update({ where: { id }, data: { activo } });
     revalidatePath("/productos");

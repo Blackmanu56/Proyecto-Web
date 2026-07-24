@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth.server";
+import { requirePermission } from "@/lib/auth-permissions";
 
 interface VentaItem {
   productoId: number;
@@ -18,10 +19,7 @@ export async function crearClienteRapido(
   telefono: string,
   email: string
 ) {
-  const session = await getSession();
-  if (!session || !["ADMINISTRADOR", "ENCARGADO_VENTAS"].includes(session.role)) {
-    return { error: "No tiene permisos para realizar esta acción." };
-  }
+  const session = await requirePermission("clientes.crear", await getSession());
 
   if (!nombre || !dni) {
     return { error: "El nombre y el DNI son obligatorios." };
@@ -106,10 +104,7 @@ export async function createVenta(
   tipoComprobante: string,
   cuotas?: number | null
 ) {
-  const session = await getSession();
-  if (!session || !["ADMINISTRADOR", "ENCARGADO_VENTAS"].includes(session.role)) {
-    throw new Error("No tiene permisos para realizar esta acción.");
-  }
+  const session = await requirePermission("ventas.crear", await getSession());
 
   if (items.length === 0) {
     throw new Error("El carrito de compras está vacío.");

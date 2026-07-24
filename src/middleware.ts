@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { jwtVerify } from "jose";
+import { jwtVerify, SignJWT } from "jose";
+import { getJWTSecret } from "@/lib/jwt";
 
-const JWT_SECRET = process.env.JWT_SECRET || "mi_secreto_super_seguro_para_tesis_2026";
-const key = new TextEncoder().encode(JWT_SECRET);
+function getKey() {
+  return new TextEncoder().encode(getJWTSecret());
+}
+
+const REFRESH_THRESHOLD_MS = 30 * 60 * 1000;
 
 // Definimos las rutas protegidas y sus permisos mínimos
 const protectedRoutes = [
@@ -25,7 +29,7 @@ export async function middleware(request: NextRequest) {
   if (pathname === "/login" || pathname === "/") {
     if (token) {
       try {
-        await jwtVerify(token, key);
+        await jwtVerify(token, getKey());
         // Si ya está logueado y va a login, redirigir a dashboard
         return NextResponse.redirect(new URL("/dashboard", request.url));
       } catch (e) {
@@ -41,7 +45,7 @@ export async function middleware(request: NextRequest) {
 
   // 2. Rutas Protegidas
   const matchingRoute = protectedRoutes.find((route) =>
-    pathname.startsWith(route.path)
+    pathname === route.path || pathname.startsWith(route.path + "/")
   );
 
   if (matchingRoute) {
@@ -54,13 +58,41 @@ export async function middleware(request: NextRequest) {
 
     try {
       // Verificar token
-      const { payload } = await jwtVerify(token, key);
+      const { payload } = await jwtVerify(token, getKey());
+      const userId = (payload as any).userId as number;
       const userRole = (payload as any).role as string;
 
       // Validar permisos del Rol
       if (!matchingRoute.roles.includes(userRole)) {
         // No autorizado, redirigir a dashboard
         return NextResponse.redirect(new URL("/dashboard?error=unauthorized", request.url));
+      }
+
+      // Token refresh: si el token está por vencer (30min), renovarlo
+      const tokenExp = (payload as any).exp as number;
+      const nowSec = Math.floor(Date.now() / 1000);
+      if (tokenExp && tokenExp - nowSec < 1800) {
+        const newToken = await new SignJWT({
+          userId: (payload as any).userId,
+          username: (payload as any).username,
+          role: (payload as any).role,
+          permissions: (payload as any).permissions,
+          fotoUrl: (payload as any).fotoUrl,
+        })
+          .setProtectedHeader({ alg: "HS256" })
+          .setIssuedAt()
+          .setExpirationTime("24h")
+          .sign(getKey());
+
+        const response = NextResponse.next();
+        response.cookies.set("session", newToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          path: "/",
+          maxAge: 60 * 60 * 24,
+        });
+        return response;
       }
     } catch (e) {
       // Token corrupto o expirado, limpiar cookie y redirigir a login
@@ -73,16 +105,17 @@ export async function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
-// Configurar el Matcher para excluir recursos estáticos y assets de Next
+// Configurar el Matcher para excluir solo assets estáticos de Next
 export const config = {
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
-     * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     *
+     * API routes ARE included so middleware (JWT check, user-status) applies.
      */
-    "/((?!api|_next/static|_next/image|favicon.ico).*)",
+    "/((?!_next/static|_next/image|favicon.ico).*)",
   ],
 };

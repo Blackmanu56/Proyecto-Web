@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import fs from "fs/promises";
 import path from "path";
-import { getSession } from "@/lib/auth.server";
+import { requirePermission } from "@/lib/auth-permissions";
 
 const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "avatars");
 const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
@@ -27,10 +27,7 @@ export async function subirFotoPerfil(
 ): Promise<{ success?: boolean; fotoUrl?: string; error?: string }> {
   try {
     // Auth check
-    const session = await getSession();
-    if (!session || session.role !== "ADMINISTRADOR") {
-      return { error: "No tiene permisos para realizar esta acción." };
-    }
+    await requirePermission("usuarios.foto");
 
     // Validate user exists
     const usuario = await prisma.usuario.findUnique({ where: { id: userId } });
@@ -107,10 +104,7 @@ export async function eliminarFotoPerfil(
   userId: number
 ): Promise<{ success?: boolean; error?: string }> {
   try {
-    const session = await getSession();
-    if (!session || session.role !== "ADMINISTRADOR") {
-      return { error: "No tiene permisos para realizar esta acción." };
-    }
+    await requirePermission("usuarios.foto");
 
     const usuario = await prisma.usuario.findUnique({ where: { id: userId } });
     if (!usuario) {

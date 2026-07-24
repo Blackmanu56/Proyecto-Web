@@ -3,6 +3,8 @@
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
+import { requirePermission } from "@/lib/auth-permissions";
+import { getSession } from "@/lib/auth.server";
 
 // Types
 export type UsuarioConRol = {
@@ -63,6 +65,8 @@ export async function getRoles(): Promise<RolOption[]> {
 // Create a new user
 export async function crearUsuario(formData: FormData): Promise<{ success?: boolean; error?: string; id?: number }> {
   try {
+    const session = await requirePermission("usuarios.crear", await getSession());
+
     const username = formData.get("username") as string;
     const password = formData.get("password") as string;
     const nombreCompleto = formData.get("nombreCompleto") as string;
@@ -118,6 +122,8 @@ export async function crearUsuario(formData: FormData): Promise<{ success?: bool
 // Update an existing user — with primary admin role protection
 export async function actualizarUsuario(id: number, formData: FormData): Promise<{ success?: boolean; error?: string }> {
   try {
+    const session = await requirePermission("usuarios.editar", await getSession());
+
     const username = formData.get("username") as string;
     const password = formData.get("password") as string;
     const nombreCompleto = formData.get("nombreCompleto") as string;
@@ -213,6 +219,8 @@ export async function actualizarUsuario(id: number, formData: FormData): Promise
 // Logical delete (baja lógica) — with primary admin protection
 export async function toggleEstadoUsuario(id: number): Promise<{ success?: boolean; error?: string }> {
   try {
+    const session = await requirePermission("usuarios.estado", await getSession());
+
     const usuario = await prisma.usuario.findUnique({ where: { id } });
     if (!usuario) {
       return { error: "Usuario no encontrado." };

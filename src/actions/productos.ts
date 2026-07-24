@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth.server";
 import { saveFile, deleteFile } from "@/lib/upload";
 import { MotivoEstadoProducto } from "@prisma/client";
+import { requirePermission } from "@/lib/auth-permissions";
 
 const productoSchema = z.object({
   nombre: z.string().min(2, "El nombre del producto debe tener al menos 2 caracteres"),
@@ -69,10 +70,7 @@ export async function getProductos(
  * Crear un nuevo producto en el catálogo
  */
 export async function createProducto(formData: FormData) {
-  const session = await getSession();
-  if (!session || !["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(session.role)) {
-    throw new Error("No tiene permisos para realizar esta acción.");
-  }
+  const session = await requirePermission("productos.crear", await getSession());
 
   const rawData = {
     nombre: formData.get("nombre") as string,
@@ -185,10 +183,7 @@ export async function createProducto(formData: FormData) {
  * Modificar un producto y registrar reposiciones automáticas
  */
 export async function updateProducto(id: number, formData: FormData) {
-  const session = await getSession();
-  if (!session || !["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(session.role)) {
-    throw new Error("No tiene permisos para realizar esta acción.");
-  }
+  const session = await requirePermission("productos.editar", await getSession());
 
   const rawData = {
     nombre: formData.get("nombre") as string,
@@ -323,10 +318,7 @@ export async function darBajaProducto(
   motivo: MotivoEstadoProducto,
   observacion?: string
 ) {
-  const session = await getSession();
-  if (!session || !["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(session.role)) {
-    throw new Error("No tiene permisos para realizar esta acción.");
-  }
+  const session = await requirePermission("productos.estado", await getSession());
 
   // Validar motivo
   const motivosValidos = Object.values(MotivoEstadoProducto);
@@ -385,10 +377,7 @@ export async function darBajaProducto(
  * - Registra historial de cambio de estado
  */
 export async function reactivarProducto(id: number, observacion?: string) {
-  const session = await getSession();
-  if (!session || !["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(session.role)) {
-    throw new Error("No tiene permisos para reactivar productos.");
-  }
+  const session = await requirePermission("productos.estado", await getSession());
 
   try {
     const result = await prisma.$transaction(async (tx) => {
@@ -457,10 +446,7 @@ export async function getHistorialEstado(productoId: number) {
  * Crea marcas nuevas si no existen.
  */
 export async function asignarMarcasAutomaticamente() {
-  const session = await getSession();
-  if (!session || !["ADMINISTRADOR"].includes(session.role)) {
-    throw new Error("No tiene permisos para realizar esta acción.");
-  }
+  const session = await requirePermission("productos.marcas", await getSession());
 
   // Reglas de asignación: marca → palabras clave en el nombre
   const reglas: { marca: string; keywords: string[] }[] = [
@@ -537,10 +523,7 @@ export async function restarStock(
   motivo: string,
   observacion?: string
 ) {
-  const session = await getSession();
-  if (!session || !["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(session.role)) {
-    throw new Error("No tiene permisos para realizar esta acción.");
-  }
+  const session = await requirePermission("productos.restar_stock", await getSession());
 
   if (cantidad <= 0) {
     throw new Error("La cantidad debe ser mayor a 0.");

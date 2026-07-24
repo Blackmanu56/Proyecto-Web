@@ -1,0 +1,42 @@
+schema: spec-driven
+
+context: |
+  Tech stack: Next.js 16, React 19, TypeScript 5.7, Tailwind CSS 4, Prisma 7 (PostgreSQL)
+  Architecture: Next.js App Router (src/app, src/components, src/actions, src/lib, src/hooks)
+  Testing: Vitest 4.1.10, unit tests only, strict TDD mode
+  Style: ESLint (core-web-vitals + typescript), TypeScript strict mode
+  DB: PostgreSQL 15 (Docker Compose), Prisma ORM with PG adapter
+  UI: Radix UI primitives, shadcn/ui patterns, Lucide icons, Recharts
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+    - Consider Next.js 16 breaking changes (see AGENTS.md)
+  specs:
+    - Use Given/When/Then for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+  design:
+    - Include sequence diagrams for complex flows
+    - Document architecture decisions with rationale
+    - Reference Prisma schema for data models
+  tasks:
+    - Group by phase, use hierarchical numbering
+    - Keep tasks completable in one session
+    - Follow Next.js App Router conventions
+  apply:
+    - Follow existing code patterns (src/actions, src/lib, src/components)
+    - Use Vitest for unit tests
+    - Run `npm run lint` before committing
+    - Run `npm run build` to verify
+    tdd: true
+    test_command: "npm run test"
+    lint_command: "npm run lint"
+    build_command: "npm run build"
+  verify:
+    test_command: "npm run test"
+    build_command: "npm run build"
+    lint_command: "npm run lint"
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas
+    - Verify all tasks completed before archiving

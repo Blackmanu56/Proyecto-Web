@@ -1,7 +1,16 @@
 import { SignJWT, jwtVerify } from "jose";
 
-const JWT_SECRET = process.env.JWT_SECRET || "mi_secreto_super_seguro_para_tesis_2026";
-const key = new TextEncoder().encode(JWT_SECRET);
+export function getJWTSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error("JWT_SECRET environment variable is required");
+  }
+  return secret;
+}
+
+function getKey() {
+  return new TextEncoder().encode(getJWTSecret());
+}
 
 export interface TokenPayload {
   userId: number;
@@ -19,7 +28,7 @@ export async function createJWT(payload: TokenPayload): Promise<string> {
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("24h")
-    .sign(key);
+    .sign(getKey());
 }
 
 /**
@@ -27,7 +36,7 @@ export async function createJWT(payload: TokenPayload): Promise<string> {
  */
 export async function verifyJWT(token: string): Promise<TokenPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, key, {
+    const { payload } = await jwtVerify(token, getKey(), {
       algorithms: ["HS256"],
     });
     return payload as unknown as TokenPayload;

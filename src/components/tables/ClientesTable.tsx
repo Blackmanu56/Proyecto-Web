@@ -23,10 +23,10 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { FormField } from "@/components/ui/form-field";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDateShort } from "@/lib/utils";
 import {
   Plus,
-  Edit2,
+  Edit3,
   UserX,
   UserCheck,
   CheckCircle,
@@ -370,37 +370,31 @@ export default function ClientesTable({
     <div className="flex flex-col h-full min-h-0">
       {/* Stats Header */}
       <div className="grid grid-cols-3 gap-3 shrink-0 mb-3">
-        <div className="bg-card border border-border p-3 rounded-lg flex items-center justify-between shadow-[var(--shadow-sm)]">
+        <div className="bg-[var(--panel)] border border-[var(--border)] p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] hover:shadow-md transition-shadow">
           <div>
-            <p className="text-xs text-text-secondary font-bold uppercase tracking-wider">
-              Total Clientes
-            </p>
-            <p className="text-2xl font-extrabold text-text">{totalClientes}</p>
+            <p className="text-xs text-[var(--text-secondary)] font-bold uppercase tracking-wider">Total Clientes</p>
+            <p className="text-2xl font-extrabold text-[var(--text)]">{totalClientes}</p>
           </div>
-          <div className="p-2 bg-brand-light rounded-lg text-brand">
-            <Users size={18} />
+          <div className="p-2.5 bg-[var(--brand-light)] rounded-lg text-[var(--brand)]">
+            <Users size={20} />
           </div>
         </div>
-        <div className="bg-card border border-border p-3 rounded-lg flex items-center justify-between shadow-[var(--shadow-sm)]">
+        <div className="bg-[var(--panel)] border border-[var(--border)] p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] hover:shadow-md transition-shadow">
           <div>
-            <p className="text-xs text-text-secondary font-bold uppercase tracking-wider">
-              Activos
-            </p>
-            <p className="text-2xl font-extrabold text-success">{clientesActivos}</p>
+            <p className="text-xs text-[var(--text-secondary)] font-bold uppercase tracking-wider">Activos</p>
+            <p className="text-2xl font-extrabold text-[var(--success)]">{clientesActivos}</p>
           </div>
-          <div className="p-2 bg-success-light rounded-lg text-success">
-            <UserCheck size={18} />
+          <div className="p-2.5 bg-[var(--success-light)] rounded-lg text-[var(--success)]">
+            <UserCheck size={20} />
           </div>
         </div>
-        <div className="bg-card border border-border p-3 rounded-lg flex items-center justify-between shadow-[var(--shadow-sm)]">
+        <div className="bg-[var(--panel)] border border-[var(--border)] p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] hover:shadow-md transition-shadow">
           <div>
-            <p className="text-xs text-text-secondary font-bold uppercase tracking-wider">
-              Inactivos
-            </p>
-            <p className="text-2xl font-extrabold text-danger">{clientesInactivos}</p>
+            <p className="text-xs text-[var(--text-secondary)] font-bold uppercase tracking-wider">Inactivos</p>
+            <p className="text-2xl font-extrabold text-[var(--danger)]">{clientesInactivos}</p>
           </div>
-          <div className="p-2 bg-danger-light rounded-lg text-danger">
-            <UserX size={18} />
+          <div className="p-2.5 bg-[var(--danger-light)] rounded-lg text-[var(--danger)]">
+            <UserX size={20} />
           </div>
         </div>
       </div>
@@ -442,7 +436,7 @@ export default function ClientesTable({
                 setSuccessMsg("");
                 setIsRegisterOpen(true);
               }}
-              className="flex items-center gap-1.5 px-4 py-2 bg-[var(--brand)] text-white rounded-lg text-sm font-semibold hover:bg-[var(--brand)]/90 transition"
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-[var(--brand)] text-white rounded-lg text-sm font-semibold hover:bg-[var(--brand)]/90 transition"
             >
               <Plus size={14} />
               Registrar
@@ -460,94 +454,94 @@ export default function ClientesTable({
             <col style={{ width: "14%" }} />
             <col style={{ width: "13%" }} />
           </colgroup>
-          <thead className="sticky top-0 bg-[var(--card)]">
-            <tr className="border-b border-border text-xs uppercase tracking-wider font-semibold text-text-secondary">
-              <th className="py-2 px-4 text-left cursor-pointer select-none hover:text-text hover:bg-[var(--border)]/30 transition-colors" onClick={() => handleSortCycle("nombre")} title={getSortTooltip("nombre")}>
+          <thead className="sticky top-0 bg-[var(--panel)]">
+            <tr className="border-b-2 border-[var(--border)] text-xs uppercase tracking-wider font-bold text-[var(--text-secondary)] whitespace-nowrap">
+              <th className="py-3.5 px-4 text-left cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors" onClick={() => handleSortCycle("nombre")} title={getSortTooltip("nombre")}>
                 <div className="flex items-center gap-2">Cliente {renderSortIndicator("nombre")}</div>
               </th>
-              <th className="py-2 px-4 text-left">
+              <th className="py-3.5 px-4 text-left">
                 <div className="flex items-center gap-2">Documentos</div>
               </th>
-              <th className="py-2 px-4 text-left">Contacto</th>
-              <th className="py-2 px-4 text-center cursor-pointer select-none hover:text-text hover:bg-[var(--border)]/30 transition-colors" onClick={() => handleSortCycle("activo")} title={getSortTooltip("activo")}>
+              <th className="py-3.5 px-4 text-left">Contacto</th>
+              <th className="py-3.5 px-4 text-center cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors" onClick={() => handleSortCycle("activo")} title={getSortTooltip("activo")}>
                 <div className="flex items-center justify-center gap-2">Estado {renderSortIndicator("activo")}</div>
               </th>
-              <th className="py-2 px-4 text-center cursor-pointer select-none hover:text-text hover:bg-[var(--border)]/30 transition-colors" onClick={() => handleSortCycle("ventas")} title={getSortTooltip("ventas")}>
+              <th className="py-3.5 px-4 text-center cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors" onClick={() => handleSortCycle("ventas")} title={getSortTooltip("ventas")}>
                 <div className="flex items-center justify-center gap-2">Compras {renderSortIndicator("ventas")}</div>
               </th>
-              <th className="py-2 px-4 text-right cursor-pointer select-none hover:text-text hover:bg-[var(--border)]/30 transition-colors" onClick={() => handleSortCycle("totalGastado")} title={getSortTooltip("totalGastado")}>
+              <th className="py-3.5 px-4 text-right cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors" onClick={() => handleSortCycle("totalGastado")} title={getSortTooltip("totalGastado")}>
                 <div className="flex items-center justify-end gap-2">Total Gastado {renderSortIndicator("totalGastado")}</div>
               </th>
-              <th className="py-2 px-4 text-center">Acciones</th>
+              <th className="py-3.5 px-4 text-center">Acciones</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-border/60 text-sm text-text-muted">
+          <tbody className="divide-y divide-[var(--border)]/60 text-[13px] text-[var(--text-muted)]">
             {filteredClientes.map((cliente) => (
               <tr
                 key={cliente.id}
                 onClick={() => handleOpenFicha(cliente)}
-                className={`hover:bg-border/30 transition-colors duration-150 cursor-pointer ${
-                  !cliente.activo ? "opacity-60 bg-danger-light/5" : ""
+                className={`group h-[68px] hover:bg-[var(--panel)] transition-colors duration-150 cursor-pointer ${
+                  !cliente.activo ? "opacity-60" : ""
                 }`}
               >
-                <td className="py-2.5 px-4">
-                  <div className="font-semibold text-text text-sm">{cliente.nombre}</div>
-                  <div className="text-[11px] text-text-secondary flex items-center gap-1 mt-0.5">
+                <td className="py-3 px-4">
+                  <div className="font-semibold text-[var(--text)] text-sm leading-tight group-hover:text-[var(--brand)] transition-colors truncate">{cliente.nombre}</div>
+                  <div className="text-[11px] text-[var(--text-secondary)] flex items-center gap-1 mt-0.5">
                     <Calendar size={10} />
-                    {new Date(cliente.creadoEn).toLocaleDateString()}
+                    {formatDateShort(cliente.creadoEn)}
                   </div>
                 </td>
-                <td className="py-2.5 px-4">
+                <td className="py-3 px-4">
                   <div className="flex flex-col gap-0.5">
-                    <span className="text-[11px] text-text-muted">
-                      <span className="font-medium text-text-secondary">DNI:</span>{" "}
+                    <span className="text-sm text-[var(--text-muted)]">
+                      <span className="font-medium text-[var(--text-secondary)]">DNI:</span>{" "}
                       {cliente.dni}
                     </span>
                     {cliente.cuit ? (
-                      <span className="text-[11px] text-text-muted">
-                        <span className="font-medium text-text-secondary">CUIT:</span>{" "}
+                      <span className="text-sm text-[var(--text-muted)]">
+                        <span className="font-medium text-[var(--text-secondary)]">CUIT:</span>{" "}
                         {cliente.cuit}
                       </span>
                     ) : (
-                      <span className="text-[11px] text-text-secondary italic">
+                      <span className="text-sm text-[var(--text-secondary)] italic">
                         Sin CUIT
                       </span>
                     )}
                   </div>
                 </td>
-                <td className="py-2.5 px-4">
+                <td className="py-3 px-4">
                   <div className="flex flex-col gap-0.5">
                     {cliente.telefono && (
-                      <div className="text-[11px] flex items-center gap-1 text-text-muted">
-                        <Phone size={11} className="text-text-secondary" />
+                      <div className="text-sm flex items-center gap-1 text-[var(--text-muted)]">
+                        <Phone size={11} className="text-[var(--text-secondary)]" />
                         {cliente.telefono}
                       </div>
                     )}
                     {cliente.email && (
-                      <div className="text-[11px] flex items-center gap-1 text-text-muted">
-                        <Mail size={11} className="text-text-secondary" />
+                      <div className="text-sm flex items-center gap-1 text-[var(--text-muted)]">
+                        <Mail size={11} className="text-[var(--text-secondary)]" />
                         {cliente.email}
                       </div>
                     )}
                     {!cliente.telefono && !cliente.email && (
-                      <span className="text-[11px] text-text-secondary italic">
+                      <span className="text-[11px] text-[var(--text-secondary)] italic">
                         Sin datos
                       </span>
                     )}
                   </div>
                 </td>
-                <td className="py-2.5 px-4 text-center">
+                <td className="py-3 px-4 text-center">
                   <Badge variant={cliente.activo ? "success" : "danger"} size="sm">
                     {cliente.activo ? "Activo" : "Baja"}
                   </Badge>
                 </td>
-                <td className="py-2.5 px-4 text-center font-semibold text-text">
+                <td className="py-3 px-4 text-center font-semibold text-[var(--text)]">
                   {cliente._count.ventas}
                 </td>
-                <td className="py-2.5 px-4 text-right font-semibold text-text font-mono">
+                <td className="py-3 px-4 text-right font-semibold text-[var(--text)] font-mono">
                   {formatCurrency(cliente._sum.ventas ?? 0)}
                 </td>
-                <td className="py-2.5 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-center gap-1">
                     <Button
                       variant="ghost"
@@ -555,7 +549,7 @@ export default function ClientesTable({
                       onClick={(e) => handleEdit(cliente, e)}
                       title="Editar"
                     >
-                      <Edit2 size={14} />
+                      <Edit3 size={16} />
                     </Button>
                     {cliente.activo ? (
                       <Button
@@ -563,9 +557,9 @@ export default function ClientesTable({
                         size="sm"
                         onClick={(e) => handleOpenToggle(cliente, e)}
                         title="Desactivar (Baja)"
-                        className="hover:text-danger"
+                        className="hover:text-[var(--danger)]"
                       >
-                        <UserX size={14} />
+                        <UserX size={16} />
                       </Button>
                     ) : (
                       <>
@@ -575,9 +569,9 @@ export default function ClientesTable({
                             size="sm"
                             onClick={(e) => handleOpenToggle(cliente, e)}
                             title="Reactivar"
-                            className="hover:text-success"
+                            className="hover:text-[var(--success)]"
                           >
-                            <UserCheck size={14} />
+                            <UserCheck size={16} />
                           </Button>
                         ) : (
                           <Button
@@ -586,7 +580,7 @@ export default function ClientesTable({
                             disabled
                             title="Reactivación restringida a Administrador"
                           >
-                            <UserCheck size={14} />
+                            <UserCheck size={16} />
                           </Button>
                         )}
                         <Button
@@ -594,9 +588,9 @@ export default function ClientesTable({
                           size="sm"
                           onClick={(e) => handleOpenDelete(cliente, e)}
                           title="Eliminar físico de BD"
-                          className="hover:text-danger"
+                          className="hover:text-[var(--danger)]"
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={16} />
                         </Button>
                       </>
                     )}
@@ -740,7 +734,7 @@ export default function ClientesTable({
                   onClick={handleOpenEditFromFicha}
                   className="flex items-center gap-1.5"
                 >
-                  <Edit2 size={13} />
+                  <Edit3 size={16} />
                   Editar cliente
                 </Button>
               )}
@@ -756,11 +750,7 @@ export default function ClientesTable({
                   <p className="text-xs text-text-secondary flex items-center gap-1.5 mt-1">
                     <Calendar size={12} />
                     Registrado:{" "}
-                    {new Date(selectedCliente.creadoEn).toLocaleDateString("es-AR", {
-                      day: "2-digit",
-                      month: "long",
-                      year: "numeric",
-                    })}
+                    {formatDateShort(selectedCliente.creadoEn)}
                   </p>
                 </div>
                 <Badge variant={selectedCliente.activo ? "success" : "danger"} size="md">
@@ -801,7 +791,7 @@ export default function ClientesTable({
                   </div>
                   <p className="text-base font-bold text-text">
                     {fichaUltimaCompra
-                      ? fichaUltimaCompra.toLocaleDateString("es-AR")
+                      ? formatDateShort(fichaUltimaCompra)
                       : "N/A"}
                   </p>
                 </div>
@@ -829,17 +819,17 @@ export default function ClientesTable({
                   <InfoRow
                     label="Teléfono"
                     value={selectedCliente.telefono || "No registrado"}
-                    icon={<Phone size={13} className="text-text-secondary" />}
+                    icon={<Phone size={13} className="text-[var(--text-secondary)]" />}
                   />
                   <InfoRow
                     label="Correo"
                     value={selectedCliente.email || "No registrado"}
-                    icon={<Mail size={13} className="text-text-secondary" />}
+                    icon={<Mail size={13} className="text-[var(--text-secondary)]" />}
                   />
                   <InfoRow
                     label="Dirección"
                     value={selectedCliente.direccion || "No registrada"}
-                    icon={<MapPin size={13} className="text-text-secondary" />}
+                    icon={<MapPin size={13} className="text-[var(--text-secondary)]" />}
                   />
                 </div>
 
@@ -849,11 +839,7 @@ export default function ClientesTable({
                   </h4>
                   <InfoRow
                     label="Fecha de Registro"
-                    value={new Date(selectedCliente.creadoEn).toLocaleDateString("es-AR", {
-                      day: "2-digit",
-                      month: "long",
-                      year: "numeric",
-                    })}
+                    value={formatDateShort(selectedCliente.creadoEn)}
                   />
                   <InfoRow
                     label="Estado"
@@ -868,7 +854,7 @@ export default function ClientesTable({
                     label="Última Compra"
                     value={
                       fichaUltimaCompra
-                        ? fichaUltimaCompra.toLocaleDateString("es-AR")
+                        ? formatDateShort(fichaUltimaCompra)
                         : "Sin compras"
                     }
                   />
@@ -923,7 +909,7 @@ export default function ClientesTable({
                             className="hover:bg-border/20 transition-colors"
                           >
                             <td className="py-1.5 px-3 text-text">
-                              {new Date(venta.fecha).toLocaleDateString("es-AR")}
+                              {formatDateShort(venta.fecha)}
                             </td>
                             <td className="py-1.5 px-3">
                               <Badge
@@ -973,7 +959,7 @@ export default function ClientesTable({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <div className="p-2 rounded-[var(--radius-md)] bg-brand-light text-brand">
-                <Edit2 size={18} />
+                <Edit3 size={18} />
               </div>
               Editar Cliente
             </DialogTitle>
@@ -1195,7 +1181,7 @@ function InfoRow({
 }) {
   return (
     <div className="flex justify-between items-center text-xs border-b border-border/60 pb-1.5 last:border-0 last:pb-0">
-      <span className="text-text-secondary">{label}</span>
+      <span className="text-[var(--text-secondary)]">{label}</span>
       {badge ? (
         badge
       ) : (

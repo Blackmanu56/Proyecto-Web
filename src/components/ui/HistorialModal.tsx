@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Clock, ArrowRight, User } from "lucide-react";
+import { formatDate } from "@/lib/utils";
 
 interface HistorialModalProps {
   open: boolean;
@@ -105,15 +106,7 @@ export default function HistorialModal({
             <div className="space-y-4">
               {historial.map((entry) => {
                 const fecha = new Date(entry.fecha);
-                const fechaStr = fecha.toLocaleDateString("es-AR", {
-                  day: "2-digit",
-                  month: "2-digit",
-                  year: "numeric",
-                });
-                const horaStr = fecha.toLocaleTimeString("es-AR", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                });
+                const fechaStr = formatDate(fecha);
 
                 return (
                   <div
@@ -123,7 +116,7 @@ export default function HistorialModal({
                     {/* Fecha y usuario */}
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-text-secondary">
-                        {fechaStr} {horaStr}
+                        {fechaStr}
                       </span>
                       <span className="flex items-center gap-1 text-xs text-text-secondary">
                         <User className="h-3 w-3" />
