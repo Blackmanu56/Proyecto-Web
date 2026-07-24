@@ -97,6 +97,7 @@ const COLUMNS: ColumnDef[] = [
 ];
 
 const COLUMN_VISIBILITY_KEY = "productos-column-visibility";
+const PRODUCT_FORM_ID = "producto-form";
 
 function getDefaultColumnVisibility(): Record<string, boolean> {
   const defaults: Record<string, boolean> = {};
@@ -466,26 +467,27 @@ export default function ProductosTable({
     formData.set("categoriaId", matchedCat ? String(matchedCat.id) : "");
 
     startTransition(async () => {
-      let res;
-      if (editingProduct) {
-        res = await updateProducto(editingProduct.id, formData);
-      } else {
-        res = await createProducto(formData);
-      }
+      try {
+        const res = editingProduct
+          ? await updateProducto(editingProduct.id, formData)
+          : await createProducto(formData);
 
-      if (res.success) {
-        setSuccessMsg(
-          editingProduct
-            ? "Producto actualizado exitosamente."
-            : "Producto creado exitosamente."
-        );
-        setTimeout(() => {
-          setIsModalOpen(false);
-          setSuccessMsg("");
-        }, 1500);
-        router.refresh();
-      } else {
-        setErrorMsg(res.error || "Ocurrió un error inesperado.");
+        if (res.success) {
+          setSuccessMsg(
+            editingProduct
+              ? "Producto actualizado exitosamente."
+              : "Producto creado exitosamente."
+          );
+          setTimeout(() => {
+            setIsModalOpen(false);
+            setSuccessMsg("");
+          }, 1500);
+          router.refresh();
+        } else {
+          setErrorMsg(res.error || "Ocurrió un error inesperado.");
+        }
+      } catch (error) {
+        setErrorMsg(error instanceof Error ? error.message : "Ocurrió un error inesperado.");
       }
     });
     }, [editingProduct, marcaValue, categoriaValue, categorias, router]);
@@ -963,7 +965,7 @@ export default function ProductosTable({
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleFormSubmit} className="flex-1 overflow-y-auto md:overflow-y-hidden px-4 py-3 space-y-2.5">
+          <form id={PRODUCT_FORM_ID} onSubmit={handleFormSubmit} className="flex-1 overflow-y-auto md:overflow-y-hidden px-4 py-3 space-y-2.5">
 
             {/* ── Nombre del Repuesto (full width) ── */}
             <FormField label="Nombre del Repuesto" required className="mb-0">
@@ -1176,8 +1178,7 @@ export default function ProductosTable({
             <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)} disabled={isPending}>
               Cancelar
             </Button>
-            <Button type="submit" form={undefined} loading={isPending} disabled={isPending}
-              onClick={(e) => { e.preventDefault(); (e.currentTarget.closest('dialog')?.querySelector('form') as HTMLFormElement)?.requestSubmit(); }}>
+            <Button type="submit" form={PRODUCT_FORM_ID} loading={isPending} disabled={isPending}>
               {editingProduct ? "Guardar cambios" : "Agregar Repuesto"}
             </Button>
           </div>

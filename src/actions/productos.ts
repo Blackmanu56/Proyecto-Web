@@ -183,38 +183,38 @@ export async function createProducto(formData: FormData) {
  * Modificar un producto y registrar reposiciones automáticas
  */
 export async function updateProducto(id: number, formData: FormData) {
-  const session = await requirePermission("productos.editar", await getSession());
-
-  const rawData = {
-    nombre: formData.get("nombre") as string,
-    marca: formData.get("marca") as string || null,
-    codigo: formData.get("codigo") as string || null,
-    imagen: formData.get("imagen") as string || null,
-    categoriaId: Number(formData.get("categoriaId")),
-    proveedorId: Number(formData.get("proveedorId")),
-    precioCompra: Number(formData.get("precioCompra")),
-    precioVenta: Number(formData.get("precioVenta")),
-    cantidad: Number(formData.get("cantidad")),
-    stockMinimo: Number(formData.get("stockMinimo")),
-  };
-
-  // Handle file upload if present
-  const file = formData.get("imagenFile") as File | null;
-  if (file && file.size > 0) {
-    // Delete old image if exists
-    if (rawData.imagen) {
-      await deleteFile(rawData.imagen);
-    }
-    const imageUrl = await saveFile(file);
-    rawData.imagen = imageUrl;
-  }
-
-  const validation = productoSchema.safeParse(rawData);
-  if (!validation.success) {
-    throw new Error(validation.error.errors[0].message);
-  }
-
   try {
+    const session = await requirePermission("productos.editar", await getSession());
+
+    const rawData = {
+      nombre: formData.get("nombre") as string,
+      marca: formData.get("marca") as string || null,
+      codigo: formData.get("codigo") as string || null,
+      imagen: formData.get("imagen") as string || null,
+      categoriaId: Number(formData.get("categoriaId")),
+      proveedorId: Number(formData.get("proveedorId")),
+      precioCompra: Number(formData.get("precioCompra")),
+      precioVenta: Number(formData.get("precioVenta")),
+      cantidad: Number(formData.get("cantidad")),
+      stockMinimo: Number(formData.get("stockMinimo")),
+    };
+
+    // Handle file upload if present
+    const file = formData.get("imagenFile") as File | null;
+    if (file && file.size > 0) {
+      // Delete old image if exists
+      if (rawData.imagen) {
+        await deleteFile(rawData.imagen);
+      }
+      const imageUrl = await saveFile(file);
+      rawData.imagen = imageUrl;
+    }
+
+    const validation = productoSchema.safeParse(rawData);
+    if (!validation.success) {
+      throw new Error(validation.error.errors[0].message);
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       // Obtener producto antes de la modificación
       const productoPrevio = await tx.producto.findUnique({
