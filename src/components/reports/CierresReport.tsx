@@ -25,7 +25,7 @@ interface Props {
   userRole: string;
 }
 
-// â”€â”€â”€ Main component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Main component --------------------------------------------
 export default function CierresReport({ initialData, usuarios }: Props) {
   const [data, setData] = useState(initialData);
   const [fechaDesde, setFechaDesde] = useState(new Date().toISOString().split("T")[0]);
@@ -152,7 +152,7 @@ export default function CierresReport({ initialData, usuarios }: Props) {
           <h1 className="text-2xl font-black uppercase tracking-wide">CHOPPER REPUESTOS</h1>
           <p className="text-sm text-gray-600 mt-1">Informe de Cierres de Caja</p>
           <div className="flex justify-center gap-6 text-xs text-gray-500 mt-2">
-            <span>PerÃ­odo: {fechaDesde} al {fechaHasta}</span>
+            <span>Período: {fechaDesde} al {fechaHasta}</span>
             <span>Generado: {formatDate(new Date())}</span>
             <span>Usuario: {usuarios.find(u => u.id === usuarioId)?.nombreCompleto || "Todos"}</span>
           </div>
@@ -163,7 +163,7 @@ export default function CierresReport({ initialData, usuarios }: Props) {
           <div className="flex items-center justify-end mb-2 print:hidden">
             <button onClick={() => setPrintSection("kpis")}
               className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
-              title="Imprimir esta secciÃ³n">
+              title="Imprimir esta sección">
               <Printer size={12} />
             </button>
           </div>
@@ -176,7 +176,7 @@ export default function CierresReport({ initialData, usuarios }: Props) {
           <div className="flex items-center justify-end mb-2 print:hidden">
             <button onClick={() => setPrintSection("table")}
               className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
-              title="Imprimir esta secciÃ³n">
+              title="Imprimir esta sección">
               <Printer size={12} />
             </button>
           </div>
@@ -199,7 +199,7 @@ export default function CierresReport({ initialData, usuarios }: Props) {
               </thead>
               <tbody className="divide-y divide-slate-800/50 print:divide-gray-300">
                 {cierresFiltrados.length === 0 ? (
-                  <tr><td colSpan={10} className="px-4 py-8 text-center text-slate-500">Sin cierres en el perÃ­odo.</td></tr>
+                  <tr><td colSpan={10} className="px-4 py-8 text-center text-slate-500">Sin cierres en el período.</td></tr>
                 ) : cierresFiltrados.map((c: any) => (
                   <React.Fragment key={c.id}>
                     <tr className={`transition-colors ${expandedCierreId === c.id ? "bg-slate-800/20" : "hover:bg-slate-800/30"}`}>
@@ -250,7 +250,7 @@ export default function CierresReport({ initialData, usuarios }: Props) {
           <div className="flex items-center justify-end mb-2 print:hidden">
             <button onClick={() => setPrintSection("secondary")}
               className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
-              title="Imprimir esta secciÃ³n">
+              title="Imprimir esta sección">
               <Printer size={12} />
             </button>
           </div>
@@ -305,14 +305,14 @@ export default function CierresReport({ initialData, usuarios }: Props) {
             )}
           </div>
 
-          {/* Diferencias Diarias & MÃ©todos de Pago (collapsible) */}
+          {/* Diferencias Diarias & Métodos de Pago (collapsible) */}
           <button
             onClick={() => setShowSecondary(!showSecondary)}
             className="w-full flex items-center justify-between px-4 py-3 bg-slate-800/50 rounded-xl border border-slate-700/50 text-sm font-semibold text-slate-300 hover:bg-slate-700/50 transition print:hidden"
           >
             <span className="flex items-center gap-2">
               <FileText size={14} className="text-slate-400" />
-              InformaciÃ³n secundaria
+              Información secundaria
             </span>
             {showSecondary ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
           </button>
@@ -325,7 +325,7 @@ export default function CierresReport({ initialData, usuarios }: Props) {
                   Diferencias Diarias
                 </h3>
                 {cierresFiltrados.length === 0 ? (
-                  <p className="text-xs text-slate-500 text-center py-6">No hay datos en el perÃ­odo seleccionado.</p>
+                  <p className="text-xs text-slate-500 text-center py-6">No hay datos en el período seleccionado.</p>
                 ) : (
                   <div className="space-y-2">
                     {cierresFiltrados.slice(0, 10).map((c) => {
@@ -343,7 +343,7 @@ export default function CierresReport({ initialData, usuarios }: Props) {
                       );
                     })}
                     {cierresFiltrados.length > 10 && (
-                      <p className="text-xs text-slate-500 text-center pt-1">...y {cierresFiltrados.length - 10} mÃ¡s</p>
+                      <p className="text-xs text-slate-500 text-center pt-1">...y {cierresFiltrados.length - 10} más</p>
                     )}
                   </div>
                 )}
@@ -352,9 +352,9 @@ export default function CierresReport({ initialData, usuarios }: Props) {
               <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-4">
                 <h3 className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-2">
                   <DollarSign size={14} className="text-amber-400" />
-                  MÃ©todos de Pago
+                  Métodos de Pago
                 </h3>
-                <p className="text-xs text-slate-500 text-center py-6">Los mÃ©todos de pago se muestran en el informe de Finanzas.</p>
+                <p className="text-xs text-slate-500 text-center py-6">Los métodos de pago se muestran en el informe de Finanzas.</p>
               </div>
             </div>
           )}
