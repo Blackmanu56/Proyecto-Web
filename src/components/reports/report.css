@@ -68,7 +68,11 @@
   [class*="bg-purple"],
   [class*="bg-slate-900"],
   [class*="bg-slate-950"],
-  [class*="bg-slate-800"] {
+  [class*="bg-slate-800"],
+  [class*="bg-panel"],
+  [class*="bg-card"],
+  [class*="bg-bg"],
+  [class*="bg-border"] {
     background: #ffffff !important;
     color: #1e293b !important;
   }
@@ -89,7 +93,9 @@
   .text-slate-100,
   .text-slate-200,
   .text-slate-300,
-  .text-slate-400 {
+  .text-slate-400,
+  .text-text,
+  .text-text-muted {
     color: #1e293b !important;
   }
 
@@ -139,7 +145,8 @@
   th,
   td,
   [class*="border-slate"],
-  [class*="border-gray"] {
+  [class*="border-gray"],
+  [class*="border-border"] {
     border-color: #cbd5e1 !important;
   }
 
