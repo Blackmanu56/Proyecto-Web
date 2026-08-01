@@ -10,6 +10,7 @@ import {
   getUsuariosActivos,
 } from "@/actions/informes";
 import { getCategorias, getProveedores, getClientesDistinct, getMetodosPago } from "@/actions/auxiliares";
+import { formatLocalDateTimeStart } from "@/lib/reportPeriods";
 import InformesTabs from "@/components/reports/InformesTabs";
 import { BarChart3 } from "lucide-react";
 
@@ -17,9 +18,8 @@ export default async function InformesPage() {
   const session = await getSession();
   const userRole = session?.role || "";
 
-  // Carga inicial de datos (hoy)
-  const hoy = new Date();
-  const hoyStr = hoy.toISOString().split("T")[0];
+  // Carga inicial de datos (hoy) — F1: datetime local completo sin Z
+  const hoyStr = formatLocalDateTimeStart(new Date());
 
   // Filtrar datos según el rol para evitar cargar datos innecesarios
   const canSeeVentas = ["ADMINISTRADOR", "ENCARGADO_VENTAS"].includes(userRole);
