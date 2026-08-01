@@ -64,7 +64,7 @@ export default function Avatar({
       className={`shrink-0 rounded-full flex items-center justify-center font-bold border ${dims.container} ${dims.text} ${
         activo
           ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/20"
-          : "bg-slate-800 text-slate-500 border-slate-700"
+          : "bg-border text-text-secondary border-border"
       } ${className}`}
     >
       {getInitials(nombreCompleto)}

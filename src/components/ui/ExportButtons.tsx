@@ -90,7 +90,7 @@ export default function ExportButtons({
   }, [onExcel]);
 
   const btnClass =
-    "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-700/50 text-slate-300 hover:bg-slate-600/50 hover:text-white transition-colors";
+    "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-border/50 text-text-muted hover:bg-border-hover/50 hover:text-text transition-colors";
 
   return (
     <div className="flex items-center gap-2">

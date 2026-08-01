@@ -66,23 +66,23 @@ export default function SubPestanasProductos({ categoriaId, proveedorId }: { cat
   return (
     <div className="space-y-4">
       {/* Sub-tabs */}
-      <div className="flex flex-wrap gap-1 bg-slate-900/50 border border-slate-800 rounded-xl p-1">
+      <div className="flex flex-wrap gap-1 bg-panel border border-border rounded-xl p-1">
         {SUB_TABS.map((tab) => (
           <button
             key={tab.id}
             onClick={() => loadTab(tab.id)}
             className={
               "flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all " +
-              (activeTab === tab.id ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50")
+              (activeTab === tab.id ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "text-text-muted hover:text-text hover:bg-border/50")
             }
           >
             {tab.icon}{tab.label}
           </button>
         ))}
         <div className="ml-auto flex items-center gap-2 print:hidden">
-          {isPending && <RefreshCw size={14} className="animate-spin text-slate-400" />}
+          {isPending && <RefreshCw size={14} className="animate-spin text-text-muted" />}
           <button onClick={() => setPrintSection(activeTab)}
-            className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
+            className="p-1.5 rounded-lg bg-border text-text-muted hover:text-emerald-400 hover:bg-border-hover transition print:hidden"
             title="Imprimir esta sección">
             <Printer size={12} />
           </button>
@@ -91,14 +91,14 @@ export default function SubPestanasProductos({ categoriaId, proveedorId }: { cat
 
       {/* Content */}
       {loading ? (
-        <div className="flex items-center justify-center py-12 text-slate-400">
+        <div className="flex items-center justify-center py-12 text-text-muted">
           <RefreshCw size={20} className="animate-spin mr-2" /> Cargando...
         </div>
       ) : (
         <>
           <div className="report-section" data-section-id={activeTab} data-print-active={printSection === activeTab || null}>
           {activeTab === "resumen" && (
-            <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-6 text-center text-slate-400">
+            <div className="bg-card rounded-xl border border-border p-6 text-center text-text-muted">
               <p>Seleccioná una subcategoría para ver los datos detallados.</p>
             </div>
           )}

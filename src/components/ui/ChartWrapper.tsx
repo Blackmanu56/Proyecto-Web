@@ -70,8 +70,8 @@ export default function ChartWrapper({
   );
 
   return (
-    <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
-      <h3 className="text-sm font-semibold text-slate-300 mb-4">{title}</h3>
+    <div className="bg-card rounded-xl p-4 border border-border">
+      <h3 className="text-sm font-semibold text-text-muted mb-4">{title}</h3>
       <div style={{ width: "100%", height }}>
         <ResponsiveContainer>{enhanced}</ResponsiveContainer>
       </div>

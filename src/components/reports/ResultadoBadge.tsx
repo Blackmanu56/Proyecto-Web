@@ -16,9 +16,9 @@ function getResultado(totalContado: number | null, totalEsperado: number) {
 }
 
 const VARIANT_CLASSES = {
-  emerald: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
-  blue: "bg-blue-500/10 text-blue-400 border border-blue-500/20",
-  red: "bg-rose-500/10 text-rose-400 border border-rose-500/20",
+  emerald: "bg-success-light text-success border border-success/20",
+  blue: "bg-info-light text-info border border-info/20",
+  red: "bg-danger-light text-danger border border-danger/20",
 } as const;
 
 export default function ResultadoBadge({ totalContado, totalEsperado }: ResultadoBadgeProps) {

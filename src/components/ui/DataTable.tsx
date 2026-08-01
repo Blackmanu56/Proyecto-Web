@@ -38,8 +38,8 @@ export default function DataTable<T>({
 
   if (loading) {
     return (
-      <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-8">
-        <div className="flex items-center justify-center text-slate-400 gap-2">
+      <div className="bg-card rounded-xl border border-border p-8">
+        <div className="flex items-center justify-center text-text-muted gap-2">
           <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -52,22 +52,22 @@ export default function DataTable<T>({
 
   if (data.length === 0) {
     return (
-      <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-8">
-        <p className="text-center text-slate-500">{emptyMessage}</p>
+      <div className="bg-card rounded-xl border border-border p-8">
+        <p className="text-center text-text-secondary">{emptyMessage}</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 overflow-hidden">
+    <div className="bg-card rounded-xl border border-border overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-slate-700/50">
+            <tr className="bg-panel">
               {columns.map((col, i) => (
                 <th
                   key={i}
-                  className={`px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider ${
+                  className={`px-4 py-3 text-left text-xs font-semibold text-text-muted uppercase tracking-wider ${
                     col.className ?? ""
                   }`}
                 >
@@ -76,16 +76,16 @@ export default function DataTable<T>({
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-700">
+          <tbody className="divide-y divide-border print:divide-gray-300">
             {data.map((row) => (
               <tr
                 key={keyExtractor(row)}
-                className="hover:bg-slate-700/30 transition-colors"
+                className="hover:bg-border/40 transition-colors"
               >
                 {columns.map((col, i) => (
                   <td
                     key={i}
-                    className={`px-4 py-3 text-slate-300 ${col.className ?? ""}`}
+                    className={`px-4 py-3 text-text-muted ${col.className ?? ""}`}
                   >
                     {renderCell(row, col)}
                   </td>
@@ -97,22 +97,22 @@ export default function DataTable<T>({
       </div>
 
       {currentPage !== undefined && totalPages !== undefined && totalPages > 1 && (
-        <div className="flex items-center justify-between px-4 py-3 border-t border-slate-700 bg-slate-800/30">
-          <span className="text-xs text-slate-500">
+        <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-panel/30">
+          <span className="text-xs text-text-secondary">
             Página {currentPage} de {totalPages}
           </span>
           <div className="flex gap-2">
             <button
               onClick={() => onPageChange?.(currentPage - 1)}
               disabled={currentPage <= 1}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-border text-text-muted hover:bg-border-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               Anterior
             </button>
             <button
               onClick={() => onPageChange?.(currentPage + 1)}
               disabled={currentPage >= totalPages}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-border text-text-muted hover:bg-border-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               Siguiente
             </button>

@@ -447,7 +447,7 @@ export default function CierresReport({ initialData, usuarios }: Props) {
             <div className="report-section" data-section-id="kpis" data-print-active={printSection === "kpis" || null}>
               <div className="flex items-center justify-end mb-2 print:hidden">
                 <button onClick={() => setPrintSection("kpis")}
-                  className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
+                  className="p-1.5 rounded-lg bg-border text-text-muted hover:text-emerald-400 hover:bg-border-hover transition print:hidden"
                   title="Imprimir esta sección">
                   <Printer size={12} />
                 </button>
@@ -460,7 +460,7 @@ export default function CierresReport({ initialData, usuarios }: Props) {
             <div className="report-section" data-section-id="table" data-print-active={printSection === "table" || null}>
               <div className="flex items-center justify-end mb-2 print:hidden">
                 <button onClick={() => setPrintSection("table")}
-                  className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
+                  className="p-1.5 rounded-lg bg-border text-text-muted hover:text-emerald-400 hover:bg-border-hover transition print:hidden"
                   title="Imprimir esta sección">
                   <Printer size={12} />
                 </button>
@@ -482,7 +482,7 @@ export default function CierresReport({ initialData, usuarios }: Props) {
                 <History size={14} className="text-[var(--brand)]" /> Resumen Mensual
               </h3>
               <button onClick={() => setPrintSection("mensual")}
-                className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
+                className="p-1.5 rounded-lg bg-border text-text-muted hover:text-emerald-400 hover:bg-border-hover transition print:hidden"
                 title="Imprimir esta sección">
                 <Printer size={12} />
               </button>
@@ -591,7 +591,7 @@ export default function CierresReport({ initialData, usuarios }: Props) {
         <div className="report-section" data-section-id="secondary" data-print-active={printSection === "secondary" || null}>
           <div className="flex items-center justify-end mb-2 print:hidden">
             <button onClick={() => setPrintSection("secondary")}
-              className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
+              className="p-1.5 rounded-lg bg-border text-text-muted hover:text-emerald-400 hover:bg-border-hover transition print:hidden"
               title="Imprimir esta sección">
               <Printer size={12} />
             </button>
@@ -600,31 +600,31 @@ export default function CierresReport({ initialData, usuarios }: Props) {
           {/* Cierres con Diferencia */}
           <div className="mb-3">
             {diferencias === null ? (
-              <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-4">
+              <div className="bg-card rounded-xl border border-border p-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                  <h3 className="text-sm font-semibold text-text-muted flex items-center gap-2">
                     <AlertTriangle size={14} className="text-amber-400" />
                     Cierres con Diferencia
                   </h3>
                   <button onClick={() => loadSection("diff", () => getCierresDiferencias({ fechaDesde, fechaHasta, page: 1 }).then(r => setDiferencias(r.data)))} disabled={loadingSection === "diff"}
-                    className="px-3 py-1.5 text-xs font-bold rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600 disabled:opacity-40 transition">
+                    className="px-3 py-1.5 text-xs font-bold rounded-lg bg-border text-text-muted hover:bg-border-hover disabled:opacity-40 transition">
                     {loadingSection === "diff" ? <Loader2 size={12} className="animate-spin inline mr-1" /> : null}
                     {loadingSection === "diff" ? "Cargando..." : "Cargar"}
                   </button>
                 </div>
               </div>
             ) : !hasDiferencias ? null : (
-              <div className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-3 bg-slate-900/80 border-b border-slate-800">
-                  <h3 className="text-xs font-bold text-slate-400 uppercase flex items-center gap-2">
+              <div className="bg-panel border border-border rounded-xl overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 bg-panel border-b border-border">
+                  <h3 className="text-xs font-bold text-text-muted uppercase flex items-center gap-2">
                     <AlertTriangle size={14} className="text-amber-400" />
                     Cierres con Diferencia
                   </h3>
                   <div className="flex items-center gap-4 text-xs">
-                    <span className="text-slate-400">
-                      <span className="font-bold text-white">{diferencias.length}</span> cierre{diferencias.length !== 1 ? "s" : ""}
+                    <span className="text-text-muted">
+                      <span className="font-bold text-text">{diferencias.length}</span> cierre{diferencias.length !== 1 ? "s" : ""}
                     </span>
-                    <span className="text-slate-400">
+                    <span className="text-text-muted">
                       Total dif.: <span className="font-bold text-amber-400">{formatCurrency(totalDiffAmount)}</span>
                     </span>
                   </div>
@@ -650,23 +650,23 @@ export default function CierresReport({ initialData, usuarios }: Props) {
           {/* Métodos de Pago (collapsible) — "Diferencias Diarias" removida (REQ-R1) */}
           <button
             onClick={() => setShowSecondary(!showSecondary)}
-            className="w-full flex items-center justify-between px-4 py-3 bg-slate-800/50 rounded-xl border border-slate-700/50 text-sm font-semibold text-slate-300 hover:bg-slate-700/50 transition print:hidden"
+            className="w-full flex items-center justify-between px-4 py-3 bg-card rounded-xl border border-border text-sm font-semibold text-text-muted hover:bg-border/50 transition print:hidden"
           >
             <span className="flex items-center gap-2">
-              <FileText size={14} className="text-slate-400" />
+              <FileText size={14} className="text-text-muted" />
               Información secundaria
             </span>
-            {showSecondary ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
+            {showSecondary ? <ChevronDown size={16} className="text-text-muted" /> : <ChevronRight size={16} className="text-text-muted" />}
           </button>
 
           {showSecondary && (
             <div className="grid grid-cols-1 gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
-              <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-4">
-                <h3 className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-2">
+              <div className="bg-card rounded-xl border border-border p-4">
+                <h3 className="text-xs font-bold text-text-muted uppercase mb-3 flex items-center gap-2">
                   <DollarSign size={14} className="text-amber-400" />
                   Métodos de Pago
                 </h3>
-                <p className="text-xs text-slate-500 text-center py-6">Los métodos de pago se muestran en el informe de Finanzas.</p>
+                <p className="text-xs text-text-secondary text-center py-6">Los métodos de pago se muestran en el informe de Finanzas.</p>
               </div>
             </div>
           )}
