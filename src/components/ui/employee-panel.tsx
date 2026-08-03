@@ -141,14 +141,14 @@ function EmployeePanelContent({
       {/* Overlay */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm transition-opacity duration-200"
+          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm transition-opacity duration-200 print:hidden"
           onClick={onClose}
         />
       )}
 
       {/* Panel */}
       <div
-        className={`fixed right-0 top-0 z-50 h-full w-full max-w-md bg-panel border-l border-border shadow-[var(--shadow-xl)] transform transition-transform duration-200 ease-in-out ${
+        className={`fixed right-0 top-0 z-50 h-full w-full max-w-md bg-panel border-l border-border shadow-[var(--shadow-xl)] transform transition-transform duration-200 ease-in-out print:hidden ${
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >

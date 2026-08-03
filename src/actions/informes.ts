@@ -515,37 +515,43 @@ export async function getCierresMensuales(
 ): Promise<CierreMensual[]> {
   try {
     await requirePermission("informes.ver");
-    const where: Prisma.CajaWhereInput = {
-      estado: "CERRADA",
-      fechaCierre: { not: null }, // excluye ABIERTA (fecha_cierre null)
-    };
+    const where: Prisma.CajaWhereInput = {};
 
-    // Rango sobre fecha_cierre (F1: strings datetime local completo, sin Z)
+    // Rango: cierres cerrados por fecha_cierre; cajas abiertas (fecha_cierre null) por fecha_apertura
     if (fechaDesde || fechaHasta) {
-      const rango: Prisma.DateTimeNullableFilter = { not: null };
-      if (fechaDesde) rango.gte = new Date(fechaDesde);
+      const rangoCierre: Prisma.DateTimeNullableFilter = {};
+      const rangoApertura: Prisma.DateTimeFilter = {};
+      if (fechaDesde) {
+        rangoCierre.gte = new Date(fechaDesde);
+        rangoApertura.gte = new Date(fechaDesde);
+      }
       if (fechaHasta) {
         const hasta = new Date(fechaHasta);
         hasta.setHours(23, 59, 59, 999);
-        rango.lte = hasta;
+        rangoCierre.lte = hasta;
+        rangoApertura.lte = hasta;
       }
-      where.fechaCierre = rango;
+      where.OR = [
+        { fechaCierre: rangoCierre },
+        { fechaCierre: null, fechaApertura: rangoApertura },
+      ];
     }
     if (empleadoId) where.usuarioId = empleadoId;
 
     const cajas = await prisma.caja.findMany({
       where,
       include: { usuario: { select: { username: true } } },
-      orderBy: { fechaCierre: "asc" },
+      orderBy: [{ fechaCierre: "asc" }, { fechaApertura: "asc" }],
     });
 
-    // Agrupación por año-mes LOCAL de fecha_cierre (getFullYear/getMonth, NO getUTC*)
+    // Agrupación por año-mes LOCAL: cerradas por fecha_cierre (getFullYear/getMonth,
+    // NO getUTC*); abiertas (fecha_cierre null) por fecha_apertura.
     // Nota: una caja abierta el 31 a las 23:50 y cerrada el 1 a las 00:10 se resume
     // bajo el mes de fecha_cierre, aunque su arqueo aparezca en la expansión del mes
     // anterior (getReporteCierres filtra por fechaApertura — queries existentes intactas).
     const grupos = new Map<string, CierreMensual & { mesNum: number }>();
     for (const c of cajas) {
-      const f = c.fechaCierre!; // seguro: filtro fechaCierre not null
+      const f = c.fechaCierre ?? c.fechaApertura; // cierres → mes de cierre; abiertas → mes de apertura
       const anio = f.getFullYear();
       const mesNum = f.getMonth() + 1;
       const key = `${anio}-${String(mesNum).padStart(2, "0")}`;
@@ -587,6 +593,47 @@ export async function getCierresMensuales(
       .map(({ mesNum, ...g }) => g);
   } catch (error) {
     console.error("Error en getCierresMensuales:", error);
+    return [];
+  }
+}
+
+// ─── CIERRES DEL MES (detalle para expansión mensual; misma lógica de agrupación que getCierresMensuales) ───────
+export async function getCierresDelMes(mes: string): Promise<ReporteCierre[]> {
+  try {
+    await requirePermission("informes.ver");
+    // F1: fechas locales sin Z. mes = "YYYY-MM"
+    const [anioStr, mesStr] = mes.split("-");
+    const anio = Number(anioStr);
+    const mesNum = Number(mesStr);
+    const inicio = new Date(anio, mesNum - 1, 1, 0, 0, 0, 0);         // día 1 00:00:00
+    const fin = new Date(anio, mesNum, 0, 23, 59, 59, 999);           // último día 23:59:59.999
+
+    const where: Prisma.CajaWhereInput = {
+      OR: [
+        { fechaCierre: { gte: inicio, lte: fin } },                    // cerradas en el mes → mes de cierre
+        { fechaCierre: null, fechaApertura: { gte: inicio, lte: fin } }, // abiertas con apertura en el mes
+      ],
+    };
+
+    const cajas = await prisma.caja.findMany({
+      where,
+      include: { usuario: { select: { username: true } } },
+      orderBy: { fechaApertura: "desc" },
+    });
+
+    return cajas.map((c) => ({
+      id: c.id,
+      fechaApertura: formatDate(c.fechaApertura),
+      fechaCierre: c.fechaCierre ? formatDate(c.fechaCierre) : null,
+      usuario: c.usuario.username,
+      montoInicial: c.montoInicial,
+      totalVentas: c.totalVentas,
+      estado: c.estado,
+      totalEsperado: c.montoInicial + c.totalVentas,
+      totalContado: c.totalContado ?? null,
+    }));
+  } catch (error) {
+    console.error("Error en getCierresDelMes:", error);
     return [];
   }
 }
@@ -1872,6 +1919,217 @@ export type DashboardChartDataResult = {
   period: DashboardPeriod;
   chartType: DashboardChartType;
 };
+
+// ═══════════════════════════════════════════════════════════════
+// DASHBOARD CLIENTES (rediseño completo del informe de clientes)
+// Fuente única de datos para toda la pantalla — sin filtro de período,
+// sin fechas. F1: fechas locales, nunca UTC/"Z".
+// ═══════════════════════════════════════════════════════════════
+
+export type ClienteDashboardCliente = {
+  id: number;
+  nombre: string;
+  dni: string;
+  activo: boolean;
+  creadoEn: string;
+  cantidadCompras: number;
+  totalGastado: number;
+  ultimaCompra: string | null;
+};
+
+export type ClientesDashboard = {
+  resumen: {
+    total: number;
+    activos: number;
+    inactivos: number;
+    nuevos30d: number;
+    topCliente: { nombre: string; total: number } | null;
+    totalFacturado: number;
+  };
+  activosInactivos: { name: string; value: number }[];
+  nuevosPorMes: { mes: string; label: string; cantidad: number }[];
+  distribucionGasto: { rango: string; clientes: number }[];
+  top10: { clienteId: number; nombre: string; total: number }[];
+  frecuencia: { clienteId: number; nombre: string; cantidad: number }[];
+  sinComprar90d: { clienteId: number; nombre: string; ultimaCompra: string; dias: number }[];
+  clientesPorGasto: { clienteId: number; nombre: string; cantidad: number; total: number; ultimaCompra: string | null; promedio: number }[];
+  clientesCompleto: ClienteDashboardCliente[];
+};
+
+const EMPTY_CLIENTES_DASHBOARD: ClientesDashboard = {
+  resumen: { total: 0, activos: 0, inactivos: 0, nuevos30d: 0, topCliente: null, totalFacturado: 0 },
+  activosInactivos: [],
+  nuevosPorMes: [],
+  distribucionGasto: [],
+  top10: [],
+  frecuencia: [],
+  sinComprar90d: [],
+  clientesPorGasto: [],
+  clientesCompleto: [],
+};
+
+export async function getClientesDashboard(): Promise<ClientesDashboard> {
+  try {
+    await requirePermission("informes.ver");
+    const ahora = new Date();
+
+    // 1. Conteos base + total facturado + agregados por cliente + todos los clientes (una sola pasada)
+    const [total, activos, inactivos, nuevos30d, totalFacturadoDb, ventasGroup, clientes] = await Promise.all([
+      prisma.cliente.count(),
+      prisma.cliente.count({ where: { activo: true } }),
+      prisma.cliente.count({ where: { activo: false } }),
+      prisma.cliente.count({
+        where: { creadoEn: { gte: new Date(ahora.getTime() - 30 * 86400000) } },
+      }),
+      prisma.venta.aggregate({
+        where: { estado: "COMPLETADA" },
+        _sum: { total: true },
+      }),
+      prisma.venta.groupBy({
+        by: ["clienteId"],
+        where: { estado: "COMPLETADA" },
+        _count: { id: true },
+        _sum: { total: true },
+        _max: { fecha: true },
+      }),
+      prisma.cliente.findMany({
+        select: { id: true, nombre: true, dni: true, activo: true, creadoEn: true },
+      }),
+    ]);
+
+    // 2. Merge en JS: agregados por cliente + nombres
+    const aggMap = new Map<number, { cantidad: number; total: number; ultima: Date | null }>();
+    for (const g of ventasGroup) {
+      aggMap.set(g.clienteId, {
+        cantidad: g._count.id,
+        total: g._sum.total ?? 0,
+        ultima: g._max.fecha ?? null,
+      });
+    }
+    const nombreMap = new Map(clientes.map((c) => [c.id, c.nombre]));
+
+    // 3. Clientes completos (TODOS, con o sin ventas) — orden alfabético
+    const clientesCompleto: ClienteDashboardCliente[] = clientes
+      .map((c) => {
+        const agg = aggMap.get(c.id);
+        return {
+          id: c.id,
+          nombre: c.nombre,
+          dni: c.dni,
+          activo: c.activo,
+          creadoEn: formatDate(c.creadoEn),
+          cantidadCompras: agg?.cantidad ?? 0,
+          totalGastado: agg?.total ?? 0,
+          ultimaCompra: agg?.ultima ? formatDateShort(agg.ultima) : null,
+        };
+      })
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+    // 4. Clientes por gasto (solo con compras) — orden por total desc
+    const clientesPorGasto = Array.from(aggMap.entries())
+      .filter(([, agg]) => agg.cantidad > 0)
+      .map(([clienteId, agg]) => ({
+        clienteId,
+        nombre: nombreMap.get(clienteId) ?? "Sin nombre",
+        cantidad: agg.cantidad,
+        total: agg.total,
+        ultimaCompra: agg.ultima ? formatDateShort(agg.ultima) : null,
+        promedio: Math.round((agg.total / agg.cantidad) * 100) / 100,
+      }))
+      .sort((a, b) => b.total - a.total);
+
+    // 5. Top 10 por gasto
+    const top10 = clientesPorGasto.slice(0, 10).map((c) => ({
+      clienteId: c.clienteId,
+      nombre: c.nombre,
+      total: c.total,
+    }));
+
+    // 6. Frecuencia de compra (top 10 por cantidad de compras)
+    const frecuencia = [...clientesPorGasto]
+      .sort((a, b) => b.cantidad - a.cantidad)
+      .slice(0, 10)
+      .map((c) => ({ clienteId: c.clienteId, nombre: c.nombre, cantidad: c.cantidad }));
+
+    // 7. Clientes sin comprar hace más de 90 días (más inactivo primero)
+    const corte90 = ahora.getTime() - 90 * 86400000;
+    const sinComprar90d = Array.from(aggMap.entries())
+      .filter(([, agg]) => agg.ultima !== null && agg.ultima.getTime() < corte90)
+      .map(([clienteId, agg]) => ({
+        clienteId,
+        nombre: nombreMap.get(clienteId) ?? "Sin nombre",
+        ultimaCompra: formatDateShort(agg.ultima as Date),
+        dias: Math.floor((ahora.getTime() - (agg.ultima as Date).getTime()) / 86400000),
+      }))
+      .sort((a, b) => b.dias - a.dias);
+
+    // 8. Activos vs Inactivos (doughnut)
+    const activosInactivos = [
+      { name: "Activos", value: activos },
+      { name: "Inactivos", value: inactivos },
+    ];
+
+    // 9. Nuevos por mes — últimos 12 meses incluido el actual (F1: año/mes local)
+    const inicio12 = new Date(ahora.getFullYear(), ahora.getMonth() - 11, 1, 0, 0, 0, 0);
+    const clientesUltimoAnio = await prisma.cliente.findMany({
+      where: { creadoEn: { gte: inicio12 } },
+      select: { creadoEn: true },
+    });
+    const porMes = new Map<string, number>();
+    for (const c of clientesUltimoAnio) {
+      const key = `${c.creadoEn.getFullYear()}-${String(c.creadoEn.getMonth() + 1).padStart(2, "0")}`;
+      porMes.set(key, (porMes.get(key) ?? 0) + 1);
+    }
+    const nuevosPorMes = Array.from({ length: 12 }, (_, i) => {
+      const d = new Date(ahora.getFullYear(), ahora.getMonth() - 11 + i, 1);
+      const mesNum = d.getMonth();
+      const anio = d.getFullYear();
+      const key = `${anio}-${String(mesNum + 1).padStart(2, "0")}`;
+      return {
+        mes: key,
+        label: `${MESES_ES[mesNum].slice(0, 3)} ${anio}`,
+        cantidad: porMes.get(key) ?? 0,
+      };
+    });
+
+    // 10. Distribución por nivel de gasto (4 buckets; clientes sin ventas van al bucket 0)
+    const BUCKETS_GASTO = [
+      { rango: "$0 - $50.000", min: 0, max: 50000 },
+      { rango: "$50.000 - $100.000", min: 50000, max: 100000 },
+      { rango: "$100.000 - $300.000", min: 100000, max: 300000 },
+      { rango: "Más de $300.000", min: 300000, max: Infinity },
+    ];
+    const distribucionGasto = BUCKETS_GASTO.map((b) => ({
+      rango: b.rango,
+      clientes: clientes.filter((c) => {
+        const gasto = aggMap.get(c.id)?.total ?? 0;
+        return gasto >= b.min && gasto < b.max;
+      }).length,
+    }));
+
+    return {
+      resumen: {
+        total,
+        activos,
+        inactivos,
+        nuevos30d,
+        topCliente: top10[0] ? { nombre: top10[0].nombre, total: top10[0].total } : null,
+        totalFacturado: totalFacturadoDb._sum.total ?? 0,
+      },
+      activosInactivos,
+      nuevosPorMes,
+      distribucionGasto,
+      top10,
+      frecuencia,
+      sinComprar90d,
+      clientesPorGasto,
+      clientesCompleto,
+    };
+  } catch (error) {
+    console.error("Error en getClientesDashboard:", error);
+    return EMPTY_CLIENTES_DASHBOARD;
+  }
+}
 
 export async function getDashboardChartData(
   period: DashboardPeriod = "ultimos7",

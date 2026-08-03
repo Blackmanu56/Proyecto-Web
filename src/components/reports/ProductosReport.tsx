@@ -5,10 +5,10 @@ import { getReporteProductos, getProductosMasVendidos, getProductosMayorIngreso 
 import type { ReporteProducto } from "@/actions/informes";
 import { formatCurrency } from "@/lib/utils";
 import {
-  RefreshCw, Package, TrendingUp, DollarSign, Filter, Printer,
-  Box, ShoppingBag, Percent, Truck,
+  RefreshCw, Package, TrendingUp, DollarSign, Printer,
+  Box, Truck, Search, Tag,
+  ChevronDown, ChevronUp,
 } from "lucide-react";
-import StatCard from "@/components/ui/StatCard";
 import ChartWrapper, { CHART_COLORS } from "@/components/ui/ChartWrapper";
 import SubPestanasProductos from "./SubPestanasProductos";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, PieChart as RePie, Pie, Cell } from "recharts";
@@ -40,6 +40,9 @@ function applyStockFilter(productos: ReporteProducto[], filter: StockFilter): Re
   }
 }
 
+const inputClass =
+  "w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/40 focus:border-[var(--brand)] transition";
+
 export default function ProductosReport({ initialData, categorias, proveedores }: Props) {
   const [allData, setAllData] = useState(initialData);
   const [viewMode, setViewMode] = useState<ViewMode>("todos");
@@ -49,6 +52,7 @@ export default function ProductosReport({ initialData, categorias, proveedores }
   const [topList, setTopList] = useState<TopProductoRow[]>([]);
   const [printSection, setPrintSection] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const data = useMemo(() => {
     if (viewMode !== "todos") return [];
@@ -62,12 +66,12 @@ export default function ProductosReport({ initialData, categorias, proveedores }
     const valorCompra = allData.reduce((s, p) => s + p.cantidad * p.precioCompra, 0);
     const margenProm = valorCompra > 0 ? ((valorVenta - valorCompra) / valorCompra) * 100 : 0;
     return [
-      { label: "Total Productos", value: total.toString(), icon: <Package size={18} />, color: "indigo" as const },
-      { label: "Activos", value: activos.toString(), icon: <Box size={18} />, color: "emerald" as const },
-      { label: "Valor Venta", value: formatCurrency(valorVenta), icon: <DollarSign size={18} />, color: "sky" as const },
-      { label: "Valor Costo", value: formatCurrency(valorCompra), icon: <ShoppingBag size={18} />, color: "amber" as const },
-      { label: "Margen Prom.", value: margenProm.toFixed(1) + "%", icon: <Percent size={18} />, color: "purple" as const },
-      { label: "Proveedores", value: proveedores.length.toString(), icon: <Truck size={18} />, color: "rose" as const },
+      { label: "Total Productos", value: total.toString() },
+      { label: "Activos", value: activos.toString() },
+      { label: "Valor Venta", value: formatCurrency(valorVenta) },
+      { label: "Valor Costo", value: formatCurrency(valorCompra) },
+      { label: "Margen Prom.", value: margenProm.toFixed(1) + "%" },
+      { label: "Proveedores", value: proveedores.length.toString() },
     ];
   }, [allData, proveedores]);
 
@@ -111,42 +115,85 @@ export default function ProductosReport({ initialData, categorias, proveedores }
         ))}
       </div>
 
-      {/* Filters */}
+      {/* Filters (collapsible — same pattern as VentasReport/CierresReport) */}
       {viewMode === "todos" && (
-        <div className="print:hidden bg-panel border border-border rounded-xl p-4 space-y-3">
-          <h3 className="text-sm font-bold text-text-muted flex items-center gap-2"><Filter size={14} />Filtros</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <div><label className="text-xs font-semibold text-text-muted mb-1 block">Categoría</label>
-              <select value={categoriaId || ""} onChange={(e) => setCategoriaId(e.target.value ? Number(e.target.value) : undefined)} className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
-                <option value="">Todas</option>
-                {categorias.map((c) => (<option key={c.id} value={c.id}>{c.nombre}</option>))}
-              </select>
-            </div>
-            <div><label className="text-xs font-semibold text-text-muted mb-1 block">Proveedor</label>
-              <select value={proveedorId || ""} onChange={(e) => setProveedorId(e.target.value ? Number(e.target.value) : undefined)} className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
-                <option value="">Todos</option>
-                {proveedores.map((p) => (<option key={p.id} value={p.id}>{p.nombre}</option>))}
-              </select>
-            </div>
-            <div><label className="text-xs font-semibold text-text-muted mb-1 block flex items-center gap-1"><Box size={12} /> Stock</label>
-              <div className="flex flex-wrap gap-1">
-                {(["todos", "sinStock", "stockBajo", "stockNormal"] as StockFilter[]).map((sf) => (
-                  <button key={sf} onClick={() => setStockFilter(sf)}
-                    className={
-                      "px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all " +
-                      (stockFilter === sf ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-border text-text-muted border border-border hover:bg-border-hover hover:text-text")
-                    }
-                  >{sf === "todos" ? "Todos" : sf === "sinStock" ? "Sin stock" : sf === "stockBajo" ? "Stock bajo" : "Normal"}</button>
-                ))}
+        <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl overflow-hidden">
+          {/* Toggle row */}
+          <div className="flex items-center gap-4 px-4 py-3">
+            <button
+              onClick={() => setFiltersOpen(!filtersOpen)}
+              className="flex items-center gap-2 hover:text-[var(--text)] transition-colors shrink-0"
+            >
+              <Search size={14} className="text-[var(--text-muted)]" />
+              <span className="text-sm font-semibold text-[var(--text-muted)]">
+                {filtersOpen ? "Ocultar filtros" : "Filtros"}
+              </span>
+              {filtersOpen ? (
+                <ChevronUp size={14} className="text-[var(--text-muted)]" />
+              ) : (
+                <ChevronDown size={14} className="text-[var(--text-muted)]" />
+              )}
+            </button>
+          </div>
+
+          {/* Collapsible content */}
+          {filtersOpen && (
+            <div className="px-4 pb-4 space-y-3 border-t border-[var(--border)]">
+              <div className="pt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
+                    <Tag size={12} /> Categoría
+                  </label>
+                  <select value={categoriaId || ""} onChange={(e) => setCategoriaId(e.target.value ? Number(e.target.value) : undefined)} className={inputClass}>
+                    <option value="">Todas</option>
+                    {categorias.map((c) => (<option key={c.id} value={c.id}>{c.nombre}</option>))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
+                    <Truck size={12} /> Proveedor
+                  </label>
+                  <select value={proveedorId || ""} onChange={(e) => setProveedorId(e.target.value ? Number(e.target.value) : undefined)} className={inputClass}>
+                    <option value="">Todos</option>
+                    {proveedores.map((p) => (<option key={p.id} value={p.id}>{p.nombre}</option>))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
+                    <Box size={12} /> Stock
+                  </label>
+                  <div className="flex flex-wrap gap-1">
+                    {(["todos", "sinStock", "stockBajo", "stockNormal"] as StockFilter[]).map((sf) => (
+                      <button key={sf} onClick={() => setStockFilter(sf)}
+                        className={
+                          "px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all " +
+                          (stockFilter === sf ? "bg-[var(--brand)]/10 text-[var(--brand)] border border-[var(--brand)]/30" : "bg-[var(--card)] text-[var(--text-muted)] border border-[var(--border)] hover:bg-[var(--border)] hover:text-[var(--text)]")
+                        }
+                      >{sf === "todos" ? "Todos" : sf === "sinStock" ? "Sin stock" : sf === "stockBajo" ? "Stock bajo" : "Normal"}</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={handleSearch}
+                  disabled={isPending}
+                  className="px-4 py-2 bg-[var(--brand)] hover:bg-[var(--brand-hover)] disabled:opacity-50 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition"
+                >
+                  <RefreshCw size={14} className={isPending ? "animate-spin" : ""} />
+                  {isPending ? "Buscando..." : "Buscar"}
+                </button>
+                <button
+                  onClick={handlePrint}
+                  className="px-4 py-2 bg-[var(--card)] hover:bg-[var(--border)] text-[var(--text-muted)] text-sm font-bold rounded-lg flex items-center gap-2 transition border border-[var(--border)]"
+                >
+                  <Printer size={14} /> Imprimir
+                </button>
               </div>
             </div>
-            <div className="flex items-end gap-2">
-              <button onClick={handleSearch} disabled={isPending} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition">
-                <RefreshCw size={14} className={isPending ? "animate-spin" : ""} />{isPending ? "Buscando..." : "Buscar"}
-              </button>
-              <button onClick={handlePrint} className="px-4 py-2 bg-border hover:bg-border-hover text-text text-sm font-bold rounded-lg flex items-center gap-2 transition"><Printer size={14} /></button>
-            </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -157,17 +204,16 @@ export default function ProductosReport({ initialData, categorias, proveedores }
           <hr className="my-2 border-gray-300" />
         </div>
 
-        {/* KPIs */}
-        <div className="report-section" data-section-id="kpis" data-print-active={printSection === "kpis" || null}>
-          <div className="flex items-center justify-end mb-2 print:hidden">
-            <button onClick={() => setPrintSection("kpis")}
-              className="p-1.5 rounded-lg bg-border text-text-muted hover:text-emerald-400 hover:bg-border-hover transition print:hidden"
-              title="Imprimir esta sección">
-              <Printer size={12} />
-            </button>
-          </div>
+        {/* Resumen */}
+        <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl p-4">
+          <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-3">Resumen</h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            {kpis.map((kpi, i) => <StatCard key={i} {...kpi} />)}
+            {kpis.map((kpi, i) => (
+              <div key={i} className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 text-center">
+                <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">{kpi.label}</div>
+                <div className="text-sm font-bold text-[var(--text)]">{kpi.value}</div>
+              </div>
+            ))}
           </div>
         </div>
 

@@ -5,14 +5,28 @@ import {
   getReporteCierres,
   getReporteProductos,
   getReporteEmpleados,
-  getClientesReport,
   getProveedoresReport,
   getUsuariosActivos,
+  getClientesDashboard,
+  type ClientesDashboard,
 } from "@/actions/informes";
 import { getCategorias, getProveedores, getClientesDistinct, getMetodosPago } from "@/actions/auxiliares";
 import { formatLocalDateTimeStart } from "@/lib/reportPeriods";
 import InformesTabs from "@/components/reports/InformesTabs";
 import { BarChart3 } from "lucide-react";
+
+// Shape vacía para roles sin acceso a la pestaña de clientes
+const EMPTY_CLIENTES_DASHBOARD: ClientesDashboard = {
+  resumen: { total: 0, activos: 0, inactivos: 0, nuevos30d: 0, topCliente: null, totalFacturado: 0 },
+  activosInactivos: [],
+  nuevosPorMes: [],
+  distribucionGasto: [],
+  top10: [],
+  frecuencia: [],
+  sinComprar90d: [],
+  clientesPorGasto: [],
+  clientesCompleto: [],
+};
 
 export default async function InformesPage() {
   const session = await getSession();
@@ -38,7 +52,7 @@ export default async function InformesPage() {
     canSeeCierres ? getReporteCierres(hoyStr, hoyStr) : Promise.resolve([]),
     canSeeProductos ? getReporteProductos() : Promise.resolve([]),
     canSeeEmpleados ? getReporteEmpleados(hoyStr, hoyStr) : Promise.resolve([]),
-    canSeeClientes ? getClientesReport({ fechaDesde: hoyStr, fechaHasta: hoyStr, page: 1, limit: 50 }) : Promise.resolve({ data: [], total: 0, page: 1, pageSize: 50, totalPages: 0 }),
+    canSeeClientes ? getClientesDashboard() : Promise.resolve(EMPTY_CLIENTES_DASHBOARD),
     canSeeProveedores ? getProveedoresReport({ page: 1, limit: 50 }) : Promise.resolve({ data: [], total: 0, page: 1, pageSize: 50, totalPages: 0 }),
     getUsuariosActivos(),
     getCategorias(),

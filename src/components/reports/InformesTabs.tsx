@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import type { ReporteVenta, ReporteCierre, ReporteProducto, ReporteEmpleado, PaginatedResult } from "@/actions/informes";
+import type { ReporteVenta, ReporteCierre, ReporteProducto, ReporteEmpleado, PaginatedResult, ClientesDashboard } from "@/actions/informes";
 import "./report.css";
 import { BarChart3, Wallet, Package, Users, UserCheck, Building } from "lucide-react";
 import VentasReport from "./VentasReport";
@@ -15,7 +15,6 @@ type TabId = "ventas" | "cierres" | "productos" | "empleados" | "clientes" | "pr
 
 type UsuarioOption = { id: number; username: string; nombreCompleto: string };
 type NombreOption = { id: number; nombre: string };
-type ClienteReportRow = { id: number; nombre: string; dni: string; totalGastado: number; frecuencia: number; ultimaCompra: string | null; cantidadCompras: number };
 type ProveedorReportRow = { id: number; nombre: string; cuit: string; productosCount: number; valorStock: number; stockBajoCount: number; ultimaCompra: string | null };
 type MetodoPagoOption = { metodo: string | null; count: number; total: number };
 
@@ -42,7 +41,7 @@ interface Props {
   initialCierres: ReporteCierre[];
   initialProductos: ReporteProducto[];
   initialEmpleados: ReporteEmpleado[];
-  initialClientes?: PaginatedResult<ClienteReportRow>;
+  initialClientes: ClientesDashboard;
   initialProveedores?: PaginatedResult<ProveedorReportRow>;
   usuarios: UsuarioOption[];
   categorias: NombreOption[];

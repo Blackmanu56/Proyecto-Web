@@ -13,12 +13,14 @@ import { formatCurrency } from "@/lib/utils";
 import {
   Search, Calendar, User, RefreshCw, TrendingUp, Eye, Printer,
   DollarSign, ShoppingCart, Package, Users, BarChart3, ChevronDown, ChevronUp,
-  FileSpreadsheet, FileText, Download,
 } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
 import ChartWrapper, { CHART_COLORS } from "@/components/ui/ChartWrapper";
 import DetalleVentaModal from "./DetalleVentaModal";
 import TicketModal from "./TicketModal";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   PieChart as RePie, Pie, Cell, AreaChart, Area,
@@ -197,10 +199,7 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
   const [fechaDesde, setFechaDesde] = useState(new Date().toISOString().split("T")[0]);
   const [fechaHasta, setFechaHasta] = useState(new Date().toISOString().split("T")[0]);
   const [usuarioId, setUsuarioId] = useState<number | undefined>(undefined);
-  const [clienteId, setClienteId] = useState<number | undefined>(undefined);
-  const [categoriaId, setCategoriaId] = useState<number | undefined>(undefined);
-  const [productoId, setProductoId] = useState<number | undefined>(undefined);
-  const [searchText, setSearchText] = useState("");
+  const [clienteSearch, setClienteSearch] = useState("");
   const [isPending, setIsPending] = useState(false);
 
   // -- Period selector --
@@ -226,17 +225,19 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
   const [detalleVentaId, setDetalleVentaId] = useState<number | null>(null);
   const [ticketVentaId, setTicketVentaId] = useState<number | null>(null);
 
+  // -- Print section --
+  const [printSection, setPrintSection] = useState<string | null>(null);
+
   // -- Filtered ventas for text search (oldest first) --
   const ventasFiltradas = useMemo(() => {
     const v = data.ventas || [];
-    const filtered = !searchText
+    const filtered = !clienteSearch
       ? v
       : v.filter((x: any) =>
-          (x.cliente || "").toLowerCase().includes(searchText.toLowerCase()) ||
-          (x.usuario || "").toLowerCase().includes(searchText.toLowerCase())
+          (x.cliente || "").toLowerCase().includes(clienteSearch.toLowerCase())
         );
     return [...filtered].reverse();
-  }, [data, searchText]);
+  }, [data, clienteSearch]);
 
   // -- KPI calculations --
   const totales = useMemo(() => {
@@ -302,7 +303,7 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
     try {
       const filters = { fechaDesde: range.desde, fechaHasta: range.hasta };
       const [reportResult, catResult, topResult, vendResult, cliResult, evoResult] = await Promise.allSettled([
-        getReporteVentas(range.desde, range.hasta, usuarioId, clienteId),
+        getReporteVentas(range.desde, range.hasta, usuarioId),
         getVentasPorCategoria(filters),
         getTopProductos(filters, 10),
         getVentasPorVendedorComision({ ...filters, page: 1 }),
@@ -319,16 +320,15 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
       setIsPending(false);
       setLoadingCharts(false);
     }
-  }, [usuarioId, clienteId, chartGranularity]);
+  }, [usuarioId, chartGranularity]);
 
-  // -- Search handler --
-  const handleSearch = useCallback(async () => {
+  // -- Shared fetch logic --
+  const fetchData = useCallback(async (overrides?: { usuarioId?: number }) => {
     setIsPending(true);
-    setFiltersOpen(false);
     setLoadingCharts(true);
-
     try {
-      const result = await getReporteVentas(fechaDesde || undefined, fechaHasta || undefined, usuarioId, clienteId);
+      const uid = overrides !== undefined ? overrides.usuarioId : usuarioId;
+      const result = await getReporteVentas(fechaDesde || undefined, fechaHasta || undefined, uid);
       setData(result);
       const filters = { fechaDesde, fechaHasta };
       const [catResult, topResult, vendResult, cliResult, evoResult] = await Promise.allSettled([
@@ -347,7 +347,17 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
       setIsPending(false);
       setLoadingCharts(false);
     }
-  }, [fechaDesde, fechaHasta, usuarioId, clienteId, chartGranularity]);
+  }, [fechaDesde, fechaHasta, usuarioId, chartGranularity]);
+
+  // -- Search handler (button "Buscar") --
+  const handleSearch = useCallback(() => fetchData(), [fetchData]);
+
+  // -- Vendor change: auto-search --
+  const handleVendorChange = useCallback((value: string) => {
+    const newId = value ? Number(value) : undefined;
+    setUsuarioId(newId);
+    fetchData({ usuarioId: newId });
+  }, [fetchData]);
 
   // -- Load evolution chart --
   const loadEvolutionChart = useCallback(async () => {
@@ -431,8 +441,15 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chartGranularity]);
 
-  // -- Print handler --
-  const handlePrint = () => window.print();
+  // -- Print section handler: reset after print --
+  useEffect(() => {
+    if (printSection) {
+      setTimeout(() => {
+        window.print();
+        setPrintSection(null);
+      }, 100);
+    }
+  }, [printSection]);
 
 
 
@@ -569,22 +586,26 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
           <div className="flex items-center gap-2 shrink-0">
             <Calendar size={14} className="text-[var(--text-muted)]" />
             <span className="text-xs font-semibold text-[var(--text-muted)]">Período:</span>
-            <select
+            <Select
               value={activePeriod}
-              onChange={(e) => handlePeriodChange(e.target.value as PeriodKey)}
-              className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-xs font-semibold text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/40 focus:border-[var(--brand)] transition cursor-pointer"
+              onValueChange={(v) => handlePeriodChange(v as PeriodKey)}
             >
-              {PERIOD_OPTIONS.map((opt) => (
-                <option key={opt.key} value={opt.key}>{opt.label}</option>
-              ))}
-            </select>
+              <SelectTrigger className="w-44 h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PERIOD_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.key} value={opt.key}>{opt.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
         {/* Filter content */}
         {filtersOpen && (
           <div className="px-4 pb-4 space-y-3 border-t border-[var(--border)]">
-            <div className="pt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+            <div className="pt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {/* Desde */}
               {(activePeriod === "personalizado" || filtersOpen) && (
                 <div>
@@ -626,7 +647,7 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
                 </label>
                 <select
                   value={usuarioId || ""}
-                  onChange={(e) => setUsuarioId(e.target.value ? Number(e.target.value) : undefined)}
+                  onChange={(e) => handleVendorChange(e.target.value)}
                   className={inputClass}
                 >
                   <option value="">Todos</option>
@@ -643,47 +664,8 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
                 <input
                   type="text"
                   placeholder="Nombre del cliente..."
-                  value={clienteId || ""}
-                  onChange={() => {}}
-                  className={inputClass}
-                />
-              </div>
-              {/* Categoría */}
-              <div>
-                <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
-                  <Package size={12} /> Categoría
-                </label>
-                <select
-                  value={categoriaId || ""}
-                  onChange={(e) => setCategoriaId(e.target.value ? Number(e.target.value) : undefined)}
-                  className={inputClass}
-                >
-                  <option value="">Todas</option>
-                </select>
-              </div>
-              {/* Producto */}
-              <div>
-                <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
-                  <Package size={12} /> Producto
-                </label>
-                <input
-                  type="text"
-                  placeholder="Nombre del producto..."
-                  value={productoId || ""}
-                  onChange={() => {}}
-                  className={inputClass}
-                />
-              </div>
-              {/* Búsqueda */}
-              <div>
-                <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
-                  <Search size={12} /> Búsqueda
-                </label>
-                <input
-                  type="text"
-                  placeholder="Cliente / Vendedor..."
-                  value={searchText}
-                  onChange={(e) => setSearchText(e.target.value)}
+                  value={clienteSearch}
+                  onChange={(e) => setClienteSearch(e.target.value)}
                   className={inputClass}
                 />
               </div>
@@ -700,16 +682,10 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
                 {isPending ? "Buscando..." : "Buscar"}
               </button>
               <button
-                onClick={handlePrint}
+                onClick={() => setPrintSection("table")}
                 className="px-4 py-2 bg-[var(--card)] hover:bg-[var(--border)] text-[var(--text-muted)] text-sm font-bold rounded-lg flex items-center gap-2 transition border border-[var(--border)]"
               >
                 <Printer size={14} /> Imprimir
-              </button>
-              <button className="px-4 py-2 bg-[var(--card)] hover:bg-[var(--border)] text-[var(--text-muted)] text-sm font-bold rounded-lg flex items-center gap-2 transition border border-[var(--border)]">
-                <FileSpreadsheet size={14} /> Excel
-              </button>
-              <button className="px-4 py-2 bg-[var(--card)] hover:bg-[var(--border)] text-[var(--text-muted)] text-sm font-bold rounded-lg flex items-center gap-2 transition border border-[var(--border)]">
-                <FileText size={14} /> PDF
               </button>
             </div>
           </div>
@@ -729,7 +705,7 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
         </div>
 
         {/* --- Summary Row (same metrics as KPI cards) --- */}
-        <div className="bg-[var(--panel)] border border-[var(--border)] rounded-xl p-4">
+        <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl p-4">
           <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-3">Resumen</h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 text-center">
@@ -760,7 +736,7 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
           <div className="bg-[var(--panel)] rounded-xl p-4 border border-[var(--border)]">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-[var(--text-muted)]">Evolución de Ventas</h3>
-              <div className="flex items-center gap-1 print:hidden">
+              <div className="flex items-center gap-1">
                 {(["dia", "semana", "mes", "anio"] as ChartGranularity[]).map((g) => {
                   const labels: Record<ChartGranularity, string> = {
                     dia: "Diario", semana: "Semanal", mes: "Mensual", anio: "Anual",
@@ -832,8 +808,6 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
 
         {/* --- Secondary Charts (3-column grid) --- */}
         <div className="report-section" data-section-id="charts">
-
-
           {loadingCharts ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {[1, 2, 3].map((i) => (
@@ -959,7 +933,6 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
 
         {/* --- Top 5 Rankings --- */}
         <div className="report-section" data-section-id="rankings">
-
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Top 5 Productos */}
             <div className="bg-[var(--panel)] rounded-xl p-4 border border-[var(--border)]">
@@ -1015,13 +988,13 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
         </div>
 
         {/* --- Sales Table --- */}
-        <div className="report-section" data-section-id="table">
+        <div className="report-section" data-section-id="table" data-print-active={printSection === "table" || null}>
           <div className="flex items-center justify-between mb-2 print:hidden">
             <h3 className="text-sm font-semibold text-[var(--text-muted)]">
               Tabla de Ventas ({ventasFiltradas.length} registros)
             </h3>
             <button
-              onClick={handlePrint}
+              onClick={() => setPrintSection("table")}
               className="p-1.5 rounded-lg bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--success)] hover:bg-[var(--border)] transition print:hidden"
               title="Imprimir tabla"
             >
@@ -1037,7 +1010,7 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
                     <th className="text-left px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Fecha</th>
                     <th className="text-left px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Cliente</th>
                     <th className="text-left px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Vendedor</th>
-                    <th className="text-right px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Prod.</th>
+                    <th className="text-right px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">CANTIDAD</th>
                     <th className="text-right px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Total</th>
                     <th className="text-center px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider print:hidden">Acc.</th>
                   </tr>

@@ -5,7 +5,7 @@ import type { DetalleCierreCompleto } from "@/actions/informes";
 import { formatCurrency } from "@/lib/utils";
 import {
   Calendar, Clock, User, Info, CheckCircle, XCircle, Coins,
-  ArrowUpRight, ArrowDownLeft, Wallet, BadgePercent, Receipt,
+  ArrowUpRight, ArrowDownLeft, Wallet, Receipt,
 } from "lucide-react";
 
 interface CierreDetailViewProps {
@@ -49,7 +49,7 @@ export default function CierreDetailView({ detalleData }: CierreDetailViewProps)
       </div>
 
       {/* Financial Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-card print:bg-gray-100 rounded-xl p-3.5 border border-border print:border-gray-300 text-center">
           <Coins size={16} className="mx-auto mb-1 text-text-muted print:text-gray-500" />
           <p className="text-[10px] text-text-secondary print:text-gray-600 font-semibold">Inicial</p>
@@ -67,19 +67,8 @@ export default function CierreDetailView({ detalleData }: CierreDetailViewProps)
         </div>
         <div className="bg-card print:bg-gray-100 rounded-xl p-3.5 border border-border print:border-gray-300 text-center">
           <Wallet size={16} className="mx-auto mb-1 text-sky-400 print:text-sky-600" />
-          <p className="text-[10px] text-text-secondary print:text-gray-600 font-semibold">Esperado</p>
+          <p className="text-[10px] text-text-secondary print:text-gray-600 font-semibold">Total</p>
           <p className="text-base font-bold text-sky-400 print:text-sky-600 font-mono">{formatCurrency(detalleData.totalEsperado)}</p>
-        </div>
-        <div className="bg-gradient-to-b from-panel/40 to-panel/20 print:bg-gray-100 rounded-xl p-3.5 border border-border print:border-gray-300 text-center">
-          <BadgePercent size={16} className={"mx-auto mb-1 " + (detalleData.diferencia !== null && detalleData.diferencia !== 0 ? "text-amber-400 print:text-amber-600" : "text-text-muted print:text-gray-500")} />
-          <p className="text-[10px] text-text-secondary print:text-gray-600 font-semibold">Diferencia</p>
-          {detalleData.diferencia !== null ? (
-            <p className={"text-base font-bold font-mono " + (detalleData.diferencia >= 0 ? "text-emerald-400 print:text-emerald-600" : "text-rose-400 print:text-red-600")}>
-              {detalleData.diferencia > 0 ? "+" : ""}{formatCurrency(detalleData.diferencia)}
-            </p>
-          ) : (
-            <p className="text-base font-bold text-text-secondary print:text-gray-500 font-mono">\u2014</p>
-          )}
         </div>
       </div>
 
