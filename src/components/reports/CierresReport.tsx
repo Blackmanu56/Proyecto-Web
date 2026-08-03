@@ -1,40 +1,45 @@
 "use client";
 
-import { getCierresDiferencias,getDetalleCierre,getReporteCierres } from "@/actions/informes";
-import type { DetalleCierreCompleto, ReporteCierre } from "@/actions/informes";
-import DataTable from "@/components/ui/DataTable";
-import StatCard from "@/components/ui/StatCard";
-import { formatCurrency,formatDate } from "@/lib/utils";
+import React, { useState, useEffect, useTransition, useMemo, useCallback } from "react";
 import {
-AlertTriangle,
-ArrowDownLeft,
-ArrowUpRight,
-BadgePercent,
-Calendar,
-CheckCircle,
-ChevronDown,ChevronRight,
-Clock,
-Coins,
-DollarSign,
-Eye,
-FileText,
-Info,
-Loader2,
-Printer,
-Receipt,
-RefreshCw,
-Search,
-TrendingUp,
-User,
-Wallet,
-X,
-XCircle
+  getReporteCierres,
+  getCierresDiferencias,
+  getCierresMensuales,
+} from "@/actions/informes";
+import type { ReporteCierre, CierreMensual } from "@/actions/informes";
+import { formatCurrency, formatDate } from "@/lib/utils";
+import { getCierresDateRange, toApiDate } from "@/lib/reportPeriods";
+import type { PeriodoPreset } from "@/lib/reportPeriods";
+import {
+  Search, Calendar, User, RefreshCw, Wallet, Eye, ChevronUp, Loader2,
+  CheckCircle, XCircle, Printer, TrendingUp,
+  DollarSign, BadgePercent, ChevronDown, ChevronRight,
+  FileText, AlertTriangle, History,
 } from "lucide-react";
-import { useCallback,useEffect,useMemo,useState,useTransition } from "react";
+import StatCard from "@/components/ui/StatCard";
+import DataTable from "@/components/ui/DataTable";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import ResultadoBadge from "./ResultadoBadge";
+import CierreAccordionRow from "./CierreAccordionRow";
+import CierreDetailPrintView from "./CierreDetailPrintView";
 
-type CierreRow = ReporteCierre & { totalContado?: number | null };
-type MovimientoCierre = DetalleCierreCompleto["movimientos"][number];
+type CierreRow = ReporteCierre;
 type CierreDiferenciaRow = Awaited<ReturnType<typeof getCierresDiferencias>>["data"][number];
+type VistaCierres = "diario" | "mensual";
+type PeriodoSeleccion = PeriodoPreset | "personalizado";
+
+const PERIOD_OPTIONS: { value: PeriodoSeleccion; label: string }[] = [
+  { value: "dia", label: "Día" },
+  { value: "semana", label: "Semana" },
+  { value: "mes", label: "Mes" },
+  { value: "anio", label: "Año" },
+  { value: "personalizado", label: "Personalizado" },
+];
 
 interface Props {
   initialData: CierreRow[];
@@ -42,300 +47,205 @@ interface Props {
   userRole: string;
 }
 
-// ─── Shared detail content (used by modal AND print) ───────────
-function CierreDetailView({ detalleData }: { detalleData: DetalleCierreCompleto }) {
-  const ingresos = detalleData?.movimientos?.filter((m) => m.tipo === "INGRESO") || [];
-  const egresos = detalleData?.movimientos?.filter((m) => m.tipo === "EGRESO") || [];
-  const totalIngresos = ingresos.reduce((s, m) => s + m.monto, 0);
-  const totalEgresos = egresos.reduce((s, m) => s + m.monto, 0);
-  const resultadoNeto = totalIngresos - totalEgresos;
-
-  return (
-    <div className="space-y-6">
-      {/* Metadata row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-slate-800/50 print:bg-gray-100 rounded-xl p-3.5 border border-slate-700/50 print:border-gray-300">
-          <p className="text-[10px] font-bold text-slate-500 print:text-gray-600 uppercase tracking-wider flex items-center gap-1"><Calendar size={11} /> Apertura</p>
-          <p className="text-sm font-bold text-white print:text-gray-900 mt-1">{detalleData.fechaApertura}</p>
-        </div>
-        <div className="bg-slate-800/50 print:bg-gray-100 rounded-xl p-3.5 border border-slate-700/50 print:border-gray-300">
-          <p className="text-[10px] font-bold text-slate-500 print:text-gray-600 uppercase tracking-wider flex items-center gap-1"><Clock size={11} /> Cierre</p>
-          <p className="text-sm font-bold text-white print:text-gray-900 mt-1">{detalleData.fechaCierre || "\u2014"}</p>
-        </div>
-        <div className="bg-slate-800/50 print:bg-gray-100 rounded-xl p-3.5 border border-slate-700/50 print:border-gray-300">
-          <p className="text-[10px] font-bold text-slate-500 print:text-gray-600 uppercase tracking-wider flex items-center gap-1"><User size={11} /> Usuario</p>
-          <p className="text-sm font-bold text-white print:text-gray-900 mt-1">{detalleData.usuario}</p>
-        </div>
-        <div className="bg-slate-800/50 print:bg-gray-100 rounded-xl p-3.5 border border-slate-700/50 print:border-gray-300">
-          <p className="text-[10px] font-bold text-slate-500 print:text-gray-600 uppercase tracking-wider flex items-center gap-1"><Info size={11} /> Estado</p>
-          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold mt-1 ${
-            detalleData.estado === "ABIERTA"
-              ? "bg-amber-500/10 text-amber-400 print:text-amber-700 print:bg-amber-100 border border-amber-500/20 print:border-amber-300"
-              : "bg-emerald-500/10 text-emerald-400 print:text-emerald-700 print:bg-emerald-100 border border-emerald-500/20 print:border-emerald-300"
-          }`}>
-            {detalleData.estado === "ABIERTA" ? <XCircle size={12} /> : <CheckCircle size={12} />}
-            {detalleData.estado}
-          </span>
-        </div>
-      </div>
-
-      {/* Financial Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        <div className="bg-slate-800/40 print:bg-gray-100 rounded-xl p-3.5 border border-slate-700/50 print:border-gray-300 text-center">
-          <Coins size={16} className="mx-auto mb-1 text-slate-400 print:text-gray-500" />
-          <p className="text-[10px] text-slate-500 print:text-gray-600 font-semibold">Inicial</p>
-          <p className="text-base font-bold text-white print:text-gray-900 font-mono">{formatCurrency(detalleData.montoInicial)}</p>
-        </div>
-        <div className="bg-slate-800/40 print:bg-gray-100 rounded-xl p-3.5 border border-slate-700/50 print:border-gray-300 text-center">
-          <ArrowUpRight size={16} className="mx-auto mb-1 text-emerald-400 print:text-emerald-600" />
-          <p className="text-[10px] text-slate-500 print:text-gray-600 font-semibold">Ingresos</p>
-          <p className="text-base font-bold text-emerald-400 print:text-emerald-600 font-mono">{formatCurrency(totalIngresos)}</p>
-        </div>
-        <div className="bg-slate-800/40 print:bg-gray-100 rounded-xl p-3.5 border border-slate-700/50 print:border-gray-300 text-center">
-          <ArrowDownLeft size={16} className="mx-auto mb-1 text-rose-400 print:text-red-600" />
-          <p className="text-[10px] text-slate-500 print:text-gray-600 font-semibold">Egresos</p>
-          <p className="text-base font-bold text-rose-400 print:text-red-600 font-mono">{formatCurrency(totalEgresos)}</p>
-        </div>
-        <div className="bg-slate-800/40 print:bg-gray-100 rounded-xl p-3.5 border border-slate-700/50 print:border-gray-300 text-center">
-          <Wallet size={16} className="mx-auto mb-1 text-sky-400 print:text-sky-600" />
-          <p className="text-[10px] text-slate-500 print:text-gray-600 font-semibold">Esperado</p>
-          <p className="text-base font-bold text-sky-400 print:text-sky-600 font-mono">{formatCurrency(detalleData.totalEsperado)}</p>
-        </div>
-        <div className="bg-gradient-to-b from-slate-800/40 to-slate-800/20 print:bg-gray-100 rounded-xl p-3.5 border border-slate-700/50 print:border-gray-300 text-center">
-          <BadgePercent size={16} className={"mx-auto mb-1 " + (detalleData.diferencia !== null && detalleData.diferencia !== 0 ? "text-amber-400 print:text-amber-600" : "text-slate-400 print:text-gray-500")} />
-          <p className="text-[10px] text-slate-500 print:text-gray-600 font-semibold">Diferencia</p>
-          {detalleData.diferencia !== null ? (
-            <p className={"text-base font-bold font-mono " + (detalleData.diferencia >= 0 ? "text-emerald-400 print:text-emerald-600" : "text-rose-400 print:text-red-600")}>
-              {detalleData.diferencia > 0 ? "+" : ""}{formatCurrency(detalleData.diferencia)}
-            </p>
-          ) : (
-            <p className="text-base font-bold text-slate-500 print:text-gray-500 font-mono">\u2014</p>
-          )}
-        </div>
-      </div>
-
-      {/* Ingresos */}
-      {ingresos.length > 0 && (
-        <div>
-          <h3 className="text-xs font-bold text-emerald-400 print:text-emerald-700 uppercase tracking-wider mb-2.5 flex items-center gap-2">
-            <ArrowUpRight size={14} />
-            Ingresos ({ingresos.length})
-          </h3>
-          <div className="overflow-hidden rounded-xl border border-emerald-500/10 print:border-emerald-300">
-            <table className="w-full text-[11px]">
-              <thead>
-                <tr className="bg-emerald-500/5 print:bg-emerald-50 border-b border-emerald-500/10 print:border-emerald-300">
-                  <th className="text-left px-3 py-2 text-[10px] font-bold text-emerald-300 print:text-emerald-700 uppercase tracking-wider">Hora</th>
-                  <th className="text-left px-3 py-2 text-[10px] font-bold text-emerald-300 print:text-emerald-700 uppercase tracking-wider">Concepto</th>
-                  <th className="text-right px-3 py-2 text-[10px] font-bold text-emerald-300 print:text-emerald-700 uppercase tracking-wider">Monto</th>
-                  <th className="text-right px-3 py-2 text-[10px] font-bold text-emerald-300 print:text-emerald-700 uppercase tracking-wider">Usuario</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-emerald-500/5 print:divide-emerald-200">
-                {ingresos.map((m: MovimientoCierre) => (
-                  <tr key={m.id} className="hover:bg-emerald-500/5 print:hover:bg-transparent transition-colors">
-                    <td className="px-3 py-2 text-slate-400 print:text-gray-600 font-mono">
-                      {m.fecha?.split(" ")[1] || m.fecha}
-                    </td>
-                    <td className="px-3 py-2 text-white print:text-gray-900 font-medium truncate max-w-[200px]">{m.descripcion}</td>
-                    <td className="px-3 py-2 text-right text-emerald-400 print:text-emerald-700 font-bold font-mono">+{formatCurrency(m.monto)}</td>
-                    <td className="px-3 py-2 text-right text-slate-500 print:text-gray-500">@{m.usuario}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Egresos */}
-      {egresos.length > 0 && (
-        <div>
-          <h3 className="text-xs font-bold text-rose-400 print:text-red-700 uppercase tracking-wider mb-2.5 flex items-center gap-2">
-            <ArrowDownLeft size={14} />
-            Egresos ({egresos.length})
-          </h3>
-          <div className="overflow-hidden rounded-xl border border-rose-500/10 print:border-red-300">
-            <table className="w-full text-[11px]">
-              <thead>
-                <tr className="bg-rose-500/5 print:bg-red-50 border-b border-rose-500/10 print:border-red-300">
-                  <th className="text-left px-3 py-2 text-[10px] font-bold text-rose-300 print:text-red-700 uppercase tracking-wider">Hora</th>
-                  <th className="text-left px-3 py-2 text-[10px] font-bold text-rose-300 print:text-red-700 uppercase tracking-wider">Concepto</th>
-                  <th className="text-right px-3 py-2 text-[10px] font-bold text-rose-300 print:text-red-700 uppercase tracking-wider">Monto</th>
-                  <th className="text-right px-3 py-2 text-[10px] font-bold text-rose-300 print:text-red-700 uppercase tracking-wider">Usuario</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-rose-500/5 print:divide-red-200">
-                {egresos.map((m: MovimientoCierre) => (
-                  <tr key={m.id} className="hover:bg-rose-500/5 print:hover:bg-transparent transition-colors">
-                    <td className="px-3 py-2 text-slate-400 print:text-gray-600 font-mono">
-                      {m.fecha?.split(" ")[1] || m.fecha}
-                    </td>
-                    <td className="px-3 py-2 text-white print:text-gray-900 font-medium truncate max-w-[200px]">{m.descripcion}</td>
-                    <td className="px-3 py-2 text-right text-rose-400 print:text-red-700 font-bold font-mono">-{formatCurrency(m.monto)}</td>
-                    <td className="px-3 py-2 text-right text-slate-500 print:text-gray-500">@{m.usuario}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {ingresos.length === 0 && egresos.length === 0 && (
-        <div className="text-center py-8 text-slate-500">
-          <Receipt size={32} className="mx-auto mb-2 opacity-30" />
-          <p className="text-sm font-medium">Sin movimientos registrados</p>
-          <p className="text-xs mt-1">Este cierre no tiene movimientos de ingresos ni egresos.</p>
-        </div>
-      )}
-
-      {(ingresos.length > 0 || egresos.length > 0) && (
-        <div className="bg-slate-800/30 print:bg-gray-100 border border-slate-700/50 print:border-gray-300 rounded-xl p-4">
-          <h4 className="text-xs font-bold text-slate-400 print:text-gray-700 uppercase tracking-wider mb-3">Resumen Final</h4>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-            <div>
-              <p className="text-[10px] text-slate-500 print:text-gray-600 font-semibold">Cant. Ingresos</p>
-              <p className="text-base font-bold text-emerald-400 print:text-emerald-700">{ingresos.length}</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-slate-500 print:text-gray-600 font-semibold">Cant. Egresos</p>
-              <p className="text-base font-bold text-rose-400 print:text-red-700">{egresos.length}</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-slate-500 print:text-gray-600 font-semibold">Total Ingresos</p>
-              <p className="text-base font-bold text-emerald-400 print:text-emerald-700 font-mono">{formatCurrency(totalIngresos)}</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-slate-500 print:text-gray-600 font-semibold">Total Egresos</p>
-              <p className="text-base font-bold text-rose-400 print:text-red-700 font-mono">{formatCurrency(totalEgresos)}</p>
-            </div>
-          </div>
-          <div className="mt-3 pt-3 border-t border-slate-700/50 print:border-gray-300 flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400 print:text-gray-700 uppercase tracking-wider">Resultado Neto</span>
-            <span className={"text-lg font-black font-mono " + (resultadoNeto >= 0 ? "text-emerald-400 print:text-emerald-700" : "text-rose-400 print:text-red-700")}>
-              {resultadoNeto >= 0 ? "+" : ""}{formatCurrency(resultadoNeto)}
-            </span>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Print-only view for a single cierre ───────────────────────
-function CierreDetailPrintView({ cajaId }: {
-  cajaId: number;
-}) {
-  const [detalleData, setDetalleData] = useState<DetalleCierreCompleto | null>(null);
-
-  useEffect(() => {
-    getDetalleCierre(cajaId).then((res) => setDetalleData(res));
-  }, [cajaId]);
-
-  useEffect(() => {
-    if (detalleData) {
-      const timer = setTimeout(() => window.print(), 150);
-      return () => clearTimeout(timer);
-    }
-  }, [detalleData]);
-
-  if (!detalleData) return null;
-
-  return (
-    <div className="hidden print:block print:bg-white print:text-black">
-      <div className="text-center mb-6">
-        <h1 className="text-2xl font-black uppercase tracking-wide">CHOPPER REPUESTOS</h1>
-        <p className="text-sm text-gray-600 mt-1">Detalle de Cierre #{cajaId}</p>
-        <div className="flex justify-center gap-4 text-xs text-gray-500 mt-2">
-          <span>Apertura: {detalleData.fechaApertura}</span>
-          <span>Cierre: {detalleData.fechaCierre || "\u2014"}</span>
-          <span>Usuario: {detalleData.usuario}</span>
-          <span>Impreso: {formatDate(new Date())}</span>
-        </div>
-        <hr className="my-3 border-gray-300" />
-      </div>
-      <CierreDetailView detalleData={detalleData} />
-    </div>
-  );
-}
-
-// ─── Modal ─────────────────────────────────────────────────────
-function DetalleCierreModal({ cajaId, onClose, onPrint }: {
-  cajaId: number;
-  onClose: () => void;
+/* ─── Tabla de cierres (compartida: vista diaria y expansión mensual) ────── */
+function CierresTable({
+  rows,
+  expandedCierreId,
+  onToggle,
+  onPrint,
+  emptyMessage = "Sin cierres en el período.",
+}: {
+  rows: CierreRow[];
+  expandedCierreId: number | null;
+  onToggle: (id: number) => void;
   onPrint: (id: number) => void;
+  emptyMessage?: string;
 }) {
-  const [detalleData, setDetalleData] = useState<DetalleCierreCompleto | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    getDetalleCierre(cajaId).then((res) => { setDetalleData(res); setLoading(false); });
-  }, [cajaId]);
-
   return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-900 border border-slate-700 w-full max-w-2xl rounded-2xl shadow-2xl relative max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 shrink-0">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <Wallet size={18} className="text-sky-400" />
-            Cierre #{cajaId}
-          </h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition"><X size={16} /></button>
-        </div>
-
-        {/* Body */}
-        <div className="px-6 py-5 overflow-y-auto space-y-6">
-          {loading ? (
-            <div className="flex justify-center py-12"><Loader2 size={28} className="animate-spin text-slate-400" /></div>
-          ) : detalleData ? (
-            <CierreDetailView detalleData={detalleData} />
-          ) : (
-            <p className="text-center text-red-400 py-8">Error al cargar detalle.</p>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-slate-800 flex items-center justify-between shrink-0">
-          <button
-            onClick={() => onPrint(cajaId)}
-            disabled={loading || !detalleData}
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition"
-          >
-            <Printer size={14} />
-            Imprimir cierre
-          </button>
-          <button onClick={onClose} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold rounded-lg transition">Cerrar</button>
-        </div>
-      </div>
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-border print:border-gray-300 bg-panel print:bg-gray-100">
+            <th className="text-left px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider">#</th>
+            <th className="text-left px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider">Apertura</th>
+            <th className="text-left px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider">Cierre</th>
+            <th className="text-left px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider">Usuario</th>
+            <th className="text-right px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider">Inicial</th>
+            <th className="text-right px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider">Ventas</th>
+            <th className="text-right px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider">Esperado</th>
+            <th className="text-right px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider">Total contado</th>
+            <th className="text-center px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider">Estado</th>
+            <th className="text-center px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider print:hidden">Resultado</th>
+            <th className="text-center px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider print:hidden">Det.</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border print:divide-gray-300">
+          {rows.length === 0 ? (
+            <tr>
+              <td colSpan={11} className="px-4 py-8 text-center text-text-secondary">
+                {emptyMessage}
+              </td>
+            </tr>
+          ) : rows.map((c) => (
+            <React.Fragment key={c.id}>
+              <tr className={`transition-colors ${expandedCierreId === c.id ? "bg-panel/50" : "hover:bg-border/40"}`}>
+                <td className="px-4 py-3 font-bold text-text">#{c.id}</td>
+                <td className="px-4 py-3 text-xs text-text-muted">{c.fechaApertura}</td>
+                <td className="px-4 py-3 text-xs text-text-muted">{c.fechaCierre || "\u2014"}</td>
+                <td className="px-4 py-3 text-text-muted">{c.usuario}</td>
+                <td className="px-4 py-3 text-right text-text-muted">{formatCurrency(c.montoInicial)}</td>
+                <td className="px-4 py-3 text-right font-bold text-success">{formatCurrency(c.totalVentas)}</td>
+                <td className="px-4 py-3 text-right text-text-muted">{formatCurrency(c.totalEsperado)}</td>
+                <td className="px-4 py-3 text-right text-text-muted">{c.totalContado != null ? formatCurrency(c.totalContado) : "\u2014"}</td>
+                <td className="px-4 py-3 text-center">
+                  {c.estado === "ABIERTA" ? (
+                    <Badge variant="warning" size="sm"><XCircle size={10} />ABIERTA</Badge>
+                  ) : (
+                    <Badge variant="success" size="sm"><CheckCircle size={10} />CERRADA</Badge>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-center print:hidden">
+                  <ResultadoBadge totalContado={c.totalContado} totalEsperado={c.totalEsperado} />
+                </td>
+                <td className="px-4 py-3 text-center print:hidden">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onToggle(c.id)}
+                    className="h-8 w-8 p-0"
+                    title={expandedCierreId === c.id ? "Ocultar detalle" : "Ver detalle"}
+                  >
+                    {expandedCierreId === c.id ? <ChevronUp size={14} /> : <Eye size={14} />}
+                  </Button>
+                </td>
+              </tr>
+              {expandedCierreId === c.id && (
+                <tr>
+                  <td colSpan={11} className="p-0">
+                    <CierreAccordionRow cajaId={c.id} onPrint={onPrint} />
+                  </td>
+                </tr>
+              )}
+            </React.Fragment>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
 
-// ─── Main component ────────────────────────────────────────────
+/* ─── Componente principal ───────────────────────────────────── */
 export default function CierresReport({ initialData, usuarios }: Props) {
   const [data, setData] = useState(initialData);
-  const [fechaDesde, setFechaDesde] = useState(new Date().toISOString().split("T")[0]);
-  const [fechaHasta, setFechaHasta] = useState(new Date().toISOString().split("T")[0]);
+  // Estado con fechas SOLO date-only ("yyyy-MM-dd") para binding de <Input type="date">.
+  // Cada llamada al servidor normaliza con toApiDate → "yyyy-MM-ddT00:00:00" (F1: NUNCA
+  // toISOString/UTC). Carga inicial = preset Día (hoy), preservando los datos precargados.
+  const [fechaDesde, setFechaDesde] = useState(() => getCierresDateRange("dia").desde.slice(0, 10));
+  const [fechaHasta, setFechaHasta] = useState(() => getCierresDateRange("dia").hasta.slice(0, 10));
+  const [activePeriod, setActivePeriod] = useState<PeriodoSeleccion>("dia");
+  const [vista, setVista] = useState<VistaCierres>("diario");
   const [usuarioId, setUsuarioId] = useState<number | undefined>(undefined);
   const [estadoFiltro, setEstadoFiltro] = useState("");
   const [tipoDiff, setTipoDiff] = useState("");
   const [isPending, startTransition] = useTransition();
 
   const [diferencias, setDiferencias] = useState<CierreDiferenciaRow[] | null>(null);
-  const [detalleCajaId, setDetalleCajaId] = useState<number | null>(null);
+  const [expandedCierreId, setExpandedCierreId] = useState<number | null>(null);
   const [loadingSection, setLoadingSection] = useState<string | null>(null);
   const [printSection, setPrintSection] = useState<string | null>(null);
   const [showSecondary, setShowSecondary] = useState(false);
   const [printingCajaId, setPrintingCajaId] = useState<number | null>(null);
 
-  const handleSearch = () => {
+  // Vista mensual
+  const [mensualData, setMensualData] = useState<CierreMensual[] | null>(null);
+  const [loadingMensual, setLoadingMensual] = useState(false);
+  const [mensualError, setMensualError] = useState(false);
+  const [expandedMes, setExpandedMes] = useState<string | null>(null);
+  const [expandedMesRows, setExpandedMesRows] = useState<CierreRow[] | null>(null);
+  const [loadingMes, setLoadingMes] = useState(false);
+  const [mesError, setMesError] = useState(false);
+
+  // Búsqueda diaria. F1: las fechas cruzan el límite servidor como datetime local
+  // completo sin Z (toApiDate). Preserva filtros Usuario/Estado en cada búsqueda.
+  const runSearch = (desde?: string, hasta?: string) => {
     startTransition(async () => {
-      const result = await getReporteCierres(fechaDesde || undefined, fechaHasta || undefined, usuarioId, estadoFiltro || undefined);
+      const result = await getReporteCierres(toApiDate(desde), toApiDate(hasta), usuarioId, estadoFiltro || undefined);
       setData(result);
       setDiferencias(null);
     });
+  };
+
+  const loadMensual = async (desde?: string, hasta?: string) => {
+    setLoadingMensual(true);
+    setMensualError(false);
+    try {
+      const result = await getCierresMensuales(toApiDate(desde), toApiDate(hasta), usuarioId);
+      setMensualData(result);
+      setExpandedMes(null);
+      setExpandedMesRows(null);
+    } catch {
+      setMensualError(true);
+    } finally {
+      setLoadingMensual(false);
+    }
+  };
+
+  const handleSearch = () => {
+    runSearch(fechaDesde, fechaHasta);
+    if (vista === "mensual") loadMensual(fechaDesde, fechaHasta);
+  };
+
+  const handlePeriodChange = (period: PeriodoSeleccion) => {
+    setActivePeriod(period);
+    if (period === "personalizado") return; // el usuario elige Desde/Hasta y presiona Buscar
+    const range = getCierresDateRange(period);
+    const desde = range.desde.slice(0, 10);
+    const hasta = range.hasta.slice(0, 10);
+    setFechaDesde(desde);
+    setFechaHasta(hasta);
+    runSearch(desde, hasta);
+    if (vista === "mensual") loadMensual(desde, hasta);
+  };
+
+  const handleVistaChange = (v: VistaCierres) => {
+    setVista(v);
+    if (v === "mensual" && mensualData === null && !loadingMensual) {
+      loadMensual(fechaDesde, fechaHasta);
+    }
+  };
+
+  const toggleMes = async (mes: string) => {
+    if (expandedMes === mes) {
+      setExpandedMes(null);
+      setExpandedMesRows(null);
+      return;
+    }
+    setExpandedMes(mes);
+    setExpandedMesRows(null);
+    setLoadingMes(true);
+    setMesError(false);
+    try {
+      // NOTA — nuance fecha_cierre vs fechaApertura: getCierresMensuales agrupa por
+      // fecha_cierre, pero la expansión reutiliza getReporteCierres, que filtra por
+      // fechaApertura (queries existentes, no alterables por spec). Una caja abierta
+      // el 31 a las 23:50 y cerrada el 1 a las 00:10 se resume bajo el mes de cierre
+      // (ej. 2026-08) pero su arqueo aparece en la expansión del mes anterior (2026-07).
+      // Fin de mes real: día 0 del mes siguiente = último día (nunca `${mes}-31` literal;
+      // un literal 31 desbordaría a Mar 3 en febrero).
+      const anio = Number(mes.slice(0, 4));
+      const mesNum = Number(mes.slice(5, 7));
+      const ultimoDia = new Date(anio, mesNum, 0).getDate();
+      const rows = await getReporteCierres(
+        `${mes}-01T00:00:00`,
+        `${mes}-${ultimoDia}T00:00:00`,
+        usuarioId
+      );
+      setExpandedMesRows(rows);
+    } catch {
+      setMesError(true);
+    } finally {
+      setLoadingMes(false);
+    }
   };
 
   const loadSection = async (section: string, fetcher: () => Promise<unknown>) => {
@@ -346,12 +256,11 @@ export default function CierresReport({ initialData, usuarios }: Props) {
 
   const handlePrintDetalle = useCallback((cajaId: number) => {
     setPrintingCajaId(cajaId);
-    setDetalleCajaId(null);
   }, []);
 
   const handlePrint = () => {
-    if (detalleCajaId) {
-      handlePrintDetalle(detalleCajaId);
+    if (expandedCierreId) {
+      handlePrintDetalle(expandedCierreId);
     } else {
       window.print();
     }
@@ -406,33 +315,122 @@ export default function CierresReport({ initialData, usuarios }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="print:hidden bg-slate-900/50 border border-slate-800 rounded-xl p-4 space-y-3">
-        <h3 className="text-sm font-bold text-slate-300 flex items-center gap-2"><Search size={14} />Filtros</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          <div><label className="text-xs font-semibold text-slate-400 flex items-center gap-1 mb-1"><Calendar size={12} /> Desde</label><input type="date" value={fechaDesde} onChange={(e) => setFechaDesde(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50" /></div>
-          <div><label className="text-xs font-semibold text-slate-400 flex items-center gap-1 mb-1"><Calendar size={12} /> Hasta</label><input type="date" value={fechaHasta} onChange={(e) => setFechaHasta(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50" /></div>
-          <div><label className="text-xs font-semibold text-slate-400 flex items-center gap-1 mb-1"><User size={12} /> Usuario</label>
-            <select value={usuarioId || ""} onChange={(e) => setUsuarioId(e.target.value ? Number(e.target.value) : undefined)} className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
-              <option value="">Todos</option>
-              {usuarios.map((u) => (<option key={u.id} value={u.id}>{u.nombreCompleto || u.username}</option>))}
-            </select>
-          </div>
-          <div><label className="text-xs font-semibold text-slate-400 mb-1 block">Estado</label>
-            <select value={estadoFiltro} onChange={(e) => setEstadoFiltro(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
-              <option value="">Todos</option><option value="ABIERTA">Abiertos</option><option value="CERRADA">Cerrados</option>
-            </select>
-          </div>
-          <div><label className="text-xs font-semibold text-slate-400 mb-1 block">Diferencia</label>
-            <select value={tipoDiff} onChange={(e) => setTipoDiff(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
-              <option value="">Todas</option><option value="positiva">Positivas</option><option value="negativa">Negativas</option>
-            </select>
+      {/* ─── Tarjeta de filtros + presets de período (print:hidden) ─── */}
+      <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl p-4 space-y-3">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <h3 className="text-sm font-bold text-[var(--text-muted)] flex items-center gap-2">
+            <Search size={14} />Filtros
+          </h3>
+          <div className="flex items-center gap-1">
+            {(["diario", "mensual"] as VistaCierres[]).map((v) => (
+              <button
+                key={v}
+                onClick={() => handleVistaChange(v)}
+                className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
+                  vista === v
+                    ? "bg-[var(--brand)] text-white"
+                    : "bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--text)] border border-[var(--border)]"
+                }`}
+              >
+                {v === "diario" ? "Diario" : "Mensual"}
+              </button>
+            ))}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={handleSearch} disabled={isPending} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition">
-            <RefreshCw size={14} className={isPending ? "animate-spin" : ""} />{isPending ? "Buscando..." : "Buscar"}
-          </button>
-          <button onClick={handlePrint} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition"><Printer size={14} /> Imprimir</button>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <label className="text-xs font-semibold text-text-muted flex items-center gap-1">
+            <Calendar size={12} /> Período:
+          </label>
+          <Select value={activePeriod} onValueChange={(v) => handlePeriodChange(v as PeriodoSeleccion)}>
+            <SelectTrigger className="w-44 h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PERIOD_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+          {activePeriod === "personalizado" && (
+            <>
+              <div>
+                <label className="text-xs font-semibold text-text-muted flex items-center gap-1 mb-1">
+                  <Calendar size={12} /> Desde
+                </label>
+                <Input type="date" value={fechaDesde} onChange={(e) => setFechaDesde(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-text-muted flex items-center gap-1 mb-1">
+                  <Calendar size={12} /> Hasta
+                </label>
+                <Input type="date" value={fechaHasta} onChange={(e) => setFechaHasta(e.target.value)} />
+              </div>
+            </>
+          )}
+
+          {vista === "diario" && (
+            <>
+              <div>
+                <label className="text-xs font-semibold text-text-muted flex items-center gap-1 mb-1">
+                  <User size={12} /> Usuario
+                </label>
+                <Select value={usuarioId ? String(usuarioId) : "all"} onValueChange={(v) => setUsuarioId(v === "all" ? undefined : Number(v))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todas las cajas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas las cajas</SelectItem>
+                    {usuarios.map((u) => (
+                      <SelectItem key={u.id} value={String(u.id)}>{u.nombreCompleto || u.username}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-text-muted flex items-center gap-1 mb-1">
+                  <CheckCircle size={12} /> Estado
+                </label>
+                <Select value={estadoFiltro || "all"} onValueChange={(v) => setEstadoFiltro(v === "all" ? "" : v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="ABIERTA">Abiertos</SelectItem>
+                    <SelectItem value="CERRADA">Cerrados</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-text-muted flex items-center gap-1 mb-1">
+                  <BadgePercent size={12} /> Diferencia
+                </label>
+                <Select value={tipoDiff || "all"} onValueChange={(v) => setTipoDiff(v === "all" ? "" : v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    <SelectItem value="positiva">Positivas</SelectItem>
+                    <SelectItem value="negativa">Negativas</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button onClick={handleSearch} disabled={isPending} loading={isPending} leftIcon={<RefreshCw size={14} />}>
+            {isPending ? "Buscando..." : "Buscar"}
+          </Button>
+          <Button variant="secondary" onClick={handlePrint} leftIcon={<Printer size={14} />}>
+            Imprimir
+          </Button>
         </div>
       </div>
 
@@ -448,78 +446,156 @@ export default function CierresReport({ initialData, usuarios }: Props) {
           <hr className="my-3 border-gray-300" />
         </div>
 
-        <div className="report-section" data-section-id="kpis" data-print-active={printSection === "kpis" || null}>
-          <div className="flex items-center justify-end mb-2 print:hidden">
-            <button onClick={() => setPrintSection("kpis")}
-              className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
-              title="Imprimir esta sección">
-              <Printer size={12} />
-            </button>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {kpis.map((kpi, i) => <StatCard key={i} {...kpi} />)}
-          </div>
-        </div>
+        {vista === "diario" ? (
+          <>
+            <div className="report-section" data-section-id="kpis" data-print-active={printSection === "kpis" || null}>
+              <div className="flex items-center justify-end mb-2 print:hidden">
+                <button onClick={() => setPrintSection("kpis")}
+                  className="p-1.5 rounded-lg bg-border text-text-muted hover:text-emerald-400 hover:bg-border-hover transition print:hidden"
+                  title="Imprimir esta sección">
+                  <Printer size={12} />
+                </button>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {kpis.map((kpi, i) => <StatCard key={i} {...kpi} />)}
+              </div>
+            </div>
 
-        <div className="report-section" data-section-id="table" data-print-active={printSection === "table" || null}>
-          <div className="flex items-center justify-end mb-2 print:hidden">
-            <button onClick={() => setPrintSection("table")}
-              className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
-              title="Imprimir esta sección">
-              <Printer size={12} />
-            </button>
-          </div>
-          <div className="bg-slate-900/50 print:bg-white border border-slate-800 print:border-gray-300 rounded-xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-800 print:border-gray-300 bg-slate-900/80 print:bg-gray-100">
-                  <th className="text-left px-4 py-3 text-xs font-bold text-slate-400 uppercase">#</th>
-                  <th className="text-left px-4 py-3 text-xs font-bold text-slate-400 uppercase">Apertura</th>
-                  <th className="text-left px-4 py-3 text-xs font-bold text-slate-400 uppercase">Cierre</th>
-                  <th className="text-left px-4 py-3 text-xs font-bold text-slate-400 uppercase">Usuario</th>
-                  <th className="text-right px-4 py-3 text-xs font-bold text-slate-400 uppercase">Inicial</th>
-                  <th className="text-right px-4 py-3 text-xs font-bold text-slate-400 uppercase">Ventas</th>
-                  <th className="text-right px-4 py-3 text-xs font-bold text-slate-400 uppercase">Esperado</th>
-                  <th className="text-center px-4 py-3 text-xs font-bold text-slate-400 uppercase">Estado</th>
-                  <th className="text-center px-4 py-3 text-xs font-bold text-slate-400 uppercase print:hidden">Det.</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/50 print:divide-gray-300">
-                {cierresFiltrados.length === 0 ? (
-                  <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-500">Sin cierres en el período.</td></tr>
-                ) : cierresFiltrados.map((c) => (
-                  <tr key={c.id} className="hover:bg-slate-800/30 transition-colors">
-                    <td className="px-4 py-3 font-bold text-white">#{c.id}</td>
-                    <td className="px-4 py-3 text-xs text-slate-300">{c.fechaApertura}</td>
-                    <td className="px-4 py-3 text-xs text-slate-300">{c.fechaCierre || "\u2014"}</td>
-                    <td className="px-4 py-3 text-slate-400">{c.usuario}</td>
-                    <td className="px-4 py-3 text-right text-slate-300">{formatCurrency(c.montoInicial)}</td>
-                    <td className="px-4 py-3 text-right font-bold text-emerald-400">{formatCurrency(c.totalVentas)}</td>
-                    <td className="px-4 py-3 text-right text-slate-300">{formatCurrency(c.montoInicial + c.totalVentas)}</td>
-                    <td className="px-4 py-3 text-center">
-                      {c.estado === "ABIERTA" ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded-full text-[10px] font-bold"><XCircle size={10} />ABIERTA</span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-full text-[10px] font-bold"><CheckCircle size={10} />CERRADA</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center print:hidden">
-                      <button onClick={() => setDetalleCajaId(c.id)} className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-sky-400 hover:bg-slate-700 transition" title="Ver detalle"><Eye size={14} /></button>
-                    </td>
-                  </tr>
+            <div className="report-section" data-section-id="table" data-print-active={printSection === "table" || null}>
+              <div className="flex items-center justify-end mb-2 print:hidden">
+                <button onClick={() => setPrintSection("table")}
+                  className="p-1.5 rounded-lg bg-border text-text-muted hover:text-emerald-400 hover:bg-border-hover transition print:hidden"
+                  title="Imprimir esta sección">
+                  <Printer size={12} />
+                </button>
+              </div>
+              <div className="bg-card print:bg-white border border-border print:border-gray-300 rounded-xl overflow-hidden">
+                <CierresTable
+                  rows={cierresFiltrados}
+                  expandedCierreId={expandedCierreId}
+                  onToggle={(id) => setExpandedCierreId(prev => (prev === id ? null : id))}
+                  onPrint={handlePrintDetalle}
+                />
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="report-section" data-section-id="mensual" data-print-active={printSection === "mensual" || null}>
+            <div className="flex items-center justify-between mb-2 print:hidden">
+              <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-2">
+                <History size={14} className="text-[var(--brand)]" /> Resumen Mensual
+              </h3>
+              <button onClick={() => setPrintSection("mensual")}
+                className="p-1.5 rounded-lg bg-border text-text-muted hover:text-emerald-400 hover:bg-border-hover transition print:hidden"
+                title="Imprimir esta sección">
+                <Printer size={12} />
+              </button>
+            </div>
+
+            {loadingMensual ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="bg-[var(--panel)] rounded-xl p-4 border border-[var(--border)] animate-pulse">
+                    <div className="h-4 bg-[var(--card)] rounded w-1/3 mb-4" />
+                    <div className="h-24 bg-[var(--card)] rounded" />
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            ) : mensualError ? (
+              <div className="bg-[var(--panel)] border border-[var(--border)] rounded-xl p-8 text-center text-sm text-[var(--danger)]">
+                Error al cargar los cierres mensuales.
+              </div>
+            ) : mensualData === null ? (
+              <div className="bg-[var(--panel)] border border-[var(--border)] rounded-xl p-8 text-center text-sm text-[var(--text-secondary)]">
+                Sin cierres en este mes
+              </div>
+            ) : mensualData.length === 0 ? (
+              <div className="bg-[var(--panel)] border border-[var(--border)] rounded-xl p-8 text-center text-sm text-[var(--text-secondary)]">
+                Sin cierres en este mes
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {mensualData.map((m) => (
+                  <div key={m.mes} className="p-3 bg-[var(--panel)]/50 border border-[var(--border)] rounded-xl space-y-2 hover:border-[var(--border-hover)] transition-all print:bg-white print:border-gray-300">
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-sm text-[var(--text)]">{m.mesLabel} {m.anio}</span>
+                      <Badge variant={m.conDiferencia > 0 ? "warning" : "success"} size="sm">
+                        {m.totalCierres} cierre{m.totalCierres !== 1 ? "s" : ""}
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs text-[var(--text-muted)] sm:grid-cols-4 xl:grid-cols-7">
+                      <div>
+                        <span className="text-[10px] text-[var(--text-secondary)] block uppercase tracking-wider">Cierres</span>
+                        <span className="font-semibold text-[var(--text)]">{m.totalCierres}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-[var(--text-secondary)] block uppercase tracking-wider">Inicial</span>
+                        <span className="font-semibold text-[var(--text)]">{formatCurrency(m.montoInicial)}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-[var(--text-secondary)] block uppercase tracking-wider">Ventas</span>
+                        <span className="font-semibold text-[var(--success)]">{formatCurrency(m.totalVentas)}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-[var(--text-secondary)] block uppercase tracking-wider">Esperado</span>
+                        <span className="font-semibold text-[var(--text)]">{formatCurrency(m.totalEsperado)}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-[var(--text-secondary)] block uppercase tracking-wider">Contado</span>
+                        <span className="font-semibold text-[var(--text)]">{formatCurrency(m.totalContado)}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-[var(--text-secondary)] block uppercase tracking-wider">Dif. Neta</span>
+                        <span className={`font-semibold ${m.diferenciaNeta >= 0 ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>{formatCurrency(m.diferenciaNeta)}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-[var(--text-secondary)] block uppercase tracking-wider">Con Dif.</span>
+                        <span className="font-semibold text-[var(--text)]">{m.conDiferencia}</span>
+                      </div>
+                    </div>
+                    <div className="pt-2 border-t border-[var(--border)]/60 flex items-center justify-between text-xs">
+                      <button
+                        onClick={() => toggleMes(m.mes)}
+                        className="flex items-center gap-1 text-[var(--text-secondary)] hover:text-[var(--text)] transition-colors font-semibold print:hidden"
+                      >
+                        {expandedMes === m.mes ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                        {expandedMes === m.mes ? "Ocultar arqueos" : "Ver arqueos"}
+                      </button>
+                      <span className="text-[var(--text-secondary)]">{m.totalCierres} arqueo{m.totalCierres !== 1 ? "s" : ""}</span>
+                    </div>
+                    {expandedMes === m.mes && (
+                      <div className="pt-2 border-t border-[var(--border)]/60">
+                        {loadingMes ? (
+                          <div className="flex justify-center py-8">
+                            <Loader2 size={24} className="animate-spin text-[var(--text-secondary)]" />
+                          </div>
+                        ) : mesError ? (
+                          <p className="text-center text-[var(--danger)] py-6 text-sm">Error al cargar los arqueos del mes.</p>
+                        ) : expandedMesRows ? (
+                          <div className="bg-[var(--card)] print:bg-white border border-[var(--border)] print:border-gray-300 rounded-xl overflow-hidden">
+                            <CierresTable
+                              rows={expandedMesRows}
+                              expandedCierreId={expandedCierreId}
+                              onToggle={(id) => setExpandedCierreId(prev => (prev === id ? null : id))}
+                              onPrint={handlePrintDetalle}
+                              emptyMessage="Sin cierres en este mes"
+                            />
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        </div>
-        </div>
+        )}
 
         {/* Secondary Sections (collapsible) */}
         <div className="report-section" data-section-id="secondary" data-print-active={printSection === "secondary" || null}>
           <div className="flex items-center justify-end mb-2 print:hidden">
             <button onClick={() => setPrintSection("secondary")}
-              className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
+              className="p-1.5 rounded-lg bg-border text-text-muted hover:text-emerald-400 hover:bg-border-hover transition print:hidden"
               title="Imprimir esta sección">
               <Printer size={12} />
             </button>
@@ -528,31 +604,31 @@ export default function CierresReport({ initialData, usuarios }: Props) {
           {/* Cierres con Diferencia */}
           <div className="mb-3">
             {diferencias === null ? (
-              <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-4">
+              <div className="bg-card rounded-xl border border-border p-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                  <h3 className="text-sm font-semibold text-text-muted flex items-center gap-2">
                     <AlertTriangle size={14} className="text-amber-400" />
                     Cierres con Diferencia
                   </h3>
                   <button onClick={() => loadSection("diff", () => getCierresDiferencias({ fechaDesde, fechaHasta, page: 1 }).then(r => setDiferencias(r.data)))} disabled={loadingSection === "diff"}
-                    className="px-3 py-1.5 text-xs font-bold rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600 disabled:opacity-40 transition">
+                    className="px-3 py-1.5 text-xs font-bold rounded-lg bg-border text-text-muted hover:bg-border-hover disabled:opacity-40 transition">
                     {loadingSection === "diff" ? <Loader2 size={12} className="animate-spin inline mr-1" /> : null}
                     {loadingSection === "diff" ? "Cargando..." : "Cargar"}
                   </button>
                 </div>
               </div>
             ) : !hasDiferencias ? null : (
-              <div className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-3 bg-slate-900/80 border-b border-slate-800">
-                  <h3 className="text-xs font-bold text-slate-400 uppercase flex items-center gap-2">
+              <div className="bg-panel border border-border rounded-xl overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 bg-panel border-b border-border">
+                  <h3 className="text-xs font-bold text-text-muted uppercase flex items-center gap-2">
                     <AlertTriangle size={14} className="text-amber-400" />
                     Cierres con Diferencia
                   </h3>
                   <div className="flex items-center gap-4 text-xs">
-                    <span className="text-slate-400">
-                      <span className="font-bold text-white">{diferencias.length}</span> cierre{diferencias.length !== 1 ? "s" : ""}
+                    <span className="text-text-muted">
+                      <span className="font-bold text-text">{diferencias.length}</span> cierre{diferencias.length !== 1 ? "s" : ""}
                     </span>
-                    <span className="text-slate-400">
+                    <span className="text-text-muted">
                       Total dif.: <span className="font-bold text-amber-400">{formatCurrency(totalDiffAmount)}</span>
                     </span>
                   </div>
@@ -575,69 +651,31 @@ export default function CierresReport({ initialData, usuarios }: Props) {
             )}
           </div>
 
-          {/* Diferencias Diarias & Métodos de Pago (collapsible) */}
+          {/* Métodos de Pago (collapsible) — "Diferencias Diarias" removida (REQ-R1) */}
           <button
             onClick={() => setShowSecondary(!showSecondary)}
-            className="w-full flex items-center justify-between px-4 py-3 bg-slate-800/50 rounded-xl border border-slate-700/50 text-sm font-semibold text-slate-300 hover:bg-slate-700/50 transition print:hidden"
+            className="w-full flex items-center justify-between px-4 py-3 bg-card rounded-xl border border-border text-sm font-semibold text-text-muted hover:bg-border/50 transition print:hidden"
           >
             <span className="flex items-center gap-2">
-              <FileText size={14} className="text-slate-400" />
+              <FileText size={14} className="text-text-muted" />
               Información secundaria
             </span>
-            {showSecondary ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
+            {showSecondary ? <ChevronDown size={16} className="text-text-muted" /> : <ChevronRight size={16} className="text-text-muted" />}
           </button>
 
           {showSecondary && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
-              <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-4">
-                <h3 className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-2">
-                  <TrendingUp size={14} className="text-indigo-400" />
-                  Diferencias Diarias
-                </h3>
-                {cierresFiltrados.length === 0 ? (
-                  <p className="text-xs text-slate-500 text-center py-6">No hay datos en el período seleccionado.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {cierresFiltrados.slice(0, 10).map((c) => {
-                      const diff = (c.totalContado ?? c.totalEsperado) - c.totalEsperado;
-                      return (
-                        <div key={c.id} className="flex items-center justify-between text-xs py-1.5 px-2 rounded-lg hover:bg-slate-700/30">
-                          <div className="flex items-center gap-2">
-                            <span className="text-slate-500">#{c.id}</span>
-                            <span className="text-slate-400">{c.fechaApertura?.split(" ")[0]}</span>
-                          </div>
-                          <span className={diff === 0 ? "text-slate-500" : diff > 0 ? "text-emerald-400" : "text-rose-400"}>
-                            {diff === 0 ? "Sin diff." : formatCurrency(diff)}
-                          </span>
-                        </div>
-                      );
-                    })}
-                    {cierresFiltrados.length > 10 && (
-                      <p className="text-xs text-slate-500 text-center pt-1">...y {cierresFiltrados.length - 10} más</p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-4">
-                <h3 className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-2">
+            <div className="grid grid-cols-1 gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="bg-card rounded-xl border border-border p-4">
+                <h3 className="text-xs font-bold text-text-muted uppercase mb-3 flex items-center gap-2">
                   <DollarSign size={14} className="text-amber-400" />
                   Métodos de Pago
                 </h3>
-                <p className="text-xs text-slate-500 text-center py-6">Los métodos de pago se muestran en el informe de Finanzas.</p>
+                <p className="text-xs text-text-secondary text-center py-6">Los métodos de pago se muestran en el informe de Finanzas.</p>
               </div>
             </div>
           )}
         </div>
       </div>
-
-      {detalleCajaId && (
-        <DetalleCierreModal
-          cajaId={detalleCajaId}
-          onClose={() => setDetalleCajaId(null)}
-          onPrint={handlePrintDetalle}
-        />
-      )}
 
       {printingCajaId && (
         <CierreDetailPrintView

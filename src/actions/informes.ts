@@ -266,6 +266,7 @@ export type ReporteCierre = {
   totalVentas: number;
   estado: string;
   totalEsperado: number;
+  totalContado: number | null;
 };
 
 export type DetalleCierreCompleto = ReporteCierre & {
@@ -478,9 +479,126 @@ export async function getReporteCierres(
       totalVentas: c.totalVentas,
       estado: c.estado,
       totalEsperado: c.montoInicial + c.totalVentas,
+      totalContado: c.totalContado ?? null,
     }));
   } catch (error) {
     console.error("Error en getReporteCierres:", error);
+    return [];
+  }
+}
+
+// ─── CIERRES MENSUALES (agrupado por año-mes de fecha_cierre) ───────
+
+export type CierreMensual = {
+  mes: string;            // "YYYY-MM" — año-mes LOCAL de fecha_cierre
+  anio: number;
+  mesLabel: string;       // Etiqueta es-AR, ej. "Agosto"
+  totalCierres: number;   // Filas del grupo
+  cerrados: number;       // Conteo CERRADA (== totalCierres bajo el filtro; se mantiene por REQ-02)
+  montoInicial: number;   // Suma de montoInicial
+  totalVentas: number;    // Suma de totalVentas
+  totalEsperado: number;  // Suma de (montoInicial + totalVentas) por fila
+  totalContado: number;   // Suma de (totalContado ?? 0)
+  diferenciaNeta: number; // Suma de ((totalContado ?? totalEsperado) - totalEsperado) → null aporta 0
+  conDiferencia: number;  // Filas con diferencia ≠ 0 (null excluidas, REQ-03)
+};
+
+const MESES_ES = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+] as const;
+
+export async function getCierresMensuales(
+  fechaDesde?: string,
+  fechaHasta?: string,
+  empleadoId?: number
+): Promise<CierreMensual[]> {
+  try {
+    await requirePermission("informes.ver");
+    const where: Prisma.CajaWhereInput = {
+      estado: "CERRADA",
+      fechaCierre: { not: null }, // excluye ABIERTA (fecha_cierre null)
+    };
+
+    // Rango sobre fecha_cierre (F1: strings datetime local completo, sin Z)
+    if (fechaDesde || fechaHasta) {
+      const rango: Prisma.DateTimeNullableFilter = { not: null };
+      if (fechaDesde) rango.gte = new Date(fechaDesde);
+      if (fechaHasta) {
+        const hasta = new Date(fechaHasta);
+        hasta.setHours(23, 59, 59, 999);
+        rango.lte = hasta;
+      }
+      where.fechaCierre = rango;
+    }
+    if (empleadoId) where.usuarioId = empleadoId;
+
+    const cajas = await prisma.caja.findMany({
+      where,
+      include: { usuario: { select: { username: true } } },
+      orderBy: { fechaCierre: "asc" },
+    });
+
+    // Agrupación por año-mes LOCAL de fecha_cierre (getFullYear/getMonth, NO getUTC*)
+    // Nota: una caja abierta el 31 a las 23:50 y cerrada el 1 a las 00:10 se resume
+    // bajo el mes de fecha_cierre, aunque su arqueo aparezca en la expansión del mes
+    // anterior (getReporteCierres filtra por fechaApertura — queries existentes intactas).
+    const grupos = new Map<string, CierreMensual & { mesNum: number }>();
+    for (const c of cajas) {
+      const f = c.fechaCierre!; // seguro: filtro fechaCierre not null
+      const anio = f.getFullYear();
+      const mesNum = f.getMonth() + 1;
+      const key = `${anio}-${String(mesNum).padStart(2, "0")}`;
+
+      const totalEsperado = c.montoInicial + c.totalVentas;
+      const contado = c.totalContado ?? 0;
+      const diff = (c.totalContado ?? totalEsperado) - totalEsperado;
+
+      let g = grupos.get(key);
+      if (!g) {
+        g = {
+          mes: key,
+          anio,
+          mesNum,
+          mesLabel: MESES_ES[mesNum - 1],
+          totalCierres: 0,
+          cerrados: 0,
+          montoInicial: 0,
+          totalVentas: 0,
+          totalEsperado: 0,
+          totalContado: 0,
+          diferenciaNeta: 0,
+          conDiferencia: 0,
+        };
+        grupos.set(key, g);
+      }
+      g.totalCierres += 1;
+      if (c.estado === "CERRADA") g.cerrados += 1;
+      g.montoInicial += c.montoInicial;
+      g.totalVentas += c.totalVentas;
+      g.totalEsperado += totalEsperado;
+      g.totalContado += contado;
+      g.diferenciaNeta += diff;
+      if (c.totalContado !== null && diff !== 0) g.conDiferencia += 1;
+    }
+
+    return Array.from(grupos.values())
+      .sort((a, b) => b.anio * 100 + b.mesNum - (a.anio * 100 + a.mesNum))
+      .map((g): CierreMensual => ({
+        mes: g.mes,
+        anio: g.anio,
+        mesLabel: g.mesLabel,
+        totalCierres: g.totalCierres,
+        cerrados: g.cerrados,
+        montoInicial: g.montoInicial,
+        totalVentas: g.totalVentas,
+        totalEsperado: g.totalEsperado,
+        totalContado: g.totalContado,
+        diferenciaNeta: g.diferenciaNeta,
+        conDiferencia: g.conDiferencia,
+      }));
+  } catch (error) {
+    console.error("Error en getCierresMensuales:", error);
     return [];
   }
 }
@@ -1607,6 +1725,80 @@ export async function getFrecuenciaComprasCliente(): Promise<{
   } catch (error) {
     console.error("Error en getFrecuenciaComprasCliente:", error);
     return { data: [], total: 0 };
+  }
+}
+
+// ─── 30. EVOLUCIÓN DE VENTAS PARA GRÁFICO ───────────────────
+
+export async function getEvolucionVentas(
+  fechaDesde?: string,
+  fechaHasta?: string,
+  agruparPor: "dia" | "semana" | "mes" | "anio" = "dia"
+): Promise<{ data: { periodo: string; ventas: number; ganancia: number; fechaInicio: string; fechaFin: string }[] }> {
+  try {
+    await requirePermission("informes.ver");
+
+    const dateFilter = buildDateFilter(fechaDesde, fechaHasta);
+
+    const ventas = await prisma.venta.findMany({
+      where: dateFilter,
+      include: {
+        detalles: {
+          include: { producto: { select: { precioCompra: true } } },
+        },
+      },
+      orderBy: { fecha: "asc" },
+    });
+
+    const agrupado: Record<string, { ventas: number; costo: number; fecha: Date; fechaFin: Date }> = {};
+    for (const v of ventas) {
+      let periodo: string;
+      let fechaFin = v.fecha;
+      if (agruparPor === "anio") {
+        periodo = v.fecha.toLocaleDateString("es-AR", { year: "numeric" });
+      } else if (agruparPor === "mes") {
+        periodo = v.fecha.toLocaleDateString("es-AR", { month: "long", year: "numeric" });
+      } else if (agruparPor === "semana") {
+        // Calcular inicio de semana (lunes) usando fecha local para evitar bug de timezone
+        const y = v.fecha.getFullYear();
+        const m = v.fecha.getMonth();
+        const d = v.fecha.getDate();
+        const dayOfWeek = v.fecha.getDay(); // 0=Dom, 1=Lun, ...
+        const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        const inicioLocal = new Date(y, m, d - diffToMonday);
+        const finLocal = new Date(y, m, d - diffToMonday + 6);
+        fechaFin = finLocal;
+        // Calcular número de semana real según el día del mes del lunes
+        const diaDelMes = inicioLocal.getDate();
+        const numSemana = Math.ceil(diaDelMes / 7);
+        const mesLargo = inicioLocal.toLocaleDateString("es-AR", { month: "long" });
+        periodo = `S${numSemana} ${mesLargo}`;
+      } else {
+        periodo = v.fecha.toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "2-digit" });
+      }
+
+      if (!agrupado[periodo]) agrupado[periodo] = { ventas: 0, costo: 0, fecha: v.fecha, fechaFin };
+      agrupado[periodo].ventas += v.total;
+      agrupado[periodo].costo += v.detalles.reduce(
+        (s, d) => s + d.cantidad * d.producto.precioCompra,
+        0
+      );
+    }
+
+    const data = Object.entries(agrupado)
+      .map(([periodo, vals]) => ({
+        periodo,
+        ventas: vals.ventas,
+        ganancia: vals.ventas - vals.costo,
+        fechaInicio: vals.fecha.toISOString(),
+        fechaFin: vals.fechaFin.toISOString(),
+      }))
+      .sort((a, b) => a.fechaInicio.localeCompare(b.fechaInicio));
+
+    return { data };
+  } catch (error) {
+    console.error("Error en getEvolucionVentas:", error);
+    return { data: [] };
   }
 }
 

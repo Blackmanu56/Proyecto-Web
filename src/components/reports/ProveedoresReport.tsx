@@ -33,11 +33,11 @@ function DataSection({ title, loading, onLoad, loaded, children }: {
 }) {
   if (!loaded) {
     return (
-      <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-4">
+      <div className="bg-card rounded-xl border border-border p-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-slate-300">{title}</h3>
+          <h3 className="text-sm font-semibold text-text-muted">{title}</h3>
           <button onClick={onLoad} disabled={loading}
-            className="px-3 py-1.5 text-xs font-bold rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600 disabled:opacity-40 transition">
+            className="px-3 py-1.5 text-xs font-bold rounded-lg bg-border text-text-muted hover:bg-border-hover disabled:opacity-40 transition">
             {loading ? "Cargando..." : "Cargar"}
           </button>
         </div>
@@ -46,7 +46,7 @@ function DataSection({ title, loading, onLoad, loaded, children }: {
   }
   return (
     <div className="space-y-2">
-      <h3 className="text-sm font-semibold text-slate-300">{title}</h3>
+      <h3 className="text-sm font-semibold text-text-muted">{title}</h3>
       {children}
     </div>
   );
@@ -147,18 +147,18 @@ export default function ProveedoresReport({}: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="print:hidden bg-slate-900/50 border border-slate-800 rounded-xl p-4 space-y-3">
-        <h3 className="text-sm font-bold text-slate-300 flex items-center gap-2"><Search size={14} />Filtros</h3>
+      <div className="print:hidden bg-panel border border-border rounded-xl p-4 space-y-3">
+        <h3 className="text-sm font-bold text-text-muted flex items-center gap-2"><Search size={14} />Filtros</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           <div>
-            <label className="text-xs font-semibold text-slate-400 flex items-center gap-1 mb-1"><Search size={12} /> Búsqueda</label>
+            <label className="text-xs font-semibold text-text-muted flex items-center gap-1 mb-1"><Search size={12} /> Búsqueda</label>
             <input type="text" placeholder="Nombre del proveedor..." value={searchText} onChange={(e) => setSearchText(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
+              className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text placeholder:text-text-secondary focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
           </div>
           <div>
-            <label className="text-xs font-semibold text-slate-400 mb-1 block">Estado</label>
+            <label className="text-xs font-semibold text-text-muted mb-1 block">Estado</label>
             <select value={estadoFiltro} onChange={(e) => setEstadoFiltro(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
+              className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
               <option value="todos">Todos</option>
               <option value="activo">Activos</option>
               <option value="inactivo">Inactivos</option>
@@ -171,7 +171,7 @@ export default function ProveedoresReport({}: Props) {
             <RefreshCw size={14} className={isPending ? "animate-spin" : ""} />{isPending ? "Buscando..." : "Buscar"}
           </button>
           <button onClick={handlePrint}
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition"><Printer size={14} /> Imprimir</button>
+            className="px-4 py-2 bg-border hover:bg-border-hover text-text text-sm font-bold rounded-lg flex items-center gap-2 transition"><Printer size={14} /> Imprimir</button>
         </div>
       </div>
 
@@ -186,7 +186,7 @@ export default function ProveedoresReport({}: Props) {
         <div className="report-section" data-section-id="kpis" data-print-active={printSection === "kpis" || null}>
           <div className="flex items-center justify-end mb-2 print:hidden">
             <button onClick={() => setPrintSection("kpis")}
-              className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
+              className="p-1.5 rounded-lg bg-border text-text-muted hover:text-emerald-400 hover:bg-border-hover transition print:hidden"
               title="Imprimir esta sección">
               <Printer size={12} />
             </button>
@@ -199,9 +199,9 @@ export default function ProveedoresReport({}: Props) {
         {/* Main table */}
         <div className="report-section" data-section-id="table" data-print-active={printSection === "table" || null}>
           <div className="flex items-center justify-between mb-2 print:hidden">
-            <h3 className="text-sm font-semibold text-slate-300">Proveedores</h3>
+            <h3 className="text-sm font-semibold text-text-muted">Proveedores</h3>
             <button onClick={() => setPrintSection("table")}
-              className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
+              className="p-1.5 rounded-lg bg-border text-text-muted hover:text-emerald-400 hover:bg-border-hover transition print:hidden"
               title="Imprimir esta sección">
               <Printer size={12} />
             </button>
@@ -225,7 +225,7 @@ export default function ProveedoresReport({}: Props) {
         <div className="report-section" data-section-id="charts" data-print-active={printSection === "charts" || null}>
           <div className="flex items-center justify-end mb-2 print:hidden">
             <button onClick={() => setPrintSection("charts")}
-              className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
+              className="p-1.5 rounded-lg bg-border text-text-muted hover:text-emerald-400 hover:bg-border-hover transition print:hidden"
               title="Imprimir esta sección">
               <Printer size={12} />
             </button>
@@ -263,7 +263,7 @@ export default function ProveedoresReport({}: Props) {
         <div className="report-section" data-section-id="data-sections" data-print-active={printSection === "data-sections" || null}>
           <div className="flex items-center justify-end mb-2 print:hidden">
             <button onClick={() => setPrintSection("data-sections")}
-              className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition print:hidden"
+              className="p-1.5 rounded-lg bg-border text-text-muted hover:text-emerald-400 hover:bg-border-hover transition print:hidden"
               title="Imprimir esta sección">
               <Printer size={12} />
             </button>

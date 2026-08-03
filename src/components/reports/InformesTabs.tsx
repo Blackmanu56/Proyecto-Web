@@ -140,10 +140,10 @@ export default function InformesTabs({
   return (
     <div className="space-y-6">
       {/* Tab Navigation */}
-      <div className="relative bg-[var(--panel)] border border-[var(--border)] rounded-[var(--radius-lg)] p-1">
+      <div className="relative bg-[var(--panel)] border border-[var(--border)] rounded-[var(--radius-lg)] p-1 w-full">
         <div
           ref={tabsRef}
-          className="relative flex overflow-x-auto scrollbar-hide"
+          className="relative flex w-full overflow-x-auto scrollbar-hide"
         >
           {/* Animated underline indicator */}
           <div
@@ -156,7 +156,7 @@ export default function InformesTabs({
               key={tab}
               data-tab={tab}
               onClick={() => setActiveTab(tab)}
-              className={`relative flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${
+              className={`relative flex flex-1 items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${
                 activeTab === tab
                   ? "text-white"
                   : "text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--card)]"
