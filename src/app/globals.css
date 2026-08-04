@@ -131,6 +131,7 @@ body {
   display: none;
 }
 
+
 /* ── Terminal Ventas Layout ── */
 @media (min-width: 1024px) {
   body.ventas-active {
@@ -401,4 +402,3 @@ input::-ms-reveal {
   position: absolute !important;
   pointer-events: none !important;
 }
-

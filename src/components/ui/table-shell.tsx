@@ -141,7 +141,7 @@ function TableShell({
       </div>
 
       {/* Content */}
-      <div className={`flex-1 min-h-0 overflow-hidden ${centeredHeaderControls ? hideHeaderTitle ? "p-3 pt-2" : "p-4 pt-3" : "p-3"}`}>
+      <div className={`flex flex-1 min-h-0 flex-col overflow-hidden ${centeredHeaderControls ? hideHeaderTitle ? "p-3 pt-2" : "p-4 pt-3" : "p-3"}`}>
         {isLoading ? (
           <LoadingSkeleton />
         ) : isEmpty ? (
@@ -150,7 +150,7 @@ function TableShell({
             <p>{emptyMessage}</p>
           </div>
         ) : (
-          <div className="overflow-auto flex-1 min-h-0 max-h-[calc(100vh-22rem)] pb-8">
+          <div className="flex-1 min-h-0 overflow-x-auto overflow-y-auto pr-1">
             {children}
           </div>
         )}

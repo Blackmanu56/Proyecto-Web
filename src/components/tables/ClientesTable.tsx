@@ -438,6 +438,7 @@ export default function ClientesTable({
           </div>
         }
       >
+        <div className="min-w-full">
         <table className="w-full table-fixed border-separate border-spacing-0 text-left min-w-[900px]">
           <colgroup>
             <col style={{ width: "22%" }} />
@@ -594,6 +595,7 @@ export default function ClientesTable({
             ))}
           </tbody>
         </table>
+        </div>
       </TableShell>
 
       {/* ─── Modal Registrar Cliente ─── */}

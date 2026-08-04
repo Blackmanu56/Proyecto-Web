@@ -19,7 +19,6 @@ import ReactivarModal from "@/components/ui/ReactivarModal";
 import RestarStockModal from "@/components/ui/RestarStockModal";
 import { TableShell } from "@/components/ui/table-shell";
 import { cn,formatCurrency } from "@/lib/utils";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import {
 AlertTriangle,
@@ -39,7 +38,6 @@ History,
 Info,
 Layers,
 ListFilter,
-MoreHorizontal,
 Package,
 PackageCheck,
 PackageX,
@@ -106,10 +104,8 @@ const COLUMNS: ColumnDef[] = [
   { key: "precioCompra", label: "Precio Compra", sortable: true, sortField: "precioCompra", defaultVisible: false, align: "right", className: "text-right" },
   { key: "precioVenta", label: "Precio Venta", sortable: true, sortField: "precioVenta", defaultVisible: true, align: "right", className: "text-right" },
   { key: "stock", label: "Stock", sortable: true, sortField: "stock", defaultVisible: true, align: "center" },
-  { key: "stockMinimo", label: "Stock Mínimo", sortable: true, sortField: "stockMinimo", defaultVisible: false, align: "center" },
   { key: "proveedor", label: "Proveedor", sortable: true, sortField: "proveedor", defaultVisible: false, align: "left" },
   { key: "estado", label: "Estado", sortable: false, defaultVisible: true, align: "center" },
-  { key: "acciones", label: "Acciones", sortable: false, defaultVisible: true, align: "center" },
 ];
 
 const COLUMN_WIDTH_CLASSES: Record<string, string> = {
@@ -119,10 +115,8 @@ const COLUMN_WIDTH_CLASSES: Record<string, string> = {
   precioCompra: "w-[8%]",
   precioVenta: "w-[8%]",
   stock: "w-[6%]",
-  stockMinimo: "w-[7%]",
   proveedor: "w-[10%]",
   estado: "w-[5%]",
-  acciones: "w-[5%]",
 };
 
 const COLUMN_VISIBILITY_KEY = "productos-column-visibility";
@@ -361,89 +355,6 @@ function Combobox({ value, onChange, options, placeholder = "Buscar...", onCreat
   );
 }
 
-/* ────────────────────── Actions Dropdown ────────────────────── */
-
-interface ActionsDropdownProps {
-  product: Product;
-  userRole: string;
-  onEdit: (p: Product) => void;
-  onDarBaja: (p: Product) => void;
-  onReactivar: (p: Product) => void;
-  onHistorial: (p: Product) => void;
-  onRestarStock: (p: Product) => void;
-}
-
-function ActionsDropdown({ product, userRole, onEdit, onDarBaja, onReactivar, onHistorial, onRestarStock }: ActionsDropdownProps) {
-  const canEdit = ["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(userRole);
-
-  return (
-    <DropdownMenu.Root>
-      <DropdownMenu.Trigger asChild>
-        <button
-          type="button"
-          className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-[var(--text-secondary)] transition-all duration-150 hover:bg-white/[0.06] hover:text-[var(--text)] data-[state=open]:bg-[#3B82F6]/12 data-[state=open]:text-[#60A5FA] data-[state=open]:ring-1 data-[state=open]:ring-[#3B82F6]/20"
-          title="Acciones"
-        >
-          <MoreHorizontal size={18} />
-        </button>
-      </DropdownMenu.Trigger>
-
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content
-          side="bottom"
-          align="end"
-          sideOffset={4}
-          className="z-50 w-56 bg-[var(--panel)] border border-[var(--border)] rounded-[var(--radius-md)] shadow-[var(--shadow-lg)] py-1.5"
-        >
-          {canEdit && (
-            <DropdownMenu.Item
-              onSelect={() => onEdit(product)}
-              className="w-full text-left px-3.5 py-2.5 text-sm text-[var(--text)] hover:bg-[var(--border)]/60 flex items-center gap-2.5 transition-colors outline-none cursor-pointer"
-            >
-              <Edit2 size={16} className="text-[var(--text-secondary)]" />
-              Editar
-            </DropdownMenu.Item>
-          )}
-          <DropdownMenu.Item
-            onSelect={() => onHistorial(product)}
-            className="w-full text-left px-3.5 py-2.5 text-sm text-[var(--text)] hover:bg-[var(--border)]/60 flex items-center gap-2.5 transition-colors outline-none cursor-pointer"
-          >
-            <Tag size={16} className="text-[var(--text-secondary)]" />
-            Historial de estados
-          </DropdownMenu.Item>
-          {canEdit && product.activo && (
-            <DropdownMenu.Item
-              onSelect={() => onRestarStock(product)}
-              className="w-full text-left px-3.5 py-2.5 text-sm text-[var(--warning)] hover:bg-[var(--warning-light)]/20 flex items-center gap-2.5 transition-colors outline-none cursor-pointer"
-            >
-              <TrendingDown size={16} />
-              Restar stock
-            </DropdownMenu.Item>
-          )}
-          <DropdownMenu.Separator className="my-1 border-t border-[var(--border)]/60" />
-          {canEdit && product.activo && (
-            <DropdownMenu.Item
-              onSelect={() => onDarBaja(product)}
-              className="w-full text-left px-3.5 py-2.5 text-sm text-[var(--danger)] hover:bg-[var(--danger-light)]/20 flex items-center gap-2.5 transition-colors outline-none cursor-pointer"
-            >
-              <AlertTriangle size={16} />
-              Dar de baja
-            </DropdownMenu.Item>
-          )}
-          {canEdit && !product.activo && (
-            <DropdownMenu.Item
-              onSelect={() => onReactivar(product)}
-              className="w-full text-left px-3.5 py-2.5 text-sm text-[var(--success)] hover:bg-[var(--success-light)]/20 flex items-center gap-2.5 transition-colors outline-none cursor-pointer"
-            >
-              <RotateCcw size={16} />
-              Reactivar
-            </DropdownMenu.Item>
-          )}
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-    </DropdownMenu.Root>
-  );
-}
 
 /* ────────────────────── Admin Categorías Modal ────────────────────── */
 
@@ -796,7 +707,10 @@ export default function ProductosTable({
     estado: ShieldCheck,
   };
 
-  const vis = (key: string) => key === "nombre" || colVis[key] !== false;
+  const vis = (key: string) => {
+    if (key === "stockMinimo") return false;
+    return key === "nombre" || colVis[key] !== false;
+  };
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -1190,7 +1104,7 @@ export default function ProductosTable({
                     {vis("stockMinimo") && (
                       <td className="py-3 px-4 text-center">
                         <span className="inline-flex items-center rounded-full border border-slate-500/20 bg-slate-400/8 px-2.5 py-1 text-[11px] font-mono font-semibold leading-none text-slate-300">
-                          Min: {p.stockMinimo}
+                          {p.stockMinimo} u
                         </span>
                       </td>
                     )}
@@ -1202,19 +1116,6 @@ export default function ProductosTable({
                         <Badge variant={p.activo ? "success" : "danger"} size="sm">
                           {p.activo ? "Activo" : "Inactivo"}
                         </Badge>
-                      </td>
-                    )}
-                    {vis("acciones") && (
-                      <td className="py-3 px-4 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                        <ActionsDropdown
-                          product={p}
-                          userRole={userRole}
-                          onEdit={handleEdit}
-                          onDarBaja={handleDarBaja}
-                          onReactivar={handleReactivar}
-                          onHistorial={handleHistorial}
-                          onRestarStock={handleRestarStock}
-                        />
                       </td>
                     )}
                   </tr>
