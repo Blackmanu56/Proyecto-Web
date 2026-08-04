@@ -6,10 +6,9 @@ import {
 } from "@/actions/informes";
 import { formatCurrency } from "@/lib/utils";
 import {
-  Search, RefreshCw, Printer, ShoppingCart, Package,
-  DollarSign, TrendingUp, AlertTriangle, Truck,
+  Search, RefreshCw, Printer,
+  ChevronDown, ChevronUp, ShieldCheck,
 } from "lucide-react";
-import StatCard from "@/components/ui/StatCard";
 import ChartWrapper, { CHART_COLORS } from "@/components/ui/ChartWrapper";
 import DataTable from "@/components/ui/DataTable";
 import {
@@ -22,6 +21,9 @@ type ProveedorReportRow = ProveedoresReportResult["data"][number];
 type SinMovimientoRow = Awaited<ReturnType<typeof getSinMovimientoProductos>>["data"][number];
 type StockBajoRow = Awaited<ReturnType<typeof getStockBajo>>["data"][number];
 type ReposicionRow = Awaited<ReturnType<typeof getReposicionProductos>>["data"][number];
+
+const inputClass =
+  "w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/40 focus:border-[var(--brand)] transition";
 
 interface Props {
   initialData?: ProveedoresReportResult;
@@ -58,6 +60,7 @@ export default function ProveedoresReport({}: Props) {
   const [searchText, setSearchText] = useState("");
   const [estadoFiltro, setEstadoFiltro] = useState("todos");
   const [isPending, startTransition] = useTransition();
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const [sinMovimiento, setSinMovimiento] = useState<SinMovimientoRow[] | null>(null);
   const [stockBajo, setStockBajo] = useState<StockBajoRow[] | null>(null);
@@ -108,12 +111,12 @@ export default function ProveedoresReport({}: Props) {
     const stockBajoCount = proveedores.reduce((s, p) => s + p.stockBajoCount, 0);
 
     return [
-      { label: "Total Proveedores", value: total.toString(), icon: <Truck size={18} />, color: "indigo" as const },
-      { label: "Proveedores Activos", value: activos.toString(), icon: <Package size={18} />, color: "emerald" as const },
-      { label: "Productos en Stock", value: totalProductos.toString(), icon: <ShoppingCart size={18} />, color: "sky" as const },
-      { label: "Valor Stock Total", value: formatCurrency(valorStockTotal), icon: <DollarSign size={18} />, color: "amber" as const },
-      { label: "Valor Stock Costo", value: formatCurrency(valorStockTotal), icon: <TrendingUp size={18} />, color: "rose" as const },
-      { label: "Stock Bajo", value: stockBajoCount.toString(), icon: <AlertTriangle size={18} />, color: "purple" as const },
+      { label: "Total Proveedores", value: total.toString() },
+      { label: "Proveedores Activos", value: activos.toString() },
+      { label: "Productos en Stock", value: totalProductos.toString() },
+      { label: "Valor Stock Total", value: formatCurrency(valorStockTotal) },
+      { label: "Valor Stock Costo", value: formatCurrency(valorStockTotal) },
+      { label: "Stock Bajo", value: stockBajoCount.toString() },
     ];
   }, [proveedores, proveedoresTotal]);
 
@@ -147,32 +150,73 @@ export default function ProveedoresReport({}: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="print:hidden bg-panel border border-border rounded-xl p-4 space-y-3">
-        <h3 className="text-sm font-bold text-text-muted flex items-center gap-2"><Search size={14} />Filtros</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          <div>
-            <label className="text-xs font-semibold text-text-muted flex items-center gap-1 mb-1"><Search size={12} /> Búsqueda</label>
-            <input type="text" placeholder="Nombre del proveedor..." value={searchText} onChange={(e) => setSearchText(e.target.value)}
-              className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text placeholder:text-text-secondary focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-text-muted mb-1 block">Estado</label>
-            <select value={estadoFiltro} onChange={(e) => setEstadoFiltro(e.target.value)}
-              className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
-              <option value="todos">Todos</option>
-              <option value="activo">Activos</option>
-              <option value="inactivo">Inactivos</option>
-            </select>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={handleSearch} disabled={isPending}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition">
-            <RefreshCw size={14} className={isPending ? "animate-spin" : ""} />{isPending ? "Buscando..." : "Buscar"}
+      {/* Barra de filtros colapsable (mismo patrón que VentasReport/CierresReport) */}
+      <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl overflow-hidden">
+        {/* Fila superior: toggle */}
+        <div className="flex items-center gap-4 px-4 py-3">
+          <button
+            onClick={() => setFiltersOpen(!filtersOpen)}
+            className="flex items-center gap-2 hover:text-[var(--text)] transition-colors shrink-0"
+          >
+            <Search size={14} className="text-[var(--text-muted)]" />
+            <span className="text-sm font-semibold text-[var(--text-muted)]">
+              {filtersOpen ? "Ocultar filtros" : "Filtros"}
+            </span>
+            {filtersOpen ? (
+              <ChevronUp size={14} className="text-[var(--text-muted)]" />
+            ) : (
+              <ChevronDown size={14} className="text-[var(--text-muted)]" />
+            )}
           </button>
-          <button onClick={handlePrint}
-            className="px-4 py-2 bg-border hover:bg-border-hover text-text text-sm font-bold rounded-lg flex items-center gap-2 transition"><Printer size={14} /> Imprimir</button>
         </div>
+
+        {/* Contenido colapsable */}
+        {filtersOpen && (
+          <div className="px-4 pb-4 space-y-3 border-t border-[var(--border)]">
+            <div className="pt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
+                  <Search size={12} /> Búsqueda
+                </label>
+                <input
+                  type="text"
+                  placeholder="Nombre del proveedor..."
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
+                  <ShieldCheck size={12} /> Estado
+                </label>
+                <select value={estadoFiltro} onChange={(e) => setEstadoFiltro(e.target.value)} className={inputClass}>
+                  <option value="todos">Todos</option>
+                  <option value="activo">Activos</option>
+                  <option value="inactivo">Inactivos</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Botones de acción */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={handleSearch}
+                disabled={isPending}
+                className="px-4 py-2 bg-[var(--brand)] hover:bg-[var(--brand-hover)] disabled:opacity-50 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition"
+              >
+                <RefreshCw size={14} className={isPending ? "animate-spin" : ""} />
+                {isPending ? "Buscando..." : "Buscar"}
+              </button>
+              <button
+                onClick={handlePrint}
+                className="px-4 py-2 bg-[var(--card)] hover:bg-[var(--border)] text-[var(--text-muted)] text-sm font-bold rounded-lg flex items-center gap-2 transition border border-[var(--border)]"
+              >
+                <Printer size={14} /> Imprimir
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="print:bg-white print:text-black space-y-4">
@@ -182,17 +226,16 @@ export default function ProveedoresReport({}: Props) {
           <hr className="my-2 border-gray-300" />
         </div>
 
-        {/* KPIs */}
-        <div className="report-section" data-section-id="kpis" data-print-active={printSection === "kpis" || null}>
-          <div className="flex items-center justify-end mb-2 print:hidden">
-            <button onClick={() => setPrintSection("kpis")}
-              className="p-1.5 rounded-lg bg-border text-text-muted hover:text-emerald-400 hover:bg-border-hover transition print:hidden"
-              title="Imprimir esta sección">
-              <Printer size={12} />
-            </button>
-          </div>
+        {/* Resumen */}
+        <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl p-4">
+          <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-3">Resumen</h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            {kpiData.map((kpi, i) => <StatCard key={i} {...kpi} />)}
+            {kpiData.map((kpi, i) => (
+              <div key={i} className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 text-center">
+                <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">{kpi.label}</div>
+                <div className="text-sm font-bold text-[var(--text)]">{kpi.value}</div>
+              </div>
+            ))}
           </div>
         </div>
 

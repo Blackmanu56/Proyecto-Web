@@ -43,6 +43,7 @@
   }
 
   /* ── Ocultar chrome de navegación ─────────────────────────── */
+  header,
   nav,
   .navbar,
   .sidebar,
@@ -72,7 +73,11 @@
   [class*="bg-panel"],
   [class*="bg-card"],
   [class*="bg-bg"],
-  [class*="bg-border"] {
+  [class*="bg-border"],
+  [class*="bg-[var(--panel)]"],
+  [class*="bg-[var(--card)]"],
+  [class*="bg-[var(--border)]"],
+  [class*="bg-[var(--bg)]"] {
     background: #ffffff !important;
     color: #1e293b !important;
   }
@@ -95,7 +100,9 @@
   .text-slate-300,
   .text-slate-400,
   .text-text,
-  .text-text-muted {
+  .text-text-muted,
+  [class*="text-[var(--text)]"],
+  [class*="text-[var(--text-muted)]"] {
     color: #1e293b !important;
   }
 
@@ -128,8 +135,7 @@
   .kpi-grid,
   tr,
   th,
-  td,
-  .report-section {
+  td {
     page-break-inside: avoid;
     break-inside: avoid;
   }
@@ -146,7 +152,8 @@
   td,
   [class*="border-slate"],
   [class*="border-gray"],
-  [class*="border-border"] {
+  [class*="border-border"],
+  [class*="border-[var(--border)]"] {
     border-color: #cbd5e1 !important;
   }
 
@@ -227,4 +234,20 @@
 
 .report-section {
   position: relative;
+}
+
+/* ── Desactivar efecto hover de recharts ─────────────────────── */
+/* Tooltip sigue funcionando; solo se elimina el cambio visual   */
+/* (brillo/opacidad) que recharts aplica al hacer hover.        */
+.recharts-bar-rectangle:hover,
+.recharts-pie-sector:hover {
+  filter: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+.recharts-bar-rectangle:hover rect,
+.recharts-pie-sector:hover path {
+  filter: none !important;
+  opacity: 1 !important;
 }

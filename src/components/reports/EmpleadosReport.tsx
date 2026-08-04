@@ -3,28 +3,41 @@
 import { getActividadRecienteVendedores,getRankingVendedores,getReporteEmpleados,getVentasPorVendedorComision } from "@/actions/informes";
 import ChartWrapper,{ CHART_COLORS } from "@/components/ui/ChartWrapper";
 import DataTable from "@/components/ui/DataTable";
-import StatCard from "@/components/ui/StatCard";
 import { formatCurrency } from "@/lib/utils";
 import {
-Award,
 Calendar,
-Medal,
+ChevronDown,
+ChevronUp,
 Printer,
 RefreshCw,
 Search,
-Star,
-TrendingUp,
+User,
 UserCheck,
-Users,
-Wallet,
 } from "lucide-react";
 import { useEffect,useMemo,useState,useTransition } from "react";
 import { Area,AreaChart,Bar,BarChart,CartesianGrid,XAxis,YAxis } from "recharts";
+import { getCierresDateRange } from "@/lib/reportPeriods";
+import type { PeriodoPreset } from "@/lib/reportPeriods";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 
 type EmpleadoReportRow = Awaited<ReturnType<typeof getReporteEmpleados>>[number];
 type RankingVendedorRow = Awaited<ReturnType<typeof getRankingVendedores>>["data"][number];
 type ActividadVendedorRow = Awaited<ReturnType<typeof getActividadRecienteVendedores>>["data"][number];
 type VentasPorVendedorRow = Awaited<ReturnType<typeof getVentasPorVendedorComision>>["data"][number];
+type PeriodoSeleccion = PeriodoPreset | "personalizado";
+
+const PERIOD_OPTIONS: { value: PeriodoSeleccion; label: string }[] = [
+  { value: "dia", label: "Día" },
+  { value: "semana", label: "Semana" },
+  { value: "mes", label: "Mes" },
+  { value: "anio", label: "Año" },
+  { value: "personalizado", label: "Personalizado" },
+];
+
+const inputClass =
+  "w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/40 focus:border-[var(--brand)] transition";
 
 interface Props {
   initialData: EmpleadoReportRow[];
@@ -38,6 +51,8 @@ export default function EmpleadosReport({ initialData }: Props) {
   const [rolFiltro, setRolFiltro] = useState("");
   const [searchUser, setSearchUser] = useState("");
   const [isPending, startTransition] = useTransition();
+  const [activePeriod, setActivePeriod] = useState<PeriodoSeleccion>("dia");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const [ranking, setRanking] = useState<RankingVendedorRow[] | null>(null);
   const [actividad, setActividad] = useState<ActividadVendedorRow[] | null>(null);
@@ -45,12 +60,23 @@ export default function EmpleadosReport({ initialData }: Props) {
   const [loadingSection, setLoadingSection] = useState<string | null>(null);
   const [printSection, setPrintSection] = useState<string | null>(null);
 
-  const handleSearch = () => {
+  const handleSearch = (desde = fechaDesde, hasta = fechaHasta) => {
     startTransition(async () => {
-      const result = await getReporteEmpleados(fechaDesde || undefined, fechaHasta || undefined);
+      const result = await getReporteEmpleados(desde || undefined, hasta || undefined);
       setData(result);
       setRanking(null); setActividad(null); setVentasPorVend(null);
     });
+  };
+
+  const handlePeriodChange = (period: PeriodoSeleccion) => {
+    setActivePeriod(period);
+    if (period === "personalizado") return; // el usuario elige Desde/Hasta y presiona Buscar
+    const range = getCierresDateRange(period);
+    const desde = range.desde.slice(0, 10);
+    const hasta = range.hasta.slice(0, 10);
+    setFechaDesde(desde);
+    setFechaHasta(hasta);
+    handleSearch(desde, hasta);
   };
 
   const loadSection = async (section: string, fetcher: () => Promise<unknown>) => {
@@ -90,41 +116,134 @@ export default function EmpleadosReport({ initialData }: Props) {
     const mejor = e.reduce((best: EmpleadoReportRow | null, x) => (x.totalVendido > (best?.totalVendido || 0) ? x : best), null);
     const peor = e.reduce((worst: EmpleadoReportRow | null, x) => ((x.totalVendido < (worst?.totalVendido || Infinity) && x.totalVendido > 0) ? x : worst), null);
     return [
-      { label: "Empleados", value: total.toString(), icon: <Users size={18} />, color: "indigo" as const },
-      { label: "Activos", value: total.toString(), icon: <UserCheck size={18} />, color: "emerald" as const },
-      { label: "Ventas Mes", value: totalVentas.toString(), icon: <TrendingUp size={18} />, color: "sky" as const },
-      { label: "Comisiones Pag.", value: formatCurrency(totalVendido * 0.05), icon: <Wallet size={18} />, color: "amber" as const },
-      { label: "Mejor Vend.", value: mejor && mejor.totalVendido > 0 ? mejor.nombreCompleto : "\u2014", icon: <Award size={18} />, color: "emerald" as const },
-      { label: "Peor Vend.", value: peor && peor.totalVendido > 0 ? peor.nombreCompleto : "\u2014", icon: <Medal size={18} />, color: "rose" as const },
-      { label: "Prom. x Empl.", value: formatCurrency(promEmpleado), icon: <Star size={18} />, color: "purple" as const },
+      { label: "Empleados", value: total.toString() },
+      { label: "Activos", value: total.toString() },
+      { label: "Ventas Mes", value: totalVentas.toString() },
+      { label: "Comisiones Pag.", value: formatCurrency(totalVendido * 0.05) },
+      { label: "Mejor Vend.", value: mejor && mejor.totalVendido > 0 ? mejor.nombreCompleto : "\u2014" },
+      { label: "Peor Vend.", value: peor && peor.totalVendido > 0 ? peor.nombreCompleto : "\u2014" },
+      { label: "Prom. x Empl.", value: formatCurrency(promEmpleado) },
     ];
   }, [empleadosFiltrados]);
 
   return (
     <div className="space-y-4">
-      <div className="print:hidden bg-panel border border-border rounded-xl p-4 space-y-3">
-        <h3 className="text-sm font-bold text-text-muted flex items-center gap-2"><Search size={14} />Filtros</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <div><label className="text-xs font-semibold text-text-muted flex items-center gap-1 mb-1"><Calendar size={12} /> Desde</label><input type="date" value={fechaDesde} onChange={(e) => setFechaDesde(e.target.value)} className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-emerald-500/50" /></div>
-          <div><label className="text-xs font-semibold text-text-muted flex items-center gap-1 mb-1"><Calendar size={12} /> Hasta</label><input type="date" value={fechaHasta} onChange={(e) => setFechaHasta(e.target.value)} className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-emerald-500/50" /></div>
-          <div><label className="text-xs font-semibold text-text-muted mb-1 block">Rol</label>
-            <select value={rolFiltro} onChange={(e) => setRolFiltro(e.target.value)} className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
-              <option value="">Todos</option>
-              <option value="ADMINISTRADOR">Admin</option>
-              <option value="ENCARGADO_VENTAS">Encargado de Ventas</option>
-              <option value="ENCARGADO_STOCK">Encargado de Stock</option>
-            </select>
-          </div>
-          <div><label className="text-xs font-semibold text-text-muted mb-1 block">Usuario</label>
-            <input type="text" placeholder="Buscar..." value={searchUser} onChange={(e) => setSearchUser(e.target.value)} className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text placeholder:text-text-secondary focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={handleSearch} disabled={isPending} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition">
-            <RefreshCw size={14} className={isPending ? "animate-spin" : ""} />{isPending ? "Buscando..." : "Buscar"}
+      {/* Barra de filtros colapsable (mismo patrón que VentasReport/CierresReport) */}
+      <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl overflow-hidden">
+        {/* Fila superior: toggle + período */}
+        <div className="flex items-center gap-4 px-4 py-3">
+          <button
+            onClick={() => setFiltersOpen(!filtersOpen)}
+            className="flex items-center gap-2 hover:text-[var(--text)] transition-colors shrink-0"
+          >
+            <Search size={14} className="text-[var(--text-muted)]" />
+            <span className="text-sm font-semibold text-[var(--text-muted)]">
+              {filtersOpen ? "Ocultar filtros" : "Filtros"}
+            </span>
+            {filtersOpen ? (
+              <ChevronUp size={14} className="text-[var(--text-muted)]" />
+            ) : (
+              <ChevronDown size={14} className="text-[var(--text-muted)]" />
+            )}
           </button>
-          <button onClick={handlePrint} className="px-4 py-2 bg-border hover:bg-border-hover text-text text-sm font-bold rounded-lg flex items-center gap-2 transition"><Printer size={14} /> Imprimir</button>
+
+          <div className="h-4 w-px bg-[var(--border)] shrink-0" />
+
+          <div className="flex items-center gap-2 shrink-0">
+            <Calendar size={14} className="text-[var(--text-muted)]" />
+            <span className="text-xs font-semibold text-[var(--text-muted)]">Período:</span>
+            <Select
+              value={activePeriod}
+              onValueChange={(v) => handlePeriodChange(v as PeriodoSeleccion)}
+            >
+              <SelectTrigger className="w-44 h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PERIOD_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
+
+        {/* Contenido colapsable */}
+        {filtersOpen && (
+          <div className="px-4 pb-4 space-y-3 border-t border-[var(--border)]">
+            <div className="pt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
+                  <Calendar size={12} /> Desde
+                </label>
+                <input
+                  type="date"
+                  value={fechaDesde}
+                  onChange={(e) => {
+                    setFechaDesde(e.target.value);
+                    setActivePeriod("personalizado");
+                  }}
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
+                  <Calendar size={12} /> Hasta
+                </label>
+                <input
+                  type="date"
+                  value={fechaHasta}
+                  onChange={(e) => {
+                    setFechaHasta(e.target.value);
+                    setActivePeriod("personalizado");
+                  }}
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
+                  <UserCheck size={12} /> Rol
+                </label>
+                <select value={rolFiltro} onChange={(e) => setRolFiltro(e.target.value)} className={inputClass}>
+                  <option value="">Todos</option>
+                  <option value="ADMINISTRADOR">Admin</option>
+                  <option value="ENCARGADO_VENTAS">Encargado de Ventas</option>
+                  <option value="ENCARGADO_STOCK">Encargado de Stock</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
+                  <User size={12} /> Usuario
+                </label>
+                <input
+                  type="text"
+                  placeholder="Buscar..."
+                  value={searchUser}
+                  onChange={(e) => setSearchUser(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+            </div>
+
+            {/* Botones de acción */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => handleSearch()}
+                disabled={isPending}
+                className="px-4 py-2 bg-[var(--brand)] hover:bg-[var(--brand-hover)] disabled:opacity-50 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition"
+              >
+                <RefreshCw size={14} className={isPending ? "animate-spin" : ""} />
+                {isPending ? "Buscando..." : "Buscar"}
+              </button>
+              <button
+                onClick={handlePrint}
+                className="px-4 py-2 bg-[var(--card)] hover:bg-[var(--border)] text-[var(--text-muted)] text-sm font-bold rounded-lg flex items-center gap-2 transition border border-[var(--border)]"
+              >
+                <Printer size={14} /> Imprimir
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="print:bg-white print:text-black space-y-4">
@@ -135,17 +254,16 @@ export default function EmpleadosReport({ initialData }: Props) {
           <hr className="my-2 border-gray-300" />
         </div>
 
-        {/* KPIs */}
-        <div className="report-section" data-section-id="kpis" data-print-active={printSection === "kpis" || null}>
-          <div className="flex items-center justify-end mb-2 print:hidden">
-            <button onClick={() => setPrintSection("kpis")}
-              className="p-1.5 rounded-lg bg-border text-text-muted hover:text-emerald-400 hover:bg-border-hover transition print:hidden"
-              title="Imprimir esta sección">
-              <Printer size={12} />
-            </button>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
-            {kpis.map((kpi, i) => <StatCard key={i} {...kpi} />)}
+        {/* Resumen */}
+        <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl p-4">
+          <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-3">Resumen</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+            {kpis.map((kpi, i) => (
+              <div key={i} className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 text-center">
+                <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">{kpi.label}</div>
+                <div className="text-sm font-bold text-[var(--text)]">{kpi.value}</div>
+              </div>
+            ))}
           </div>
         </div>
 
