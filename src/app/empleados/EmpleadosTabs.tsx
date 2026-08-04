@@ -77,46 +77,45 @@ export default function EmpleadosTabs({
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Header with tabs */}
-      <div className="flex items-center justify-between shrink-0 mb-2">
-        <div className="flex-1" />
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-[var(--brand-light)] rounded-lg text-[var(--brand)]">
-            {activeTab === "usuarios" ? <Users size={22} /> : <Shield size={22} />}
+      <div className="relative flex flex-col items-center justify-center shrink-0 mb-3 text-center">
+        <div className="flex items-center justify-center gap-3">
+          <div className="p-2.5 bg-[var(--brand-light)] rounded-xl text-[var(--brand)] ring-1 ring-[var(--brand)]/20">
+            {activeTab === "usuarios" ? <Users size={24} /> : <Shield size={24} />}
           </div>
-          <div>
-            <h1 className="text-xl lg:text-2xl font-extrabold text-[var(--text)] tracking-tight">
-              {activeTab === "usuarios" ? "Gestión de Usuarios" : "Gestión de Roles"}
-            </h1>
+          <h1 className="text-2xl lg:text-3xl font-black text-[var(--text)] tracking-tight leading-tight">
+            {activeTab === "usuarios" ? "Gestión de Usuarios" : "Gestión de Roles"}
+          </h1>
+        </div>
+        <p className="mt-1.5 text-sm text-[var(--text-secondary)]">
+          {activeTab === "usuarios" ? "Gestión y seguimiento de usuarios" : "Configuración de roles y permisos"}
+        </p>
+
+        {hasRoleManagement && (
+          <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center bg-[var(--panel)] border border-[var(--border)] rounded-xl p-0.5 shadow-[var(--shadow-sm)]">
+            <button
+              onClick={() => setActiveTab("usuarios")}
+              className={`flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-colors ${
+                activeTab === "usuarios"
+                  ? "bg-[var(--brand)] text-white"
+                  : "text-[var(--text-secondary)] hover:bg-white/[0.04] hover:text-[var(--text)]"
+              }`}
+            >
+              <Users size={14} />
+              Usuarios
+            </button>
+            <button
+              onClick={() => setActiveTab("roles")}
+              className={`flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-colors ${
+                activeTab === "roles"
+                  ? "bg-[var(--brand)] text-white"
+                  : "text-[var(--text-secondary)] hover:bg-white/[0.04] hover:text-[var(--text)]"
+              }`}
+            >
+              <Shield size={14} />
+              Roles
+            </button>
           </div>
-        </div>
-        <div className="flex-1 flex justify-end">
-          {hasRoleManagement && (
-            <div className="flex items-center bg-[var(--panel)] border border-[var(--border)] rounded-lg p-0.5">
-              <button
-                onClick={() => setActiveTab("usuarios")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                  activeTab === "usuarios"
-                    ? "bg-[var(--brand)] text-white"
-                    : "text-[var(--text-secondary)] hover:text-[var(--text)]"
-                }`}
-              >
-                <Users size={14} />
-                Usuarios
-              </button>
-              <button
-                onClick={() => setActiveTab("roles")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                  activeTab === "roles"
-                    ? "bg-[var(--brand)] text-white"
-                    : "text-[var(--text-secondary)] hover:text-[var(--text)]"
-                }`}
-              >
-                <Shield size={14} />
-                Roles
-              </button>
-            </div>
-          )}
-        </div>
+        )}
       </div>
 
       {/* Content */}

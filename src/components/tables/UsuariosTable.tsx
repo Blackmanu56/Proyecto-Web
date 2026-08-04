@@ -8,10 +8,12 @@ import { EmployeePanel } from "@/components/ui/employee-panel";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { TableShell } from "@/components/ui/table-shell";
+import { ToolbarSelect } from "@/components/ui/toolbar-select";
 import {
 AlertTriangle,
 CheckCircle2,
 ChevronDown,
+CircleOff,
 Crown,
 Edit3,
 Eye,
@@ -461,34 +463,37 @@ export default function UsuariosTable({
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* 1. Stats Cards */}
-      <div className="grid grid-cols-3 gap-4 shrink-0 mb-4">
-        <div className="bg-[var(--panel)] border border-[var(--border)] p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] hover:shadow-md transition-shadow">
+      <div className="grid grid-cols-3 gap-3 shrink-0 mb-3">
+        <div className="bg-[linear-gradient(135deg,rgba(59,130,246,0.10),rgba(59,130,246,0.03))] border border-[#3B82F6]/35 p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(59,130,246,0.12)]">
           <div>
-            <p className="text-xs text-[var(--text-secondary)] font-bold uppercase tracking-wider">Total Usuarios</p>
-            <p className="text-2xl font-extrabold text-[var(--text)]">{users.length}</p>
+            <p className="text-xs text-[#3B82F6] font-extrabold uppercase tracking-wider">Total Usuarios</p>
+            <p className="text-3xl font-black text-[var(--text)] leading-none mt-1">{users.length}</p>
+            <p className="text-xs text-[var(--text-secondary)] mt-2">Usuarios registrados</p>
           </div>
-          <div className="p-2.5 bg-[var(--brand-light)] rounded-lg text-[var(--brand)]">
-            <Users size={20} />
+          <div className="p-3 bg-[#3B82F6]/15 rounded-full text-[#3B82F6] ring-1 ring-[#3B82F6]/20">
+            <Users size={28} />
           </div>
         </div>
 
-        <div className="bg-[var(--panel)] border border-[var(--border)] p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] hover:shadow-md transition-shadow">
+        <div className="bg-[linear-gradient(135deg,rgba(34,197,94,0.10),rgba(34,197,94,0.03))] border border-[#22C55E]/35 p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(34,197,94,0.12)]">
           <div>
-            <p className="text-xs text-[var(--text-secondary)] font-bold uppercase tracking-wider">Activos</p>
-            <p className="text-2xl font-extrabold text-[var(--success)]">{users.filter((u) => u.activo).length}</p>
+            <p className="text-xs text-[#22C55E] font-extrabold uppercase tracking-wider">Activos</p>
+            <p className="text-3xl font-black text-[var(--text)] leading-none mt-1">{users.filter((u) => u.activo).length}</p>
+            <p className="text-xs text-[var(--text-secondary)] mt-2">Usuarios habilitados</p>
           </div>
-          <div className="p-2.5 bg-[var(--success-light)] rounded-lg text-[var(--success)]">
-            <UserCheck size={20} />
+          <div className="p-3 bg-[#22C55E]/15 rounded-full text-[#22C55E] ring-1 ring-[#22C55E]/20">
+            <UserCheck size={28} />
           </div>
         </div>
 
-        <div className="bg-[var(--panel)] border border-[var(--border)] p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] hover:shadow-md transition-shadow">
+        <div className="bg-[linear-gradient(135deg,rgba(148,163,184,0.10),rgba(148,163,184,0.03))] border border-[#94A3B8]/30 p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(148,163,184,0.10)]">
           <div>
-            <p className="text-xs text-[var(--text-secondary)] font-bold uppercase tracking-wider">Inactivos</p>
-            <p className="text-2xl font-extrabold text-[var(--danger)]">{users.filter((u) => !u.activo).length}</p>
+            <p className="text-xs text-[#94A3B8] font-extrabold uppercase tracking-wider">Inactivos</p>
+            <p className="text-3xl font-black text-[var(--text)] leading-none mt-1">{users.filter((u) => !u.activo).length}</p>
+            <p className="text-xs text-[var(--text-secondary)] mt-2">Usuarios dados de baja</p>
           </div>
-          <div className="p-2.5 bg-[var(--danger-light)] rounded-lg text-[var(--danger)]">
-            <UserX size={20} />
+          <div className="p-3 bg-[#94A3B8]/15 rounded-full text-[#94A3B8] ring-1 ring-[#94A3B8]/20">
+            <UserX size={28} />
           </div>
         </div>
       </div>
@@ -496,6 +501,9 @@ export default function UsuariosTable({
       {/* 2. TableShell */}
       <TableShell
         title="Usuarios"
+        hideHeaderTitle
+        centeredHeaderControls
+        searchLabel="Busqueda de usuario"
         searchPlaceholder="Buscar por nombre, DNI, usuario..."
         searchValue={searchQuery}
         onSearchChange={handleSearch}
@@ -504,32 +512,41 @@ export default function UsuariosTable({
         emptyIcon={<Users size={32} className="opacity-40" />}
         actions={
           <div className="flex flex-wrap items-end gap-3">
+            <ToolbarSelect
+              label="Estado"
+              value={filterStatus}
+              onValueChange={(value) => setFilterStatus(value as FilterStatus)}
+              triggerIcon={CheckCircle2}
+              minWidth="min-w-[140px]"
+              tone={{
+                trigger: "border-emerald-500/25 hover:border-emerald-400/60 focus-visible:border-emerald-400 focus-visible:ring-emerald-500/20 data-[state=open]:border-emerald-400/70 data-[state=open]:ring-emerald-500/20",
+                icon: "bg-emerald-500/15 text-emerald-300 ring-emerald-500/20",
+                content: "border-emerald-500/30",
+                itemFocus: "focus:bg-emerald-500/10",
+                selected: "data-[state=checked]:bg-emerald-500/12 data-[state=checked]:text-emerald-200",
+                check: "text-emerald-300",
+                chevron: "text-emerald-300",
+              }}
+              options={[
+                { value: "todos", label: "Todos", icon: Users },
+                { value: "activos", label: "Activos", icon: CheckCircle2 },
+                { value: "inactivos", label: "Inactivos", icon: CircleOff },
+              ]}
+            />
             <div className="flex flex-col gap-1">
-              <label className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Estado</label>
-              <div className="relative">
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
-                  className="pl-3 pr-7 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-[var(--text)] text-sm focus:outline-none focus:border-[var(--brand)] appearance-none cursor-pointer min-w-[130px]"
-                >
-                  <option value="todos">Todos</option>
-                  <option value="activos">Activos</option>
-                  <option value="inactivos">Inactivos</option>
-                </select>
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                  <svg className="w-3 h-3 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                </div>
-              </div>
+              <label className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Acciones</label>
+              <button onClick={openCreateModal} className="group flex h-10 min-w-[160px] items-center justify-center gap-2 rounded-xl border border-[var(--brand)]/30 bg-[var(--bg)] px-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200 hover:bg-[var(--brand-light)]/10 hover:border-[var(--brand)]/60 focus-visible:border-[var(--brand)] focus-visible:ring-2 focus-visible:ring-[var(--brand)]/20">
+                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--brand-light)] text-[var(--brand)] ring-1 ring-[var(--brand)]/20">
+                  <Plus size={14} strokeWidth={2.5} />
+                </span>
+                Nuevo usuario
+              </button>
             </div>
-            <button onClick={openCreateModal} className="flex items-center gap-1.5 px-4 py-2.5 bg-[var(--brand)] text-white rounded-lg text-sm font-semibold hover:bg-[var(--brand)]/90 transition">
-              <Plus size={14} />
-              Nuevo usuario
-            </button>
           </div>
         }
       >
-        <div className="overflow-auto max-h-[calc(100vh-22rem)]">
-          <table className="w-full text-left border-collapse min-w-[700px]" style={{ tableLayout: "fixed" }}>
+        <div className="min-w-full">
+          <table className="w-full table-fixed border-separate border-spacing-0 text-left min-w-[700px]">
             <colgroup>
               <col style={{ width: "25%" }} />
               <col style={{ width: "12%" }} />
@@ -538,52 +555,52 @@ export default function UsuariosTable({
               <col style={{ width: "10%" }} />
               <col style={{ width: "18%" }} />
             </colgroup>
-            <thead className="sticky top-0 bg-[var(--panel)]">
-              <tr className="border-b-2 border-[var(--border)] text-xs uppercase tracking-wider font-bold text-[var(--text-secondary)]">
+            <thead className="bg-[#17191f]">
+              <tr className="bg-[#17191f] text-[11px] uppercase tracking-[0.08em] font-extrabold text-[#9DB2D6]">
                 <th
-                  className="py-3.5 px-4 cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors"
+                  className="sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors"
                   onClick={() => handleSortCycle("nombreCompleto")}
                   title={getSortTooltip("nombreCompleto")}
                 >
                   <div className="flex items-center gap-2">Usuario {renderSortIndicator("nombreCompleto")}</div>
                 </th>
                 <th
-                  className="py-3.5 px-4 cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors"
+                  className="sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors"
                   onClick={() => handleSortCycle("dni")}
                   title={getSortTooltip("dni")}
                 >
                   <div className="flex items-center gap-2">DNI {renderSortIndicator("dni")}</div>
                 </th>
                 <th
-                  className="py-3.5 px-4 cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors"
+                  className="sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors"
                   onClick={() => handleSortCycle("correo")}
                   title={getSortTooltip("correo")}
                 >
                   <div className="flex items-center gap-2">Contacto {renderSortIndicator("correo")}</div>
                 </th>
                 <th
-                  className="py-3.5 px-4 cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors"
+                  className="sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors"
                   onClick={() => handleSortCycle("rol")}
                   title={getSortTooltip("rol")}
                 >
                   <div className="flex items-center gap-2">Rol {renderSortIndicator("rol")}</div>
                 </th>
                 <th
-                  className="py-3.5 px-4 text-center cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors"
+                  className="sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 text-center shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors"
                   onClick={() => handleSortCycle("activo")}
                   title={getSortTooltip("activo")}
                 >
                   <div className="flex items-center justify-center gap-2">Estado {renderSortIndicator("activo")}</div>
                 </th>
-                <th className="py-3.5 px-4 text-center">Acciones</th>
+                <th className="sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 text-center shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)]">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border)]/60 text-sm text-[var(--text-muted)]">
-              {sortedUsers.map((user) => (
+              {sortedUsers.map((user, index) => (
                 <tr
                   key={user.id}
                   onClick={() => openEmployeePanel(user)}
-                  className={`group hover:bg-[var(--panel)] transition-colors duration-150 cursor-pointer ${
+                  className={`group cursor-pointer transition-colors duration-150 ${index % 2 === 0 ? "bg-[#1E2129]/45 hover:bg-white/[0.045]" : "bg-[#20242E]/45 hover:bg-white/[0.045]"} ${
                     !user.activo ? "opacity-60" : ""
                   }`}
                 >

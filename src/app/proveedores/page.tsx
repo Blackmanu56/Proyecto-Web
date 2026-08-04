@@ -68,13 +68,18 @@ export default async function ProveedoresPage() {
     <div className="fixed inset-0 top-[5.5rem] bg-[var(--bg)] flex flex-col overflow-hidden z-10">
       <div className="flex-1 flex flex-col min-h-0 p-2 lg:p-3">
         {/* Encabezado */}
-        <div className="flex items-center justify-center gap-3 shrink-0 mb-2">
-          <div className="p-2 bg-[var(--brand-light)] rounded-lg text-[var(--brand)]">
-            <Truck size={22} />
+        <div className="flex flex-col items-center justify-center shrink-0 mb-3 text-center">
+          <div className="flex items-center justify-center gap-3">
+            <div className="p-2.5 bg-[var(--brand-light)] rounded-xl text-[var(--brand)] ring-1 ring-[var(--brand)]/20">
+              <Truck size={24} />
+            </div>
+            <h1 className="text-2xl lg:text-3xl font-black text-[var(--text)] tracking-tight leading-tight">
+              Gestión de Proveedores
+            </h1>
           </div>
-          <h1 className="text-xl lg:text-2xl font-extrabold text-[var(--text)] tracking-tight">
-            Gestión de Proveedores
-          </h1>
+          <p className="mt-1.5 text-sm text-[var(--text-secondary)]">
+            Gestión y seguimiento de proveedores
+          </p>
         </div>
 
         {/* Tabla Interactiva */}

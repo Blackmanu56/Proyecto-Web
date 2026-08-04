@@ -5,10 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle } from "@/components/ui/dialog";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
+import { TableShell } from "@/components/ui/table-shell";
+import { ToolbarSelect } from "@/components/ui/toolbar-select";
 import { PERMISSIONS,getAllPermissions } from "@/lib/permissions";
 import {
 AlertTriangle,
 CheckCircle2,
+CircleOff,
 ChevronDown,
 ChevronRight,
 Copy,
@@ -16,7 +19,6 @@ Edit3,
 Plus,
 Power,
 PowerOff,
-Search,
 Shield,
 ShieldCheck,
 ShieldOff,
@@ -267,195 +269,201 @@ export default function RolesTable({
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 shrink-0 mb-4">
-        <div className="bg-[var(--panel)] border border-[var(--border)] p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] hover:shadow-md transition-shadow">
+      <div className="grid grid-cols-3 gap-3 shrink-0 mb-3">
+        <div className="bg-[linear-gradient(135deg,rgba(59,130,246,0.10),rgba(59,130,246,0.03))] border border-[#3B82F6]/35 p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(59,130,246,0.12)]">
           <div>
-            <p className="text-xs text-[var(--text-secondary)] font-bold uppercase tracking-wider">Total Roles</p>
-            <p className="text-2xl font-extrabold text-[var(--text)]">{roles.length}</p>
+            <p className="text-xs text-[#3B82F6] font-extrabold uppercase tracking-wider">Total Roles</p>
+            <p className="text-3xl font-black text-[var(--text)] leading-none mt-1">{roles.length}</p>
+            <p className="text-xs text-[var(--text-secondary)] mt-2">Roles configurados</p>
           </div>
-          <div className="p-2.5 bg-[var(--brand-light)] rounded-lg text-[var(--brand)]">
-            <Shield size={20} />
+          <div className="p-3 bg-[#3B82F6]/15 rounded-full text-[#3B82F6] ring-1 ring-[#3B82F6]/20">
+            <Shield size={28} />
           </div>
         </div>
 
-        <div className="bg-[var(--panel)] border border-[var(--border)] p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] hover:shadow-md transition-shadow">
+        <div className="bg-[linear-gradient(135deg,rgba(34,197,94,0.10),rgba(34,197,94,0.03))] border border-[#22C55E]/35 p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(34,197,94,0.12)]">
           <div>
-            <p className="text-xs text-[var(--text-secondary)] font-bold uppercase tracking-wider">Activos</p>
-            <p className="text-2xl font-extrabold text-[var(--success)]">{roles.filter(r => r.activo).length}</p>
+            <p className="text-xs text-[#22C55E] font-extrabold uppercase tracking-wider">Activos</p>
+            <p className="text-3xl font-black text-[var(--text)] leading-none mt-1">{roles.filter(r => r.activo).length}</p>
+            <p className="text-xs text-[var(--text-secondary)] mt-2">Roles habilitados</p>
           </div>
-          <div className="p-2.5 bg-[var(--success-light)] rounded-lg text-[var(--success)]">
-            <ShieldCheck size={20} />
+          <div className="p-3 bg-[#22C55E]/15 rounded-full text-[#22C55E] ring-1 ring-[#22C55E]/20">
+            <ShieldCheck size={28} />
           </div>
         </div>
 
-        <div className="bg-[var(--panel)] border border-[var(--border)] p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] hover:shadow-md transition-shadow">
+        <div className="bg-[linear-gradient(135deg,rgba(139,92,246,0.10),rgba(139,92,246,0.03))] border border-[#8B5CF6]/30 p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(139,92,246,0.12)]">
           <div>
-            <p className="text-xs text-[var(--text-secondary)] font-bold uppercase tracking-wider">Permisos Disponibles</p>
-            <p className="text-2xl font-extrabold text-[var(--info)]">{totalPerms}</p>
+            <p className="text-xs text-[#A78BFA] font-extrabold uppercase tracking-wider">Permisos</p>
+            <p className="text-3xl font-black text-[var(--text)] leading-none mt-1">{totalPerms}</p>
+            <p className="text-xs text-[var(--text-secondary)] mt-2">Permisos disponibles</p>
           </div>
-          <div className="p-2.5 bg-[var(--info-light)] rounded-lg text-[var(--info)]">
-            <CheckCircle2 size={20} />
+          <div className="p-3 bg-[#8B5CF6]/15 rounded-full text-[#A78BFA] ring-1 ring-[#8B5CF6]/20">
+            <CheckCircle2 size={28} />
           </div>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-card border border-border rounded-lg shadow-[var(--shadow-sm)] overflow-hidden flex flex-col flex-1 min-h-0">
-        <div className="flex flex-col gap-2 p-3 border-b border-border/60 shrink-0">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <h2 className="text-sm font-bold text-text tracking-tight">Roles</h2>
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="flex flex-col gap-1">
-                <label className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Estado</label>
-                <div className="relative">
-                  <select
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value as typeof filterStatus)}
-                    className="pl-3 pr-7 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-[var(--text)] text-sm focus:outline-none focus:border-[var(--brand)] appearance-none cursor-pointer min-w-[130px]"
-                  >
-                    <option value="todos">Todos</option>
-                    <option value="activos">Activos</option>
-                    <option value="inactivos">Inactivos</option>
-                  </select>
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <svg className="w-3 h-3 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                  </div>
-                </div>
-              </div>
+      <TableShell
+        title="Roles"
+        searchLabel="Busqueda de rol"
+        searchPlaceholder="Buscar rol por nombre o descripcion..."
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        isEmpty={filteredRoles.length === 0}
+        emptyMessage="No se encontraron roles"
+        emptyIcon={<Shield size={32} className="opacity-40" />}
+        centeredHeaderControls
+        hideHeaderTitle
+        actions={
+          <div className="flex flex-wrap items-end gap-3">
+            <ToolbarSelect
+              label="Estado"
+              value={filterStatus}
+              onValueChange={(value) => setFilterStatus(value as typeof filterStatus)}
+              triggerIcon={ShieldCheck}
+              minWidth="min-w-[140px]"
+              tone={{
+                trigger: "border-emerald-500/25 hover:border-emerald-400/60 focus-visible:border-emerald-400 focus-visible:ring-emerald-500/20 data-[state=open]:border-emerald-400/70 data-[state=open]:ring-emerald-500/20",
+                icon: "bg-emerald-500/15 text-emerald-300 ring-emerald-500/20",
+                content: "border-emerald-500/30",
+                itemFocus: "focus:bg-emerald-500/10",
+                selected: "data-[state=checked]:bg-emerald-500/12 data-[state=checked]:text-emerald-200",
+                check: "text-emerald-300",
+                chevron: "text-emerald-300",
+              }}
+              options={[
+                { value: "todos", label: "Todos", icon: Shield },
+                { value: "activos", label: "Activos", icon: ShieldCheck },
+                { value: "inactivos", label: "Inactivos", icon: CircleOff },
+              ]}
+            />
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Acciones</label>
               <button
                 onClick={openCreateModal}
-                className="flex items-center gap-1.5 px-4 py-2.5 bg-[var(--brand)] text-white rounded-lg text-sm font-semibold hover:bg-[var(--brand)]/90 transition"
+                className="group flex h-10 min-w-[150px] items-center justify-center gap-2 rounded-xl border border-[var(--brand)]/30 bg-[var(--bg)] px-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200 hover:bg-[var(--brand-light)]/10 hover:border-[var(--brand)]/60 focus-visible:border-[var(--brand)] focus-visible:ring-2 focus-visible:ring-[var(--brand)]/20"
               >
-                <Plus size={14} />
-                Nuevo Rol
+                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--brand-light)] text-[var(--brand)] ring-1 ring-[var(--brand)]/20">
+                  <Plus size={14} strokeWidth={2.5} />
+                </span>
+                Nuevo rol
               </button>
             </div>
           </div>
-          <div className="relative w-full">
-            <Input
-              placeholder="Buscar por nombre o descripción..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              leftIcon={<Search size={14} />}
-              className="py-1.5 text-[11px]"
-            />
-          </div>
-        </div>
-
-        <div className="flex-1 min-h-0 overflow-hidden p-3">
-          <div className="overflow-auto max-h-[calc(100vh-22rem)] pb-8">
-            <table className="w-full text-left border-collapse min-w-[600px]" style={{ tableLayout: "fixed" }}>
-              <colgroup>
-                <col style={{ width: "20%" }} />
-                <col style={{ width: "25%" }} />
-                <col style={{ width: "10%" }} />
-                <col style={{ width: "10%" }} />
-                <col style={{ width: "10%" }} />
-                <col style={{ width: "12%" }} />
-              </colgroup>
-              <thead className="sticky top-0 bg-[var(--panel)]">
-                <tr className="border-b-2 border-[var(--border)] text-xs uppercase tracking-wider font-bold text-[var(--text-secondary)]">
-                  <th className="py-3.5 px-4">Rol</th>
-                  <th className="py-3.5 px-4">Descripción</th>
-                  <th className="py-3.5 px-4 text-center">Permisos</th>
-                  <th className="py-3.5 px-4 text-center">Usuarios</th>
-                  <th className="py-3.5 px-4 text-center">Estado</th>
-                  <th className="py-3.5 px-4 text-center">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border)]/60 text-sm text-[var(--text-muted)]">
-                {filteredRoles.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-12 text-center text-[var(--text-secondary)]">
-                      No se encontraron roles
-                    </td>
-                  </tr>
-                ) : (
-                  filteredRoles.map(role => (
-                    <tr
-                      key={role.id}
-                      className={`group hover:bg-[var(--panel)] transition-colors duration-150 ${
-                        !role.activo ? "opacity-60" : ""
-                      }`}
+        }
+      >
+        <div className="min-w-full">
+          <table className="w-full table-fixed border-separate border-spacing-0 text-left min-w-[760px]">
+            <colgroup>
+              <col style={{ width: "22%" }} />
+              <col style={{ width: "30%" }} />
+              <col style={{ width: "12%" }} />
+              <col style={{ width: "12%" }} />
+              <col style={{ width: "12%" }} />
+              <col style={{ width: "12%" }} />
+            </colgroup>
+            <thead className="bg-[#17191f]">
+              <tr className="bg-[#17191f] text-[11px] uppercase tracking-[0.08em] font-extrabold text-[#9DB2D6]">
+                {[
+                  "Rol",
+                  "Descripcion",
+                  "Permisos",
+                  "Usuarios",
+                  "Estado",
+                  "Acciones",
+                ].map((heading, index) => (
+                  <th
+                    key={heading}
+                    className={`sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] ${index >= 2 ? "text-center" : ""}`}
+                  >
+                    {heading}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[var(--border)]/60 text-[13px] text-[var(--text-muted)]">
+              {filteredRoles.map((role, index) => (
+                <tr
+                  key={role.id}
+                  className={`group transition-colors duration-150 ${index % 2 === 0 ? "bg-[#1E2129]/45 hover:bg-white/[0.045]" : "bg-[#20242E]/45 hover:bg-white/[0.045]"} ${
+                    !role.activo ? "opacity-60" : ""
+                  }`}
+                >
+                  <td className="py-3 px-4">
+                    <div className="flex items-center gap-2">
+                      <div className={`p-2 rounded-lg ring-1 ${
+                        role.nombre === "ADMINISTRADOR"
+                          ? "bg-[var(--danger-light)] text-[var(--danger)] ring-[var(--danger)]/20"
+                          : role.nombre === "ENCARGADO_VENTAS"
+                          ? "bg-[var(--success-light)] text-[var(--success)] ring-[var(--success)]/20"
+                          : "bg-[var(--info-light)] text-[var(--info)] ring-[var(--info)]/20"
+                      }`}>
+                        <Shield size={14} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-[var(--text)] text-sm leading-tight group-hover:text-[var(--brand)] transition-colors truncate">
+                          {role.nombre.replace(/_/g, " ")}
+                        </p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="py-3 px-4">
+                    <span className="line-clamp-2 text-xs text-[var(--text-secondary)]">
+                      {role.descripcion || "-"}
+                    </span>
+                  </td>
+                  <td className="py-3 px-4 text-center">
+                    <button
+                      onClick={() => setDetailModal({ open: true, role })}
+                      className="rounded-full border border-[var(--brand)]/25 bg-[var(--brand-light)]/20 px-2.5 py-1 text-xs font-mono font-bold text-[var(--brand)] transition hover:border-[var(--brand)]/60 hover:bg-[var(--brand-light)]/35"
+                      title="Ver detalles"
                     >
-                      <td className="py-2.5 px-4">
-                        <div className="flex items-center gap-2">
-                          <div className={`p-1.5 rounded-lg ${
-                            role.nombre === "ADMINISTRADOR"
-                              ? "bg-[var(--danger-light)] text-[var(--danger)]"
-                              : role.nombre === "ENCARGADO_VENTAS"
-                              ? "bg-[var(--success-light)] text-[var(--success)]"
-                              : "bg-[var(--info-light)] text-[var(--info)]"
-                          }`}>
-                            <Shield size={14} />
-                          </div>
-                          <div>
-                            <p className="font-semibold text-[var(--text)] text-sm leading-tight group-hover:text-[var(--brand)] transition-colors">
-                              {role.nombre.replace(/_/g, " ")}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-2.5 px-4">
-                        <span className="text-xs text-[var(--text-secondary)]">
-                          {role.descripcion || "—"}
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-4 text-center">
-                        <button
-                          onClick={() => setDetailModal({ open: true, role })}
-                          className="text-xs font-mono text-[var(--brand)] hover:underline cursor-pointer"
-                          title="Ver detalles"
+                      {role.permisos.length}/{totalPerms}
+                    </button>
+                  </td>
+                  <td className="py-3 px-4 text-center">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <Users size={12} className="text-[var(--text-secondary)]" />
+                      <span className="text-xs font-semibold text-[var(--text-muted)]">{role._count.usuarios}</span>
+                    </div>
+                  </td>
+                  <td className="py-3 px-4 text-center">
+                    <RolBadge activo={role.activo} />
+                  </td>
+                  <td className="py-3 px-4 text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      {role.nombre !== "ADMINISTRADOR" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openEditModal(role)}
+                          title="Editar"
+                          className="transition-all duration-150 hover:bg-white/[0.06]"
                         >
-                          {role.permisos.length}/{totalPerms}
-                        </button>
-                      </td>
-                      <td className="py-2.5 px-4 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <Users size={12} className="text-[var(--text-secondary)]" />
-                          <span className="text-xs font-medium">{role._count.usuarios}</span>
-                        </div>
-                      </td>
-                      <td className="py-2.5 px-4 text-center">
-                        <RolBadge activo={role.activo} />
-                      </td>
-                      <td className="py-2.5 px-4 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          {role.nombre !== "ADMINISTRADOR" && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openEditModal(role)}
-                              title="Editar"
-                            >
-                              <Edit3 size={16} />
-                            </Button>
-                          )}
-                          {role.nombre !== "ADMINISTRADOR" && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setConfirmDialog({ open: true, role, action: "toggle", error: null })}
-                              title={role.activo ? "Desactivar" : "Activar"}
-                              className={role.activo ? "hover:text-[var(--warning)]" : "hover:text-[var(--success)]"}
-                            >
-                              {role.activo ? <PowerOff size={16} /> : <Power size={16} />}
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                          <Edit3 size={16} />
+                        </Button>
+                      )}
+                      {role.nombre !== "ADMINISTRADOR" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setConfirmDialog({ open: true, role, action: "toggle", error: null })}
+                          title={role.activo ? "Desactivar" : "Activar"}
+                          className={`transition-all duration-150 hover:bg-white/[0.06] ${role.activo ? "hover:text-[var(--warning)]" : "hover:text-[var(--success)]"}`}
+                        >
+                          {role.activo ? <PowerOff size={16} /> : <Power size={16} />}
+                        </Button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      </div>
+      </TableShell>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          CREATE / EDIT MODAL — Desktop-optimized, ~90vw, no global scroll
-          ═══════════════════════════════════════════════════════════════ */}
       <Dialog open={isModalOpen} onOpenChange={(open) => { if (!open) closeModal(); }}>
         <DialogContent className="w-[90vw] max-w-[1400px] p-0 gap-0 overflow-hidden">
           {/* ── Fixed Header ── */}
@@ -774,19 +782,23 @@ export default function RolesTable({
         open={detailModal.open}
         onOpenChange={(open) => setDetailModal({ ...detailModal, open })}
       >
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Shield size={18} className="text-[var(--brand)]" />
-              Permisos: {detailModal.role?.nombre.replace(/_/g, " ")}
-            </DialogTitle>
-            <DialogDescription>
-              {detailModal.role?.descripcion || "Permisos asignados a este rol"}
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col p-0 gap-0">
+          <div className="bg-gradient-to-r from-[#111827] via-[#151923] to-[#10131a] px-6 py-5 border-b border-[var(--border)] shrink-0">
+            <DialogHeader className="space-y-1">
+              <DialogTitle className="flex items-center gap-2.5 text-lg">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--brand-light)] text-[var(--brand)] ring-1 ring-[var(--brand)]/20">
+                  <Shield size={18} />
+                </div>
+                Permisos: {detailModal.role?.nombre.replace(/_/g, " ")}
+              </DialogTitle>
+              <DialogDescription className="text-sm">
+                {detailModal.role?.descripcion || "Permisos asignados a este rol"}
+              </DialogDescription>
+            </DialogHeader>
+          </div>
 
           {detailModal.role && (
-            <div className="space-y-3">
+            <div className="space-y-3 overflow-y-auto p-6">
               {Object.entries(PERMISSIONS).map(([moduleKey, module]) => {
                 const modulePerms = module.permissions.filter(p =>
                   detailModal.role!.permisos.includes(p.key)
@@ -794,8 +806,8 @@ export default function RolesTable({
                 if (modulePerms.length === 0) return null;
 
                 return (
-                  <div key={moduleKey} className="border border-[var(--border)] rounded-[var(--radius-lg)] overflow-hidden">
-                    <div className="flex items-center gap-2 px-3 py-2 bg-[var(--panel)] border-b border-[var(--border)]">
+                  <div key={moduleKey} className="border border-[var(--border)] rounded-2xl overflow-hidden bg-[#151922] shadow-[var(--shadow-sm)]">
+                    <div className="flex items-center gap-2 px-3 py-2.5 bg-[#17191f] border-b border-[var(--border)]">
                       <span
                         className="w-2 h-2 rounded-full"
                         style={{ backgroundColor: MODULE_COLORS[moduleKey] || "var(--text-secondary)" }}
@@ -803,11 +815,11 @@ export default function RolesTable({
                       <span className="text-xs font-bold text-[var(--text)]">{module.label}</span>
                       <Badge variant="info" size="sm">{modulePerms.length}</Badge>
                     </div>
-                    <div className="px-3 py-2 grid grid-cols-2 gap-1">
+                    <div className="px-3 py-3 grid grid-cols-2 gap-2">
                       {modulePerms.map(perm => (
                         <div
                           key={perm.key}
-                          className="flex items-center gap-2 text-[11px] text-[var(--text-muted)] py-1 px-2 rounded-[var(--radius-md)] bg-[var(--bg)]/50"
+                          className="flex items-center gap-2 text-[11px] text-[var(--text-muted)] py-1.5 px-2 rounded-[var(--radius-md)] bg-[var(--bg)]/60 hover:bg-white/[0.04] transition-colors"
                         >
                           <CheckCircle2 size={10} className="text-[var(--success)] shrink-0" />
                           {perm.label}

@@ -6,12 +6,14 @@ import { Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle } from 
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { TableShell } from "@/components/ui/table-shell";
+import { ToolbarSelect } from "@/components/ui/toolbar-select";
 import { formatDate,formatDateShort } from "@/lib/utils";
 import {
 AlertTriangle,
 Building2,
 Calendar,
 CheckCircle2,
+CircleOff,
 Edit3,
 History,
 Info,
@@ -316,74 +318,89 @@ export default function ProveedoresTable({
     <div className="flex flex-col h-full min-h-0">
       {/* 1. Stats Cards */}
       <div className="grid grid-cols-3 gap-3 shrink-0 mb-3">
-        <div className="bg-[var(--panel)] border border-[var(--border)] p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] hover:shadow-md transition-shadow">
+        <div className="bg-[linear-gradient(135deg,rgba(59,130,246,0.10),rgba(59,130,246,0.03))] border border-[#3B82F6]/35 p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(59,130,246,0.12)]">
           <div>
-            <p className="text-xs text-[var(--text-secondary)] font-bold uppercase tracking-wider">Total Proveedores</p>
-            <p className="text-2xl font-extrabold text-[var(--text)]">{proveedores.length}</p>
+            <p className="text-xs text-[#3B82F6] font-extrabold uppercase tracking-wider">Total Proveedores</p>
+            <p className="text-3xl font-black text-[var(--text)] leading-none mt-1">{proveedores.length}</p>
+            <p className="text-xs text-[var(--text-secondary)] mt-2">Proveedores registrados</p>
           </div>
-          <div className="p-2.5 bg-[var(--brand-light)] rounded-lg text-[var(--brand)]">
-            <Building2 size={20} />
+          <div className="p-3 bg-[#3B82F6]/15 rounded-full text-[#3B82F6] ring-1 ring-[#3B82F6]/20">
+            <Building2 size={28} />
           </div>
         </div>
 
-        <div className="bg-[var(--panel)] border border-[var(--border)] p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] hover:shadow-md transition-shadow">
+        <div className="bg-[linear-gradient(135deg,rgba(34,197,94,0.10),rgba(34,197,94,0.03))] border border-[#22C55E]/35 p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(34,197,94,0.12)]">
           <div>
-            <p className="text-xs text-[var(--text-secondary)] font-bold uppercase tracking-wider">Activos</p>
-            <p className="text-2xl font-extrabold text-[var(--success)]">{proveedores.filter((p) => p.activo).length}</p>
+            <p className="text-xs text-[#22C55E] font-extrabold uppercase tracking-wider">Activos</p>
+            <p className="text-3xl font-black text-[var(--text)] leading-none mt-1">{proveedores.filter((p) => p.activo).length}</p>
+            <p className="text-xs text-[var(--text-secondary)] mt-2">Proveedores habilitados</p>
           </div>
-          <div className="p-2.5 bg-[var(--success-light)] rounded-lg text-[var(--success)]">
-            <UserCheck size={20} />
+          <div className="p-3 bg-[#22C55E]/15 rounded-full text-[#22C55E] ring-1 ring-[#22C55E]/20">
+            <UserCheck size={28} />
           </div>
         </div>
 
-        <div className="bg-[var(--panel)] border border-[var(--border)] p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] hover:shadow-md transition-shadow">
+        <div className="bg-[linear-gradient(135deg,rgba(148,163,184,0.10),rgba(148,163,184,0.03))] border border-[#94A3B8]/30 p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(148,163,184,0.10)]">
           <div>
-            <p className="text-xs text-[var(--text-secondary)] font-bold uppercase tracking-wider">Inactivos</p>
-            <p className="text-2xl font-extrabold text-[var(--danger)]">{proveedores.filter((p) => !p.activo).length}</p>
+            <p className="text-xs text-[#94A3B8] font-extrabold uppercase tracking-wider">Inactivos</p>
+            <p className="text-3xl font-black text-[var(--text)] leading-none mt-1">{proveedores.filter((p) => !p.activo).length}</p>
+            <p className="text-xs text-[var(--text-secondary)] mt-2">Proveedores dados de baja</p>
           </div>
-          <div className="p-2.5 bg-[var(--danger-light)] rounded-lg text-[var(--danger)]">
-            <UserX size={20} />
+          <div className="p-3 bg-[#94A3B8]/15 rounded-full text-[#94A3B8] ring-1 ring-[#94A3B8]/20">
+            <UserX size={28} />
           </div>
         </div>
       </div>
 
       {/* 2. TableShell */}
       <TableShell
-        title="Gestión de Proveedores"
-        searchPlaceholder="Buscar proveedor, CUIT, responsable..."
+        title="Proveedores"
+        hideHeaderTitle
+        searchLabel="Busqueda de proveedor"
+        searchPlaceholder="Buscar proveedor por nombre, CUIT o responsable..."
         searchValue={searchQuery}
         onSearchChange={handleSearch}
+        centeredHeaderControls
         isEmpty={sortedProveedores.length === 0}
         emptyMessage="No se encontraron proveedores"
         emptyIcon={<Building2 size={32} className="opacity-40" />}
         actions={
           <div className="flex flex-wrap items-end gap-3">
+            <ToolbarSelect
+              label="Estado"
+              value={filterStatus}
+              onValueChange={(value) => setFilterStatus(value as FilterStatus)}
+              triggerIcon={CheckCircle2}
+              minWidth="min-w-[140px]"
+              tone={{
+                trigger: "border-emerald-500/25 hover:border-emerald-400/60 focus-visible:border-emerald-400 focus-visible:ring-emerald-500/20 data-[state=open]:border-emerald-400/70 data-[state=open]:ring-emerald-500/20",
+                icon: "bg-emerald-500/15 text-emerald-300 ring-emerald-500/20",
+                content: "border-emerald-500/30",
+                itemFocus: "focus:bg-emerald-500/10",
+                selected: "data-[state=checked]:bg-emerald-500/12 data-[state=checked]:text-emerald-200",
+                check: "text-emerald-300",
+                chevron: "text-emerald-300",
+              }}
+              options={[
+                { value: "todos", label: "Todos", icon: Building2 },
+                { value: "activos", label: "Activos", icon: CheckCircle2 },
+                { value: "inactivos", label: "Inactivos", icon: CircleOff },
+              ]}
+            />
             <div className="flex flex-col gap-1">
-              <label className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Estado</label>
-              <div className="relative">
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
-                  className="pl-3 pr-7 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-[var(--text)] text-sm focus:outline-none focus:border-[var(--brand)] appearance-none cursor-pointer min-w-[130px]"
-                >
-                  <option value="todos">Todos</option>
-                  <option value="activos">Activos</option>
-                  <option value="inactivos">Inactivos</option>
-                </select>
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                  <svg className="w-3 h-3 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                </div>
-              </div>
+              <label className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Acciones</label>
+              <button onClick={openCreateModal} className="group flex h-10 min-w-[150px] items-center justify-center gap-2 rounded-xl border border-[var(--brand)]/30 bg-[var(--bg)] px-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200 hover:bg-[var(--brand-light)]/10 hover:border-[var(--brand)]/60 focus-visible:border-[var(--brand)] focus-visible:ring-2 focus-visible:ring-[var(--brand)]/20">
+                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--brand-light)] text-[var(--brand)] ring-1 ring-[var(--brand)]/20">
+                  <Plus size={14} strokeWidth={2.5} />
+                </span>
+                Registrar
+              </button>
             </div>
-            <button onClick={openCreateModal} className="flex items-center gap-1.5 px-4 py-2.5 bg-[var(--brand)] text-white rounded-lg text-sm font-semibold hover:bg-[var(--brand)]/90 transition">
-              <Plus size={14} />
-              Registrar
-            </button>
           </div>
         }
       >
-        <div className="overflow-auto max-h-[calc(100vh-22rem)]">
-          <table className="w-full text-left border-collapse min-w-[700px]" style={{ tableLayout: "fixed" }}>
+        <div className="min-w-full">
+          <table className="w-full table-fixed border-separate border-spacing-0 text-left min-w-[700px]">
             <colgroup>
               <col style={{ width: "25%" }} />
               <col style={{ width: "12%" }} />
@@ -392,46 +409,46 @@ export default function ProveedoresTable({
               <col style={{ width: "10%" }} />
               <col style={{ width: "13%" }} />
             </colgroup>
-            <thead className="sticky top-0 bg-[var(--panel)]">
-              <tr className="border-b-2 border-[var(--border)] text-xs uppercase tracking-wider font-bold text-[var(--text-secondary)]">
+            <thead className="bg-[#17191f]">
+              <tr className="bg-[#17191f] text-[11px] uppercase tracking-[0.08em] font-extrabold text-[#9DB2D6]">
                 <th
-                  className="py-3.5 px-4 cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors"
+                  className="sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors"
                   onClick={() => handleSortCycle("nombre")}
                   title={getSortTooltip("nombre")}
                 >
                   <div className="flex items-center gap-2">Proveedor {renderSortIndicator("nombre")}</div>
                 </th>
                 <th
-                  className="py-3.5 px-4 cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors"
+                  className="sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors"
                   onClick={() => handleSortCycle("cuit")}
                   title={getSortTooltip("cuit")}
                 >
                   <div className="flex items-center gap-2">CUIT {renderSortIndicator("cuit")}</div>
                 </th>
-                <th className="py-3.5 px-4 hidden md:table-cell">Contacto</th>
+                <th className="sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] hidden md:table-cell">Contacto</th>
                 <th
-                  className="py-3.5 px-4 text-center cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors"
+                  className="sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 text-center shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors"
                   onClick={() => handleSortCycle("productos")}
                   title={getSortTooltip("productos")}
                 >
                   <div className="flex items-center justify-center gap-2">Artículos {renderSortIndicator("productos")}</div>
                 </th>
                 <th
-                  className="py-3.5 px-4 text-center cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors"
+                  className="sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 text-center shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors"
                   onClick={() => handleSortCycle("activo")}
                   title={getSortTooltip("activo")}
                 >
                   <div className="flex items-center justify-center gap-2">Estado {renderSortIndicator("activo")}</div>
                 </th>
-                <th className="py-3.5 px-4 text-center">Acciones</th>
+                <th className="sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 text-center shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)]">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border)]/60 text-[13px] text-[var(--text-muted)]">
-              {sortedProveedores.map((prov) => (
+              {sortedProveedores.map((prov, index) => (
                 <tr
                   key={prov.id}
                   onClick={() => openDetailModal(prov)}
-                  className={`group hover:bg-[var(--panel)] transition-colors duration-150 cursor-pointer ${
+                  className={`group cursor-pointer transition-colors duration-150 ${index % 2 === 0 ? "bg-[#1E2129]/45 hover:bg-white/[0.045]" : "bg-[#20242E]/45 hover:bg-white/[0.045]"} ${
                     !prov.activo ? "opacity-60" : ""
                   }`}
                 >
@@ -519,22 +536,24 @@ export default function ProveedoresTable({
 
       {/* 3. Create/Edit Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+        <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden">
+          <div className="bg-gradient-to-r from-[#12151d] to-[#181c25] px-6 py-5 border-b border-[var(--border)]">
+            <DialogHeader className="space-y-1">
+              <DialogTitle className="flex items-center gap-2.5 text-lg">
               <div className="p-2 bg-[var(--brand-light)] rounded-[var(--radius-md)] text-[var(--brand)] border border-[var(--brand)]/10">
                 {editingProv ? <Edit3 size={18} /> : <Plus size={18} />}
               </div>
               {editingProv ? "Editar Proveedor" : "Nuevo Proveedor"}
-            </DialogTitle>
-            <DialogDescription>
+              </DialogTitle>
+              <DialogDescription className="text-sm">
               {editingProv
                 ? "Modifique los datos comerciales del proveedor"
                 : "Registre un nuevo proveedor de abastecimiento"}
-            </DialogDescription>
-          </DialogHeader>
+              </DialogDescription>
+            </DialogHeader>
+          </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4 px-6 py-5 bg-[linear-gradient(180deg,rgba(17,20,28,0.98),rgba(14,16,22,0.98))]">
             {formError && (
               <div className="flex items-center gap-2 p-3 rounded-[var(--radius-md)] bg-[var(--danger-light)] border border-[var(--danger)]/20 text-[var(--danger)] text-xs">
                 <AlertTriangle size={14} className="shrink-0" />
@@ -614,7 +633,7 @@ export default function ProveedoresTable({
               />
             </FormField>
 
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-[var(--border)]">
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-[var(--border)]">
               <Button
                 type="button"
                 variant="secondary"
@@ -638,13 +657,13 @@ export default function ProveedoresTable({
 
       {/* 4. Detailed Info/Products/History Modal */}
       <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0">
           {selectedProv && (
             <>
-              <div className="bg-gradient-to-r from-[var(--bg)] to-[var(--panel)] px-6 py-5 border-b border-[var(--border)] flex items-start justify-between">
+              <div className="bg-gradient-to-r from-[#111827] via-[#151923] to-[#10131a] px-6 py-5 border-b border-[var(--border)] flex items-start justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-[var(--radius-lg)] bg-[var(--brand-light)] text-[var(--brand)] border border-[var(--brand)]/20 flex items-center justify-center">
-                    <Building2 size={24} />
+                  <div className="w-14 h-14 rounded-2xl bg-[var(--brand-light)] text-[var(--brand)] border border-[var(--brand)]/20 flex items-center justify-center shadow-[0_10px_28px_rgba(59,130,246,0.14)]">
+                    <Building2 size={26} />
                   </div>
                   <div>
                     <h3 className="text-xl font-bold text-[var(--text)] leading-tight">
@@ -663,7 +682,7 @@ export default function ProveedoresTable({
                 </div>
               </div>
 
-              <div className="flex border-b border-[var(--border)] bg-[var(--panel)]/20 px-4">
+              <div className="flex border-b border-[var(--border)] bg-[#17191f] px-4">
                 {[
                   { id: "info", label: "Ficha Técnica", icon: <Info size={14} /> },
                   { id: "productos", label: "Productos del Catálogo", icon: <Package size={14} /> },
@@ -684,7 +703,7 @@ export default function ProveedoresTable({
                 ))}
               </div>
 
-              <div className="p-6 max-h-[55vh] overflow-y-auto min-h-[300px]">
+              <div className="p-6 max-h-[62vh] overflow-y-auto min-h-[420px]">
                 {loadingDetails ? (
                   <div className="flex flex-col items-center justify-center py-20 text-[var(--text-secondary)] gap-3">
                     <Loader2 size={32} className="text-[var(--brand)] animate-spin" />
@@ -698,7 +717,7 @@ export default function ProveedoresTable({
                           <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">
                             Información de la Empresa
                           </h4>
-                          <div className="space-y-3 bg-[var(--bg)] p-4 rounded-[var(--radius-lg)] border border-[var(--border)]">
+                          <div className="space-y-3 bg-[#151922] p-4 rounded-2xl border border-[var(--border)] shadow-[var(--shadow-sm)]">
                             <div>
                               <span className="text-[10px] uppercase font-bold text-[var(--text-secondary)]">Razón Social</span>
                               <p className="text-sm font-semibold text-[var(--text)]">{selectedProv.nombre}</p>
@@ -721,7 +740,7 @@ export default function ProveedoresTable({
                           <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">
                             Datos de Contacto
                           </h4>
-                          <div className="space-y-3 bg-[var(--bg)] p-4 rounded-[var(--radius-lg)] border border-[var(--border)]">
+                          <div className="space-y-3 bg-[#151922] p-4 rounded-2xl border border-[var(--border)] shadow-[var(--shadow-sm)]">
                             <div>
                               <span className="text-[10px] uppercase font-bold text-[var(--text-secondary)]">Responsable Comercial</span>
                               <p className="text-sm font-semibold text-[var(--text)]">
