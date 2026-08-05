@@ -327,7 +327,6 @@ input::-webkit-credentials-autofill-button {
   #print-overlay .cj-logo { position: absolute; left: 0; top: 50%; transform: translateY(-50%); height: 48px; }
   #print-overlay .cj-header-center { flex: 0 0 auto; text-align: center; }
   #print-overlay .cj-title { font-size: 20px; font-weight: 900; color: #d62828; text-transform: uppercase; letter-spacing: 0.5px; }
-  #print-overlay .cj-subtitle { font-size: 10px; color: #555; margin-top: 3px; }
   #print-overlay .cj-meta { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
   #print-overlay .cj-meta-item { background: #f8f8f8; border: 1px solid #ddd; border-radius: 3px; padding: 5px 7px; min-height: 32px; }
   #print-overlay .cj-meta-label { font-weight: 700; color: #666; text-transform: uppercase; font-size: 7px; letter-spacing: 0.5px; }
@@ -391,7 +390,7 @@ input::-webkit-credentials-autofill-button {
   #print-overlay .cj-firma-nombre { margin-top: 4px; font-size: 8px; color: #555; }
 
   /* Pie de página fijo: se repite en cada página en Chrome */
-  #print-overlay .cj-page-footer { position: fixed; bottom: 0; left: 0; right: 0; display: flex; justify-content: space-between; gap: 12px; border-top: 1px solid #ddd; padding-top: 4px; font-size: 8px; color: #777; }
+  #print-overlay .cj-page-footer { position: fixed; bottom: 0; left: 0; right: 0; display: flex; justify-content: flex-end; border-top: 1px solid #ddd; padding-top: 4px; font-size: 8px; color: #777; }
 
   /* A4 Portrait for Ventas receipt */
   @page { size: A4 portrait; margin: 10mm; }

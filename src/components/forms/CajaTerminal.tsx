@@ -531,6 +531,7 @@ export default function CajaTerminal({
                 <Button variant="outline" size="sm" onClick={handleExportCSV} leftIcon={<Download size={14} />}>CSV</Button>
                 <Button variant="danger" size="sm" onClick={handleCerrar} disabled={isPending} leftIcon={<Lock size={14} />}>Cerrar Caja</Button>
               </div>
+              <p className="w-full text-right text-[10px] text-[var(--text-muted)]">Para una impresión limpia, desactive la opción “Encabezados y pies de página” en la configuración de impresión del navegador.</p>
             </div>
 
             {/* ═══ BUSCADOR + FILTROS ═══ */}
@@ -889,7 +890,6 @@ export default function CajaTerminal({
           <img src="/logo.png" alt="Logo de Chopper Repuestos" className="cj-logo" />
           <div className="cj-header-center">
             <div className="cj-title">Libro Diario de Caja</div>
-            <div className="cj-subtitle">Chopper Repuestos — Sistema de Gestión Integral</div>
           </div>
         </div>
 
@@ -1073,12 +1073,11 @@ export default function CajaTerminal({
           <div className="cj-firma">
             <div className="cj-firma-titulo">Firma del Responsable</div>
             <div className="cj-firma-linea" />
-            <div className="cj-firma-nombre">Chopper Repuestos</div>
+            <div className="cj-firma-nombre">Nombre y aclaración</div>
           </div>
         </div>
 
         <div className="cj-page-footer">
-          <span>Chopper Repuestos — Sistema de Gestión Integral</span>
           <span>Generado el {formatDate(new Date())} {formatTime24(new Date())} por {cajaActiva.usuario.nombreCompleto || cajaActiva.usuario.username}</span>
         </div>
       </div>
