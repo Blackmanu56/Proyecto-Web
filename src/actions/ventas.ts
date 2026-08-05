@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth.server";
 import { requirePermission } from "@/lib/auth-permissions";
+import { formatTipoComprobante } from "@/lib/movimiento-format";
 import { validateVentaPayload } from "@/lib/ventas-validation";
 
 interface VentaItem {
@@ -237,7 +238,7 @@ export async function createVenta(
           ventaId: venta.id,
           tipo: "INGRESO",
           monto: totalFinal,
-          descripcion: `${ventaInput.tipoComprobante} N? ${venta.id} - ${ventaInput.metodoPago}${descuentoAplicado > 0 ? ` (Dto: $${descuentoAplicado.toFixed(2)})` : ""}`,
+          descripcion: `${formatTipoComprobante(ventaInput.tipoComprobante)} N° ${venta.id} - ${ventaInput.metodoPago}${descuentoAplicado > 0 ? ` (Dto: $${descuentoAplicado.toFixed(2)})` : ""}`,
         },
       });
 

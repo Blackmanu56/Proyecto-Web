@@ -2,6 +2,7 @@
 
 import React from "react";
 import { formatCurrency, formatDate, formatTime24 } from "@/lib/utils";
+import { formatMovimientoDescripcion } from "@/lib/movimiento-format";
 import { X, Calendar, Clock, User, Tag, FileText, ArrowUpRight, ArrowDownLeft, Hash } from "lucide-react";
 
 interface MovimientoDetalle {
@@ -155,7 +156,7 @@ export default function MovimientoDetalleModal({
           <div className="space-y-1.5">
             <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Descripción completa</p>
             <div className="p-3 bg-[var(--panel)] border border-[var(--border)] rounded-xl text-xs text-[var(--text-muted)] leading-relaxed">
-              {movimiento.descripcion}
+              {formatMovimientoDescripcion(movimiento.descripcion)}
             </div>
           </div>
         </div>

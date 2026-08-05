@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useTransition, useCallback } from "react";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
+import { formatMovimientoDescripcion } from "@/lib/movimiento-format";
 import { getDashboardChartData } from "@/actions/informes";
 import type { DashboardPeriod, DashboardChartType, DashboardData } from "@/actions/informes";
 import {
@@ -484,8 +485,8 @@ export default function DashboardClient({ data, userName, role, formattedDate, c
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-[13px] font-semibold text-[var(--text)] truncate" title={mov.descripcion}>
-                          {mov.descripcion}
+                        <p className="text-[13px] font-semibold text-[var(--text)] truncate" title={formatMovimientoDescripcion(mov.descripcion)}>
+                          {formatMovimientoDescripcion(mov.descripcion)}
                         </p>
                         <div className="flex items-center gap-2 mt-1">
                           <p className="text-[11px] text-[var(--text-muted)]">{mov.fecha}</p>

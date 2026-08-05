@@ -3,6 +3,7 @@
 import { requirePermission } from "@/lib/auth-permissions";
 import { prisma } from "@/lib/prisma";
 import { formatDate,formatDateShort } from "@/lib/utils";
+import { formatMovimientoDescripcion } from "@/lib/movimiento-format";
 import type { Prisma } from "@prisma/client";
 
 export interface DashboardData {
@@ -153,7 +154,7 @@ export async function getDashboardData(): Promise<DashboardData> {
 
     const cajaMovimientosRecientes = movimientosCaja.map((m) => ({
       id: m.id,
-      descripcion: m.descripcion,
+      descripcion: formatMovimientoDescripcion(m.descripcion),
       monto: m.monto,
       tipo: m.tipo,
       fecha: formatDate(m.fecha),
@@ -696,7 +697,7 @@ export async function getDetalleCierre(cajaId: number): Promise<DetalleCierreCom
         id: m.id,
         tipo: m.tipo,
         monto: m.monto,
-        descripcion: m.descripcion,
+        descripcion: formatMovimientoDescripcion(m.descripcion),
         fecha: formatDate(m.fecha),
         usuario: m.usuario.username,
         ventaId: m.ventaId,
@@ -1371,7 +1372,7 @@ export async function getCierresMovimientos(filters: ReportFilters = {}): Promis
       cajaId: m.cajaId,
       tipo: m.tipo,
       monto: m.monto,
-      descripcion: m.descripcion,
+      descripcion: formatMovimientoDescripcion(m.descripcion),
       fecha: formatDate(m.fecha),
       usuario: m.usuario.username,
     }));
