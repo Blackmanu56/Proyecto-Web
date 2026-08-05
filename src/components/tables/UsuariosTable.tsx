@@ -22,7 +22,6 @@ ImageIcon,
 Loader2,
 Mail,
 Phone,
-Plus,
 Shield,
 ShieldAlert,
 ShieldCheck,
@@ -713,7 +712,7 @@ export default function UsuariosTable({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <div className="p-2 bg-brand-light rounded-[var(--radius-md)] text-brand border border-brand/10">
-                {editingUser ? <Edit3 size={18} /> : <Plus size={18} />}
+                {editingUser ? <Edit3 size={18} /> : <Users size={18} />}
               </div>
               {editingUser ? "Editar Usuario" : "Nuevo Usuario"}
             </DialogTitle>
