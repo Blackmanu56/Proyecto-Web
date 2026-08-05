@@ -35,10 +35,10 @@ Loader2,
 Mail,
 MapPin,
 Phone,
-Plus,
 ShoppingBag,
 Trash2,
 UserCheck,
+UserPlus,
 UserRoundCheck,
 Users,
 UserX
@@ -427,12 +427,12 @@ export default function ClientesTable({
                   setSuccessMsg("");
                   setIsRegisterOpen(true);
                 }}
-                className="group flex h-10 min-w-[140px] items-center justify-center gap-2 rounded-xl border border-[var(--brand)]/30 bg-[var(--bg)] px-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200 hover:bg-[var(--brand-light)]/10 hover:border-[var(--brand)]/60 focus-visible:border-[var(--brand)] focus-visible:ring-2 focus-visible:ring-[var(--brand)]/20"
+                className="group flex h-10 min-w-[140px] items-center justify-center gap-2 rounded-xl border border-[var(--brand)]/30 bg-[var(--bg)] px-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200 hover:border-[var(--brand)]/60 focus-visible:border-[var(--brand)] focus-visible:ring-2 focus-visible:ring-[var(--brand)]/20"
               >
                 <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--brand-light)] text-[var(--brand)] ring-1 ring-[var(--brand)]/20">
-                  <Plus size={14} strokeWidth={2.5} />
+                  <UserPlus size={14} strokeWidth={2.5} />
                 </span>
-                Registrar
+                Nuevo Cliente
               </button>
             </div>
           </div>

@@ -29,6 +29,7 @@ ShieldCheck,
 Trash2,
 Upload,
 UserCheck,
+UserPlus,
 UserX,
 Users
 } from "lucide-react";
@@ -535,11 +536,11 @@ export default function UsuariosTable({
             />
             <div className="flex flex-col gap-1">
               <label className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Acciones</label>
-              <button onClick={openCreateModal} className="group flex h-10 min-w-[160px] items-center justify-center gap-2 rounded-xl border border-[var(--brand)]/30 bg-[var(--bg)] px-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200 hover:bg-[var(--brand-light)]/10 hover:border-[var(--brand)]/60 focus-visible:border-[var(--brand)] focus-visible:ring-2 focus-visible:ring-[var(--brand)]/20">
+              <button onClick={openCreateModal} className="group flex h-10 min-w-[160px] items-center justify-center gap-2 rounded-xl border border-[var(--brand)]/30 bg-[var(--bg)] px-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200 hover:border-[var(--brand)]/60 focus-visible:border-[var(--brand)] focus-visible:ring-2 focus-visible:ring-[var(--brand)]/20">
                 <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--brand-light)] text-[var(--brand)] ring-1 ring-[var(--brand)]/20">
-                  <Plus size={14} strokeWidth={2.5} />
+                  <UserPlus size={14} strokeWidth={2.5} />
                 </span>
-                Nuevo usuario
+                Nuevo Usuario
               </button>
             </div>
           </div>

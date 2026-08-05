@@ -342,12 +342,13 @@ export default function RolesTable({
               <label className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Acciones</label>
               <button
                 onClick={openCreateModal}
-                className="group flex h-10 min-w-[150px] items-center justify-center gap-2 rounded-xl border border-[var(--brand)]/30 bg-[var(--bg)] px-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200 hover:bg-[var(--brand-light)]/10 hover:border-[var(--brand)]/60 focus-visible:border-[var(--brand)] focus-visible:ring-2 focus-visible:ring-[var(--brand)]/20"
+                className="group flex h-10 min-w-[150px] items-center justify-center gap-2 rounded-xl border border-[var(--brand)]/30 bg-[var(--bg)] px-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200 hover:border-[var(--brand)]/60 focus-visible:border-[var(--brand)] focus-visible:ring-2 focus-visible:ring-[var(--brand)]/20"
               >
-                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--brand-light)] text-[var(--brand)] ring-1 ring-[var(--brand)]/20">
-                  <Plus size={14} strokeWidth={2.5} />
+                <span className="relative flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--brand-light)] text-[var(--brand)] ring-1 ring-[var(--brand)]/20">
+                  <Shield size={14} strokeWidth={2.5} />
+                  <Plus size={8} strokeWidth={3} className="absolute top-0 right-0" />
                 </span>
-                Nuevo rol
+                Nuevo Rol
               </button>
             </div>
           </div>
@@ -471,7 +472,7 @@ export default function RolesTable({
             <DialogHeader className="space-y-1">
               <DialogTitle className="flex items-center gap-2.5 text-lg">
                 <div className="p-2 bg-brand-light rounded-[var(--radius-md)] text-brand border border-brand/10">
-                  {roleForModal ? <Edit3 size={18} /> : <Plus size={18} />}
+                  {roleForModal ? <Edit3 size={18} /> : <Shield size={18} />}
                 </div>
                 {roleForModal ? "Editar Rol" : "Nuevo Rol"}
               </DialogTitle>

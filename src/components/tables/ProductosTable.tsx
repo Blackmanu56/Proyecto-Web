@@ -40,6 +40,7 @@ Layers,
 ListFilter,
 Package,
 PackageCheck,
+PackagePlus,
 PackageX,
 Plus,
 RotateCcw,
@@ -882,7 +883,7 @@ export default function ProductosTable({
                 onClick={() => setColMenuOpen(!colMenuOpen)}
                 className={`group flex h-10 min-w-[132px] items-center justify-between gap-2 rounded-xl border px-3 text-sm font-semibold shadow-[var(--shadow-sm)] transition-all duration-200 ${
                   colMenuOpen
-                    ? "bg-[#3B82F6]/12 text-white border-[#3B82F6]/70 ring-2 ring-[#3B82F6]/20"
+                    ? "bg-[var(--bg)] text-[var(--text)] border-[#3B82F6]/70 ring-2 ring-[#3B82F6]/20"
                     : "bg-[var(--bg)] border-[#3B82F6]/25 text-[var(--text)] hover:border-[#3B82F6]/60"
                 }`}
                 title="Configurar columnas"
@@ -950,14 +951,14 @@ export default function ProductosTable({
                   onClick={() => setAddMenuOpen(!addMenuOpen)}
                   className={`group flex h-10 min-w-[140px] items-center justify-between gap-2 rounded-xl border px-3 text-sm font-semibold shadow-[var(--shadow-sm)] outline-none transition-all duration-200 focus-visible:border-[var(--brand)] focus-visible:ring-2 focus-visible:ring-[var(--brand)]/20 ${
                     addMenuOpen
-                      ? "bg-[var(--brand-light)]/20 text-white border-[var(--brand)]/70 ring-2 ring-[var(--brand)]/20"
-                      : "bg-[var(--bg)] border-[var(--brand)]/30 text-[var(--text)] hover:bg-[var(--brand-light)]/10 hover:border-[var(--brand)]/60"
+                      ? "bg-[var(--bg)] text-[var(--text)] border-[var(--brand)]/70 ring-2 ring-[var(--brand)]/20"
+                      : "bg-[var(--bg)] border-[var(--brand)]/30 text-[var(--text)] hover:border-[var(--brand)]/60"
                   }`}
                   title="Agregar"
                 >
                   <span className="flex items-center gap-2">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--brand-light)] text-[var(--brand)] ring-1 ring-[var(--brand)]/20 transition-colors group-hover:bg-[var(--brand-light)]/80">
-                      <Plus size={14} strokeWidth={2.5} />
+                    <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--brand-light)] text-[var(--brand)] ring-1 ring-[var(--brand)]/20">
+                      <PackagePlus size={16} strokeWidth={2.5} />
                     </span>
                     Agregar
                   </span>

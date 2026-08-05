@@ -24,6 +24,7 @@ Package,
 Phone,
 Plus,
 Shield,
+Truck,
 UserCheck,
 UserX
 } from "lucide-react";
@@ -325,7 +326,7 @@ export default function ProveedoresTable({
             <p className="text-xs text-[var(--text-secondary)] mt-2">Proveedores registrados</p>
           </div>
           <div className="p-3 bg-[#3B82F6]/15 rounded-full text-[#3B82F6] ring-1 ring-[#3B82F6]/20">
-            <Building2 size={28} />
+            <Truck size={28} />
           </div>
         </div>
 
@@ -389,11 +390,12 @@ export default function ProveedoresTable({
             />
             <div className="flex flex-col gap-1">
               <label className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Acciones</label>
-              <button onClick={openCreateModal} className="group flex h-10 min-w-[150px] items-center justify-center gap-2 rounded-xl border border-[var(--brand)]/30 bg-[var(--bg)] px-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200 hover:bg-[var(--brand-light)]/10 hover:border-[var(--brand)]/60 focus-visible:border-[var(--brand)] focus-visible:ring-2 focus-visible:ring-[var(--brand)]/20">
-                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--brand-light)] text-[var(--brand)] ring-1 ring-[var(--brand)]/20">
-                  <Plus size={14} strokeWidth={2.5} />
+              <button onClick={openCreateModal} className="group flex h-10 min-w-[150px] items-center justify-center gap-2 rounded-xl border border-[var(--brand)]/30 bg-[var(--bg)] px-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200 hover:border-[var(--brand)]/60 focus-visible:border-[var(--brand)] focus-visible:ring-2 focus-visible:ring-[var(--brand)]/20">
+                <span className="relative flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--brand-light)] text-[var(--brand)] ring-1 ring-[var(--brand)]/20">
+                  <Truck size={14} strokeWidth={2.5} />
+                  <Plus size={8} strokeWidth={3} className="absolute top-0 right-0" />
                 </span>
-                Registrar
+                Nuevo Proveedor
               </button>
             </div>
           </div>
@@ -461,7 +463,7 @@ export default function ProveedoresTable({
                             : "bg-[var(--border)] text-[var(--text-secondary)] border border-[var(--border)]"
                         }`}
                       >
-                        <Building2 size={14} />
+                        <Truck size={14} />
                       </div>
                       <div className="min-w-0">
                         <p className="font-semibold text-[var(--text)] text-sm leading-tight group-hover:text-[var(--brand)] transition-colors truncate">
@@ -541,7 +543,7 @@ export default function ProveedoresTable({
             <DialogHeader className="space-y-1">
               <DialogTitle className="flex items-center gap-2.5 text-lg">
               <div className="p-2 bg-[var(--brand-light)] rounded-[var(--radius-md)] text-[var(--brand)] border border-[var(--brand)]/10">
-                {editingProv ? <Edit3 size={18} /> : <Plus size={18} />}
+                {editingProv ? <Edit3 size={18} /> : <Truck size={18} />}
               </div>
               {editingProv ? "Editar Proveedor" : "Nuevo Proveedor"}
               </DialogTitle>
@@ -663,7 +665,7 @@ export default function ProveedoresTable({
               <div className="bg-gradient-to-r from-[#111827] via-[#151923] to-[#10131a] px-6 py-5 border-b border-[var(--border)] flex items-start justify-between">
                 <div className="flex items-center gap-4">
                   <div className="w-14 h-14 rounded-2xl bg-[var(--brand-light)] text-[var(--brand)] border border-[var(--brand)]/20 flex items-center justify-center shadow-[0_10px_28px_rgba(59,130,246,0.14)]">
-                    <Building2 size={26} />
+                    <Truck size={26} />
                   </div>
                   <div>
                     <h3 className="text-xl font-bold text-[var(--text)] leading-tight">
