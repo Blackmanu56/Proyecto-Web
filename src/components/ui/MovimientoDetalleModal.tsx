@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { formatCurrency, formatDate, formatTime24 } from "@/lib/utils";
+import { formatCurrency, formatDateShort, formatTime24 } from "@/lib/utils";
 import { formatMovimientoDescripcion } from "@/lib/movimiento-format";
 import type { MovimientoCompra } from "@/lib/caja-filters";
 import { X, Calendar, Clock, User, Tag, FileText, ArrowUpRight, ArrowDownLeft, Hash, PackagePlus } from "lucide-react";
@@ -12,7 +12,7 @@ interface MovimientoDetalle {
   monto: number;
   descripcion: string;
   fecha: Date | string;
-  usuario: { username: string };
+  usuario: { username: string; nombreCompleto?: string };
   ventaId?: number | null;
   compraId?: number | null;
   compra?: MovimientoCompra | null;
@@ -35,7 +35,7 @@ export default function MovimientoDetalleModal({
 
   const isIncome = movimiento.tipo === "INGRESO";
   const d = new Date(movimiento.fecha);
-  const fechaStr = formatDate(d);
+  const fechaStr = formatDateShort(d);
   const horaStr = formatTime24(d);
 
   const desc = movimiento.descripcion;
@@ -44,13 +44,6 @@ export default function MovimientoDetalleModal({
   const compra = movimiento.compra ?? null;
   const compraDetalles = compra?.detalles ?? [];
   const detalleUnico = compraDetalles.length === 1 ? compraDetalles[0] : null;
-
-  const descripcionCompleta =
-    esReposicion && compraDetalles.length > 0
-      ? compraDetalles.length === 1
-        ? `Reposición de stock del producto ${compraDetalles[0].producto.nombre}.`
-        : `Reposición de stock de ${compraDetalles.length} productos.`
-      : formatMovimientoDescripcion(movimiento.descripcion);
 
   let tipoLabel = "Movimiento";
   let badgeVariant: "success" | "danger" | "info" | "warning" | "default" = "default";
@@ -80,7 +73,7 @@ export default function MovimientoDetalleModal({
 
   return (
     <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-[var(--card)] border border-[var(--border)] w-full max-w-lg rounded-2xl shadow-2xl relative animate-in zoom-in-95 duration-200">
+      <div className="bg-[var(--card)] border border-[var(--border)] w-full max-w-[calc(100vw-32px)] md:max-w-[680px] rounded-2xl shadow-2xl relative animate-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border)]">
           <h2 className="text-base font-bold text-[var(--text)] flex items-center gap-2">
@@ -110,7 +103,7 @@ export default function MovimientoDetalleModal({
           </div>
 
           {/* Monto */}
-          <div className={`p-4 rounded-xl border ${isIncome ? "bg-[var(--success-light)] border-[var(--success)]/20" : "bg-[var(--danger-light)] border-[var(--danger)]/20"}`}>
+          <div className={`px-4 py-2.5 rounded-xl border ${isIncome ? "bg-[var(--success-light)] border-[var(--success)]/20" : "bg-[var(--danger-light)] border-[var(--danger)]/20"}`}>
             <p className={`text-xs font-semibold ${isIncome ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>Monto</p>
             <p className={`text-2xl font-black font-mono ${isIncome ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
               {isIncome ? "+" : "-"}{formatCurrency(movimiento.monto)}
@@ -122,7 +115,7 @@ export default function MovimientoDetalleModal({
             <div className="space-y-1">
               <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider flex items-center gap-1">
                 <Calendar size={10} />
-                Fecha y Hora
+                Fecha
               </p>
               <p className="text-sm text-[var(--text)] font-semibold">{fechaStr}</p>
             </div>
@@ -138,7 +131,7 @@ export default function MovimientoDetalleModal({
                 <User size={10} />
                 Usuario
               </p>
-              <p className="text-sm text-[var(--text)] font-semibold">@{movimiento.usuario.username}</p>
+              <p className="text-sm text-[var(--text)] font-semibold">{movimiento.usuario.nombreCompleto || movimiento.usuario.username}</p>
             </div>
             <div className="space-y-1">
               <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider flex items-center gap-1">
@@ -167,13 +160,15 @@ export default function MovimientoDetalleModal({
             </div>
           )}
 
-          {/* Descripción */}
-          <div className="space-y-1.5">
-            <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Descripción completa</p>
-            <div className="p-3 bg-[var(--panel)] border border-[var(--border)] rounded-xl text-xs text-[var(--text-muted)] leading-relaxed">
-              {descripcionCompleta}
+          {/* Descripción (solo movimientos que no son reposiciones) */}
+          {!esReposicion && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Descripción completa</p>
+              <div className="p-3 bg-[var(--panel)] border border-[var(--border)] rounded-xl text-xs text-[var(--text-muted)] leading-relaxed">
+                {formatMovimientoDescripcion(movimiento.descripcion)}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Detalle de la Reposición */}
           {compra && compraDetalles.length > 0 && (
@@ -214,14 +209,6 @@ export default function MovimientoDetalleModal({
                       <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Importe total</p>
                       <p className="text-sm text-[var(--text)] font-mono font-semibold">{formatCurrency(detalleUnico.subtotal)}</p>
                     </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Stock anterior</p>
-                      <p className="text-sm text-[var(--text)] font-mono font-semibold">{detalleUnico.producto.cantidad - detalleUnico.cantidad} unidades</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Stock nuevo</p>
-                      <p className="text-sm text-[var(--text)] font-mono font-semibold">{detalleUnico.producto.cantidad} unidades</p>
-                    </div>
                   </div>
                 </div>
               ) : (
@@ -235,8 +222,6 @@ export default function MovimientoDetalleModal({
                           <th className="px-3 py-2 text-right font-bold">Cantidad</th>
                           <th className="px-3 py-2 text-right font-bold">Costo unitario</th>
                           <th className="px-3 py-2 text-right font-bold">Subtotal</th>
-                          <th className="px-3 py-2 text-right font-bold">Stock ant.</th>
-                          <th className="px-3 py-2 text-right font-bold">Stock nuevo</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[var(--border)]">
@@ -247,15 +232,13 @@ export default function MovimientoDetalleModal({
                             <td className="px-3 py-2 text-right font-mono text-[var(--text)]">{detalle.cantidad}</td>
                             <td className="px-3 py-2 text-right font-mono text-[var(--text)]">{formatCurrency(detalle.costoUnitario)}</td>
                             <td className="px-3 py-2 text-right font-mono text-[var(--text)]">{formatCurrency(detalle.subtotal)}</td>
-                            <td className="px-3 py-2 text-right font-mono text-[var(--text-muted)]">{detalle.producto.cantidad - detalle.cantidad}</td>
-                            <td className="px-3 py-2 text-right font-mono text-[var(--text)]">{detalle.producto.cantidad}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
                   <div className="flex items-center justify-between bg-[var(--danger-light)] border border-[var(--danger)]/20 rounded-xl px-4 py-3">
-                    <span className="text-xs font-semibold text-[var(--danger)]">Total de la reposición</span>
+                    <span className="text-xs font-semibold text-[var(--danger)]">Total de la reposición:</span>
                     <span className="text-sm font-black font-mono text-[var(--danger)]">{formatCurrency(compra.total)}</span>
                   </div>
                 </>
@@ -265,7 +248,7 @@ export default function MovimientoDetalleModal({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-[var(--border)] flex justify-end">
+        <div className="px-6 py-3 border-t border-[var(--border)] flex justify-end">
           <button
             onClick={onClose}
             className="px-4 py-2 bg-[var(--panel)] hover:bg-[var(--border)] text-[var(--text)] text-sm font-bold rounded-lg transition"

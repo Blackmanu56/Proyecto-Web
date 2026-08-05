@@ -669,13 +669,13 @@ export default function CajaTerminal({
                       <tr>
                         <th className="py-3 px-3 text-center w-[4%]">#</th>
                         <th className="py-3 px-3 w-[10%]">Fecha</th>
-                        <th className="py-3 px-3 w-[8%]">Hora</th>
-                        <th className="py-3 px-3 w-[28%]">Descripción</th>
-                        <th className="py-3 px-3 text-center w-[10%]">Tipo</th>
-                        <th className="py-3 px-3 w-[10%]">Usuario</th>
-                        <th className="py-3 px-3 text-right w-[10%]">Ingreso</th>
-                        <th className="py-3 px-3 text-right w-[10%]">Egreso</th>
-                        <th className="py-3 px-3 text-right w-[10%]">Saldo</th>
+                        <th className="py-3 px-3 w-[7%]">Hora</th>
+                        <th className="py-3 px-3 w-[38%]">Descripción</th>
+                        <th className="py-3 px-2 text-center whitespace-nowrap w-[9%]">Tipo</th>
+                        <th className="py-3 px-2 whitespace-nowrap w-[9%]">Usuario</th>
+                        <th className="py-3 px-3 text-right whitespace-nowrap w-[8%]">Ingreso</th>
+                        <th className="py-3 px-3 text-right whitespace-nowrap w-[8%]">Egreso</th>
+                        <th className="py-3 px-3 text-right whitespace-nowrap w-[7%]">Saldo</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--border)] font-mono text-xs">
@@ -688,12 +688,12 @@ export default function CajaTerminal({
 
                         return (
                           <tr key={mov.id} onClick={() => openDetalle(mov)} className="hover:bg-[var(--brand)]/[0.03] transition-colors cursor-pointer">
-                            <td className="py-3 px-3 text-center text-[var(--text-secondary)] font-semibold">{mov.itemNumber}</td>
-                            <td className="py-3 px-3 text-[var(--text-muted)]">{fechaStr}</td>
-                            <td className="py-3 px-3 text-[var(--text-secondary)]">{horaStr}</td>
+                            <td className="py-3 px-3 text-center text-[var(--text-secondary)] font-semibold whitespace-nowrap">{mov.itemNumber}</td>
+                            <td className="py-3 px-3 text-[var(--text-muted)] whitespace-nowrap">{fechaStr}</td>
+                            <td className="py-3 px-3 text-[var(--text-secondary)] whitespace-nowrap">{horaStr}</td>
                             <td className="py-3 px-3 text-[var(--text)] font-sans pr-2 leading-tight" title={formatMovimientoDescripcion(mov.descripcion)}>
                               {mov.compra ? (
-                                <span className="block whitespace-nowrap overflow-hidden text-ellipsis" style={{ maxWidth: 260 }}>
+                                <span className="block whitespace-nowrap overflow-hidden text-ellipsis" style={{ maxWidth: 400 }}>
                                   {formatReposicionCorta(mov.compra) ?? formatMovimientoDescripcion(mov.descripcion)}
                                 </span>
                               ) : (
@@ -702,12 +702,12 @@ export default function CajaTerminal({
                                 </span>
                               )}
                             </td>
-                            <td className="py-3 px-3 text-center">
+                            <td className="py-3 px-2 text-center whitespace-nowrap">
                               <Badge variant={visual.variant} size="sm">
                                 {visual.label}
                               </Badge>
                             </td>
-                            <td className="py-3 px-3 text-[var(--text-muted)] font-sans" title={mov.usuario.nombreCompleto || undefined}>@{mov.usuario.username}</td>
+                            <td className="py-3 px-2 text-[var(--text-muted)] font-sans whitespace-nowrap" title={mov.usuario.nombreCompleto || undefined}>@{mov.usuario.username}</td>
                             <td className="py-3 px-3 text-right text-[var(--success)] font-semibold whitespace-nowrap">
                               {isIncome ? formatCurrency(mov.monto) : "\u2014"}
                             </td>
