@@ -1,6 +1,7 @@
 "use client";
 
 import { crearClienteRapido,createVenta,toggleFavorito } from "@/actions/ventas";
+import { ToolbarSelect } from "@/components/ui/toolbar-select";
 import Image from "next/image";
 import { formatCurrency,formatDate,formatDateShort,formatTime24 } from "@/lib/utils";
 import {
@@ -10,7 +11,9 @@ ArrowRight,
 Banknote,
 CheckCircle,
 CreditCard,
+Eraser,
 Eye,
+Layers,
 Minus,
 Package,
 Plus,
@@ -18,6 +21,7 @@ Printer,
 Search,
 ShoppingCart,
 Star,
+Tag,
 Trash2,
 TrendingUp,
 UserPlus,
@@ -33,6 +37,7 @@ interface Product {
   precioVenta: number;
   cantidad: number;
   activo: boolean;
+  marca: string | null;
   categoria: { nombre: string };
   codigo?: string | null;
 }
@@ -93,6 +98,7 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
   const [prodSearch, setProdSearch] = useState("");
   const [clientSearch, setClientSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<ProductFilter>("todos");
   const [favoritoIds, setFavoritoIds] = useState<Set<number>>(() => new Set(initialFavoritoIds));
 
@@ -147,7 +153,16 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
   const [errorMsg, setErrorMsg] = useState("");
 
   // Obtener categorías únicas
-  const categories = Array.from(new Set(productos.map(p => p.categoria.nombre)));
+  const categories = Array.from(new Set(productos.map(p => p.categoria.nombre))).sort((a, b) => a.localeCompare(b));
+  const brands = Array.from(new Set(productos.map(p => p.marca).filter((m): m is string => Boolean(m)))).sort((a, b) => a.localeCompare(b));
+  const hasCatalogFilters = prodSearch.trim().length > 0 || selectedCategory !== null || selectedBrand !== null || activeFilter !== "todos";
+
+  const handleClearCatalogFilters = () => {
+    setProdSearch("");
+    setSelectedCategory(null);
+    setSelectedBrand(null);
+    setActiveFilter("todos");
+  };
 
   // ─── TOGGLE FAVORITO ───
   const handleToggleFavorito = async (e: React.MouseEvent, productoId: number) => {
@@ -182,6 +197,9 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
   }
   const cartTotal = cartSubtotal - discountAmount;
   const cartItemCount = cart.reduce((sum, item) => sum + item.cantidad, 0);
+
+  // Display del campo de descuento: vacío cuando no se tocó (se ve el placeholder atenuado, no un valor literal)
+  const displayDiscount = discountValue === "0" ? "" : discountValue;
 
   // ─── AGREGAR AL CARRITO ───
   const addToCart = (product: Product) => {
@@ -285,11 +303,12 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
     const matchesSearch = p.nombre.toLowerCase().includes(prodSearch.toLowerCase()) ||
       p.categoria.nombre.toLowerCase().includes(prodSearch.toLowerCase());
     const matchesCategory = !selectedCategory || p.categoria.nombre === selectedCategory;
+    const matchesBrand = !selectedBrand || p.marca === selectedBrand;
     const matchesFilter =
       activeFilter === "todos" ||
       (activeFilter === "favoritos" && favoritoIds.has(p.id)) ||
       activeFilter === "mas-vendidos"; // se ordena después
-    return matchesSearch && matchesCategory && matchesFilter;
+    return matchesSearch && matchesCategory && matchesBrand && matchesFilter;
   });
 
   // Ordenar por "más vendidos" si corresponde
@@ -413,31 +432,35 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch h-full">
       {/* ═══ SECCIÓN IZQUIERDA: Productos (7/12 cols) ═══ */}
-      <div className="lg:col-span-7 flex flex-col gap-2 min-h-0 h-full">
+      <div className="lg:col-span-7 flex flex-col gap-1 min-h-0 h-full">
         {/* 1. Panel de Selección de Clientes */}
-        <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-2 space-y-1.5 shadow-[var(--shadow-sm)] shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-1.5 text-[var(--brand)]">
-              <Users size={16} />
-              <h2 className="text-sm font-bold text-[var(--text)]">Selección de Cliente</h2>
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-2 py-2 space-y-1 shadow-[var(--shadow-sm)] shrink-0">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center space-x-1.5 text-[var(--brand)] min-w-0">
+              <Users size={17} className="shrink-0" />
+              <h2 className="shrink-0 text-base font-bold text-[var(--text)]">Selección de Cliente</h2>
             </div>
+            <span className="ml-auto min-w-0 truncate text-[11px] font-semibold text-[var(--text-secondary)]">
+              Haz clic sobre un cliente para agregarlo al carrito.
+            </span>
             <button
+              type="button"
               onClick={() => setShowNewClientModal(true)}
-              className="flex items-center space-x-1 px-2 py-0.5 bg-[var(--brand-light)] text-[var(--brand)] border border-[var(--brand)]/20 rounded text-xs font-semibold hover:bg-[var(--brand)] hover:text-white transition-all"
+              className="group ml-1 flex h-8 items-center justify-center gap-1.5 rounded-lg border border-[var(--brand)]/40 bg-[rgba(214,40,40,0.08)] px-3 text-xs font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] transition-all duration-200 hover:border-[var(--brand)]/60 hover:bg-[rgba(214,40,40,0.16)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]/30 active:bg-[rgba(214,40,40,0.22)]"
             >
-              <UserPlus size={12} />
-              <span>Nuevo</span>
+              <UserPlus size={15} className="shrink-0 text-[#E56B6B] group-hover:text-[#EF8B8B]" />
+              <span className="whitespace-nowrap">Nuevo cliente</span>
             </button>
           </div>
 
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" size={12} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" size={14} />
             <input
               type="text"
               placeholder="Buscar cliente..."
               value={clientSearch}
               onChange={e => setClientSearch(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 bg-[var(--bg)] border border-[var(--border)] rounded text-[var(--text)] placeholder-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)] text-sm transition-colors"
+              className="h-10 w-full rounded-full border border-[var(--border)] bg-[var(--bg)] pl-9 pr-4 text-sm text-[var(--text)] placeholder-[var(--text-secondary)] transition-colors focus:border-[var(--brand)] focus:outline-none"
             />
           </div>
 
@@ -472,42 +495,84 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
         </div>
 
         {/* 2. Panel de Búsqueda de Repuestos */}
-        <div className="bg-[var(--card)] border border-[var(--border)] rounded-[var(--radius-lg)] p-2 space-y-1.5 shadow-[var(--shadow-sm)] flex-1 flex flex-col min-h-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-1.5 text-[var(--brand)]">
-              <ShoppingCart size={16} />
-              <h2 className="text-sm font-bold text-[var(--text)]">Catálogo de Venta</h2>
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-2 py-2 space-y-0.5 shadow-[var(--shadow-sm)] flex-1 flex flex-col min-h-0">
+          {/* Encabezado, buscador y filtros del catalogo */}
+          <div className="grid grid-cols-1 gap-x-2 gap-y-0.5 xl:grid-cols-[minmax(260px,1fr)_150px_150px]">
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-0.5 xl:col-start-1 xl:row-start-1">
+              <div className="flex shrink-0 items-center space-x-1.5 text-[var(--brand)]">
+                <ShoppingCart size={17} />
+                <h2 className="text-base font-bold text-[var(--text)]">Catálogo de Venta</h2>
+              </div>
+              <span className="min-w-0 truncate text-[11px] font-semibold text-[var(--text-secondary)]">
+                Haz clic sobre un producto para agregarlo al carrito.
+              </span>
             </div>
-            <span className="text-[10px] text-[var(--text-secondary)] font-semibold uppercase tracking-wider">Clic para agregar</span>
-          </div>
 
-          {/* Buscador + Filtro inline */}
-          <div className="flex gap-1.5">
-            <div className="relative flex-1">
-              <label className="block text-xs text-slate-200 font-semibold mb-0.5">Buscar producto</label>
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" size={12} />
+            <div className="flex min-w-0 flex-wrap items-center gap-2 xl:col-start-1 xl:row-start-2">
+              <div className="relative min-w-[220px] flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" size={14} />
                 <input
                   type="text"
-                  placeholder="Buscar repuesto..."
+                  placeholder="Buscar producto por nombre o categoría..."
                   value={prodSearch}
                   onChange={e => setProdSearch(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-[var(--text)] placeholder-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)] text-sm transition-colors"
+                  className="h-10 w-full rounded-full border border-[var(--border)] bg-[var(--bg)] pl-9 pr-4 text-sm text-[var(--text)] placeholder-[var(--text-secondary)] transition-colors focus:border-[var(--brand)] focus:outline-none"
                 />
               </div>
+
+              {hasCatalogFilters && (
+                <button
+                  type="button"
+                  onClick={handleClearCatalogFilters}
+                  className="group flex h-10 min-w-[132px] shrink-0 items-center justify-center gap-2 rounded-xl border border-[var(--brand)]/30 bg-[var(--bg)] py-2 pl-2 pr-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200 hover:border-[var(--brand)]/60 hover:bg-[var(--brand-light)]/10 hover:text-white focus-visible:border-[var(--brand)] focus-visible:outline-0 focus-visible:ring-2 focus-visible:ring-[var(--brand)]/20 active:scale-[0.98]"
+                  aria-label="Limpiar filtros del catalogo"
+                  title="Limpiar filtros del catalogo"
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[var(--brand-light)] text-[var(--brand)] ring-1 ring-[var(--brand)]/20 transition-colors duration-200 group-hover:bg-[var(--brand-light)]/80">
+                      <Eraser size={14} strokeWidth={2.4} />
+                    </span>
+                    <span>Limpiar</span>
+                  </span>
+                </button>
+              )}
             </div>
-            <div className="shrink-0">
-              <label className="block text-xs text-slate-200 font-semibold mb-0.5">Categoría</label>
-              <select
-                value={selectedCategory || ""}
-                onChange={e => setSelectedCategory(e.target.value || null)}
-                className="w-full px-2 py-1.5 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-sm text-[var(--text)] focus:outline-none focus:border-[var(--brand)] cursor-pointer font-medium"
-              >
-                <option value="">Todas</option>
-                {categories.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
+
+            <div className="[&_label]:text-[11px] [&_label]:font-semibold [&_label]:text-[var(--text-secondary)] [&_label]:uppercase [&_label]:tracking-wider xl:col-start-2 xl:row-span-2 xl:row-start-1 xl:self-end">
+              <ToolbarSelect
+                label="Categoría"
+                value={selectedCategory ?? "all"}
+                onValueChange={value => setSelectedCategory(value === "all" ? null : value)}
+                triggerIcon={Layers}
+                minWidth="min-w-[150px]"
+                options={[
+                  { value: "all", label: "Todas", icon: Layers },
+                  ...categories.map(cat => ({ value: cat, label: cat, icon: Layers })),
+                ]}
+              />
+            </div>
+
+            <div className="[&_label]:text-[11px] [&_label]:font-semibold [&_label]:text-[var(--text-secondary)] [&_label]:uppercase [&_label]:tracking-wider xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:self-end">
+              <ToolbarSelect
+                label="Marca"
+                value={selectedBrand ?? "all"}
+                onValueChange={value => setSelectedBrand(value === "all" ? null : value)}
+                triggerIcon={Tag}
+                minWidth="min-w-[150px]"
+                tone={{
+                  trigger: "border-violet-500/25 hover:border-violet-400/60 focus-visible:border-violet-400 focus-visible:ring-violet-500/20 data-[state=open]:border-violet-400/70 data-[state=open]:ring-violet-500/20",
+                  icon: "bg-violet-500/15 text-violet-300 ring-violet-500/20",
+                  content: "border-violet-500/30",
+                  itemFocus: "focus:bg-violet-500/10",
+                  selected: "data-[state=checked]:bg-violet-500/12 data-[state=checked]:text-violet-200",
+                  check: "text-violet-300",
+                  chevron: "text-violet-300",
+                }}
+                options={[
+                  { value: "all", label: "Todas", icon: Tag },
+                  ...brands.map(brand => ({ value: brand, label: brand, icon: Tag })),
+                ]}
+              />
             </div>
           </div>
 
@@ -541,7 +606,7 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
           </div>
 
           {/* Product Grid — 2 filas visibles, scroll interno */}
-          <div className="grid grid-cols-4 gap-2 flex-1 overflow-y-auto pr-1">
+          <div className={`grid grid-cols-4 gap-2 flex-1 overflow-y-auto pr-1 ${filteredProducts.length > 0 ? "content-start" : ""}`}>
             {filteredProducts.length === 0 ? (
               <div className="col-span-4 h-full flex flex-col items-center justify-center text-[var(--text-secondary)]">
                 {activeFilter === "favoritos" ? (
@@ -607,7 +672,7 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
                   <p className="text-xs font-semibold text-[var(--text)] leading-tight line-clamp-2 min-h-[2rem]">{p.nombre}</p>
                   <p className="text-[10px] text-[var(--text-secondary)] truncate">{p.categoria.nombre}</p>
                   <div className="flex items-center justify-between mt-1">
-                    <p className="text-sm font-bold text-[var(--brand)] font-mono">{formatCurrency(p.precioVenta)}</p>
+                    <p className="text-sm font-bold text-[#22D3EE] font-mono">{formatCurrency(p.precioVenta)}</p>
                     <span className={`text-[10px] font-mono font-semibold ${hasNoStock ? "text-[var(--danger)]" : isLowStock ? "text-[var(--warning)]" : "text-[var(--success)]"}`}>
                       {p.cantidad}u
                     </span>
@@ -633,11 +698,11 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
           {/* Header Carrito */}
           <div className="flex items-center justify-between border-b border-[var(--border)] pb-1.5">
             <div className="flex items-center space-x-1.5 text-[var(--brand)]">
-              <ShoppingCart size={16} />
-              <h2 className="text-sm font-bold text-[var(--text)]">Carrito de compras</h2>
+              <ShoppingCart size={17} />
+              <h2 className="text-base font-bold text-[var(--text)]">Carrito de compras</h2>
             </div>
-            <span className="text-xs px-1.5 py-0.5 bg-[var(--brand-light)] border border-[var(--brand)]/20 text-[var(--brand)] font-semibold rounded font-mono">
-              {cartItemCount} {cartItemCount === 1 ? 'art.' : 'arts.'}
+            <span className="rounded-lg border border-[var(--brand)]/25 bg-[var(--brand-light)] px-2.5 py-1 text-sm font-bold text-[var(--brand)] font-mono shadow-[var(--shadow-sm)]">
+              {cartItemCount} {cartItemCount === 1 ? 'artículo' : 'artículos'}
             </span>
           </div>
 
@@ -700,7 +765,7 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
                   </div>
 
                   {/* Subtotal */}
-                  <p className="text-sm font-bold font-mono text-white shrink-0 whitespace-nowrap">{formatCurrency(item.precioVenta * item.cantidad)}</p>
+                  <p className="text-sm font-bold font-mono text-[#22D3EE] shrink-0 whitespace-nowrap">{formatCurrency(item.precioVenta * item.cantidad)}</p>
 
                   {/* Eliminar */}
                   <button
@@ -724,7 +789,7 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
               setPaymentMethod("EFECTIVO");
               setDiscountValue("0");
             }}
-            disabled={cart.length === 0}
+            disabled={cart.length === 0 && !selectedClient}
             className="w-full py-2 flex items-center justify-center gap-1.5 bg-transparent border border-[var(--danger)]/30 text-[var(--danger)] hover:bg-[var(--danger)]/10 font-semibold rounded-[var(--radius-md)] transition text-[11px] disabled:opacity-20 disabled:cursor-not-allowed shrink-0"
           >
             <Trash2 size={13} />
@@ -734,10 +799,24 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
           {/* ═══ SECCIÓN DE PAGO ═══ */}
           <div className="border-t border-[var(--border)] pt-2 space-y-2 shrink-0">
             {/* Cliente */}
-            <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-sm">
+            <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-sm items-center">
               <span className="text-slate-200 font-semibold">Cliente:</span>
-              <span className="font-semibold text-[var(--text)] text-right truncate">
-                {selectedClient ? selectedClient.nombre : <span className="text-[var(--text-secondary)] italic">No seleccionado</span>}
+              <span className="font-semibold text-[var(--text)] text-right min-w-0">
+                {selectedClient ? (
+                  <span className="inline-flex items-center justify-end gap-1 min-w-0">
+                    <span className="truncate">{selectedClient.nombre}</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedClient(null)}
+                      title="Quitar cliente de la venta"
+                      className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--danger)] hover:bg-[var(--danger)]/10 transition rounded-md shrink-0"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </span>
+                ) : (
+                  <span className="text-[var(--text-secondary)] italic">No seleccionado</span>
+                )}
               </span>
             </div>
 
@@ -782,52 +861,56 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
               </div>
             </div>
 
-            {/* Descuento */}
-            <div>
-              <label className="block text-xs text-slate-200 font-semibold mb-0.5">Descuento</label>
-              <div className="flex gap-1.5 max-w-[320px]">
-                <select
-                  value={discountType}
-                  onChange={e => setDiscountType(e.target.value as DiscountType)}
-                  className="py-1.5 px-2 bg-[var(--bg)] border border-[var(--border-hover)] rounded text-sm text-slate-200 font-semibold focus:outline-none focus:border-[var(--brand)] appearance-none cursor-pointer shrink-0"
-                >
-                  <option value="MONTO">$ Fijo</option>
-                  <option value="PORCENTAJE">% Porc.</option>
-                </select>
-                <div className="relative flex-1">
+            {/* ═══ DESCUENTO + SUBTOTAL/TOTAL (2 columnas) ═══ */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2 items-center">
+              {/* Columna izquierda: Descuento */}
+              <div>
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <label className="text-xs text-slate-200 font-semibold">Descuento</label>
+                  <span className="truncate text-[11px] font-semibold text-[var(--text-secondary)]">Clic para elegir monto o porcentaje</span>
+                </div>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setDiscountType(discountType === "MONTO" ? "PORCENTAJE" : "MONTO")}
+                    aria-label="Cambiar tipo de descuento"
+                    className="absolute left-0 top-0 h-full w-8 flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--brand)] transition text-sm font-bold border-r border-[var(--border-hover)] cursor-pointer"
+                  >
+                    {discountType === "PORCENTAJE" ? "%" : "$"}
+                  </button>
                   <input
                     type="text"
                     inputMode="decimal"
-                    value={discountValue}
+                    value={displayDiscount}
                     onChange={e => {
                       const val = e.target.value.replace(/[^0-9.]/g, "");
                       setDiscountValue(val);
                     }}
-                    placeholder="0"
-                    className="w-full px-2.5 py-1.5 bg-[var(--bg)] border border-[var(--border-hover)] rounded text-sm text-white font-mono font-semibold focus:outline-none focus:border-[var(--brand)]"
+                    onFocus={e => e.target.select()}
+                    onBlur={() => {
+                      if (discountValue.trim() === "") setDiscountValue("0");
+                    }}
+                    placeholder={discountType === "PORCENTAJE" ? "ej: 10" : "0,00"}
+                    className="w-full pl-9 pr-2.5 py-1.5 bg-[var(--bg)] border border-[var(--border-hover)] rounded text-sm text-white font-mono font-semibold text-right placeholder-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)]"
                   />
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-300 font-bold">
-                    {discountType === "PORCENTAJE" ? "%" : "$"}
-                  </span>
                 </div>
+                {discountAmount > 0 && (
+                  <p className="mt-0.5 text-[10px] font-mono text-[var(--danger)]">
+                    Desc.: -{formatCurrency(discountAmount)}
+                  </p>
+                )}
               </div>
-            </div>
 
-            {/* Resumen */}
-            <div className="space-y-1">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-[var(--text-secondary)]">Subtotal:</span>
-                <span className="font-mono text-[var(--text)]">{formatCurrency(cartSubtotal)}</span>
-              </div>
-              {discountAmount > 0 && (
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-[var(--danger)]">Desc.:</span>
-                  <span className="font-mono text-[var(--danger)] font-semibold">-{formatCurrency(discountAmount)}</span>
+              {/* Columna derecha: Subtotal + Total */}
+              <div className="space-y-1 sm:pl-2">
+                <div className="flex justify-between items-center text-[13px] leading-tight">
+                  <span className="text-[#7C8AA5]">Subtotal:</span>
+                  <span className="font-mono font-semibold text-[#CBD5E1]">{formatCurrency(cartSubtotal)}</span>
                 </div>
-              )}
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-bold text-[var(--text)]">Total:</span>
-                <span className="text-xl font-black font-mono text-[var(--success)]">{formatCurrency(cartTotal)}</span>
+                <div className="flex justify-between items-center pt-1.5 mt-0.5 border-t border-[var(--border)]">
+                  <span className="text-sm font-bold text-[var(--text)]">Total:</span>
+                  <span className="text-lg font-black font-mono text-[var(--success)]">{formatCurrency(cartTotal)}</span>
+                </div>
               </div>
             </div>
 
