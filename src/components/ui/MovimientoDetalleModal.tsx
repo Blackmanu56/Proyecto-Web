@@ -3,7 +3,8 @@
 import React from "react";
 import { formatCurrency, formatDate, formatTime24 } from "@/lib/utils";
 import { formatMovimientoDescripcion } from "@/lib/movimiento-format";
-import { X, Calendar, Clock, User, Tag, FileText, ArrowUpRight, ArrowDownLeft, Hash } from "lucide-react";
+import type { MovimientoCompra } from "@/lib/caja-filters";
+import { X, Calendar, Clock, User, Tag, FileText, ArrowUpRight, ArrowDownLeft, Hash, PackagePlus } from "lucide-react";
 
 interface MovimientoDetalle {
   id: number;
@@ -14,6 +15,7 @@ interface MovimientoDetalle {
   usuario: { username: string };
   ventaId?: number | null;
   compraId?: number | null;
+  compra?: MovimientoCompra | null;
   itemNumber?: number;
   saldoAcumulado?: number;
 }
@@ -37,6 +39,19 @@ export default function MovimientoDetalleModal({
   const horaStr = formatTime24(d);
 
   const desc = movimiento.descripcion;
+  const esReposicion =
+    !!movimiento.compraId || (desc || "").toLowerCase().includes("reposici");
+  const compra = movimiento.compra ?? null;
+  const compraDetalles = compra?.detalles ?? [];
+  const detalleUnico = compraDetalles.length === 1 ? compraDetalles[0] : null;
+
+  const descripcionCompleta =
+    esReposicion && compraDetalles.length > 0
+      ? compraDetalles.length === 1
+        ? `Reposición de stock del producto ${compraDetalles[0].producto.nombre}.`
+        : `Reposición de stock de ${compraDetalles.length} productos.`
+      : formatMovimientoDescripcion(movimiento.descripcion);
+
   let tipoLabel = "Movimiento";
   let badgeVariant: "success" | "danger" | "info" | "warning" | "default" = "default";
 
@@ -134,7 +149,7 @@ export default function MovimientoDetalleModal({
                 {movimiento.ventaId
                   ? `Venta #${movimiento.ventaId}`
                   : movimiento.compraId
-                  ? `Compra #${movimiento.compraId}`
+                  ? `Reposición #${movimiento.compraId}`
                   : "Sin referencia"}
               </p>
             </div>
@@ -156,9 +171,97 @@ export default function MovimientoDetalleModal({
           <div className="space-y-1.5">
             <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Descripción completa</p>
             <div className="p-3 bg-[var(--panel)] border border-[var(--border)] rounded-xl text-xs text-[var(--text-muted)] leading-relaxed">
-              {formatMovimientoDescripcion(movimiento.descripcion)}
+              {descripcionCompleta}
             </div>
           </div>
+
+          {/* Detalle de la Reposición */}
+          {compra && compraDetalles.length > 0 && (
+            <div className="pt-3 border-t border-[var(--border)] space-y-3">
+              <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider flex items-center gap-1">
+                <PackagePlus size={10} />
+                Detalle de la Reposición
+              </p>
+
+              {detalleUnico ? (
+                <div className="bg-[var(--panel)] border border-[var(--border)] rounded-xl p-4">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                    <div className="col-span-2 space-y-1">
+                      <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Producto</p>
+                      <p className="text-sm text-[var(--text)] font-semibold">{detalleUnico.producto.nombre}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Marca</p>
+                      <p className="text-sm text-[var(--text)] font-semibold">{detalleUnico.producto.marca ?? "—"}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Categoría</p>
+                      <p className="text-sm text-[var(--text)] font-semibold">{detalleUnico.producto.categoria?.nombre ?? "—"}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Proveedor</p>
+                      <p className="text-sm text-[var(--text)] font-semibold">{compra.proveedor?.nombre ?? "—"}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Cantidad repuesta</p>
+                      <p className="text-sm text-[var(--text)] font-semibold">{detalleUnico.cantidad === 1 ? "1 unidad" : `${detalleUnico.cantidad} unidades`}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Costo unitario</p>
+                      <p className="text-sm text-[var(--text)] font-mono font-semibold">{formatCurrency(detalleUnico.costoUnitario)}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Importe total</p>
+                      <p className="text-sm text-[var(--text)] font-mono font-semibold">{formatCurrency(detalleUnico.subtotal)}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Stock anterior</p>
+                      <p className="text-sm text-[var(--text)] font-mono font-semibold">{detalleUnico.producto.cantidad - detalleUnico.cantidad} unidades</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Stock nuevo</p>
+                      <p className="text-sm text-[var(--text)] font-mono font-semibold">{detalleUnico.producto.cantidad} unidades</p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="bg-[var(--panel)] border border-[var(--border)] rounded-xl overflow-hidden">
+                    <table className="w-full text-xs">
+                      <thead className="bg-[var(--card)] text-[10px] text-[var(--text-secondary)] uppercase tracking-wider">
+                        <tr className="border-b border-[var(--border)]">
+                          <th className="px-3 py-2 text-left font-bold">Producto</th>
+                          <th className="px-3 py-2 text-left font-bold">Marca</th>
+                          <th className="px-3 py-2 text-right font-bold">Cantidad</th>
+                          <th className="px-3 py-2 text-right font-bold">Costo unitario</th>
+                          <th className="px-3 py-2 text-right font-bold">Subtotal</th>
+                          <th className="px-3 py-2 text-right font-bold">Stock ant.</th>
+                          <th className="px-3 py-2 text-right font-bold">Stock nuevo</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--border)]">
+                        {compraDetalles.map((detalle, index) => (
+                          <tr key={detalle.id ?? index}>
+                            <td className="px-3 py-2 text-[var(--text)] font-semibold">{detalle.producto.nombre}</td>
+                            <td className="px-3 py-2 text-[var(--text-muted)]">{detalle.producto.marca ?? "—"}</td>
+                            <td className="px-3 py-2 text-right font-mono text-[var(--text)]">{detalle.cantidad}</td>
+                            <td className="px-3 py-2 text-right font-mono text-[var(--text)]">{formatCurrency(detalle.costoUnitario)}</td>
+                            <td className="px-3 py-2 text-right font-mono text-[var(--text)]">{formatCurrency(detalle.subtotal)}</td>
+                            <td className="px-3 py-2 text-right font-mono text-[var(--text-muted)]">{detalle.producto.cantidad - detalle.cantidad}</td>
+                            <td className="px-3 py-2 text-right font-mono text-[var(--text)]">{detalle.producto.cantidad}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="flex items-center justify-between bg-[var(--danger-light)] border border-[var(--danger)]/20 rounded-xl px-4 py-3">
+                    <span className="text-xs font-semibold text-[var(--danger)]">Total de la reposición</span>
+                    <span className="text-sm font-black font-mono text-[var(--danger)]">{formatCurrency(compra.total)}</span>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Footer */}

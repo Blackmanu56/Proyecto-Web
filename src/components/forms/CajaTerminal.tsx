@@ -19,10 +19,11 @@ filtrarMovimientos,
 getConcepto,
 getTipoVisual,
 getUsuariosUnicos,
+type MovimientoCompra,
 type MovimientoEnriched
 } from "@/lib/caja-filters";
 import { formatCurrency,formatDate,formatDateShort,formatTime24 } from "@/lib/utils";
-import { formatMovimientoDescripcion } from "@/lib/movimiento-format";
+import { formatMovimientoDescripcion,formatReposicionCorta } from "@/lib/movimiento-format";
 import { isSameDay } from "date-fns";
 import {
 Activity,
@@ -115,6 +116,7 @@ interface Movimiento {
   ventaId?: number | null;
   venta?: { id: number; metodoPago: string | null } | null;
   compraId?: number | null;
+  compra?: MovimientoCompra | null;
 }
 
 interface CajaActiva {
@@ -378,7 +380,7 @@ export default function CajaTerminal({
       lines.push("");
     }
 
-    lines.push("N°;Fecha;Hora;Descripción;Tipo;Usuario;Ingreso;Egreso;Saldo");
+    lines.push("N°;Fecha;Hora;Descripción;Cantidad;Tipo;Usuario;Ingreso;Egreso;Saldo");
 
     const movimientos = movimientosFiltrados;
     for (const mov of movimientos) {
@@ -389,9 +391,15 @@ export default function CajaTerminal({
       const ingreso = isIncome ? formatCurrency(mov.monto) : "";
       const egreso = !isIncome ? formatCurrency(mov.monto) : "";
       const saldo = formatCurrency(mov.saldoAcumulado);
-      const desc = formatMovimientoDescripcion(mov.descripcion).replace(/"/g, '""');
+      const descRaw = mov.compra
+        ? formatReposicionCorta(mov.compra) ?? formatMovimientoDescripcion(mov.descripcion)
+        : formatMovimientoDescripcion(mov.descripcion);
+      const desc = descRaw.replace(/"/g, '""');
+      const cantidad = mov.compra
+        ? String(mov.compra.detalles.reduce((sum, d) => sum + (Number(d.cantidad) || 0), 0))
+        : "";
 
-      lines.push(`${mov.itemNumber};${fechaStr};${horaStr};"${desc}";${mov.tipo};@${mov.usuario.username};${ingreso};${egreso};${saldo}`);
+      lines.push(`${mov.itemNumber};${fechaStr};${horaStr};"${desc}";${cantidad};${mov.tipo};@${mov.usuario.username};${ingreso};${egreso};${saldo}`);
     }
 
     lines.push("");
@@ -682,7 +690,17 @@ export default function CajaTerminal({
                             <td className="py-3 px-3 text-center text-[var(--text-secondary)] font-semibold">{mov.itemNumber}</td>
                             <td className="py-3 px-3 text-[var(--text-muted)]">{fechaStr}</td>
                             <td className="py-3 px-3 text-[var(--text-secondary)]">{horaStr}</td>
-                            <td className="py-3 px-3 text-[var(--text)] font-sans whitespace-normal break-words pr-2 leading-tight line-clamp-2" title={formatMovimientoDescripcion(mov.descripcion)}>{formatMovimientoDescripcion(mov.descripcion)}</td>
+                            <td className="py-3 px-3 text-[var(--text)] font-sans pr-2 leading-tight" title={formatMovimientoDescripcion(mov.descripcion)}>
+                              {mov.compra ? (
+                                <span className="block whitespace-nowrap overflow-hidden text-ellipsis" style={{ maxWidth: 260 }}>
+                                  {formatReposicionCorta(mov.compra) ?? formatMovimientoDescripcion(mov.descripcion)}
+                                </span>
+                              ) : (
+                                <span className="block whitespace-normal break-words line-clamp-2">
+                                  {formatMovimientoDescripcion(mov.descripcion)}
+                                </span>
+                              )}
+                            </td>
                             <td className="py-3 px-3 text-center">
                               <Badge variant={visual.variant} size="sm">
                                 {visual.label}
@@ -948,7 +966,7 @@ export default function CajaTerminal({
                   <td className="col-num text-center">{mov.itemNumber}</td>
                   <td className="col-fecha">{fechaStr}</td>
                   <td className="col-hora">{horaStr}</td>
-                  <td className="col-desc">{formatMovimientoDescripcion(mov.descripcion)}</td>
+                  <td className="col-desc">{mov.compra ? formatReposicionCorta(mov.compra) ?? formatMovimientoDescripcion(mov.descripcion) : formatMovimientoDescripcion(mov.descripcion)}</td>
                   <td className="col-tipo text-center"><span className={`badge ${badgeClass}`}>{visual.label}</span></td>
                   <td className="col-user">{mov.usuario.nombreCompleto || mov.usuario.username}</td>
                   <td className="col-ing text-right font-bold text-green">{isIncome ? formatCurrency(mov.monto) : "—"}</td>

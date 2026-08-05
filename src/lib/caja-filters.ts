@@ -3,6 +3,29 @@
  * Separada del componente para poder testearse independientemente.
  */
 
+export interface MovimientoCompraDetalleProducto {
+  id: number;
+  nombre: string;
+  marca: string | null;
+  cantidad: number;
+  categoria: { id: number; nombre: string };
+}
+
+export interface MovimientoCompraDetalle {
+  id: number;
+  cantidad: number;
+  costoUnitario: number;
+  subtotal: number;
+  producto: MovimientoCompraDetalleProducto;
+}
+
+export interface MovimientoCompra {
+  id: number;
+  total: number;
+  proveedor: { id: number; nombre: string };
+  detalles: MovimientoCompraDetalle[];
+}
+
 export interface MovimientoInput {
   id?: number;
   tipo?: string;
@@ -12,6 +35,7 @@ export interface MovimientoInput {
   usuario?: { username?: string; nombreCompleto?: string } | null;
   ventaId?: number | null;
   compraId?: number | null;
+  compra?: MovimientoCompra | null;
 }
 
 export interface MovimientoEnriched {
@@ -23,6 +47,7 @@ export interface MovimientoEnriched {
   usuario: { username: string; nombreCompleto?: string };
   ventaId?: number | null;
   compraId?: number | null;
+  compra?: MovimientoCompra | null;
   itemNumber: number;
   saldoAcumulado: number;
 }
@@ -132,6 +157,7 @@ export function enrichMovimientos(
       usuario: { username: mov.usuario?.username || "unknown", nombreCompleto: mov.usuario?.nombreCompleto },
       ventaId: mov.ventaId ?? null,
       compraId: mov.compraId ?? null,
+      compra: mov.compra ?? null,
       itemNumber: idx + 1,
       saldoAcumulado: saldo,
     };
