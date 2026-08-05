@@ -31,6 +31,15 @@ export default function MovimientoDetalleModal({
   onClose,
   movimiento,
 }: MovimientoDetalleModalProps) {
+  React.useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, onClose]);
+
   if (!open || !movimiento) return null;
 
   const isIncome = movimiento.tipo === "INGRESO";
@@ -72,8 +81,11 @@ export default function MovimientoDetalleModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-[var(--card)] border border-[var(--border)] w-full max-w-[calc(100vw-32px)] md:max-w-[680px] rounded-2xl shadow-2xl relative animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div
+        className="bg-[var(--card)] border border-[var(--border)] w-full max-w-[calc(100vw-32px)] md:max-w-[680px] rounded-2xl shadow-2xl relative animate-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border)]">
           <h2 className="text-base font-bold text-[var(--text)] flex items-center gap-2">
