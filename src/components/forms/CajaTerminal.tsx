@@ -56,6 +56,20 @@ X
 import { useRouter } from "next/navigation";
 import React,{ useEffect,useMemo,useState,useTransition } from "react";
 
+const METODOS_PAGO_ORDEN = ["EFECTIVO", "TRANSFERENCIA", "TARJETA_DEBITO", "TARJETA_CREDITO"];
+
+function labelMetodoPago(metodo: string): string {
+  const labels: Record<string, string> = {
+    EFECTIVO: "Efectivo",
+    TRANSFERENCIA: "Transferencia",
+    TARJETA_DEBITO: "Débito",
+    TARJETA_CREDITO: "Crédito",
+    MERCADOPAGO: "Mercado Pago",
+    OTROS: "Otros",
+  };
+  return labels[metodo] ?? metodo;
+}
+
 const cajaSelectBase = {
   trigger: "border-[#2B303B] hover:border-[#3A414F] hover:bg-[#17191F]",
   content: "border-[#2B303B]",
@@ -99,6 +113,7 @@ interface Movimiento {
   fecha: Date;
   usuario: { username: string; nombreCompleto?: string };
   ventaId?: number | null;
+  venta?: { id: number; metodoPago: string | null } | null;
   compraId?: number | null;
 }
 
@@ -107,8 +122,11 @@ interface CajaActiva {
   montoInicial: number;
   totalVentas: number;
   fechaApertura: Date;
+  fechaCierre: Date | null;
   estado: string;
   usuario: { username: string; nombreCompleto?: string };
+  gastosManuales: number;
+  totalContado: number | null;
   movimientos: Movimiento[];
 }
 
@@ -296,6 +314,21 @@ export default function CajaTerminal({
   const totalGastos = movimientosConSaldo
     .filter(m => m.tipo === "EGRESO" && m.descripcion.toLowerCase().startsWith("gasto:"))
     .reduce((sum, m) => sum + m.monto, 0);
+
+  const pagosPorMetodo = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const m of cajaActiva?.movimientos ?? []) {
+      if (m.tipo === "INGRESO" && m.ventaId && m.venta?.metodoPago) {
+        const metodo = m.venta.metodoPago;
+        map.set(metodo, (map.get(metodo) ?? 0) + m.monto);
+      }
+    }
+    const otros = [...map.keys()].filter((k) => !METODOS_PAGO_ORDEN.includes(k)).sort();
+    return [...METODOS_PAGO_ORDEN.filter((k) => map.has(k)), ...otros].map((metodo) => ({
+      metodo,
+      monto: map.get(metodo) ?? 0,
+    }));
+  }, [cajaActiva]);
 
   const handlePrint = () => {
     const report = document.getElementById("caja-print-report");
@@ -958,15 +991,77 @@ export default function CajaTerminal({
               <div className="cj-summary-label">Egresos</div>
               <div className="cj-summary-value" style={{color:"#dc2626"}}>{formatCurrency(hayFiltrosActivos ? totalEgresosFiltrado : totalEgresosTurno)}</div>
             </div>
-            <div className="cj-summary-item" style={{borderColor:"#000", borderWidth:"2px"}}>
+            <div className="cj-summary-item cj-summary-saldo-final">
               <div className="cj-summary-label">Saldo Final</div>
               <div className="cj-summary-value" style={{color:(hayFiltrosActivos ? saldoFinalFiltrado : saldoFinalTurno) >= 0 ? "#16a34a" : "#dc2626", fontSize:"13px"}}>{formatCurrency(hayFiltrosActivos ? saldoFinalFiltrado : saldoFinalTurno)}</div>
             </div>
           </div>
         </div>
 
-        <div className="cj-footer">
-          Chopper Repuestos — Sistema de Gestión Integral | Generado el {formatDate(new Date())}
+        <div className="cj-pagos">
+          <div className="cj-section-title">Resumen por Forma de Pago</div>
+          {pagosPorMetodo.length === 0 ? (
+            <div style={{fontSize:"9px", color:"#777"}}>Sin ventas registradas en este turno.</div>
+          ) : (
+            <div className="cj-pagos-grid">
+              {pagosPorMetodo.map((p) => (
+                <div className="cj-pago-item" key={p.metodo}>
+                  <div className="cj-pago-label">{labelMetodoPago(p.metodo)}</div>
+                  <div className="cj-pago-value">{formatCurrency(p.monto)}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {cajaActiva.estado === "CERRADA" && cajaActiva.fechaCierre && (
+          <div className="cj-cierre">
+            <div className="cj-section-title">Datos del Cierre</div>
+            <div className="cj-cierre-grid">
+              <div className="cj-cierre-item">
+                <div className="cj-cierre-label">Fecha y Hora</div>
+                <div className="cj-cierre-value">{formatDate(cajaActiva.fechaCierre)} {formatTime24(cajaActiva.fechaCierre)}</div>
+              </div>
+              <div className="cj-cierre-item">
+                <div className="cj-cierre-label">Responsable</div>
+                <div className="cj-cierre-value">{cajaActiva.usuario.nombreCompleto || cajaActiva.usuario.username}</div>
+              </div>
+              <div className="cj-cierre-item">
+                <div className="cj-cierre-label">Saldo Esperado</div>
+                <div className="cj-cierre-value">{formatCurrency(saldoFinalTurno)}</div>
+              </div>
+              <div className="cj-cierre-item">
+                <div className="cj-cierre-label">Saldo Contado</div>
+                <div className="cj-cierre-value">{cajaActiva.totalContado !== null ? formatCurrency(cajaActiva.totalContado) : "—"}</div>
+              </div>
+              <div className="cj-cierre-item">
+                <div className="cj-cierre-label">Diferencia</div>
+                <div className="cj-cierre-value">{cajaActiva.totalContado !== null ? formatCurrency(saldoFinalTurno - cajaActiva.totalContado) : "—"}</div>
+              </div>
+              <div className="cj-cierre-item">
+                <div className="cj-cierre-label">Observaciones</div>
+                <div className="cj-cierre-value">—</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="cj-firmas">
+          <div className="cj-firma">
+            <div className="cj-firma-titulo">Firma del Cajero</div>
+            <div className="cj-firma-linea" />
+            <div className="cj-firma-nombre">{cajaActiva.usuario.nombreCompleto || cajaActiva.usuario.username}</div>
+          </div>
+          <div className="cj-firma">
+            <div className="cj-firma-titulo">Firma del Responsable</div>
+            <div className="cj-firma-linea" />
+            <div className="cj-firma-nombre">Chopper Repuestos</div>
+          </div>
+        </div>
+
+        <div className="cj-page-footer">
+          <span>Chopper Repuestos — Sistema de Gestión Integral</span>
+          <span>Generado el {formatDate(new Date())} {formatTime24(new Date())} por {cajaActiva.usuario.nombreCompleto || cajaActiva.usuario.username}</span>
         </div>
       </div>
     )}

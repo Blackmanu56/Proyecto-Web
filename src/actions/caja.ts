@@ -18,6 +18,12 @@ export async function getCajaActiva() {
         movimientos: {
           include: {
             usuario: true,
+            venta: {
+              select: {
+                id: true,
+                metodoPago: true,
+              },
+            },
           },
           orderBy: {
             fecha: "desc",
