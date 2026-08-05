@@ -9,6 +9,8 @@ type ToolbarSelectOption = {
   value: string;
   label: string;
   icon?: React.ElementType;
+  iconClassName?: string;
+  iconBoxClassName?: string;
 };
 
 type ToolbarSelectTone = {
@@ -29,6 +31,11 @@ interface ToolbarSelectProps {
   triggerIcon: React.ElementType;
   tone?: ToolbarSelectTone;
   minWidth?: string;
+  triggerClassName?: string;
+  iconClassName?: string;
+  labelClassName?: string;
+  contentClassName?: string;
+  itemClassName?: string;
 }
 
 const defaultTone: ToolbarSelectTone = {
@@ -49,23 +56,31 @@ function ToolbarSelect({
   triggerIcon: TriggerIcon,
   tone = defaultTone,
   minWidth = "min-w-[140px]",
+  triggerClassName,
+  iconClassName,
+  labelClassName,
+  contentClassName,
+  itemClassName,
 }: ToolbarSelectProps) {
+  const selectedOption = options.find((option) => option.value === value);
+  const SelectedIcon = selectedOption?.icon || TriggerIcon;
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">{label}</label>
+      <label className={cn("text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider", labelClassName)}>{label}</label>
       <SelectPrimitive.Root value={value} onValueChange={onValueChange}>
         <SelectPrimitive.Trigger
           className={cn(
             "group flex h-10 items-center justify-between gap-2 rounded-xl border bg-[var(--bg)] py-2 pl-2 pr-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200 focus-visible:ring-2",
             minWidth,
-            tone.trigger
+            tone.trigger,
+            triggerClassName
           )}
           aria-label={label}
         >
           <span className="flex min-w-0 items-center gap-2">
-            <span className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ring-1", tone.icon)}>
-              <TriggerIcon size={14} />
-            </span>
+<span className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ring-1", tone.icon, iconClassName, selectedOption?.iconBoxClassName)}>
+  <SelectedIcon size={14} className={selectedOption?.iconClassName} />
+</span>
             <SelectPrimitive.Value />
           </span>
           <SelectPrimitive.Icon asChild>
@@ -80,7 +95,8 @@ function ToolbarSelect({
             align="start"
             className={cn(
               "z-50 max-h-72 w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border bg-[var(--panel)] p-1.5 shadow-[var(--shadow-lg)] ring-1 ring-white/5 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
-              tone.content
+              tone.content,
+              contentClassName
             )}
           >
             <SelectPrimitive.Viewport className="max-h-64 overflow-y-auto pr-1 [scrollbar-width:thin] [scrollbar-color:var(--border)_transparent]">
@@ -93,10 +109,11 @@ function ToolbarSelect({
                     className={cn(
                       "relative flex h-9 w-full cursor-pointer select-none items-center gap-2 rounded-xl px-2.5 pr-8 text-sm text-[var(--text)] outline-none transition-colors duration-150 whitespace-nowrap data-[state=checked]:font-bold data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
                       tone.itemFocus,
-                      tone.selected
+                      tone.selected,
+                      itemClassName
                     )}
                   >
-                    {OptionIcon && <OptionIcon size={14} className="shrink-0 opacity-85" />}
+                    {OptionIcon && <OptionIcon size={14} className={cn("shrink-0 opacity-85", option.iconClassName)} />}
                     <SelectPrimitive.ItemText><span className="whitespace-nowrap">{option.label}</span></SelectPrimitive.ItemText>
                     <SelectPrimitive.ItemIndicator className="absolute right-2 flex h-5 w-5 items-center justify-center">
                       <Check size={14} className={tone.check} strokeWidth={2.6} />

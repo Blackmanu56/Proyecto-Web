@@ -11,37 +11,85 @@ import ConfirmarCierreModal from "@/components/ui/ConfirmarCierreModal";
 import { Input } from "@/components/ui/input";
 import MovimientoDetalleModal from "@/components/ui/MovimientoDetalleModal";
 import { TableShell } from "@/components/ui/table-shell";
+import { ToolbarSelect, type ToolbarSelectTone } from "@/components/ui/toolbar-select";
 import {
 calcularTotales,
 enrichMovimientos,
 filtrarMovimientos,
+getConcepto,
 getTipoVisual,
 getUsuariosUnicos,
 type MovimientoEnriched
 } from "@/lib/caja-filters";
 import { formatCurrency,formatDate,formatDateShort,formatTime24 } from "@/lib/utils";
+import { formatMovimientoDescripcion } from "@/lib/movimiento-format";
 import { isSameDay } from "date-fns";
 import {
 Activity,
 AlertCircle,
 AlertTriangle,
+ArrowDownLeft,
+ArrowUpRight,
 Calendar,
 Clock,
 Download,
 Filter,
+FolderOpen,
 History,
+ListFilter,
 Lock,
 MinusCircle,
+PackagePlus,
 PlusCircle,
 Printer,
+Receipt,
 RotateCcw,
 Search,
+ShoppingCart,
+Tags,
 Unlock,
 User,
+UserRound,
+Waves,
 X
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import React,{ useEffect,useMemo,useState,useTransition } from "react";
+
+const cajaSelectBase = {
+  trigger: "border-[#2B303B] hover:border-[#3A414F] hover:bg-[#17191F]",
+  content: "border-[#2B303B]",
+  itemFocus: "focus:bg-[#1E2129] focus:text-white",
+  selected: "data-[state=checked]:bg-[rgba(214,40,40,0.10)] data-[state=checked]:text-white",
+  check: "text-white",
+  chevron: "text-[#7890B2]",
+};
+
+const cajaSelectToneNaturaleza: ToolbarSelectTone = {
+  ...cajaSelectBase,
+  trigger: `${cajaSelectBase.trigger} focus-visible:border-[#D62828] focus-visible:ring-[rgba(214,40,40,0.15)] data-[state=open]:border-[#D62828] data-[state=open]:ring-[rgba(214,40,40,0.15)]`,
+  icon: "bg-[rgba(214,40,40,0.12)] text-[#EF4444] ring-white/5",
+};
+
+const cajaSelectToneConcepto: ToolbarSelectTone = {
+  ...cajaSelectBase,
+  trigger: `${cajaSelectBase.trigger} focus-visible:border-[#3B82F6] focus-visible:ring-[rgba(59,130,246,0.12)] data-[state=open]:border-[#3B82F6] data-[state=open]:ring-[rgba(59,130,246,0.12)]`,
+  icon: "bg-[rgba(59,130,246,0.12)] text-[#3B82F6] ring-white/5",
+};
+
+const cajaSelectToneUsuario: ToolbarSelectTone = {
+  ...cajaSelectBase,
+  trigger: `${cajaSelectBase.trigger} focus-visible:border-[#8B5CF6] focus-visible:ring-[rgba(139,92,246,0.12)] data-[state=open]:border-[#8B5CF6] data-[state=open]:ring-[rgba(139,92,246,0.12)]`,
+  icon: "bg-[rgba(139,92,246,0.12)] text-[#8B5CF6] ring-white/5",
+};
+
+const cajaSelectClassName = {
+  trigger: "h-[38px] rounded-[10px]",
+  icon: "h-[26px] w-[26px] rounded-full",
+  label: "mb-0.5 text-[#7890B2] tracking-[0.04em]",
+  content: "rounded-[10px] p-1.5 shadow-[0_12px_30px_rgba(0,0,0,0.35)]",
+  item: "rounded-[10px] text-[#CBD5E1]",
+};
 
 interface Movimiento {
   id: number;
@@ -234,6 +282,14 @@ export default function CajaTerminal({
   const totalEgresosFiltrado = totalesFiltrado.totalEgresos;
   const saldoFinalFiltrado = totalesFiltrado.saldoFinal;
 
+  // "Ventas" = ingresos por ventas reales (excluye el saldo inicial de apertura)
+  const totalVentasTurno = movimientosConSaldo
+    .filter((m) => m.tipo === "INGRESO" && getConcepto(m) === "VENTA")
+    .reduce((sum, m) => sum + m.monto, 0);
+  const totalVentasFiltrado = movimientosFiltrados
+    .filter((m) => m.tipo === "INGRESO" && getConcepto(m) === "VENTA")
+    .reduce((sum, m) => sum + m.monto, 0);
+
   const totalReposiciones = movimientosConSaldo
     .filter(m => m.tipo === "EGRESO" && ((m.descripcion || "").toLowerCase().includes("reposici") || (m.descripcion || "").toLowerCase().includes("stock inicial") || m.compraId))
     .reduce((sum, m) => sum + m.monto, 0);
@@ -300,7 +356,7 @@ export default function CajaTerminal({
       const ingreso = isIncome ? formatCurrency(mov.monto) : "";
       const egreso = !isIncome ? formatCurrency(mov.monto) : "";
       const saldo = formatCurrency(mov.saldoAcumulado);
-      const desc = mov.descripcion.replace(/"/g, '""');
+      const desc = formatMovimientoDescripcion(mov.descripcion).replace(/"/g, '""');
 
       lines.push(`${mov.itemNumber};${fechaStr};${horaStr};"${desc}";${mov.tipo};@${mov.usuario.username};${ingreso};${egreso};${saldo}`);
     }
@@ -309,7 +365,7 @@ export default function CajaTerminal({
     lines.push("RESUMEN");
     lines.push(`Movimientos: ${movimientos.length}`);
     lines.push(`Saldo Inicial: ${formatCurrency(cajaActiva.montoInicial)}`);
-    lines.push(`Ventas: ${formatCurrency(hayFiltrosActivos ? totalIngresosFiltrado : totalIngresosTurno)}`);
+    lines.push(`Ventas: ${formatCurrency(hayFiltrosActivos ? totalVentasFiltrado : totalVentasTurno)}`);
     lines.push(`Reposiciones: ${formatCurrency(totalReposiciones)}`);
     lines.push(`Gastos: ${formatCurrency(totalGastos)}`);
     lines.push(`Ingresos: ${formatCurrency(hayFiltrosActivos ? totalIngresosFiltrado : totalIngresosTurno)}`);
@@ -440,13 +496,13 @@ export default function CajaTerminal({
             <div className="shrink-0 space-y-1">
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" />
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7890B2]" />
                   <input
                     type="text"
                     placeholder="Buscar por descripción, factura, usuario o referencia..."
                     value={filtroBusqueda}
                     onChange={(e) => setFiltroBusqueda(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 bg-[var(--card)] border border-[var(--border)] rounded-lg text-sm text-[var(--text)] focus:outline-none focus:border-[var(--brand)] transition"
+                    className="h-[38px] w-full pl-9 pr-3 bg-[#101114] border border-[#2B303B] rounded-[10px] text-[13px] text-[#F8FAFC] placeholder:text-[#64748B] focus:outline-none focus:border-[#D62828] focus:ring-2 focus:ring-[rgba(214,40,40,0.15)] hover:bg-[#17191F] hover:border-[#3A414F] transition-colors"
                   />
                   {filtroBusqueda && (
                     <button
@@ -459,16 +515,18 @@ export default function CajaTerminal({
                 </div>
                 <button
                   onClick={() => setShowFiltros(!showFiltros)}
-                  className={`flex items-center gap-1.5 px-3 py-2.5 rounded-lg border text-sm font-semibold transition flex-shrink-0 ${
-                    hayFiltrosActivos
-                      ? "bg-[var(--brand)] text-white border-[var(--brand)]"
-                      : "bg-[var(--card)] text-[var(--text-secondary)] border-[var(--border)] hover:border-[var(--brand)]"
+                  className={`group flex h-[38px] items-center justify-center gap-2 rounded-[10px] border px-3.5 text-[13px] font-semibold outline-none transition-all duration-200 focus-visible:ring-2 focus-visible:ring-[rgba(214,40,40,0.15)] ${
+                    showFiltros
+                      ? "border-[#D62828] bg-[#17191F] text-white"
+                      : "border-[#2B303B] bg-[#101114] text-[#F8FAFC] hover:bg-[#17191F] hover:border-[#D62828] hover:text-white"
                   }`}
                 >
-                  <Filter size={14} />
+                  <span className="flex h-[26px] w-[26px] items-center justify-center rounded-full bg-[rgba(214,40,40,0.12)] text-[#EF4444] transition-colors group-hover:text-[#EF4444]">
+                    <Filter size={16} strokeWidth={2.5} />
+                  </span>
                   Filtros
                   {hayFiltrosActivos && (
-                    <span className="ml-0.5 px-1.5 py-0.5 text-[9px] font-black bg-white/20 rounded-full leading-none">
+                    <span className="ml-0.5 px-1.5 py-0.5 text-[9px] font-black bg-[#D62828] text-white rounded-full leading-none">
                       {filtrosActivos.length}
                     </span>
                   )}
@@ -485,55 +543,70 @@ export default function CajaTerminal({
               </div>
 
               {showFiltros && (
-                <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 animate-in fade-in duration-150">
+                <div className="bg-[#1E2129] border border-[#2B303B] rounded-[12px] p-3 animate-in fade-in duration-150">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {/* Naturaleza */}
-                    <div className="space-y-1">
-                      <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider">Naturaleza</label>
-                      <select
-                        value={filtroNaturaleza}
-                        onChange={(e) => setFiltroNaturaleza(e.target.value)}
-                        className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-sm text-[var(--text)] focus:outline-none focus:border-[var(--brand)]"
-                      >
-                        <option value="">Todos</option>
-                        <option value="INGRESO">Ingresos</option>
-                        <option value="EGRESO">Egresos</option>
-                      </select>
-                    </div>
-
-                    {/* Concepto */}
-                    <div className="space-y-1">
-                      <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider">Concepto</label>
-                      <select
-                        value={filtroConcepto}
-                        onChange={(e) => setFiltroConcepto(e.target.value)}
-                        className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-sm text-[var(--text)] focus:outline-none focus:border-[var(--brand)]"
-                      >
-                        <option value="">Todos</option>
-                        <option value="VENTA">Ventas</option>
-                        <option value="REPOSICION">Reposiciones</option>
-                        <option value="GASTO">Gastos varios</option>
-                        <option value="APERTURA">Apertura</option>
-                      </select>
-                    </div>
-
-                    {/* Usuario */}
-                    <div className="space-y-1">
-                      <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider">Usuario</label>
-                      <select
-                        value={filtroUsuario}
-                        onChange={(e) => setFiltroUsuario(e.target.value)}
-                        className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-sm text-[var(--text)] focus:outline-none focus:border-[var(--brand)]"
-                      >
-                        <option value="">Todos</option>
-                        {usuariosConNombre.map((u) => (
-                          <option key={u.username} value={u.username}>{u.nombreCompleto}</option>
-                        ))}
-                      </select>
-                    </div>
+                    <ToolbarSelect
+                      label="Naturaleza"
+                      value={filtroNaturaleza || "all"}
+                      onValueChange={(v) => setFiltroNaturaleza(v === "all" ? "" : v)}
+                      triggerIcon={Waves}
+                      minWidth="w-full"
+                      tone={cajaSelectToneNaturaleza}
+                      triggerClassName={cajaSelectClassName.trigger}
+                      iconClassName={cajaSelectClassName.icon}
+                      labelClassName={cajaSelectClassName.label}
+                      contentClassName={cajaSelectClassName.content}
+                      itemClassName={cajaSelectClassName.item}
+                      options={[
+                        { value: "all", label: "Todos", icon: ListFilter, iconClassName: "text-[#7890B2]", iconBoxClassName: "bg-[rgba(148,163,184,0.12)] text-[#7890B2]" },
+                        { value: "INGRESO", label: "Ingresos", icon: ArrowDownLeft, iconClassName: "text-[#22C55E]", iconBoxClassName: "bg-[rgba(34,197,94,0.12)] text-[#22C55E]" },
+                        { value: "EGRESO", label: "Egresos", icon: ArrowUpRight, iconClassName: "text-[#EF4444]", iconBoxClassName: "bg-[rgba(239,68,68,0.12)] text-[#EF4444]" },
+                      ]}
+                    />
+                    <ToolbarSelect
+                      label="Concepto"
+                      value={filtroConcepto || "all"}
+                      onValueChange={(v) => setFiltroConcepto(v === "all" ? "" : v)}
+                      triggerIcon={Tags}
+                      minWidth="w-full"
+                      tone={cajaSelectToneConcepto}
+                      triggerClassName={cajaSelectClassName.trigger}
+                      iconClassName={cajaSelectClassName.icon}
+                      labelClassName={cajaSelectClassName.label}
+                      contentClassName={cajaSelectClassName.content}
+                      itemClassName={cajaSelectClassName.item}
+                      options={[
+                        { value: "all", label: "Todos", icon: Tags, iconClassName: "text-[#7890B2]", iconBoxClassName: "bg-[rgba(148,163,184,0.12)] text-[#7890B2]" },
+                        { value: "VENTA", label: "Ventas", icon: ShoppingCart, iconClassName: "text-[#22C55E]", iconBoxClassName: "bg-[rgba(34,197,94,0.12)] text-[#22C55E]" },
+                        { value: "REPOSICION", label: "Reposiciones", icon: PackagePlus, iconClassName: "text-[#3B82F6]", iconBoxClassName: "bg-[rgba(59,130,246,0.12)] text-[#3B82F6]" },
+                        { value: "GASTO", label: "Gastos varios", icon: Receipt, iconClassName: "text-[#EF4444]", iconBoxClassName: "bg-[rgba(239,68,68,0.12)] text-[#EF4444]" },
+                        { value: "APERTURA", label: "Apertura", icon: FolderOpen, iconClassName: "text-[#22D3EE]", iconBoxClassName: "bg-[rgba(34,211,238,0.12)] text-[#22D3EE]" },
+                      ]}
+                    />
+                    <ToolbarSelect
+                      label="Usuario"
+                      value={filtroUsuario || "all"}
+                      onValueChange={(v) => setFiltroUsuario(v === "all" ? "" : v)}
+                      triggerIcon={UserRound}
+                      minWidth="w-full"
+                      tone={cajaSelectToneUsuario}
+                      triggerClassName={cajaSelectClassName.trigger}
+                      iconClassName={cajaSelectClassName.icon}
+                      labelClassName={cajaSelectClassName.label}
+                      contentClassName={cajaSelectClassName.content}
+                      itemClassName={cajaSelectClassName.item}
+                      options={[
+                        { value: "all", label: "Todos", icon: UserRound },
+                        ...usuariosConNombre.map((u) => ({
+                          value: u.username,
+                          label: u.nombreCompleto,
+                          icon: UserRound,
+                        })),
+                      ]}
+                    />
                   </div>
-                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-[var(--border)]/50">
-                    <span className="text-xs text-[var(--text-secondary)]">
+                  <div className="flex items-center justify-between mt-[10px] pt-2 border-t border-[#2B303B]/60">
+                    <span className="text-[12px] font-normal text-[#64748B]">
                       {movimientosFiltrados.length} de {movimientosConSaldo.length} movimientos
                     </span>
                   </div>
@@ -576,7 +649,7 @@ export default function CajaTerminal({
                             <td className="py-3 px-3 text-center text-[var(--text-secondary)] font-semibold">{mov.itemNumber}</td>
                             <td className="py-3 px-3 text-[var(--text-muted)]">{fechaStr}</td>
                             <td className="py-3 px-3 text-[var(--text-secondary)]">{horaStr}</td>
-                            <td className="py-3 px-3 text-[var(--text)] font-sans whitespace-normal break-words pr-2 leading-tight line-clamp-2" title={mov.descripcion}>{mov.descripcion}</td>
+                            <td className="py-3 px-3 text-[var(--text)] font-sans whitespace-normal break-words pr-2 leading-tight line-clamp-2" title={formatMovimientoDescripcion(mov.descripcion)}>{formatMovimientoDescripcion(mov.descripcion)}</td>
                             <td className="py-3 px-3 text-center">
                               <Badge variant={visual.variant} size="sm">
                                 {visual.label}
@@ -618,7 +691,7 @@ export default function CajaTerminal({
                   </div>
                   <div className="space-y-1">
                     <span className="text-xs text-[var(--text-secondary)] font-medium uppercase tracking-wider block">Ventas</span>
-                    <span className="text-sm font-bold text-[var(--success)] font-mono">{formatCurrency(hayFiltrosActivos ? totalIngresosFiltrado : totalIngresosTurno)}</span>
+                    <span className="text-sm font-bold text-[var(--success)] font-mono">{formatCurrency(hayFiltrosActivos ? totalVentasFiltrado : totalVentasTurno)}</span>
                   </div>
                   <div className="space-y-1">
                     <span className="text-xs text-[var(--text-secondary)] font-medium uppercase tracking-wider block">Reposic.</span>
@@ -780,7 +853,7 @@ export default function CajaTerminal({
           </div>
           <div className="cj-meta-item">
             <div className="cj-meta-label">Cajero</div>
-            <div className="cj-meta-value">{cajaActiva.usuario.nombreCompleto || cajaActiva.usuario.username} (@{cajaActiva.usuario.username})</div>
+            <div className="cj-meta-value">{cajaActiva.usuario.nombreCompleto || cajaActiva.usuario.username}</div>
           </div>
           <div className="cj-meta-item">
             <div className="cj-meta-label">Estado</div>
@@ -809,7 +882,7 @@ export default function CajaTerminal({
             <strong>Filtros aplicados:</strong>{" "}
             {filtroNaturaleza && `Naturaleza: ${filtroNaturaleza}`}
             {filtroConcepto && ` | Concepto: ${filtroConcepto}`}
-            {filtroUsuario && ` | Usuario: @${filtroUsuario}`}
+            {filtroUsuario && ` | Usuario: ${usuariosConNombre.find((u) => u.username === filtroUsuario)?.nombreCompleto || filtroUsuario}`}
             {filtroBusqueda && ` | Búsqueda: "${filtroBusqueda}"`}
           </div>
         )}
@@ -842,9 +915,9 @@ export default function CajaTerminal({
                   <td className="col-num text-center">{mov.itemNumber}</td>
                   <td className="col-fecha">{fechaStr}</td>
                   <td className="col-hora">{horaStr}</td>
-                  <td className="col-desc">{mov.descripcion}</td>
+                  <td className="col-desc">{formatMovimientoDescripcion(mov.descripcion)}</td>
                   <td className="col-tipo text-center"><span className={`badge ${badgeClass}`}>{visual.label}</span></td>
-                  <td className="col-user">@{mov.usuario.username}</td>
+                  <td className="col-user">{mov.usuario.nombreCompleto || mov.usuario.username}</td>
                   <td className="col-ing text-right font-bold text-green">{isIncome ? formatCurrency(mov.monto) : "—"}</td>
                   <td className="col-egr text-right font-bold text-red">{!isIncome ? formatCurrency(mov.monto) : "—"}</td>
                   <td className="col-saldo text-right font-bold">{formatCurrency(mov.saldoAcumulado)}</td>
@@ -867,7 +940,7 @@ export default function CajaTerminal({
             </div>
             <div className="cj-summary-item">
               <div className="cj-summary-label">Ventas</div>
-              <div className="cj-summary-value" style={{color:"#16a34a"}}>{formatCurrency(hayFiltrosActivos ? totalIngresosFiltrado : totalIngresosTurno)}</div>
+              <div className="cj-summary-value" style={{color:"#16a34a"}}>{formatCurrency(hayFiltrosActivos ? totalVentasFiltrado : totalVentasTurno)}</div>
             </div>
             <div className="cj-summary-item">
               <div className="cj-summary-label">Reposiciones</div>
