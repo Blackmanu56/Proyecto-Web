@@ -205,15 +205,56 @@ describe("updateProducto", () => {
     }));
   });
 
-  it("replenishes positive stock without cash movement when there is no open cash register", async () => {
+  it("rejects cash replenishment without an open cash register before any write", async () => {
     mocks.tx.caja.findFirst.mockResolvedValueOnce(null);
 
-    const result = await updateProducto(10, productoForm({ cantidad: "12" }));
+    const result = await updateProducto(
+      10,
+      productoForm({ cantidad: "12", origenPago: "EFECTIVO_CAJA" })
+    );
 
-    expect(result.success).toBe(true);
-    expect(mocks.tx.compra.create).toHaveBeenCalledOnce();
+    expect(result.error).toBe(
+      "No hay una caja abierta para registrar el pago en efectivo."
+    );
+    expect(mocks.tx.producto.update).not.toHaveBeenCalled();
+    expect(mocks.tx.compra.create).not.toHaveBeenCalled();
     expect(mocks.tx.movimientoCaja.create).not.toHaveBeenCalled();
     expect(mocks.tx.caja.update).not.toHaveBeenCalled();
+  });
+
+  it("records origenPago on the purchase and skips the cash egreso for bank transfers", async () => {
+    mocks.tx.caja.findFirst.mockResolvedValueOnce(null);
+
+    const result = await updateProducto(
+      10,
+      productoForm({ cantidad: "12", origenPago: "TRANSFERENCIA_BANCARIA" })
+    );
+
+    expect(result.success).toBe(true);
+    expect(mocks.tx.compra.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        origenPago: "TRANSFERENCIA_BANCARIA",
+        total: 200,
+      }),
+    }));
+    expect(mocks.tx.movimientoCaja.create).not.toHaveBeenCalled();
+    expect(mocks.tx.caja.update).not.toHaveBeenCalled();
+  });
+
+  it("keeps creating the cash egreso when origenPago is EFECTIVO_CAJA", async () => {
+    mocks.tx.caja.findFirst.mockResolvedValueOnce({ id: 30, estado: "ABIERTA" });
+
+    const result = await updateProducto(
+      10,
+      productoForm({ cantidad: "12", origenPago: "EFECTIVO_CAJA" })
+    );
+
+    expect(result.success).toBe(true);
+    expect(mocks.tx.compra.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ origenPago: "EFECTIVO_CAJA" }),
+    }));
+    expect(mocks.tx.movimientoCaja.create).toHaveBeenCalledOnce();
+    expect(mocks.tx.caja.update).toHaveBeenCalledOnce();
   });
 
   it("rejects negative stock values before opening a transaction", async () => {

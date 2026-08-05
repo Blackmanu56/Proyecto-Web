@@ -21,6 +21,13 @@ enum MotivoEstadoProducto {
   REACTIVACION
 }
 
+enum OrigenPagoCompra {
+  EFECTIVO_CAJA
+  TRANSFERENCIA_BANCARIA
+  CUENTA_CORRIENTE_PROVEEDOR
+  FONDOS_EXTERNOS
+}
+
 model Rol {
   id       Int       @id @default(autoincrement())
   nombre   String    @unique
@@ -214,6 +221,7 @@ model Compra {
   usuarioId   Int              @map("usuario_id")
   total       Float            @default(0.0)
   fecha       DateTime         @default(now())
+  origenPago  OrigenPagoCompra @default(EFECTIVO_CAJA) @map("origen_pago")
   proveedor   Proveedor        @relation(fields: [proveedorId], references: [id])
   usuario     Usuario          @relation(fields: [usuarioId], references: [id])
   detalles    DetalleCompra[]

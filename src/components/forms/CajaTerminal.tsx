@@ -620,6 +620,7 @@ export default function CajaTerminal({
                         { value: "all", label: "Todos", icon: Tags, iconClassName: "text-[#7890B2]", iconBoxClassName: "bg-[rgba(148,163,184,0.12)] text-[#7890B2]" },
                         { value: "VENTA", label: "Ventas", icon: ShoppingCart, iconClassName: "text-[#22C55E]", iconBoxClassName: "bg-[rgba(34,197,94,0.12)] text-[#22C55E]" },
                         { value: "REPOSICION", label: "Reposiciones", icon: PackagePlus, iconClassName: "text-[#3B82F6]", iconBoxClassName: "bg-[rgba(59,130,246,0.12)] text-[#3B82F6]" },
+                        { value: "AJUSTE", label: "Ajustes", icon: Waves, iconClassName: "text-[#A78BFA]", iconBoxClassName: "bg-[rgba(167,139,250,0.12)] text-[#A78BFA]" },
                         { value: "GASTO", label: "Gastos varios", icon: Receipt, iconClassName: "text-[#EF4444]", iconBoxClassName: "bg-[rgba(239,68,68,0.12)] text-[#EF4444]" },
                         { value: "APERTURA", label: "Apertura", icon: FolderOpen, iconClassName: "text-[#22D3EE]", iconBoxClassName: "bg-[rgba(34,211,238,0.12)] text-[#22D3EE]" },
                       ]}

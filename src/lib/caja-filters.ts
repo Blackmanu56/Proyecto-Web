@@ -81,6 +81,9 @@ export function getConcepto(mov: MovimientoInput): string {
   // Gasto manual
   if (desc.startsWith("gasto:")) return "GASTO";
 
+  // Ajuste histórico (p. ej. reposiciones pagadas por banco) — antes que "reposici"
+  if (desc.includes("ajuste")) return "AJUSTE";
+
   // Reposición (por descripción o por tener compraId)
   if (
     desc.includes("reposici") ||
@@ -113,12 +116,12 @@ export function getTipoVisual(mov: MovimientoInput): ConceptoVisual {
     return { label: "CIERRE", variant: "default" };
   if (desc.startsWith("gasto:"))
     return { label: "EGRESO", variant: "danger" };
+  if (desc.includes("ajuste"))
+    return { label: "AJUSTE", variant: "default" };
   if (desc.includes("stock inicial") || desc.includes("reposici"))
     return { label: "REPOSICIÓN", variant: "warning" };
   if (mov.compraId)
     return { label: "REPOSICIÓN", variant: "warning" };
-  if (desc.includes("ajuste"))
-    return { label: "AJUSTE", variant: "default" };
   if (tipo === "EGRESO")
     return { label: "EGRESO", variant: "danger" };
   if (tipo === "INGRESO")

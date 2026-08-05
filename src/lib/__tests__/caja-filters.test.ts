@@ -1,4 +1,7 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   getConcepto,
   getTipoVisual,
@@ -67,6 +70,22 @@ describe("getConcepto", () => {
     expect(getConcepto(mov({ tipo: "INGRESO", descripcion: "Saldo inicial de apertura de caja" }))).toBe("APERTURA");
   });
 
+  it("clasifica ajuste histórico como AJUSTE, NO como reposición aunque diga 'Reposición'", () => {
+    const ajuste = mov({
+      tipo: "INGRESO",
+      descripcion: "Ajuste histórico — Reposición #8 pagada mediante transferencia bancaria [AJUSTE-CAJA-0001-REPOSICION-0008]",
+    });
+    expect(getConcepto(ajuste)).toBe("AJUSTE");
+  });
+
+  it("no clasifica un ajuste histórico como VENTA", () => {
+    const ajuste = mov({
+      tipo: "INGRESO",
+      descripcion: "Ajuste histórico — Reposición #9 pagada mediante transferencia bancaria [AJUSTE-CAJA-0001-REPOSICION-0009]",
+    });
+    expect(getConcepto(ajuste)).not.toBe("VENTA");
+  });
+
   // ── Null-safety: NUNCA debe crashear ──
 
   it("no crashea con null", () => {
@@ -104,7 +123,7 @@ describe("getConcepto", () => {
   });
 
   it("retorna solo valores válidos para filtro", () => {
-    const valoresValidos = ["VENTA", "REPOSICION", "GASTO", "APERTURA"];
+    const valoresValidos = ["VENTA", "REPOSICION", "GASTO", "APERTURA", "AJUSTE"];
     const casos: MovimientoInput[] = [
       mov({ descripcion: "Venta #001" }),
       mov({ descripcion: "Gasto: Limpieza" }),
@@ -112,6 +131,7 @@ describe("getConcepto", () => {
       mov({ descripcion: "Stock inicial" }),
       mov({ compraId: 1 }),
       mov({ tipo: "INGRESO", descripcion: "Apertura" }),
+      mov({ tipo: "INGRESO", descripcion: "Ajuste histórico — Reposición #8 [AJUSTE-CAJA-0001-REPOSICION-0008]" }),
       mov({ tipo: "EGRESO", descripcion: "Cualquier cosa" }),
       mov({ descripcion: "" }),
       mov({}),
@@ -119,6 +139,18 @@ describe("getConcepto", () => {
     for (const c of casos) {
       expect(valoresValidos).toContain(getConcepto(c));
     }
+  });
+});
+
+describe("CajaTerminal concept selector", () => {
+  it("exposes AJUSTE as a selectable concept", () => {
+    const currentDir = dirname(fileURLToPath(import.meta.url));
+    const source = readFileSync(
+      resolve(currentDir, "../../components/forms/CajaTerminal.tsx"),
+      "utf8"
+    );
+
+    expect(source).toContain('{ value: "AJUSTE", label: "Ajustes"');
   });
 });
 
@@ -157,6 +189,24 @@ describe("getTipoVisual", () => {
     const v = getTipoVisual(mov({ tipo: "INGRESO", descripcion: "Venta #001" }));
     expect(v.label).toBe("VENTA");
     expect(v.variant).toBe("success");
+  });
+
+  it("clasifica un ajuste histórico como AJUSTE y NO como REPOSICIÓN aunque diga 'Reposición'", () => {
+    const v = getTipoVisual(mov({
+      tipo: "INGRESO",
+      descripcion: "Ajuste histórico — Reposición #8 pagada mediante transferencia bancaria [AJUSTE-CAJA-0001-REPOSICION-0008]",
+    }));
+    expect(v.label).toBe("AJUSTE");
+    expect(v.variant).toBe("default");
+  });
+
+  it("no clasifica un ajuste histórico como VENTA", () => {
+    const v = getTipoVisual(mov({
+      tipo: "INGRESO",
+      descripcion: "Ajuste histórico — Reposición #9 pagada mediante transferencia bancaria [AJUSTE-CAJA-0001-REPOSICION-0009]",
+    }));
+    expect(v.label).not.toBe("VENTA");
+    expect(v.label).not.toBe("REPOSICIÓN");
   });
 
   it("no crashea con null", () => {

@@ -7,6 +7,7 @@ import { getSession } from "@/lib/auth.server";
 import { saveFile, deleteFile } from "@/lib/upload";
 import { MotivoEstadoProducto, Prisma } from "@prisma/client";
 import { requirePermission } from "@/lib/auth-permissions";
+import { shouldCreateCajaEgreso } from "@/lib/caja-ajuste";
 
 const productoSchema = z.object({
   nombre: z.string().min(2, "El nombre del producto debe tener al menos 2 caracteres"),
@@ -19,6 +20,9 @@ const productoSchema = z.object({
   precioVenta: z.number().positive("El precio de venta debe ser mayor a 0"),
   cantidad: z.number().int().nonnegative("La cantidad no puede ser negativa"),
   stockMinimo: z.number().int().nonnegative("El stock mínimo no puede ser negativo"),
+  origenPago: z
+    .enum(["EFECTIVO_CAJA", "TRANSFERENCIA_BANCARIA", "CUENTA_CORRIENTE_PROVEEDOR", "FONDOS_EXTERNOS"])
+    .default("EFECTIVO_CAJA"),
 });
 
 /**
@@ -83,6 +87,7 @@ export async function createProducto(formData: FormData) {
     precioVenta: Number(formData.get("precioVenta")),
     cantidad: Number(formData.get("cantidad")),
     stockMinimo: Number(formData.get("stockMinimo")),
+    origenPago: (formData.get("origenPago") as string) || "EFECTIVO_CAJA",
   };
 
   // Handle file upload if present
@@ -99,6 +104,16 @@ export async function createProducto(formData: FormData) {
 
   try {
     const producto = await prisma.$transaction(async (tx) => {
+      // 0. Si hay stock inicial, buscar caja una sola vez
+      const cajaAbierta = (validation.data.cantidad > 0)
+        ? await tx.caja.findFirst({ where: { estado: "ABIERTA" } })
+        : null;
+
+      // Si el pago es en efectivo y no hay caja abierta, rechazar ANTES de cualquier escritura.
+      if (validation.data.cantidad > 0 && shouldCreateCajaEgreso(validation.data.origenPago) && !cajaAbierta) {
+        throw new Error("No hay una caja abierta para registrar el pago en efectivo.");
+      }
+
       // 1. Crear producto
       const p = await tx.producto.create({
         data: {
@@ -120,30 +135,26 @@ export async function createProducto(formData: FormData) {
       if (validation.data.cantidad > 0) {
         const totalCosto = validation.data.cantidad * validation.data.precioCompra;
 
-        // Buscar caja abierta (opcional: si no hay caja, se crea el producto sin movimiento financiero)
-        const cajaAbierta = await tx.caja.findFirst({
-          where: { estado: "ABIERTA" },
-        });
-
-        if (cajaAbierta) {
-          // Crear registro de Compra
-          const compra = await tx.compra.create({
-            data: {
-              proveedorId: validation.data.proveedorId,
-              usuarioId: session.userId,
-              total: totalCosto,
-              detalles: {
-                create: {
-                  productoId: p.id,
-                  cantidad: validation.data.cantidad,
-                  costoUnitario: validation.data.precioCompra,
-                  subtotal: totalCosto,
-                },
+        // La compra contable existe para cualquier origen y no depende de una caja abierta.
+        const compra = await tx.compra.create({
+          data: {
+            proveedorId: validation.data.proveedorId,
+            usuarioId: session.userId,
+            total: totalCosto,
+            origenPago: validation.data.origenPago,
+            detalles: {
+              create: {
+                productoId: p.id,
+                cantidad: validation.data.cantidad,
+                costoUnitario: validation.data.precioCompra,
+                subtotal: totalCosto,
               },
             },
-          });
+          },
+        });
 
-          // Registrar egreso en Caja
+        // Solo el efectivo de caja genera movimiento y decrementa el saldo físico.
+        if (cajaAbierta && shouldCreateCajaEgreso(validation.data.origenPago)) {
           await tx.movimientoCaja.create({
             data: {
               cajaId: cajaAbierta.id,
@@ -155,17 +166,15 @@ export async function createProducto(formData: FormData) {
             },
           });
 
-          // Actualizar totales de la Caja
           await tx.caja.update({
             where: { id: cajaAbierta.id },
             data: {
               totalVentas: {
-                decrement: totalCosto, // Los egresos reducen el balance acumulado
+                decrement: totalCosto,
               },
             },
           });
         }
-        // Si no hay caja abierta, se crea el producto sin registrar movimiento financiero
       }
 
       return p;
@@ -197,6 +206,7 @@ export async function updateProducto(id: number, formData: FormData) {
       precioVenta: Number(formData.get("precioVenta")),
       cantidad: Number(formData.get("cantidad")),
       stockMinimo: Number(formData.get("stockMinimo")),
+      origenPago: (formData.get("origenPago") as string) || "EFECTIVO_CAJA",
     };
 
     // Handle file upload if present
@@ -228,6 +238,15 @@ export async function updateProducto(id: number, formData: FormData) {
       const nuevoStock = validation.data.cantidad;
       const stockAnterior = productoPrevio.cantidad;
 
+      // 0. Si hay reposición con efectivo, validar caja abierta ANTES de cualquier escritura
+      const cajaAbierta = (nuevoStock > stockAnterior)
+        ? await tx.caja.findFirst({ where: { estado: "ABIERTA" } })
+        : null;
+
+      if (nuevoStock > stockAnterior && shouldCreateCajaEgreso(validation.data.origenPago) && !cajaAbierta) {
+        throw new Error("No hay una caja abierta para registrar el pago en efectivo.");
+      }
+
       // 1. Modificar producto en BD
       const p = await tx.producto.update({
         where: { id },
@@ -256,6 +275,7 @@ export async function updateProducto(id: number, formData: FormData) {
             proveedorId: validation.data.proveedorId,
             usuarioId: session.userId,
             total: totalCosto,
+            origenPago: validation.data.origenPago,
             detalles: {
               create: {
                 productoId: id,
@@ -267,12 +287,8 @@ export async function updateProducto(id: number, formData: FormData) {
           },
         });
 
-        // Registrar egreso en la Caja solo si hay una caja abierta
-        const cajaAbierta = await tx.caja.findFirst({
-          where: { estado: "ABIERTA" },
-        });
-
-        if (cajaAbierta) {
+        // Registrar egreso en la Caja solo si hay una caja abierta Y el pago salió del cajón
+        if (cajaAbierta && shouldCreateCajaEgreso(validation.data.origenPago)) {
           await tx.movimientoCaja.create({
             data: {
               cajaId: cajaAbierta.id,

@@ -37,6 +37,7 @@ FolderOpen,
 History,
 Info,
 Layers,
+Landmark,
 ListFilter,
 Package,
 PackageCheck,
@@ -122,6 +123,12 @@ const COLUMN_WIDTH_CLASSES: Record<string, string> = {
 
 const COLUMN_VISIBILITY_KEY = "productos-column-visibility";
 const PRODUCT_FORM_ID = "producto-form";
+const ORIGEN_PAGO_OPTIONS = [
+  { value: "EFECTIVO_CAJA", label: "Efectivo de Caja" },
+  { value: "TRANSFERENCIA_BANCARIA", label: "Transferencia Bancaria" },
+  { value: "CUENTA_CORRIENTE_PROVEEDOR", label: "Cuenta Corriente del Proveedor" },
+  { value: "FONDOS_EXTERNOS", label: "Fondos Externos" },
+] as const;
 
 type FilterOption = {
   value: string;
@@ -1498,11 +1505,43 @@ export default function ProductosTable({
                         />
                       </div>
                     </FormField>
+                    <FormField label="Origen del Pago" required className="mb-0">
+                      <div className="relative">
+                        <Landmark className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" size={14} />
+                        <select
+                          name="origenPago"
+                          defaultValue="EFECTIVO_CAJA"
+                          required
+                          className="w-full pl-9 pr-4 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-[var(--text)] text-sm focus:outline-none focus:border-[var(--brand)] appearance-none"
+                        >
+                          {ORIGEN_PAGO_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </FormField>
                   </>
                 ) : (
-                  <FormField label="Stock Inicial" required className="mb-0">
-                    <Input name="cantidad" type="number" required placeholder="0" className="font-mono py-2" />
-                  </FormField>
+                  <>
+                    <FormField label="Stock Inicial" required className="mb-0">
+                      <Input name="cantidad" type="number" min="0" required placeholder="0" className="font-mono py-2" />
+                    </FormField>
+                    <FormField label="Origen del Pago" required className="mb-0">
+                      <div className="relative">
+                        <Landmark className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" size={14} />
+                        <select
+                          name="origenPago"
+                          defaultValue="EFECTIVO_CAJA"
+                          required
+                          className="w-full pl-9 pr-4 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-[var(--text)] text-sm focus:outline-none focus:border-[var(--brand)] appearance-none"
+                        >
+                          {ORIGEN_PAGO_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </FormField>
+                  </>
                 )}
               </div>
             </div>
@@ -1511,7 +1550,7 @@ export default function ProductosTable({
             {editingProduct && (
               <div className="flex items-center gap-1.5 text-[11px] text-[var(--text-muted)] py-1">
                 <Info size={12} className="text-[var(--brand)]" />
-                <span><strong>Regla:</strong> Al incrementar stock se registrará una reposición y la salida en Caja.</span>
+                <span><strong>Regla:</strong> Al incrementar stock se registrará una reposición. La salida en Caja ocurre solo si el origen de pago es Efectivo de Caja.</span>
               </div>
             )}
 

@@ -41,3 +41,7 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# local Caja correction audit snapshots
+scripts/backup-caja-0001-*.json
+scripts/backup-descripciones-ajustes-caja-0001-*.json

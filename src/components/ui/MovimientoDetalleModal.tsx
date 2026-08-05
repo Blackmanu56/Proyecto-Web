@@ -48,8 +48,10 @@ export default function MovimientoDetalleModal({
   const horaStr = formatTime24(d);
 
   const desc = movimiento.descripcion;
+  const esAjuste = (desc || "").toLowerCase().includes("ajuste");
   const esReposicion =
-    !!movimiento.compraId || (desc || "").toLowerCase().includes("reposici");
+    !esAjuste &&
+    (!!movimiento.compraId || (desc || "").toLowerCase().includes("reposici"));
   const compra = movimiento.compra ?? null;
   const compraDetalles = compra?.detalles ?? [];
   const detalleUnico = compraDetalles.length === 1 ? compraDetalles[0] : null;
@@ -59,7 +61,8 @@ export default function MovimientoDetalleModal({
 
   if (isIncome) {
     badgeVariant = "success";
-    if (desc.toLowerCase().includes("venta")) tipoLabel = "Venta";
+    if (desc.toLowerCase().includes("ajuste")) tipoLabel = "Ajuste";
+    else if (desc.toLowerCase().includes("venta")) tipoLabel = "Venta";
     else if (desc.toLowerCase().includes("apertura")) tipoLabel = "Apertura";
     else tipoLabel = "Ingreso";
   } else {
