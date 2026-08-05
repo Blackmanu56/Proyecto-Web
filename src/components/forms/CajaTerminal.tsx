@@ -531,7 +531,6 @@ export default function CajaTerminal({
                 <Button variant="outline" size="sm" onClick={handleExportCSV} leftIcon={<Download size={14} />}>CSV</Button>
                 <Button variant="danger" size="sm" onClick={handleCerrar} disabled={isPending} leftIcon={<Lock size={14} />}>Cerrar Caja</Button>
               </div>
-              <p className="w-full text-right text-[10px] text-[var(--text-muted)]">Para una impresión limpia, desactive la opción “Encabezados y pies de página” en la configuración de impresión del navegador.</p>
             </div>
 
             {/* ═══ BUSCADOR + FILTROS ═══ */}
