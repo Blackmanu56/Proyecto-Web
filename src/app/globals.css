@@ -1,0 +1,443 @@
+@import "tailwindcss";
+
+/* ============================================================
+   Chopper Repuestos — Design Tokens (Dark-only)
+   ============================================================ */
+
+:root {
+  /* ── Surface Colors ── */
+  --bg: #101114;
+  --panel: #17191f;
+  --card: #1e2129;
+  --border: #2a2e38;
+  --border-hover: #3a3f4c;
+
+  /* ── Text Colors ── */
+  --text: #ffffff;
+  --text-muted: #94a3b8;
+  --text-secondary: #64748b;
+
+  /* ── Brand ── */
+  --brand: #d62828;
+  --brand-hover: #b91c1c;
+  --brand-light: #d6282820;
+
+  /* ── Semantic ── */
+  --success: #22c55e;
+  --success-light: #22c55e20;
+  --warning: #f59e0b;
+  --warning-light: #f59e0b20;
+  --danger: #ef4444;
+  --danger-light: #ef444420;
+  --info: #3b82f6;
+  --info-light: #3b82f620;
+
+  /* ── Typography ── */
+  --font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+  --text-4xl: 2.25rem;
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+
+  /* ── Spacing (4px base) ── */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  /* ── Shadows ── */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.25);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.2);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.35), 0 4px 6px -4px rgb(0 0 0 / 0.2);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.4), 0 8px 10px -6px rgb(0 0 0 / 0.25);
+
+  /* ── Border Radius ── */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* ── Transitions ── */
+  --transition-default: 200ms ease;
+}
+
+/* ── Tailwind v4 Theme Mapping ── */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-card: var(--card);
+  --color-border: var(--border);
+  --color-border-hover: var(--border-hover);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-text-secondary: var(--text-secondary);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-light: var(--brand-light);
+  --color-success: var(--success);
+  --color-success-light: var(--success-light);
+  --color-warning: var(--warning);
+  --color-warning-light: var(--warning-light);
+  --color-danger: var(--danger);
+  --color-danger-light: var(--danger-light);
+  --color-info: var(--info);
+  --color-info-light: var(--info-light);
+  --font-sans: var(--font-family);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-full: var(--radius-full);
+}
+
+/* ── Global Base Styles ── */
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-family);
+}
+
+/* ── Focus Ring Utility ── */
+.focus-ring:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* ── Scrollbar Hide Utility ── */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+
+/* ── Terminal Ventas Layout ── */
+@media (min-width: 1024px) {
+  body.ventas-active {
+    overflow: hidden !important;
+  }
+  body.ventas-active main {
+    padding: 0px !important;
+    height: calc(100vh - 5.5rem) !important;
+    overflow: hidden !important;
+  }
+}
+
+/* ── Login Page Styles ── */
+@keyframes login-fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes login-fadeInUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes login-slideInLeft {
+  from { opacity: 0; transform: translateX(-24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes login-expandIn {
+  from { opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; }
+  to { opacity: 1; max-height: 80px; padding-top: 12px; padding-bottom: 12px; }
+}
+@keyframes login-pulseGlow {
+  0%, 100% { box-shadow: 0 0 20px rgba(214,40,40,0.3), 0 0 40px rgba(214,40,40,0.1); }
+  50% { box-shadow: 0 0 30px rgba(214,40,40,0.5), 0 0 60px rgba(214,40,40,0.2); }
+}
+@keyframes login-staggerIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.password-mask {
+  -webkit-text-security: disc;
+}
+.password-visible {
+  -webkit-text-security: none;
+}
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 30px #1E2129 inset !important;
+  -webkit-text-fill-color: #F1F5F9 !important;
+  caret-color: #F1F5F9 !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+input[type="password"]::-webkit-credentials-autofill-button,
+input::-webkit-credentials-autofill-button {
+  display: none !important;
+}
+
+/* ── Print ── */
+@media print {
+  /* Force color preservation — prevent browser from stripping colors */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Kill ALL dark backgrounds — the black box root cause */
+  html, body {
+    background: #fff !important;
+    min-height: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Hide everything that is NOT the print overlay */
+  body.print-active > *:not(#print-overlay) {
+    display: none !important;
+  }
+
+  /* Also kill the AppShell wrapper background (it's a child of body, but just in case) */
+  body.print-active > div {
+    background: transparent !important;
+    min-height: auto !important;
+    height: auto !important;
+  }
+
+  /* Overlay: the ONLY thing that should exist during print */
+  #print-overlay {
+    display: block !important;
+    position: relative !important;
+    background: #fff !important;
+    color: #000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    font-family: Arial, Helvetica, sans-serif;
+    width: 100% !important;
+    max-width: none !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Receipt container — fill the page */
+  #print-overlay > div {
+    max-width: none !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 20px !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Force all inline styles to print correctly */
+  #print-overlay table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  #print-overlay table th {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+    background: #D62828 !important;
+    color: #fff !important;
+  }
+
+  #print-overlay table td {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  #print-overlay table tr:nth-child(even) {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+    background: #fafafa !important;
+  }
+
+  /* Force red borders and accents */
+  #print-overlay *[style*="border-bottom: 2px solid #D62828"],
+  #print-overlay *[style*="borderTop: 2px solid #D62828"],
+  #print-overlay *[style*="border-top: 2px solid #D62828"] {
+    border-color: #D62828 !important;
+  }
+
+  /* Force red text */
+  #print-overlay *[style*="color: #D62828"],
+  #print-overlay *[style*="color:#D62828"] {
+    color: #D62828 !important;
+  }
+
+  /* Force red background on badge */
+  #print-overlay *[style*="border: 2px solid #D62828"] {
+    border-color: #D62828 !important;
+    color: #D62828 !important;
+  }
+
+  /* Ensure all text is visible */
+  #print-overlay * {
+    color: inherit !important;
+  }
+
+  /* Override: restore specific colors that should NOT inherit */
+  #print-overlay span[style*="color: #555"],
+  #print-overlay div[style*="color: #555"] {
+    color: #555 !important;
+  }
+
+  #print-overlay span[style*="color: #777"],
+  #print-overlay div[style*="color: #777"] {
+    color: #777 !important;
+  }
+
+  #print-overlay span[style*="color: #999"],
+  #print-overlay div[style*="color: #999"] {
+    color: #999 !important;
+  }
+
+  #print-overlay td[style*="color: #999"] {
+    color: #999 !important;
+  }
+
+  #print-overlay div[style*="color: #1a1a1a"],
+  #print-overlay span[style*="color: #1a1a1a"] {
+    color: #1a1a1a !important;
+  }
+
+  #print-overlay div[style*="color: #333"] {
+    color: #333 !important;
+  }
+
+  /* Caja report print styles */
+  #print-overlay .cj-header { position: relative; display: flex; align-items: center; justify-content: center; gap: 16px; border-bottom: 3px solid #d62828; padding-bottom: 8px; margin-bottom: 10px; }
+  #print-overlay .cj-logo { position: absolute; left: 0; top: 50%; transform: translateY(-50%); height: 48px; }
+  #print-overlay .cj-header-center { flex: 0 0 auto; text-align: center; }
+  #print-overlay .cj-title { font-size: 20px; font-weight: 900; color: #d62828; text-transform: uppercase; letter-spacing: 0.5px; }
+  #print-overlay .cj-meta { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
+  #print-overlay .cj-meta-item { background: #f8f8f8; border: 1px solid #ddd; border-radius: 3px; padding: 5px 7px; min-height: 32px; }
+  #print-overlay .cj-meta-label { font-weight: 700; color: #666; text-transform: uppercase; font-size: 7px; letter-spacing: 0.5px; }
+  #print-overlay .cj-meta-value { color: #000; font-weight: 600; margin-top: 1px; font-size: 10px; white-space: nowrap; }
+  #print-overlay .cj-filters { background: #fff8f0; border: 1px solid #f0c08a; border-radius: 3px; padding: 4px 6px; margin-bottom: 10px; font-size: 8px; color: #8a5a00; }
+  #print-overlay .cj-table { width: 100%; border-collapse: collapse; font-size: 9px; }
+  #print-overlay .cj-table thead { display: table-header-group; }
+  #print-overlay .cj-table thead th { background: #d62828; color: #fff; font-weight: 700; padding: 5px 6px; text-align: left; text-transform: uppercase; font-size: 8px; letter-spacing: 0.3px; border: 1px solid #b01e1e; white-space: nowrap; }
+  #print-overlay .cj-table tbody td { padding: 4px 6px; border-bottom: 1px solid #e0e0e0; vertical-align: middle; color: #000; }
+  #print-overlay .cj-table tbody tr:nth-child(even) { background: #f9f9f9; }
+  #print-overlay .cj-table tbody { page-break-inside: auto; }
+  #print-overlay .cj-table tr { break-inside: avoid; page-break-inside: avoid; }
+  #print-overlay .cj-table .col-num { width: 3%; text-align: center; white-space: nowrap; }
+  #print-overlay .cj-table .col-fecha { width: 9%; white-space: nowrap; }
+  #print-overlay .cj-table .col-hora { width: 7%; white-space: nowrap; }
+  #print-overlay .cj-table .col-desc { width: 30%; word-wrap: break-word; }
+  #print-overlay .cj-table .col-tipo { width: 9%; text-align: center; white-space: nowrap; }
+  #print-overlay .cj-table .col-user { width: 14%; white-space: nowrap; }
+  #print-overlay .cj-table .col-ing { width: 10%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #print-overlay .cj-table .col-egr { width: 9%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #print-overlay .cj-table .col-saldo { width: 9%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #print-overlay .cj-table .text-right { text-align: right; }
+  #print-overlay .cj-table .text-center { text-align: center; }
+  #print-overlay .cj-table .font-bold { font-weight: 700; }
+  #print-overlay .cj-table .text-green { color: #16a34a; }
+  #print-overlay .cj-table .text-red { color: #dc2626; }
+  #print-overlay .cj-table .badge { display: inline-block; padding: 1px 4px; border-radius: 2px; font-size: 7px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
+  #print-overlay .cj-table .badge-success { background: #dcfce7; color: #166534; }
+  #print-overlay .cj-table .badge-danger { background: #fee2e2; color: #991b1b; }
+  #print-overlay .cj-table .badge-warning { background: #fef3c7; color: #92400e; }
+  #print-overlay .cj-table .badge-info { background: #dbeafe; color: #1e40af; }
+  #print-overlay .cj-table .badge-default { background: #f3f4f6; color: #374151; }
+  #print-overlay .cj-summary { margin-top: 10px; border-top: 2px solid #000; padding-top: 8px; page-break-inside: avoid; }
+  #print-overlay .cj-summary-title { font-weight: 800; font-size: 10px; text-transform: uppercase; margin-bottom: 6px; color: #000; }
+  #print-overlay .cj-summary-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+  #print-overlay .cj-summary-item { border: 1px solid #ddd; border-radius: 3px; padding: 6px 5px; text-align: center; }
+  #print-overlay .cj-summary-label { font-size: 7px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
+  #print-overlay .cj-summary-value { font-size: 11px; font-weight: 800; margin-top: 2px; color: #000; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #print-overlay .cj-summary-item.cj-summary-saldo-final { border-color: #000; border-width: 2px; }
+
+  /* Resumen por forma de pago */
+  #print-overlay .cj-pagos { margin-top: 10px; page-break-inside: avoid; }
+  #print-overlay .cj-section-title { font-weight: 800; font-size: 10px; text-transform: uppercase; margin-bottom: 6px; color: #000; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+  #print-overlay .cj-pagos-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  #print-overlay .cj-pago-item { border: 1px solid #ddd; border-radius: 3px; padding: 6px 5px; text-align: center; }
+  #print-overlay .cj-pago-label { font-size: 7px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
+  #print-overlay .cj-pago-value { font-size: 11px; font-weight: 800; margin-top: 2px; color: #000; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+  /* Datos del cierre */
+  #print-overlay .cj-cierre { margin-top: 10px; page-break-inside: avoid; }
+  #print-overlay .cj-cierre-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  #print-overlay .cj-cierre-item { border: 1px solid #ddd; border-radius: 3px; padding: 5px 7px; }
+  #print-overlay .cj-cierre-label { font-weight: 700; color: #666; text-transform: uppercase; font-size: 7px; letter-spacing: 0.5px; }
+  #print-overlay .cj-cierre-value { color: #000; font-weight: 600; margin-top: 1px; font-size: 10px; white-space: nowrap; }
+
+  /* Firmas */
+  #print-overlay .cj-firmas { display: flex; justify-content: space-between; gap: 40px; margin-top: 44px; page-break-inside: avoid; }
+  #print-overlay .cj-firma { flex: 1; text-align: center; }
+  #print-overlay .cj-firma-titulo { font-size: 9px; font-weight: 700; color: #000; text-transform: uppercase; letter-spacing: 0.3px; }
+  #print-overlay .cj-firma-linea { margin-top: 44px; border-bottom: 1px solid #000; }
+  #print-overlay .cj-firma-nombre { margin-top: 4px; font-size: 8px; color: #555; }
+
+  /* Pie de página fijo: se repite en cada página en Chrome */
+  #print-overlay .cj-page-footer { position: fixed; bottom: 0; left: 0; right: 0; display: flex; justify-content: flex-end; border-top: 1px solid #ddd; padding-top: 4px; font-size: 8px; color: #777; }
+
+  /* A4 Portrait for Ventas receipt */
+  @page { size: A4 portrait; margin: 10mm; }
+
+  /* Caja report: A4 landscape con márgenes estándar */
+  @page caja-report { size: A4 landscape; margin: 10mm; }
+  @page caja-report {
+    @bottom-center { content: "Página " counter(page) " de " counter(pages); font-size: 8px; color: #777; }
+  }
+  #print-overlay {
+    page: caja-report;
+    padding-bottom: 14mm !important;
+  }
+}
+
+/* Caja print report — off-screen but NOT display:none so browser loads images */
+.caja-print-source {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  width: 900px;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Print overlay: invisible on screen so the background window does not shift */
+#print-overlay {
+  display: none;
+}
+
+/* ── Dashboard fade-in ── */
+@keyframes dashboard-fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Next.js Dev Tools: move "N" button right to avoid covering content ── */
+nextjs-portal {
+  transform: translateX(10px);
+}
+
+/* ── Hide native browser password reveal toggle (Edge/IE) ── */
+input::-ms-reveal {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  position: absolute !important;
+  pointer-events: none !important;
+}

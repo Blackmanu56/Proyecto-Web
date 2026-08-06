@@ -1,0 +1,253 @@
+/* ═══════════════════════════════════════════════════════════════
+   Report Print Styles — Chopper Repuestos
+   ═══════════════════════════════════════════════════════════════
+   Escondé el chrome de la UI (navbar, botones, filtros) y
+   mostrá solo el contenido del reporte al imprimir/PDF.
+   ═══════════════════════════════════════════════════════════════ */
+
+@media print {
+  @page {
+    margin: 12mm;
+    size: A4;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* ── Prevent scrollbars & overflow in print ──────────────── */
+  body {
+    overflow: visible !important;
+  }
+
+  .overflow-x-auto,
+  .overflow-y-auto,
+  [class*="overflow-"] {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  /* ── Allow text to wrap in print (undo truncation) ────────── */
+  .truncate {
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+    max-width: none !important;
+  }
+
+  /* ── Remove sticky positioning in print ───────────────────── */
+  [class*="sticky"],
+  [class*="fixed"] {
+    position: static !important;
+  }
+
+  /* ── Ocultar chrome de navegación ─────────────────────────── */
+  header,
+  nav,
+  .navbar,
+  .sidebar,
+  footer,
+  button,
+  .print\:hidden,
+  [class*="print:hidden"] {
+    display: none !important;
+  }
+
+  /* ── Forzar fondo blanco y texto negro (ahorro de tinta) ──── */
+  html,
+  body,
+  main,
+  .main,
+  [class*="bg-slate"],
+  [class*="bg-gray"],
+  [class*="bg-indigo"],
+  [class*="bg-emerald"],
+  [class*="bg-rose"],
+  [class*="bg-amber"],
+  [class*="bg-sky"],
+  [class*="bg-purple"],
+  [class*="bg-slate-900"],
+  [class*="bg-slate-950"],
+  [class*="bg-slate-800"],
+  [class*="bg-panel"],
+  [class*="bg-card"],
+  [class*="bg-bg"],
+  [class*="bg-border"],
+  [class*="bg-[var(--panel)]"],
+  [class*="bg-[var(--card)]"],
+  [class*="bg-[var(--border)]"],
+  [class*="bg-[var(--bg)]"] {
+    background: #ffffff !important;
+    color: #1e293b !important;
+  }
+
+  /* ── Mostrar elementos marcados solo para impresión ────────── */
+  .print\:block {
+    display: block !important;
+  }
+
+  .hidden.print\:block {
+    display: block !important;
+  }
+
+  /* ── Forzar texto oscuro en todos los elementos ────────────── */
+  h1, h2, h3, h4, h5, h6,
+  p, span, div, td, th, li, label,
+  .text-white,
+  .text-slate-100,
+  .text-slate-200,
+  .text-slate-300,
+  .text-slate-400,
+  .text-text,
+  .text-text-muted,
+  [class*="text-[var(--text)]"],
+  [class*="text-[var(--text-muted)]"] {
+    color: #1e293b !important;
+  }
+
+  /* ── Colores de acento específicos ─────────────────────────── */
+  .text-emerald-400,
+  .text-emerald-500 {
+    color: #059669 !important;
+  }
+
+  .text-rose-400 {
+    color: #dc2626 !important;
+  }
+
+  /* ── Repetir cabeceras de tabla en cada página ─────────────── */
+  table thead {
+    display: table-header-group;
+  }
+
+  table tbody {
+    display: table-row-group;
+  }
+
+  /* ── Evitar saltos de página dentro de elementos ───────────── */
+  .StatCard,
+  .stat-card,
+  [class*="StatCard"],
+  .chart-wrapper,
+  [class*="ChartWrapper"],
+  .grid,
+  .kpi-grid,
+  tr,
+  th,
+  td {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* ── Control de saltos de página ──────────────────────────── */
+  h2, h3, h4 {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  /* ── Forzar bordes visibles en tablas ──────────────────────── */
+  table,
+  th,
+  td,
+  [class*="border-slate"],
+  [class*="border-gray"],
+  [class*="border-border"],
+  [class*="border-[var(--border)]"] {
+    border-color: #cbd5e1 !important;
+  }
+
+  th,
+  [class*="bg-slate-900/80"],
+  [class*="print:bg-gray-100"] {
+    background: #f1f5f9 !important;
+    color: #1e293b !important;
+  }
+
+  /* ── Ajustar padding y márgenes ────────────────────────────── */
+  .max-w-7xl {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .space-y-6,
+  .space-y-4,
+  .space-y-2 {
+    margin: 0 !important;
+  }
+
+  /* ── Hacer que el contenido ocupe todo el ancho ────────────── */
+  .flex-1 {
+    padding: 0 !important;
+  }
+
+  .p-6,
+  .p-4,
+  .p-3,
+  .p-2 {
+    padding: 4px !important;
+  }
+
+  .gap-3,
+  .gap-4 {
+    gap: 4px !important;
+  }
+
+  /* ── Charts: ocultar sombras/efectos para impresión ────────── */
+  .recharts-surface {
+    background: transparent !important;
+  }
+
+  .recharts-default-tooltip {
+    display: none !important;
+  }
+
+  /* ── Tamaño de fuente reducido para impresión ──────────────── */
+  body,
+  p,
+  span,
+  td,
+  th,
+  div {
+    font-size: 10pt !important;
+  }
+
+  h1 { font-size: 18pt !important; }
+  h2 { font-size: 14pt !important; }
+  h3 { font-size: 12pt !important; }
+}
+
+/* ── Per-section print isolation ──────────────────────── */
+@media print {
+  .report-section {
+    display: none !important;
+  }
+  .report-section[data-print-active="true"] {
+    display: block !important;
+    page-break-after: auto !important;
+  }
+  .report-section[data-print-active="true"] ~ .report-section {
+    display: none !important;
+  }
+}
+
+.report-section {
+  position: relative;
+}
+
+/* ── Desactivar efecto hover de recharts ─────────────────────── */
+/* Tooltip sigue funcionando; solo se elimina el cambio visual   */
+/* (brillo/opacidad) que recharts aplica al hacer hover.        */
+.recharts-bar-rectangle:hover,
+.recharts-pie-sector:hover {
+  filter: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+.recharts-bar-rectangle:hover rect,
+.recharts-pie-sector:hover path {
+  filter: none !important;
+  opacity: 1 !important;
+}
