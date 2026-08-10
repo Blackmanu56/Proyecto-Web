@@ -7,6 +7,7 @@ interface ChartWrapperProps {
   title: string;
   children: React.ReactElement;
   height?: number;
+  action?: React.ReactNode;
 }
 
 const CHART_COLORS = [
@@ -26,6 +27,7 @@ export default function ChartWrapper({
   title,
   children,
   height = 300,
+  action,
 }: ChartWrapperProps) {
   // Gateamos el montaje de los charts hasta el primer paint del cliente.
   // Recharts mide el contenedor con getBoundingClientRect/ResizeObserver; si el
@@ -45,7 +47,10 @@ export default function ChartWrapper({
   // children directamente — cada informe puede agregar Tooltip/Legend si lo necesita.
   return (
     <div className="bg-card rounded-xl p-4 border border-border">
-      <h3 className="text-sm font-semibold text-text-muted mb-4">{title}</h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-semibold text-text-muted">{title}</h3>
+        {action}
+      </div>
       <div style={{ width: "100%", height }}>
         {mounted && <ResponsiveContainer>{children}</ResponsiveContainer>}
       </div>

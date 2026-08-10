@@ -19,7 +19,7 @@ const DEFAULT_PERMISSIONS: Record<string, { descripcion: string; permisos: strin
       "clientes.ver", "clientes.crear", "clientes.editar", "clientes.estado", "clientes.historial",
       "proveedores.ver", "proveedores.crear", "proveedores.editar", "proveedores.estado",
       "usuarios.ver", "usuarios.crear", "usuarios.editar", "usuarios.estado", "usuarios.foto", "usuarios.roles",
-      "informes.ver", "informes.ventas", "informes.caja", "informes.clientes", "informes.productos", "informes.proveedores",
+      "informes.ver", "informes.ventas", "informes.caja", "informes.clientes", "informes.empleados", "informes.productos", "informes.proveedores",
     ],
   },
   ENCARGADO_VENTAS: {

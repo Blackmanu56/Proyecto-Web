@@ -85,6 +85,7 @@ export const PERMISSIONS = {
       { key: "informes.caja", label: "Informes de caja" },
       { key: "informes.clientes", label: "Informes de clientes" },
       { key: "informes.productos", label: "Informes de productos" },
+      { key: "informes.empleados", label: "Informes de empleados" },
       { key: "informes.proveedores", label: "Informes de proveedores" },
     ],
   },

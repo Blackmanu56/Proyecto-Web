@@ -11,9 +11,11 @@ import {
 } from "@/actions/informes";
 import { formatCurrency } from "@/lib/utils";
 import {
+  ArrowDown, ArrowUp, ArrowUpDown,
   Search, Calendar, User, RefreshCw, TrendingUp, Eye, Printer,
-  DollarSign, ShoppingCart, Package, Users, BarChart3, ChevronDown, ChevronUp,
+  DollarSign, ShoppingCart, Package, Users, ChevronDown, ChevronUp,
 } from "lucide-react";
+import { parse } from "date-fns";
 import StatCard from "@/components/ui/StatCard";
 import ChartWrapper, { CHART_COLORS } from "@/components/ui/ChartWrapper";
 import DetalleVentaModal from "./DetalleVentaModal";
@@ -55,6 +57,18 @@ const PERIOD_OPTIONS: PeriodOption[] = [
 ];
 
 type ChartGranularity = "dia" | "semana" | "mes" | "anio";
+
+type SortKey = "fecha" | "cliente" | "vendedor" | "cantidad" | "total";
+type SortDir = "asc" | "desc";
+
+// Default direction applied on the first click of each column
+const DEFAULT_SORT_DIR: Record<SortKey, SortDir> = {
+  fecha: "desc",
+  cliente: "asc",
+  vendedor: "asc",
+  cantidad: "desc",
+  total: "desc",
+};
 
 /* --- Helpers ------------------------------------------------- */
 
@@ -239,6 +253,58 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
     return [...filtered].reverse();
   }, [data, clienteSearch]);
 
+  // -- Client-side sort of the sales table (no default order until a header is clicked) --
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir(DEFAULT_SORT_DIR[key]);
+    }
+  };
+
+  const sortedVentas = useMemo(() => {
+    if (!sortKey) return ventasFiltradas;
+    return [...ventasFiltradas].sort((a, b) => {
+      let cmp = 0;
+      switch (sortKey) {
+        case "fecha":
+          // Fixed server format "dd/MM/yyyy HH:mm" — parse into local timestamps for comparison
+          cmp =
+            parse(a.fecha, "dd/MM/yyyy HH:mm", new Date()).getTime() -
+            parse(b.fecha, "dd/MM/yyyy HH:mm", new Date()).getTime();
+          break;
+        case "cliente":
+          cmp = a.cliente.localeCompare(b.cliente);
+          break;
+        case "vendedor":
+          cmp = a.usuario.localeCompare(b.usuario);
+          break;
+        case "cantidad":
+          cmp = a.cantidadProductos - b.cantidadProductos;
+          break;
+        case "total":
+          cmp = a.total - b.total;
+          break;
+      }
+      return sortDir === "desc" ? -cmp : cmp;
+    });
+  }, [ventasFiltradas, sortKey, sortDir]);
+
+  const renderSortIndicator = (key: SortKey) => {
+    if (sortKey !== key) {
+      return <ArrowUpDown size={12} className="text-[var(--text-muted)] opacity-50" />;
+    }
+    return sortDir === "asc" ? (
+      <ArrowUp size={12} className="text-[var(--brand)]" />
+    ) : (
+      <ArrowDown size={12} className="text-[var(--brand)]" />
+    );
+  };
+
   // -- KPI calculations --
   const totales = useMemo(() => {
     const v = ventasFiltradas;
@@ -292,7 +358,11 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
   // -- Period change handler --
   const handlePeriodChange = useCallback(async (period: PeriodKey) => {
     setActivePeriod(period);
-    if (period === "personalizado") return;
+    if (period === "personalizado") {
+      // El usuario elige Desde/Hasta en el panel de filtros: abrirlo automáticamente
+      setFiltersOpen(true);
+      return;
+    }
 
     const range = getDateRange(period);
     setFechaDesde(range.desde);
@@ -534,7 +604,7 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
     return (
       <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 shadow-lg text-xs" style={{ minWidth: 200 }}>
         <div className="font-bold text-[var(--text)] mb-2 pb-1 border-b border-[var(--border)]">
-          📌 {fechaCompleta}
+          {fechaCompleta}
         </div>
         <div className="flex items-center justify-between mb-1">
           <span className="text-[var(--text-muted)] flex items-center gap-1.5">
@@ -1007,23 +1077,88 @@ export default function VentasReport({ initialData, usuarios, userRole }: Props)
                 <thead>
                   <tr className="border-b border-[var(--border)] print:border-gray-300 bg-[var(--card)] print:bg-gray-100">
                     <th className="text-left px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">#</th>
-                    <th className="text-left px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Fecha</th>
-                    <th className="text-left px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Cliente</th>
-                    <th className="text-left px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Vendedor</th>
-                    <th className="text-right px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">CANTIDAD</th>
-                    <th className="text-right px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Total</th>
+                    <th
+                      onClick={() => handleSort("fecha")}
+                      aria-label="Ordenar por Fecha"
+                      title="Ordenar por Fecha"
+                      className={
+                        "text-left cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors " +
+                        "px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider"
+                      }
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        Fecha
+                        {renderSortIndicator("fecha")}
+                      </span>
+                    </th>
+                    <th
+                      onClick={() => handleSort("cliente")}
+                      aria-label="Ordenar por Cliente"
+                      title="Ordenar por Cliente"
+                      className={
+                        "text-left cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors " +
+                        "px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider"
+                      }
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        Cliente
+                        {renderSortIndicator("cliente")}
+                      </span>
+                    </th>
+                    <th
+                      onClick={() => handleSort("vendedor")}
+                      aria-label="Ordenar por Vendedor"
+                      title="Ordenar por Vendedor"
+                      className={
+                        "text-left cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors " +
+                        "px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider"
+                      }
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        Vendedor
+                        {renderSortIndicator("vendedor")}
+                      </span>
+                    </th>
+                    <th
+                      onClick={() => handleSort("cantidad")}
+                      aria-label="Ordenar por Cantidad de productos"
+                      title="Ordenar por Cantidad de productos"
+                      className={
+                        "text-right cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors " +
+                        "px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider"
+                      }
+                    >
+                      <span className="inline-flex items-center justify-end gap-1">
+                        CANTIDAD
+                        {renderSortIndicator("cantidad")}
+                      </span>
+                    </th>
+                    <th
+                      onClick={() => handleSort("total")}
+                      aria-label="Ordenar por Total"
+                      title="Ordenar por Total"
+                      className={
+                        "text-right cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors " +
+                        "px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider"
+                      }
+                    >
+                      <span className="inline-flex items-center justify-end gap-1">
+                        Total
+                        {renderSortIndicator("total")}
+                      </span>
+                    </th>
                     <th className="text-center px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider print:hidden">Acc.</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border)]/50 print:divide-gray-300">
-                  {ventasFiltradas.length === 0 ? (
+                  {sortedVentas.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="px-4 py-8 text-center text-[var(--text-secondary)]">
                         Sin ventas en el período.
                       </td>
                     </tr>
                   ) : (
-                    (ventasFiltradas as any[]).map((venta: any) => (
+                    sortedVentas.map((venta) => (
                       <tr key={venta.id} className="hover:bg-[var(--card)] transition-colors">
                         <td className="px-4 py-3 font-bold text-[var(--text)] print:text-black">
                           #{String(venta.id).padStart(4, "0")}
