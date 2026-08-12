@@ -116,7 +116,8 @@ export async function createProducto(formData: FormData) {
     const totalPagos = pagos.reduce((sum, pago) => sum + pago.monto, 0);
     const totalCosto = validation.data.cantidad * validation.data.precioCompra;
     
-    if (Math.abs(totalPagos - totalCosto) > 0.01) {
+    // Only validate payment sum if there's a reposición (cantidad > 0)
+    if (validation.data.cantidad > 0 && Math.abs(totalPagos - totalCosto) > 0.01) {
       throw new Error(`La suma de los pagos ($${totalPagos.toFixed(2)}) no coincide con el total ($${totalCosto.toFixed(2)}).`);
     }
 
@@ -132,12 +133,12 @@ export async function createProducto(formData: FormData) {
     if (efectivoCajaPago && efectivoCajaPago.monto > 0) {
       const cajaAbierta = await prisma.caja.findFirst({ where: { estado: "ABIERTA" } });
       if (!cajaAbierta) {
-        throw new Error("No hay una caja abierta para registrar el pago en efectivo.");
+        throw new Error("No hay una caja abierta. Para utilizar Efectivo de Caja primero debe abrir una caja o seleccionar otro medio de pago.");
       }
       
       const cajaActual = cajaAbierta.montoInicial + cajaAbierta.totalVentas;
       if (efectivoCajaPago.monto > cajaActual) {
-        throw new Error(`El monto en efectivo ($${efectivoCajaPago.monto.toFixed(2)}) excede el saldo disponible en caja ($${cajaActual.toFixed(2)}).`);
+        throw new Error(`Fondos insuficientes en Caja. Disponible: $${cajaActual.toFixed(2)}, Solicitado: $${efectivoCajaPago.monto.toFixed(2)}, Faltante: $${(efectivoCajaPago.monto - cajaActual).toFixed(2)}.`);
       }
     }
   }
@@ -369,10 +370,12 @@ export async function updateProducto(id: number, formData: FormData) {
         // Handle multiple payments if provided
         const pagos = validation.data.pagos;
         if (pagos && pagos.length > 0) {
-          // Validate payment sum
-          const totalPagos = pagos.reduce((sum, pago) => sum + pago.monto, 0);
-          if (Math.abs(totalPagos - totalCosto) > 0.01) {
-            throw new Error(`La suma de los pagos ($${totalPagos.toFixed(2)}) no coincide con el total ($${totalCosto.toFixed(2)}).`);
+          // Validate payment sum (only if there's a reposición)
+          if (diferencia > 0) {
+            const totalPagos = pagos.reduce((sum, pago) => sum + pago.monto, 0);
+            if (Math.abs(totalPagos - totalCosto) > 0.01) {
+              throw new Error(`La suma de los pagos ($${totalPagos.toFixed(2)}) no coincide con el total ($${totalCosto.toFixed(2)}).`);
+            }
           }
 
           // Check for duplicate payment methods
@@ -384,10 +387,13 @@ export async function updateProducto(id: number, formData: FormData) {
 
           // Validate Caja balance for EFECTIVO_CAJA payments
           const efectivoCajaPago = pagos.find(p => p.medio === "EFECTIVO_CAJA");
-          if (efectivoCajaPago && efectivoCajaPago.monto > 0 && cajaAbierta) {
+          if (efectivoCajaPago && efectivoCajaPago.monto > 0) {
+            if (!cajaAbierta) {
+              throw new Error("No hay una caja abierta. Para utilizar Efectivo de Caja primero debe abrir una caja o seleccionar otro medio de pago.");
+            }
             const cajaActual = cajaAbierta.montoInicial + cajaAbierta.totalVentas;
             if (efectivoCajaPago.monto > cajaActual) {
-              throw new Error(`El monto en efectivo ($${efectivoCajaPago.monto.toFixed(2)}) excede el saldo disponible en caja ($${cajaActual.toFixed(2)}).`);
+              throw new Error(`Fondos insuficientes en Caja. Disponible: $${cajaActual.toFixed(2)}, Solicitado: $${efectivoCajaPago.monto.toFixed(2)}, Faltante: $${(efectivoCajaPago.monto - cajaActual).toFixed(2)}.`);
             }
           }
 

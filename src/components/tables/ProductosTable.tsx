@@ -407,6 +407,7 @@ export default function ProductosTable({
   const [cantidadAReponer, setCantidadAReponer] = useState<number | "">("");
   const [payments, setPayments] = useState<PaymentMethod[]>([]);
   const [cajaBalance, setCajaBalance] = useState<number>(0);
+  const [cajaAbierta, setCajaAbierta] = useState<boolean>(true);
 
   /* ── Form combobox state ── */
   const [marcaValue, setMarcaValue] = useState("");
@@ -441,8 +442,10 @@ export default function ProductosTable({
         if (caja) {
           const balance = caja.montoInicial + caja.totalVentas;
           setCajaBalance(balance);
+          setCajaAbierta(true);
         } else {
           setCajaBalance(0);
+          setCajaAbierta(false);
         }
       });
     }
@@ -1528,6 +1531,7 @@ export default function ProductosTable({
                         total={((Number(cantidadAReponer) || 0)) * editingProduct.precioCompra}
                         onChange={setPayments}
                         cajaBalance={cajaBalance}
+                        cajaAbierta={cajaAbierta}
                         disabled={isPending}
                       />
                     </div>
@@ -1543,6 +1547,7 @@ export default function ProductosTable({
                         total={0} // Will be calculated based on quantity and price
                         onChange={setPayments}
                         cajaBalance={cajaBalance}
+                        cajaAbierta={cajaAbierta}
                         disabled={isPending}
                       />
                     </div>
