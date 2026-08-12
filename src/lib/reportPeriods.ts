@@ -78,3 +78,109 @@ export function getCierresDateRange(
 export function toApiDate(dateOnly?: string): string | undefined {
   return dateOnly ? `${dateOnly}T00:00:00` : undefined;
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Períodos del reporte de ventas.
+ * ventana "actual" → { start, end } con componentes LOCALES (nunca toISOString).
+ * "mes" y "anio" usan el calendario completo (1º → último día); "hoy"/"ayer"/"7d"
+ * usan duración igual a la ventana. 'personalizado' no tiene ventana computable.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+export type ReporteVentasPeriodKey =
+  | "hoy"
+  | "ayer"
+  | "7d"
+  | "mes"
+  | "mes_anterior"
+  | "anio"
+  | "personalizado";
+
+export function ventasWindowDates(
+  periodKey: ReporteVentasPeriodKey,
+  base: Date = new Date()
+): { start: Date; end: Date } | null {
+  const y = base.getFullYear();
+  const m = base.getMonth();
+  const d = base.getDate();
+
+  switch (periodKey) {
+    case "hoy":
+      return { start: new Date(y, m, d), end: new Date(y, m, d) };
+    case "ayer":
+      return { start: new Date(y, m, d - 1), end: new Date(y, m, d - 1) };
+    case "7d":
+      return { start: new Date(y, m, d - 6), end: new Date(y, m, d) };
+    case "mes":
+      return { start: new Date(y, m, 1), end: new Date(y, m + 1, 0) };
+    case "mes_anterior":
+      return { start: new Date(y, m - 1, 1), end: new Date(y, m, 0) };
+    case "anio":
+      return { start: new Date(y, 0, 1), end: new Date(y, 11, 31) };
+    default:
+      return null; // "personalizado": sin fechas no hay ventana computable
+  }
+}
+
+/** "yyyy-MM-dd" para los inputs de fecha del formulario (nunca al límite servidor). */
+export function getVentasDateRange(
+  periodKey: ReporteVentasPeriodKey,
+  base: Date = new Date()
+): { desde: string; hasta: string } {
+  const w = ventasWindowDates(periodKey, base);
+  if (!w) {
+    // 'personalizado' sin fechas: el contenedor nunca llama con este preset.
+    return { desde: "", hasta: "" };
+  }
+  return { desde: formatLocalDate(w.start), hasta: formatLocalDate(w.end) };
+}
+
+/**
+ * Ventana INMEDIATAMENTE anterior a la ventana de `periodKey`, para comparar
+ * (deltas del resumen). Devuelve datetime local completo sin Z (F1).
+ * - mes / mes_anterior: corrida de calendario (mes completo anterior)
+ * - anio: año completo anterior
+ * - hoy / ayer / 7d: duración igual a la ventana, inmediatamente antes
+ * - personalizado sin fechas: null
+ */
+export function getPreviousWindow(
+  periodKey: ReporteVentasPeriodKey,
+  base: Date = new Date()
+): { desde: string; hasta: string } | null {
+  const w = ventasWindowDates(periodKey, base);
+  if (!w) return null; // personalizado sin fechas
+
+  let start: Date;
+  let end: Date;
+
+  switch (periodKey) {
+    case "mes": {
+      const shift = 1;
+      start = new Date(base.getFullYear(), base.getMonth() - shift, 1);
+      end = new Date(base.getFullYear(), base.getMonth() - (shift - 1), 0);
+      break;
+    }
+    case "mes_anterior": {
+      const shift = 2;
+      start = new Date(base.getFullYear(), base.getMonth() - shift, 1);
+      end = new Date(base.getFullYear(), base.getMonth() - (shift - 1), 0);
+      break;
+    }
+    case "anio": {
+      start = new Date(base.getFullYear() - 1, 0, 1);
+      end = new Date(base.getFullYear() - 1, 11, 31);
+      break;
+    }
+    default: {
+      // hoy / ayer / 7d: ventana de igual duración inmediatamente anterior
+      const MS_DAY = 86_400_000; // Argentina sin DST: día fijo de 24h
+      const lengthDays = Math.round((w.end.getTime() - w.start.getTime()) / MS_DAY) + 1;
+      start = new Date(w.start.getTime() - lengthDays * MS_DAY);
+      end = new Date(w.start.getTime() - MS_DAY);
+    }
+  }
+
+  return {
+    desde: formatLocalDateTimeStart(start),
+    hasta: formatLocalDateTimeStart(end),
+  };
+}
