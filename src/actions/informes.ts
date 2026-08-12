@@ -4,8 +4,9 @@ import { requirePermission } from "@/lib/auth-permissions";
 import { calcularEfectivoCajaActiva } from "@/lib/caja-balance";
 import { parseRoleData } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { METODOS_PAGO_ORDEN } from "@/lib/metodosPago";
 import { formatCurrency, formatDate, formatDateShort, formatTime24 } from "@/lib/utils";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 export interface DashboardData {
   stats: {
@@ -1781,6 +1782,115 @@ export async function getBottomProductos(filters: ReportFilters = {}, limit: num
     return { data: sorted, total: sorted.length };
   } catch (error) {
     console.error("Error en getBottomProductos:", error);
+    return { data: [], total: 0 };
+  }
+}
+
+// ─── ANÁLISIS DE VENTAS (informe Ventas → Análisis) ──────────────
+
+export async function getResumenVentas(
+  fechaDesde?: string,
+  fechaHasta?: string,
+  usuarioId?: number
+): Promise<{ cantidad: number; total: number; productosVendidos: number; clientesAtendidos: number }> {
+  try {
+    await requirePermission("informes.ver");
+    const where: Prisma.VentaWhereInput = { ...buildDateFilter(fechaDesde, fechaHasta) };
+    if (usuarioId) where.usuarioId = usuarioId;
+    const [agg, lineas, clientes] = await Promise.all([
+      prisma.venta.aggregate({ where, _count: { id: true }, _sum: { total: true } }),
+      prisma.detalleVenta.count({ where: { venta: where } }),
+      prisma.venta.groupBy({ by: ["clienteId"], where, _count: { _all: true } }),
+    ]);
+    return {
+      cantidad: agg._count.id,
+      total: agg._sum.total || 0,
+      productosVendidos: lineas, // D9: filas de detalle (paridad con KPI actual), no suma de cantidades
+      clientesAtendidos: clientes.length, // clientes distintos por id
+    };
+  } catch (e) {
+    console.error("Error en getResumenVentas:", e);
+    return { cantidad: 0, total: 0, productosVendidos: 0, clientesAtendidos: 0 };
+  }
+}
+
+export async function getVentasPorMetodoPago(filters: ReportFilters = {}): Promise<{
+  data: { metodo: string; cantidadVentas: number; total: number }[];
+  total: number;
+}> {
+  try {
+    await requirePermission("informes.ver");
+    const where: Prisma.VentaWhereInput = { ...buildDateFilter(filters.fechaDesde, filters.fechaHasta) };
+    if (filters.usuarioId) where.usuarioId = filters.usuarioId;
+    const rows = await prisma.venta.groupBy({
+      by: ["metodoPago"],
+      where,
+      _count: { id: true },
+      _sum: { total: true },
+    });
+    const conocidos = new Set(METODOS_PAGO_ORDEN);
+    const mapa: Record<string, { cantidadVentas: number; total: number }> = {};
+    for (const r of rows) {
+      // null/legacy → "OTROS"; el resto conserva su clave original
+      const clave = r.metodoPago && conocidos.has(r.metodoPago) ? r.metodoPago : "OTROS";
+      if (!mapa[clave]) mapa[clave] = { cantidadVentas: 0, total: 0 };
+      mapa[clave].cantidadVentas += r._count.id;
+      mapa[clave].total += r._sum.total || 0;
+    }
+    // orden fijo: METODOS_PAGO_ORDEN primero, "OTROS" al final
+    const data = [...METODOS_PAGO_ORDEN.filter((m) => mapa[m]), ...(mapa["OTROS"] ? ["OTROS"] : [])].map((m) => ({
+      metodo: m,
+      ...mapa[m],
+    }));
+    return { data, total: data.length };
+  } catch (e) {
+    console.error("Error en getVentasPorMetodoPago:", e);
+    return { data: [], total: 0 };
+  }
+}
+
+export type VentasPorDiaSemanaRow = { dow: number; ventas: number; total: number };
+
+/**
+ * Ventas agregadas por día de la semana (0=lunes … 6=domingo).
+ *
+ * Almacenamiento real (gate psql 2026-08-12): la sesión de la DB corre en UTC y
+ * Venta.fecha (timestamp sin tz) guarda la pared UTC (una venta local 19:33 quedó
+ * 22:33). Por eso NO vale el caso "pared almacenada = pared local" del diseño v2:
+ * se aplica la variante fallback con corrección de signo —
+ *   - cotas: literal local + 3h (medianoche local = 03:00 UTC)
+ *   - DOW:   pared almacenada − 3h (equivale a AT TIME ZONE 'UTC' AT TIME ZONE
+ *            'America/Argentina/Buenos_Aires', verificado en gate)
+ * El texto del diseño v2 con `+ INTERVAL '3 hours'` en el DOW está invertido:
+ * atribuiría al día siguiente (venta local 23:30 → pared 02:30 del día próximo).
+ * Argentina no tiene DST desde 2015 → offset fijo de 3h (reportPeriods.ts L12-13).
+ * F1: cotas como literales sin Z (nunca new Date()): deterministas entre driver y
+ * sesión. getResumenVentas/getEvolucionVentas pasan por el engine de alto nivel
+ * de Prisma y no se tocan.
+ */
+export async function getVentasPorDiaSemana(filters: ReportFilters = {}): Promise<{
+  data: VentasPorDiaSemanaRow[];
+  total: number;
+}> {
+  try {
+    await requirePermission("informes.ver");
+    const conds: Prisma.Sql[] = [];
+    if (filters.fechaDesde)
+      conds.push(Prisma.sql`f."fecha" >= (${`${filters.fechaDesde}T00:00:00`}::timestamp + INTERVAL '3 hours')`);
+    if (filters.fechaHasta)
+      conds.push(Prisma.sql`f."fecha" <= (${`${filters.fechaHasta}T23:59:59.999`}::timestamp + INTERVAL '3 hours')`);
+    if (filters.usuarioId) conds.push(Prisma.sql`f."usuario_id" = ${filters.usuarioId}`);
+    const whereSql = conds.length ? Prisma.sql`WHERE ${Prisma.join(conds, " AND ")}` : Prisma.empty;
+    const rows = await prisma.$queryRaw<VentasPorDiaSemanaRow[]>`
+      SELECT (EXTRACT(DOW FROM (f."fecha" - INTERVAL '3 hours'))::int + 6) % 7 AS "dow",
+             COUNT(*)::int AS "ventas",
+             COALESCE(SUM(f."total"), 0)::float8 AS "total"
+      FROM "ventas" f
+      ${whereSql}
+      GROUP BY 1 ORDER BY 1`;
+    return { data: rows, total: rows.length };
+  } catch (e) {
+    console.error("Error en getVentasPorDiaSemana:", e);
     return { data: [], total: 0 };
   }
 }
