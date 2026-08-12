@@ -463,6 +463,15 @@ export function PaymentDistribution({
         </div>
       </div>
 
+      {/* Nota de reposición - compacta, debajo del resumen (solo si hay distribución) */}
+      <div className="flex items-start gap-1.5 text-[10px] leading-snug text-[var(--text-muted)]">
+        <Info size={11} className="shrink-0 mt-0.5 text-[var(--brand)]" />
+        <span>
+          <strong>Regla:</strong> Al incrementar stock se registrará una reposición. Solo la parte abonada con
+          Efectivo de Caja afecta el saldo de la caja activa.
+        </span>
+      </div>
+
       {/* Completar con efectivo - acción secundaria discreta */}
       {payments.some(p => p.medio === "EFECTIVO_CAJA") && cajaAbierta && cajaBalance > 0 && remaining > 0 && (
         <Button
