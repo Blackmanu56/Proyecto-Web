@@ -1350,7 +1350,7 @@ export default function ProductosTable({
             </DialogDescription>
           </DialogHeader>
 
-          <form id={PRODUCT_FORM_ID} onSubmit={handleFormSubmit} className="flex-1 overflow-y-auto md:overflow-y-hidden px-4 py-3 space-y-2.5">
+          <form id={PRODUCT_FORM_ID} onSubmit={handleFormSubmit} className="flex-1 overflow-y-auto px-4 py-3 space-y-2.5">
 
             {/* ── Nombre del Repuesto (full width) ── */}
             <FormField label="Nombre del Repuesto" required className="mb-0">
@@ -1555,16 +1555,16 @@ export default function ProductosTable({
                 )}
               </div>
             </div>
+          </form>
 
-            {/* ── Regla Transaccional (one line, no card) ── */}
+          {/* ── Regla Transaccional + Alertas (SIEMPRE visibles, ancladas sobre el footer) ── */}
+          <div className="shrink-0 px-4 pt-1.5 space-y-2">
             {editingProduct && (
-              <div className="flex items-center gap-1.5 text-[11px] text-[var(--text-muted)] py-1">
-                <Info size={12} className="text-[var(--brand)]" />
+              <div className="flex items-center gap-1.5 text-[11px] text-[var(--text-muted)]">
+                <Info size={12} className="text-[var(--brand)] shrink-0" />
                 <span><strong>Regla:</strong> Al incrementar stock se registrará una reposición. La salida en Caja ocurre solo si el origen de pago es Efectivo de Caja.</span>
               </div>
             )}
-
-            {/* ── Alertas ── */}
             {errorMsg && (
               <div className="p-2 bg-[var(--danger-light)] border border-[var(--danger)]/20 text-[var(--danger)] text-xs font-semibold rounded-[var(--radius-md)] flex items-center space-x-2">
                 <AlertTriangle size={14} />
@@ -1577,8 +1577,7 @@ export default function ProductosTable({
                 <span>{successMsg}</span>
               </div>
             )}
-
-          </form>
+          </div>
 
           {/* ── Footer fijo: Botones ── */}
           <div className="px-4 py-2.5 border-t border-[var(--border)] flex justify-end gap-3 shrink-0">
