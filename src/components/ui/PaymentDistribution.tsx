@@ -172,13 +172,24 @@ export function PaymentDistribution({
     }
   }, [payments, cajaBalance, remaining, disabled, updatePayment]);
 
-  const getRemainingStatus = () => {
+  /**
+   * Restante: warning (amarillo) mientras falte asignar,
+   * success (verde) cuando está cubierto, danger (rojo) solo si se superó.
+   */
+  const getRemainingStatus = (): "warning" | "success" | "danger" => {
     if (!hasReposition || Math.abs(remaining) < 0.01) return "success";
     if (remaining > 0) return "warning";
-    return "error";
+    return "danger";
   };
 
+  /**
+   * Asignado: siempre verde si hay algo asignado correctamente,
+   * gris/normal si todavía no se asignó nada (no es un error).
+   */
+  const assignedStatus = totalAssigned > 0 ? "success" : "muted";
+
   const canAddMore = payments.length < PAYMENT_METHODS.length && !disabled && hasReposition;
+  const noMoreMethods = payments.length >= PAYMENT_METHODS.length && hasReposition && !disabled;
 
   // Get available methods for a specific row (excluding already used ones)
   const getAvailableMethods = useCallback((currentId: string) => {
@@ -187,6 +198,19 @@ export function PaymentDistribution({
       !usedMethods.has(m.value) && (cajaAbierta || !m.requiresOpenCaja)
     );
   }, [payments, cajaAbierta]);
+
+  // Per-row error state: only the problematic row gets a red border
+  const getRowError = useCallback((payment: PaymentMethod): string | null => {
+    if (!hasReposition) return null;
+    if (payment.monto < 0) return "Monto inválido";
+    if (payment.medio === "EFECTIVO_CAJA" && payment.monto > cajaBalance) {
+      return `Supera el disponible en Caja (${formatCurrency(cajaBalance)})`;
+    }
+    if (!cajaAbierta && payment.medio === "EFECTIVO_CAJA" && payment.monto > 0) {
+      return "Caja cerrada";
+    }
+    return null;
+  }, [cajaBalance, cajaAbierta, hasReposition]);
 
   // If no reposition, don't render anything
   if (!hasReposition) {
@@ -212,28 +236,43 @@ export function PaymentDistribution({
             Agregar
           </Button>
         )}
+        {noMoreMethods && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled
+            title="No quedan más medios de pago disponibles"
+            className="h-6 px-2 text-xs opacity-50 cursor-not-allowed"
+          >
+            <Plus size={12} className="mr-1" />
+            Agregar
+          </Button>
+        )}
       </div>
 
-      {/* Payment Methods - Compact rows */}
-      <div className="space-y-1.5">
+      {/* Payment Methods - Scrollable list (max ~3 rows visible) */}
+      <div className="max-h-[156px] overflow-y-auto pr-1 space-y-1.5 min-h-[0px]">
         {payments.map((payment) => {
           const isCaja = payment.medio === "EFECTIVO_CAJA";
           const isFondosExternos = payment.medio === "FONDOS_EXTERNOS";
-          const availableMethods = getAvailableMethods(payment.medio);
+          const availableMethods = getAvailableMethods(payment.id);
+          const rowError = getRowError(payment);
 
           return (
             <div key={payment.id} className="space-y-1">
               <div
                 className={cn(
                   "flex items-center gap-2 p-1.5 rounded-lg border",
-                  isCaja ? "border-[var(--brand)]/30 bg-[var(--brand-light)]/10" : "border-[var(--border)] bg-[var(--bg)]"
+                  isCaja ? "border-[var(--brand)]/30 bg-[var(--brand-light)]/10" : "border-[var(--border)] bg-[var(--bg)]",
+                  rowError && "border-[var(--danger)] bg-[var(--danger-light)]/10"
                 )}
               >
                 {/* Payment Method Select */}
                 <div className="flex-1 min-w-0">
                   <Select
                     value={payment.medio}
-                    onValueChange={(value) => updatePayment(payment.medio === payment.id ? payment.id : payment.id, "medio", value)}
+                    onValueChange={(value) => updatePayment(payment.id, "medio", value)}
                     disabled={disabled}
                   >
                     <SelectTrigger className="h-8 text-xs">
@@ -282,24 +321,34 @@ export function PaymentDistribution({
                 )}
               </div>
 
-              {/* Fondos Externos observation field */}
+              {/* Fondos Externos observation field - compact, only when monto > 0 */}
               {isFondosExternos && payment.monto > 0 && (
-                <Input
-                  type="text"
-                  value={payment.observacion || ""}
-                  onChange={(e) => updatePayment(payment.id, "observacion", e.target.value)}
-                  disabled={disabled}
-                  placeholder="Origen de fondos (opcional): Ej. Aporte del propietario"
-                  className="h-7 text-xs ml-0"
-                />
+                <div className="flex items-center gap-1 pl-1">
+                  <Input
+                    type="text"
+                    value={payment.observacion || ""}
+                    onChange={(e) => updatePayment(payment.id, "observacion", e.target.value)}
+                    disabled={disabled}
+                    placeholder="Origen de fondos (opcional)"
+                    className="h-6 text-[11px]"
+                  />
+                </div>
+              )}
+
+              {/* Row error hint */}
+              {rowError && (
+                <div className="flex items-center gap-1 pl-1 text-[11px] text-[var(--danger)]">
+                  <AlertTriangle size={11} />
+                  <span>{rowError}</span>
+                </div>
               )}
             </div>
           );
         })}
       </div>
 
-      {/* Summary - Compact */}
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs pt-1 border-t border-[var(--border)]/50">
+      {/* Summary - ALWAYS visible, outside the scrollable list */}
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs pt-1.5 border-t border-[var(--border)]/50">
         <div className="flex justify-between">
           <span className="text-[var(--text-muted)]">Total:</span>
           <span className="font-semibold text-[var(--text)]">{formatCurrency(total)}</span>
@@ -312,9 +361,8 @@ export function PaymentDistribution({
           <span className="text-[var(--text-muted)]">Asignado:</span>
           <span className={cn(
             "font-semibold",
-            getRemainingStatus() === "success" && "text-[var(--success)]",
-            getRemainingStatus() === "warning" && "text-[var(--warning)]",
-            getRemainingStatus() === "error" && "text-[var(--danger)]",
+            assignedStatus === "success" && "text-[var(--success)]",
+            assignedStatus === "muted" && "text-[var(--text-secondary)]",
           )}>
             {formatCurrency(totalAssigned)}
           </span>
@@ -325,14 +373,14 @@ export function PaymentDistribution({
             "font-semibold",
             getRemainingStatus() === "success" && "text-[var(--success)]",
             getRemainingStatus() === "warning" && "text-[var(--warning)]",
-            getRemainingStatus() === "error" && "text-[var(--danger)]",
+            getRemainingStatus() === "danger" && "text-[var(--danger)]",
           )}>
             {formatCurrency(Math.max(0, remaining))}
           </span>
         </div>
       </div>
 
-      {/* Use Max Button */}
+      {/* Use Max Button - contextual label */}
       {payments.some(p => p.medio === "EFECTIVO_CAJA") && cajaAbierta && cajaBalance > 0 && remaining > 0 && (
         <Button
           type="button"
@@ -343,7 +391,7 @@ export function PaymentDistribution({
           className="w-full h-7 text-xs"
         >
           <Wallet size={12} className="mr-1" />
-          Usar máximo disponible ({formatCurrency(Math.min(cajaBalance, remaining))})
+          Completar con efectivo disponible ({formatCurrency(Math.min(cajaBalance, remaining))})
         </Button>
       )}
 
@@ -355,23 +403,30 @@ export function PaymentDistribution({
         </div>
       )}
 
-      {/* Errors */}
+      {/* Errors - red ONLY for real blocking issues, amber for guidance */}
       {errors.length > 0 && (
         <div className="space-y-1">
-          {errors.map((error, index) => (
-            <div
-              key={index}
-              className={cn(
-                "flex items-center gap-1.5 text-xs",
-                error.includes("insuficientes") || error.includes("No hay") 
-                  ? "text-[var(--danger)]" 
-                  : "text-[var(--warning)]"
-              )}
-            >
-              <AlertTriangle size={12} />
-              <span>{error}</span>
-            </div>
-          ))}
+          {errors.map((error, index) => {
+            const isBlocking = 
+              error.includes("insuficientes") || 
+              error.includes("No hay") || 
+              error.includes("duplicados") || 
+              error.includes("superó") ||
+              error.includes("negativos") ||
+              error.includes("al menos");
+            return (
+              <div
+                key={index}
+                className={cn(
+                  "flex items-center gap-1.5 text-xs",
+                  isBlocking ? "text-[var(--danger)]" : "text-[var(--warning)]"
+                )}
+              >
+                <AlertTriangle size={12} />
+                <span>{error}</span>
+              </div>
+            );
+          })}
         </div>
       )}
 
