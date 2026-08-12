@@ -140,14 +140,33 @@ export function getVentasDateRange(
  * - mes / mes_anterior: corrida de calendario (mes completo anterior)
  * - anio: año completo anterior
  * - hoy / ayer / 7d: duración igual a la ventana, inmediatamente antes
- * - personalizado sin fechas: null
+ * - personalizado: ventana de igual duración inmediatamente antes del inicio
+ *   custom; sin fechas → null (comparación oculta)
  */
 export function getPreviousWindow(
   periodKey: ReporteVentasPeriodKey,
+  fechaDesde?: string,
+  fechaHasta?: string, // "yyyy-MM-dd" (solo personalizado)
   base: Date = new Date()
 ): { desde: string; hasta: string } | null {
+  if (periodKey === "personalizado") {
+    if (!fechaDesde || !fechaHasta) return null; // no computable → ocultar comparación
+    const [a, b, c] = fechaDesde.split("-").map(Number);
+    const [d, e, f] = fechaHasta.split("-").map(Number);
+    const start = new Date(a, b - 1, c);
+    const end = new Date(d, e - 1, f);
+    const MS_DAY = 86_400_000; // Argentina sin DST: día fijo de 24h
+    const lengthDays = Math.round((end.getTime() - start.getTime()) / MS_DAY) + 1;
+    const prevEnd = new Date(start.getTime() - MS_DAY);
+    const prevStart = new Date(prevEnd.getTime() - (lengthDays - 1) * MS_DAY);
+    return {
+      desde: formatLocalDateTimeStart(prevStart),
+      hasta: formatLocalDateTimeStart(prevEnd),
+    };
+  }
+
   const w = ventasWindowDates(periodKey, base);
-  if (!w) return null; // personalizado sin fechas
+  if (!w) return null; // defensivo: ningún preset distinto de personalizado llega acá
 
   let start: Date;
   let end: Date;
