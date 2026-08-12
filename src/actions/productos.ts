@@ -32,6 +32,117 @@ const productoSchema = z.object({
   pagos: z.array(pagoSchema).optional(),
 });
 
+const REPOSICION_TECHNICAL_ERROR =
+  "No se pudo registrar la reposición. Intentá nuevamente.";
+
+const EXPECTED_PRODUCT_PERMISSION_ERRORS = new Set([
+  "No autenticado.",
+  "Usuario inactivo o no encontrado.",
+  "Rol inactivo o sin permisos vigentes.",
+  "No tiene permisos para realizar esta acci?n.",
+  "No tiene permisos para realizar esta acción.",
+]);
+
+class ProductoBusinessError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ProductoBusinessError";
+  }
+}
+
+type PagoValidado = z.infer<typeof pagoSchema>;
+
+function failBusiness(message: string): never {
+  throw new ProductoBusinessError(message);
+}
+
+function validatePaymentDistribution(
+  pagos: PagoValidado[] | undefined,
+  totalCosto: number
+) {
+  if (!pagos || pagos.length === 0) return;
+
+  const totalPagos = pagos.reduce((sum, pago) => sum + pago.monto, 0);
+  if (Math.abs(totalPagos - totalCosto) > 0.01) {
+    failBusiness(
+      `La suma de los pagos ($${totalPagos.toFixed(2)}) no coincide con el total ($${totalCosto.toFixed(2)}).`
+    );
+  }
+
+  const medios = pagos.map((pago) => pago.medio);
+  if (new Set(medios).size !== medios.length) {
+    failBusiness("No se permiten métodos de pago duplicados.");
+  }
+}
+
+function getEfectivoCajaAsignado(pagos: PagoValidado[] | undefined) {
+  return (pagos ?? []).reduce(
+    (total, pago) =>
+      pago.medio === "EFECTIVO_CAJA" ? total + pago.monto : total,
+    0
+  );
+}
+
+function formatPurchaseAmount(amount: number) {
+  return new Intl.NumberFormat("es-AR", {
+    style: "currency",
+    currency: "ARS",
+    minimumFractionDigits: 2,
+  }).format(amount);
+}
+
+function getPurchaseMovementDescription(
+  prefix: string,
+  totalCosto: number,
+  efectivoCaja: number
+) {
+  const totalLabel = formatPurchaseAmount(totalCosto);
+  if (efectivoCaja <= 0) {
+    return `${prefix} (Total: ${totalLabel}; sin impacto en efectivo de Caja)`;
+  }
+
+  return `${prefix} (Total: ${totalLabel}; efectivo de Caja: ${formatPurchaseAmount(efectivoCaja)})`;
+}
+
+function assertCajaSupportsCash(
+  cajaAbierta: { montoInicial: number; totalVentas: number } | null,
+  efectivoCaja: number
+) {
+  if (efectivoCaja <= 0) return;
+  if (!cajaAbierta) {
+    failBusiness(
+      "No hay una caja abierta. Para utilizar Efectivo de Caja primero debe abrir una caja o seleccionar otro medio de pago."
+    );
+  }
+
+  const cajaActual = cajaAbierta.montoInicial + cajaAbierta.totalVentas;
+  if (efectivoCaja > cajaActual) {
+    failBusiness(
+      `Fondos insuficientes en Caja. Disponible: $${cajaActual.toFixed(2)}, Solicitado: $${efectivoCaja.toFixed(2)}, Faltante: $${(efectivoCaja - cajaActual).toFixed(2)}.`
+    );
+  }
+}
+
+async function requireProductoPermission(permission: string) {
+  try {
+    return await requirePermission(permission, await getSession());
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      EXPECTED_PRODUCT_PERMISSION_ERRORS.has(error.message)
+    ) {
+      failBusiness(error.message);
+    }
+    throw error;
+  }
+}
+
+function productoActionError(error: unknown) {
+  return error instanceof ProductoBusinessError
+    ? error.message
+    : REPOSICION_TECHNICAL_ERROR;
+}
+
 /**
  * Obtener todos los productos con filtros de búsqueda y paginación
  */
@@ -81,79 +192,65 @@ export async function getProductos(
  * Crear un nuevo producto en el catálogo
  */
 export async function createProducto(formData: FormData) {
-  const session = await requirePermission("productos.crear", await getSession());
-
-  const rawData = {
-    nombre: formData.get("nombre") as string,
-    marca: formData.get("marca") as string || null,
-    codigo: formData.get("codigo") as string || null,
-    imagen: formData.get("imagen") as string || null,
-    categoriaId: Number(formData.get("categoriaId")),
-    proveedorId: Number(formData.get("proveedorId")),
-    precioCompra: Number(formData.get("precioCompra")),
-    precioVenta: Number(formData.get("precioVenta")),
-    cantidad: Number(formData.get("cantidad")),
-    stockMinimo: Number(formData.get("stockMinimo")),
-    origenPago: (formData.get("origenPago") as string) || "EFECTIVO_CAJA",
-    pagos: formData.get("pagos") ? JSON.parse(formData.get("pagos") as string) : undefined,
-  };
-
-  // Handle file upload if present
-  const file = formData.get("imagenFile") as File | null;
-  if (file && file.size > 0) {
-    const imageUrl = await saveFile(file);
-    rawData.imagen = imageUrl;
-  }
-
-  const validation = productoSchema.safeParse(rawData);
-  if (!validation.success) {
-    throw new Error(validation.error.errors[0].message);
-  }
-
-  // Validate payments if provided
-  const pagos = validation.data.pagos;
-  if (pagos && pagos.length > 0) {
-    const totalPagos = pagos.reduce((sum, pago) => sum + pago.monto, 0);
-    const totalCosto = validation.data.cantidad * validation.data.precioCompra;
-    
-    // Only validate payment sum if there's a reposición (cantidad > 0)
-    if (validation.data.cantidad > 0 && Math.abs(totalPagos - totalCosto) > 0.01) {
-      throw new Error(`La suma de los pagos ($${totalPagos.toFixed(2)}) no coincide con el total ($${totalCosto.toFixed(2)}).`);
-    }
-
-    // Check for duplicate payment methods
-    const medios = pagos.map(p => p.medio);
-    const uniqueMedios = new Set(medios);
-    if (uniqueMedios.size !== medios.length) {
-      throw new Error("No se permiten métodos de pago duplicados.");
-    }
-
-    // Validate Caja balance for EFECTIVO_CAJA payments
-    const efectivoCajaPago = pagos.find(p => p.medio === "EFECTIVO_CAJA");
-    if (efectivoCajaPago && efectivoCajaPago.monto > 0) {
-      const cajaAbierta = await prisma.caja.findFirst({ where: { estado: "ABIERTA" } });
-      if (!cajaAbierta) {
-        throw new Error("No hay una caja abierta. Para utilizar Efectivo de Caja primero debe abrir una caja o seleccionar otro medio de pago.");
-      }
-      
-      const cajaActual = cajaAbierta.montoInicial + cajaAbierta.totalVentas;
-      if (efectivoCajaPago.monto > cajaActual) {
-        throw new Error(`Fondos insuficientes en Caja. Disponible: $${cajaActual.toFixed(2)}, Solicitado: $${efectivoCajaPago.monto.toFixed(2)}, Faltante: $${(efectivoCajaPago.monto - cajaActual).toFixed(2)}.`);
-      }
-    }
-  }
-
   try {
-    const producto = await prisma.$transaction(async (tx) => {
-      // 0. Si hay stock inicial, buscar caja una sola vez
-      const cajaAbierta = (validation.data.cantidad > 0)
+    const session = await requireProductoPermission("productos.crear");
+
+    const rawData = {
+      nombre: formData.get("nombre") as string,
+      marca: formData.get("marca") as string || null,
+      codigo: formData.get("codigo") as string || null,
+      imagen: formData.get("imagen") as string || null,
+      categoriaId: Number(formData.get("categoriaId")),
+      proveedorId: Number(formData.get("proveedorId")),
+      precioCompra: Number(formData.get("precioCompra")),
+      precioVenta: Number(formData.get("precioVenta")),
+      cantidad: Number(formData.get("cantidad")),
+      stockMinimo: Number(formData.get("stockMinimo")),
+      origenPago: (formData.get("origenPago") as string) || "EFECTIVO_CAJA",
+      pagos: formData.get("pagos") ? JSON.parse(formData.get("pagos") as string) : undefined,
+    };
+
+    // Handle file upload if present
+    const file = formData.get("imagenFile") as File | null;
+    if (file && file.size > 0) {
+      const imageUrl = await saveFile(file);
+      rawData.imagen = imageUrl;
+    }
+
+    const validation = productoSchema.safeParse(rawData);
+    if (!validation.success) {
+      failBusiness(validation.error.errors[0].message);
+    }
+
+    const pagos = validation.data.pagos;
+    const totalCosto = validation.data.cantidad * validation.data.precioCompra;
+    if (validation.data.cantidad > 0) {
+      validatePaymentDistribution(pagos, totalCosto);
+    }
+
+    const transactionResult = await prisma.$transaction(async (tx) => {
+      const efectivoCaja = validation.data.cantidad > 0
+        ? getEfectivoCajaAsignado(pagos)
+        : 0;
+      const usaEfectivoLegacy =
+        validation.data.cantidad > 0 &&
+        (!pagos || pagos.length === 0) &&
+        shouldCreateCajaEgreso(validation.data.origenPago);
+      const tieneDistribucion = !!pagos && pagos.length > 0;
+      const debeBuscarCaja =
+        validation.data.cantidad > 0 && (tieneDistribucion || usaEfectivoLegacy);
+      const cajaAbierta = debeBuscarCaja
         ? await tx.caja.findFirst({ where: { estado: "ABIERTA" } })
         : null;
+      let cajaMovimientoCreado = false;
 
-      // Si el pago es en efectivo y no hay caja abierta, rechazar ANTES de cualquier escritura.
-      if (validation.data.cantidad > 0 && shouldCreateCajaEgreso(validation.data.origenPago) && !cajaAbierta && (!pagos || pagos.length === 0)) {
-        throw new Error("No hay una caja abierta para registrar el pago en efectivo.");
+      if (usaEfectivoLegacy && !cajaAbierta) {
+        failBusiness("No hay una caja abierta para registrar el pago en efectivo.");
       }
+      assertCajaSupportsCash(
+        cajaAbierta,
+        usaEfectivoLegacy ? totalCosto : efectivoCaja
+      );
 
       // 1. Crear producto
       const p = await tx.producto.create({
@@ -205,25 +302,30 @@ export async function createProducto(formData: FormData) {
             })),
           });
 
-          // Create cash movements for EFECTIVO_CAJA payments
-          for (const pago of pagos) {
-            if (pago.medio === "EFECTIVO_CAJA" && pago.monto > 0 && cajaAbierta) {
-              await tx.movimientoCaja.create({
-                data: {
-                  cajaId: cajaAbierta.id,
-                  usuarioId: session.userId,
-                  compraId: compra.id,
-                  tipo: "EGRESO",
-                  monto: pago.monto,
-                  descripcion: `Stock inicial de '${validation.data.nombre}' x${validation.data.cantidad} (Efectivo)`,
-                },
-              });
+          // Una única ancla conserva la reposición en Caja; su monto es solo el efectivo físico.
+          if (cajaAbierta) {
+            await tx.movimientoCaja.create({
+              data: {
+                cajaId: cajaAbierta.id,
+                usuarioId: session.userId,
+                compraId: compra.id,
+                tipo: "EGRESO",
+                monto: efectivoCaja,
+                descripcion: getPurchaseMovementDescription(
+                  `Stock inicial de '${validation.data.nombre}' x${validation.data.cantidad}`,
+                  totalCosto,
+                  efectivoCaja
+                ),
+              },
+            });
+            cajaMovimientoCreado = true;
 
+            if (efectivoCaja > 0) {
               await tx.caja.update({
                 where: { id: cajaAbierta.id },
                 data: {
                   totalVentas: {
-                    decrement: pago.monto,
+                    decrement: efectivoCaja,
                   },
                 },
               });
@@ -243,6 +345,7 @@ export async function createProducto(formData: FormData) {
                 descripcion: `Stock inicial de '${validation.data.nombre}' x${validation.data.cantidad}`,
               },
             });
+            cajaMovimientoCreado = true;
 
             await tx.caja.update({
               where: { id: cajaAbierta.id },
@@ -256,14 +359,17 @@ export async function createProducto(formData: FormData) {
         }
       }
 
-      return p;
+      return { producto: p, cajaMovimientoCreado };
     });
 
     revalidatePath("/productos");
-    return { success: true, producto };
+    if (transactionResult.cajaMovimientoCreado) {
+      revalidatePath("/caja");
+    }
+    return { success: true, producto: transactionResult.producto };
   } catch (error: unknown) {
     console.error("Error en createProducto:", error);
-    return { error: error instanceof Error ? error.message : "Error al agregar el producto" };
+    return { error: productoActionError(error) };
   }
 }
 
@@ -272,7 +378,7 @@ export async function createProducto(formData: FormData) {
  */
 export async function updateProducto(id: number, formData: FormData) {
   try {
-    const session = await requirePermission("productos.editar", await getSession());
+    const session = await requireProductoPermission("productos.editar");
 
     const rawData = {
       nombre: formData.get("nombre") as string,
@@ -302,30 +408,51 @@ export async function updateProducto(id: number, formData: FormData) {
 
     const validation = productoSchema.safeParse(rawData);
     if (!validation.success) {
-      throw new Error(validation.error.errors[0].message);
+      failBusiness(validation.error.errors[0].message);
     }
 
-    const result = await prisma.$transaction(async (tx) => {
+    const transactionResult = await prisma.$transaction(async (tx) => {
       // Obtener producto antes de la modificación
       const productoPrevio = await tx.producto.findUnique({
         where: { id },
       });
 
       if (!productoPrevio) {
-        throw new Error("Producto no encontrado");
+        failBusiness("Producto no encontrado");
       }
 
       const nuevoStock = validation.data.cantidad;
       const stockAnterior = productoPrevio.cantidad;
+      const diferencia = nuevoStock - stockAnterior;
+      const totalCosto = diferencia * validation.data.precioCompra;
+      const pagos = validation.data.pagos;
+      const hayReposicion = diferencia > 0;
 
-      // 0. Si hay reposición con efectivo, validar caja abierta ANTES de cualquier escritura
-      const cajaAbierta = (nuevoStock > stockAnterior)
+      if (hayReposicion) {
+        validatePaymentDistribution(pagos, totalCosto);
+      }
+
+      const efectivoCaja = hayReposicion
+        ? getEfectivoCajaAsignado(pagos)
+        : 0;
+      const usaEfectivoLegacy =
+        hayReposicion &&
+        (!pagos || pagos.length === 0) &&
+        shouldCreateCajaEgreso(validation.data.origenPago);
+      const tieneDistribucion = !!pagos && pagos.length > 0;
+      const debeBuscarCaja = hayReposicion && (tieneDistribucion || usaEfectivoLegacy);
+      const cajaAbierta = debeBuscarCaja
         ? await tx.caja.findFirst({ where: { estado: "ABIERTA" } })
         : null;
+      let cajaMovimientoCreado = false;
 
-      if (nuevoStock > stockAnterior && shouldCreateCajaEgreso(validation.data.origenPago) && !cajaAbierta && (!validation.data.pagos || validation.data.pagos.length === 0)) {
-        throw new Error("No hay una caja abierta para registrar el pago en efectivo.");
+      if (usaEfectivoLegacy && !cajaAbierta) {
+        failBusiness("No hay una caja abierta para registrar el pago en efectivo.");
       }
+      assertCajaSupportsCash(
+        cajaAbierta,
+        usaEfectivoLegacy ? totalCosto : efectivoCaja
+      );
 
       // 1. Modificar producto en BD
       const p = await tx.producto.update({
@@ -345,10 +472,7 @@ export async function updateProducto(id: number, formData: FormData) {
       });
 
       // 2. Si el stock subió, es un reabastecimiento (Compra a proveedor)
-      if (nuevoStock > stockAnterior) {
-        const diferencia = nuevoStock - stockAnterior;
-        const totalCosto = diferencia * validation.data.precioCompra;
-
+      if (hayReposicion) {
         // Registrar la Compra (siempre, independientemente de la caja)
         const compra = await tx.compra.create({
           data: {
@@ -368,35 +492,7 @@ export async function updateProducto(id: number, formData: FormData) {
         });
 
         // Handle multiple payments if provided
-        const pagos = validation.data.pagos;
         if (pagos && pagos.length > 0) {
-          // Validate payment sum (only if there's a reposición)
-          if (diferencia > 0) {
-            const totalPagos = pagos.reduce((sum, pago) => sum + pago.monto, 0);
-            if (Math.abs(totalPagos - totalCosto) > 0.01) {
-              throw new Error(`La suma de los pagos ($${totalPagos.toFixed(2)}) no coincide con el total ($${totalCosto.toFixed(2)}).`);
-            }
-          }
-
-          // Check for duplicate payment methods
-          const medios = pagos.map(p => p.medio);
-          const uniqueMedios = new Set(medios);
-          if (uniqueMedios.size !== medios.length) {
-            throw new Error("No se permiten métodos de pago duplicados.");
-          }
-
-          // Validate Caja balance for EFECTIVO_CAJA payments
-          const efectivoCajaPago = pagos.find(p => p.medio === "EFECTIVO_CAJA");
-          if (efectivoCajaPago && efectivoCajaPago.monto > 0) {
-            if (!cajaAbierta) {
-              throw new Error("No hay una caja abierta. Para utilizar Efectivo de Caja primero debe abrir una caja o seleccionar otro medio de pago.");
-            }
-            const cajaActual = cajaAbierta.montoInicial + cajaAbierta.totalVentas;
-            if (efectivoCajaPago.monto > cajaActual) {
-              throw new Error(`Fondos insuficientes en Caja. Disponible: $${cajaActual.toFixed(2)}, Solicitado: $${efectivoCajaPago.monto.toFixed(2)}, Faltante: $${(efectivoCajaPago.monto - cajaActual).toFixed(2)}.`);
-            }
-          }
-
           // Create payment records
           await tx.pagoCompra.createMany({
             data: pagos.map(pago => ({
@@ -407,25 +503,30 @@ export async function updateProducto(id: number, formData: FormData) {
             })),
           });
 
-          // Create cash movements for EFECTIVO_CAJA payments
-          for (const pago of pagos) {
-            if (pago.medio === "EFECTIVO_CAJA" && pago.monto > 0 && cajaAbierta) {
-              await tx.movimientoCaja.create({
-                data: {
-                  cajaId: cajaAbierta.id,
-                  usuarioId: session.userId,
-                  compraId: compra.id,
-                  tipo: "EGRESO",
-                  monto: pago.monto,
-                  descripcion: `Reposición de '${validation.data.nombre}' x${diferencia} (Efectivo)`,
-                },
-              });
+          // Una única ancla conserva la reposición en Caja; su monto es solo el efectivo físico.
+          if (cajaAbierta) {
+            await tx.movimientoCaja.create({
+              data: {
+                cajaId: cajaAbierta.id,
+                usuarioId: session.userId,
+                compraId: compra.id,
+                tipo: "EGRESO",
+                monto: efectivoCaja,
+                descripcion: getPurchaseMovementDescription(
+                  `Reposición de '${validation.data.nombre}' x${diferencia}`,
+                  totalCosto,
+                  efectivoCaja
+                ),
+              },
+            });
+            cajaMovimientoCreado = true;
 
+            if (efectivoCaja > 0) {
               await tx.caja.update({
                 where: { id: cajaAbierta.id },
                 data: {
                   totalVentas: {
-                    decrement: pago.monto,
+                    decrement: efectivoCaja,
                   },
                 },
               });
@@ -445,6 +546,7 @@ export async function updateProducto(id: number, formData: FormData) {
                 descripcion: `Reposición de '${validation.data.nombre}' x${diferencia}`,
               },
             });
+            cajaMovimientoCreado = true;
 
             await tx.caja.update({
               where: { id: cajaAbierta.id },
@@ -458,14 +560,17 @@ export async function updateProducto(id: number, formData: FormData) {
         }
       }
 
-      return p;
+      return { producto: p, cajaMovimientoCreado };
     });
 
     revalidatePath("/productos");
-    return { success: true, producto: result };
+    if (transactionResult.cajaMovimientoCreado) {
+      revalidatePath("/caja");
+    }
+    return { success: true, producto: transactionResult.producto };
   } catch (error: unknown) {
     console.error("Error en updateProducto:", error);
-    return { error: error instanceof Error ? error.message : "Error al actualizar el producto" };
+    return { error: productoActionError(error) };
   }
 }
 

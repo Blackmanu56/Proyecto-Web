@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import ConfirmarCierreModal from "@/components/ui/ConfirmarCierreModal";
 import { Input } from "@/components/ui/input";
 import MovimientoDetalleModal from "@/components/ui/MovimientoDetalleModal";
+import { ReposicionDescripcion } from "@/components/ui/ReposicionDescripcion";
 import { TableShell } from "@/components/ui/table-shell";
 import { ToolbarSelect, type ToolbarSelectTone } from "@/components/ui/toolbar-select";
 import {
@@ -23,7 +24,7 @@ type MovimientoCompra,
 type MovimientoEnriched
 } from "@/lib/caja-filters";
 import { formatCurrency,formatDate,formatDateShort,formatTime24 } from "@/lib/utils";
-import { formatMovimientoDescripcion,formatReposicionCorta } from "@/lib/movimiento-format";
+import { formatMovimientoDescripcion,formatReposicionCorta,formatReposicionFila } from "@/lib/movimiento-format";
 import { isSameDay } from "date-fns";
 import {
 Activity,
@@ -685,6 +686,7 @@ export default function CajaTerminal({
                         const fechaStr = formatDateShort(d);
                         const horaStr = formatTime24(d);
                         const visual = getTipoVisual(mov);
+                        const reposicionFila = mov.compra ? formatReposicionFila(mov.compra) : null;
 
                         return (
                           <tr key={mov.id} onClick={() => openDetalle(mov)} className="hover:bg-[var(--brand)]/[0.03] transition-colors cursor-pointer">
@@ -693,9 +695,13 @@ export default function CajaTerminal({
                             <td className="py-3 px-3 text-[var(--text-secondary)] whitespace-nowrap">{horaStr}</td>
                             <td className="py-3 px-3 text-[var(--text)] font-sans pr-2 leading-tight" title={formatMovimientoDescripcion(mov.descripcion)}>
                               {mov.compra ? (
-                                <span className="block whitespace-nowrap overflow-hidden text-ellipsis" style={{ maxWidth: 400 }}>
-                                  {formatReposicionCorta(mov.compra) ?? formatMovimientoDescripcion(mov.descripcion)}
-                                </span>
+                                reposicionFila ? (
+                                  <ReposicionDescripcion reposicionFila={reposicionFila} />
+                                ) : (
+                                  <span className="block whitespace-nowrap overflow-hidden text-ellipsis" style={{ maxWidth: 400 }}>
+                                    {formatMovimientoDescripcion(mov.descripcion)}
+                                  </span>
+                                )
                               ) : (
                                 <span className="block whitespace-normal break-words line-clamp-2">
                                   {formatMovimientoDescripcion(mov.descripcion)}

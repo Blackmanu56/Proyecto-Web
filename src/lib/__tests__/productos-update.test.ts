@@ -137,7 +137,9 @@ describe("ProductosTable edit modal submit contract", () => {
     const source = readFileSync(resolve(currentDir, "../../components/tables/ProductosTable.tsx"), "utf8");
 
     expect(source).toContain('const PRODUCT_FORM_ID = "producto-form";');
-    expect(source).toContain("<form id={PRODUCT_FORM_ID} onSubmit={handleFormSubmit}");
+    expect(source).toMatch(
+      /<form\s+id=\{PRODUCT_FORM_ID\}\s+onSubmit=\{handleFormSubmit\}/
+    );
     expect(source).toContain('<Button type="submit" form={PRODUCT_FORM_ID}');
     expect(source).not.toContain("closest('dialog')");
   });
@@ -180,7 +182,12 @@ describe("updateProducto", () => {
   });
 
   it("replenishes positive stock with an open cash register", async () => {
-    mocks.tx.caja.findFirst.mockResolvedValueOnce({ id: 30, estado: "ABIERTA" });
+    mocks.tx.caja.findFirst.mockResolvedValueOnce({
+      id: 30,
+      estado: "ABIERTA",
+      montoInicial: 500,
+      totalVentas: 500,
+    });
 
     const result = await updateProducto(10, productoForm({ cantidad: "12" }));
 
@@ -223,8 +230,6 @@ describe("updateProducto", () => {
   });
 
   it("records origenPago on the purchase and skips the cash egreso for bank transfers", async () => {
-    mocks.tx.caja.findFirst.mockResolvedValueOnce(null);
-
     const result = await updateProducto(
       10,
       productoForm({ cantidad: "12", origenPago: "TRANSFERENCIA_BANCARIA" })
@@ -239,6 +244,7 @@ describe("updateProducto", () => {
     }));
     expect(mocks.tx.movimientoCaja.create).not.toHaveBeenCalled();
     expect(mocks.tx.caja.update).not.toHaveBeenCalled();
+    expect(mocks.tx.caja.findFirst).not.toHaveBeenCalled();
   });
 
   it("keeps creating the cash egreso when origenPago is EFECTIVO_CAJA", async () => {

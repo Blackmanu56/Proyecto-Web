@@ -5,12 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn, formatCurrency } from "@/lib/utils";
+import { SELECTABLE_PRODUCT_PAYMENT_METHODS } from "@/lib/product-purchase-payments";
 import {
   Wallet,
   Plus,
   X,
   AlertTriangle,
-  CheckCircle,
   Info,
 } from "lucide-react";
 
@@ -29,13 +29,7 @@ interface PaymentDistributionProps {
   disabled?: boolean;
 }
 
-const PAYMENT_METHODS = [
-  { value: "EFECTIVO_CAJA", label: "Efectivo de Caja", cajaImpact: true, requiresOpenCaja: true },
-  { value: "TRANSFERENCIA_BANCARIA", label: "Transferencia Bancaria", cajaImpact: false, requiresOpenCaja: false },
-  { value: "MERCADO_PAGO", label: "Mercado Pago", cajaImpact: false, requiresOpenCaja: false },
-  { value: "CUENTA_CORRIENTE_PROVEEDOR", label: "Cta. Cte. Proveedor", cajaImpact: false, requiresOpenCaja: false },
-  { value: "FONDOS_EXTERNOS", label: "Fondos Externos", cajaImpact: false, requiresOpenCaja: false },
-] as const;
+const PAYMENT_METHODS = SELECTABLE_PRODUCT_PAYMENT_METHODS;
 
 /* ── Helpers monetarios (convención es-AR del sistema, sin librería nueva) ── */
 
@@ -86,69 +80,62 @@ export function PaymentDistribution({
   // Only show validation errors when there's an actual total > 0
   const hasReposition = total > 0;
 
-  // Validate payments - compute errors as derived state
+  /** Error por fila: específico, solo tras interacción real o problema concreto */
+  const getRowError = useCallback((payment: PaymentMethod): string | null => {
+    if (!hasReposition) return null;
+    const label = PAYMENT_METHODS.find(m => m.value === payment.medio)?.label ?? payment.medio;
+    // Importe 0 (el usuario escribió y salió del campo) o negativo
+    if (payment.monto < 0) return `El importe de ${label} debe ser mayor a 0.`;
+    if (blurredRows[payment.id] === true && payment.monto === 0) {
+      return `El importe de ${label} debe ser mayor a 0.`;
+    }
+    if (payment.medio === "EFECTIVO_CAJA" && payment.monto > cajaBalance) {
+      return "El efectivo solicitado supera el saldo disponible.";
+    }
+    if (payment.medio === "EFECTIVO_CAJA" && !cajaAbierta && payment.monto > 0) {
+      return "No hay una caja abierta para utilizar Efectivo de Caja.";
+    }
+    return null;
+  }, [blurredRows, cajaBalance, cajaAbierta, hasReposition]);
+
+  /**
+   * Errores GLOBALES de bloqueo real. Lo demás es estado pendiente
+   * (Restante en amarillo) o error por fila (bajo cada fila).
+   */
   const errors = useMemo(() => {
     if (!hasReposition) return [];
 
     const newErrors: string[] = [];
 
-    // Cero: SOLO si el usuario escribió algo en la fila (touched) y la dejó (blur)
-    const hasTouchedZero = payments.some(p =>
-      Object.prototype.hasOwnProperty.call(rawInputs, p.id) &&
-      blurredRows[p.id] === true &&
-      p.monto === 0
-    );
-    if (hasTouchedZero) {
-      newErrors.push("Todos los montos deben ser mayores a 0");
-    }
-
-    // Check for negative amounts
-    const hasNegativeAmount = payments.some(p => p.monto < 0);
-    if (hasNegativeAmount) {
-      newErrors.push("No se permiten montos negativos");
-    }
-
-    // Check for duplicate payment methods
+    // Métodos duplicados (resguardo; el Select ya los impide)
     const medios = payments.map(p => p.medio);
-    const uniqueMedios = new Set(medios);
-    if (uniqueMedios.size !== medios.length) {
+    if (new Set(medios).size !== medios.length) {
       newErrors.push("No se permiten métodos de pago duplicados");
     }
 
-    // Check Caja balance
-    const efectivoCajaPago = payments.find(p => p.medio === "EFECTIVO_CAJA");
-    if (efectivoCajaPago && efectivoCajaPago.monto > cajaBalance) {
-      newErrors.push("Fondos insuficientes en Caja");
-    }
-
-    // Check if EFECTIVO_CAJA is used when Caja is closed
-    if (!cajaAbierta && efectivoCajaPago && efectivoCajaPago.monto > 0) {
-      newErrors.push("No hay una caja abierta para utilizar Efectivo de Caja");
-    }
-
-    // Check sum matches total (only if user started entering)
+    // Se superó el total: único caso global con rojo
     const hasNonZeroPayment = payments.some(p => p.monto > 0);
-    if (hasNonZeroPayment && Math.abs(remaining) > 0.01) {
-      if (remaining > 0) {
-        newErrors.push(`Restan ${formatCurrency(remaining)} por asignar`);
-      } else {
-        newErrors.push(`Se superó el total por ${formatCurrency(Math.abs(remaining))}`);
-      }
-    }
-
-    // Check for empty payments when there's a total
-    if (payments.length === 0 && hasReposition) {
-      newErrors.push("Debe agregar al menos un método de pago");
+    if (hasNonZeroPayment && remaining < -0.01) {
+      newErrors.push(`Se superó el total por ${formatCurrency(Math.abs(remaining))}`);
     }
 
     return newErrors;
-  }, [payments, remaining, cajaBalance, cajaAbierta, hasReposition, rawInputs, blurredRows]);
+  }, [payments, remaining, hasReposition]);
+
+  // Hay al menos una fila con error
+  const hasRowErrors = useMemo(
+    () => payments.some(p => getRowError(p) !== null),
+    [payments, getRowError]
+  );
+
+  // Distribución completa: sin errores y total cubierto
+  const isComplete = hasReposition && Math.abs(remaining) < 0.01 && payments.some(p => p.monto > 0);
 
   // Notify parent of changes - only valid payments
   const validPayments = useMemo(() => {
-    if (!hasReposition) return [];
-    return errors.length === 0 ? payments.filter(p => p.monto > 0) : [];
-  }, [payments, errors, hasReposition]);
+    if (!isComplete || hasRowErrors || errors.length > 0) return [];
+    return payments.filter(p => p.monto > 0);
+  }, [payments, isComplete, hasRowErrors, errors]);
 
   // Call onChange outside of render to avoid cascading updates
   const prevValidPaymentsRef = React.useRef<string>("");
@@ -215,26 +202,41 @@ export function PaymentDistribution({
     updatePayment(id, "monto", parseAmountInput(clean));
   }, [disabled, updatePayment]);
 
-  /** Al salir del campo: formatea es-AR y marca la fila como blurred */
+  /** Al salir del campo: formatea es-AR. Si nunca escribió nada, queda vacía (placeholder) y NO es un error. */
   const handleAmountBlur = useCallback((id: string, raw: string) => {
     if (disabled) return;
     const value = parseAmountInput(raw);
+    if (raw === "") {
+      // Fila recién creada o campo vacío: no marca blur ni error
+      setRawInputs(prev => ({ ...prev, [id]: "" }));
+      setBlurredRows(prev => ({ ...prev, [id]: false }));
+      updatePayment(id, "monto", 0);
+      return;
+    }
     setRawInputs(prev => ({ ...prev, [id]: value > 0 ? formatAmount(value) : "0,00" }));
     setBlurredRows(prev => ({ ...prev, [id]: true }));
-  }, [disabled]);
+  }, [disabled, updatePayment]);
 
+  /** Completar con efectivo: actualiza la fila existente o la agrega si está disponible */
   const useMaxAvailable = useCallback(() => {
     if (disabled) return;
-    
+
     const efectivoCajaPago = payments.find(p => p.medio === "EFECTIVO_CAJA");
     if (efectivoCajaPago) {
-      const maxAmount = Math.min(cajaBalance, remaining + efectivoCajaPago.monto);
-      const amount = Math.max(0, maxAmount);
+      // Actualiza ESA fila (no crea otra)
+      const amount = Math.max(0, Math.min(cajaBalance, remaining + efectivoCajaPago.monto));
       setRawInputs(prev => ({ ...prev, [efectivoCajaPago.id]: formatAmount(amount) }));
       setBlurredRows(prev => ({ ...prev, [efectivoCajaPago.id]: true }));
       updatePayment(efectivoCajaPago.id, "monto", amount);
+    } else if (cajaAbierta && payments.length < PAYMENT_METHODS.length) {
+      // No existe la fila: la agrega con el efectivo disponible (solo si queda como medio y hay caja abierta)
+      const amount = Math.max(0, Math.min(remaining, cajaBalance));
+      const id = Date.now().toString();
+      setPayments(prev => [...prev, { id, medio: "EFECTIVO_CAJA", monto: amount }]);
+      setRawInputs(prev => ({ ...prev, [id]: formatAmount(amount) }));
+      setBlurredRows(prev => ({ ...prev, [id]: true }));
     }
-  }, [payments, cajaBalance, remaining, disabled, updatePayment]);
+  }, [payments, cajaBalance, remaining, cajaAbierta, disabled, updatePayment]);
 
   /**
    * Restante: warning (amarillo) mientras falte asignar,
@@ -253,7 +255,11 @@ export function PaymentDistribution({
   const assignedStatus = totalAssigned > 0 ? "success" : "muted";
 
   /** Disponible Caja: neutral normalmente, rojo SOLO si el efectivo solicitado supera el saldo */
-  const efectivoSolicitado = payments.find(p => p.medio === "EFECTIVO_CAJA")?.monto ?? 0;
+  const efectivoSolicitado = payments.reduce(
+    (sum, payment) =>
+      payment.medio === "EFECTIVO_CAJA" ? sum + payment.monto : sum,
+    0
+  );
   const cajaInsuficiente = efectivoSolicitado > cajaBalance;
 
   const canAddMore = payments.length < PAYMENT_METHODS.length && !disabled && hasReposition;
@@ -267,20 +273,14 @@ export function PaymentDistribution({
     );
   }, [payments, cajaAbierta]);
 
-  // Per-row error state: only the problematic row gets a red border
-  const getRowError = useCallback((payment: PaymentMethod): string | null => {
-    if (!hasReposition) return null;
-    if (payment.monto < 0) return "Monto inválido";
-    if (payment.medio === "EFECTIVO_CAJA" && payment.monto > cajaBalance) {
-      return `Supera el disponible en Caja (${formatCurrency(cajaBalance)})`;
-    }
-    if (!cajaAbierta && payment.medio === "EFECTIVO_CAJA" && payment.monto > 0) {
-      return "Caja cerrada";
-    }
-    return null;
-  }, [cajaBalance, cajaAbierta, hasReposition]);
+  /** Acción de completar con efectivo: visible si hay caja abierta, saldo y algo por cubrir,
+   *  y el medio está disponible (ya existe la fila o queda como método). */
+  const hasEfectivoRow = payments.some(p => p.medio === "EFECTIVO_CAJA");
+  const canCompleteWithCaja =
+    cajaAbierta && cajaBalance > 0 && remaining > 0 &&
+    (hasEfectivoRow || payments.length < PAYMENT_METHODS.length);
 
-  /** Etiqueta contextual de la acción de completar con efectivo */
+  /** Etiqueta contextual: min(restante, saldo de caja) */
   const cajaCubreRestante = cajaBalance >= remaining && remaining > 0;
   const completarLabel = cajaCubreRestante
     ? `Completar con efectivo (${formatCurrency(remaining)})`
@@ -295,9 +295,17 @@ export function PaymentDistribution({
     <div className="space-y-2">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
-          Distribución de Pago
-        </span>
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+            Distribución de Pago
+          </span>
+          <span
+            title="Al incrementar stock se registra una reposición. Solo la parte abonada con Efectivo de Caja afecta el saldo de la caja activa."
+            className="inline-flex cursor-help text-[var(--text-secondary)] hover:text-[var(--brand)] transition-colors"
+          >
+            <Info size={12} />
+          </span>
+        </div>
         {canAddMore && (
           <Button
             type="button"
@@ -399,16 +407,17 @@ export function PaymentDistribution({
                 )}
               </div>
 
-              {/* Fondos Externos observation field - compact, only when monto > 0 */}
-              {isFondosExternos && payment.monto > 0 && (
-                <div className="flex items-center gap-1 pl-1">
+              {/* Optional origin/reference for external funds */}
+              {isFondosExternos && (
+                <div className="pl-1">
                   <Input
                     type="text"
                     value={payment.observacion || ""}
                     onChange={(e) => updatePayment(payment.id, "observacion", e.target.value)}
                     disabled={disabled}
-                    placeholder="Origen de fondos (opcional)"
-                    className="h-6 text-[11px]"
+                    aria-label="Origen o referencia de fondos externos"
+                    placeholder="Aporte del propietario, caja externa, etc."
+                    className="h-6 w-full border-[var(--border)] bg-transparent px-2 text-[11px] text-[var(--text-secondary)] placeholder:text-[var(--text-muted)]"
                   />
                 </div>
               )}
@@ -426,7 +435,7 @@ export function PaymentDistribution({
       </div>
 
       {/* Summary - ALWAYS visible, outside the scrollable list */}
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs pt-1.5 border-t border-[var(--border)]/50">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs pt-1 border-t border-[var(--border)]/50">
         <div className="flex justify-between items-baseline">
           <span className="text-[var(--text-muted)]">Total:</span>
           <span className="font-semibold text-[var(--text)] font-mono">{formatCurrency(total)}</span>
@@ -458,75 +467,35 @@ export function PaymentDistribution({
             getRemainingStatus() === "warning" && "text-[var(--warning)]",
             getRemainingStatus() === "danger" && "text-[var(--danger)]",
           )}>
-            {formatCurrency(Math.max(0, remaining))}
+            {formatCurrency(remaining)}
           </span>
         </div>
       </div>
 
-      {/* Nota de reposición - compacta, debajo del resumen (solo si hay distribución) */}
-      <div className="flex items-start gap-1.5 text-[10px] leading-snug text-[var(--text-muted)]">
-        <Info size={11} className="shrink-0 mt-0.5 text-[var(--brand)]" />
-        <span>
-          <strong>Regla:</strong> Al incrementar stock se registrará una reposición. Solo la parte abonada con
-          Efectivo de Caja afecta el saldo de la caja activa.
-        </span>
-      </div>
-
-      {/* Completar con efectivo - acción secundaria discreta */}
-      {payments.some(p => p.medio === "EFECTIVO_CAJA") && cajaAbierta && cajaBalance > 0 && remaining > 0 && (
+      {/* Completar con efectivo - inmediatamente debajo del resumen */}
+      {canCompleteWithCaja && (
         <Button
           type="button"
           variant="ghost"
           size="sm"
           onClick={useMaxAvailable}
           disabled={disabled}
-          className="w-full h-7 text-xs text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--border)]/40"
+          className="w-full h-7 mt-0.5 text-xs font-medium text-[var(--brand)] hover:bg-[var(--brand-light)]/30 cursor-pointer"
         >
           <Wallet size={12} className="mr-1" />
           {completarLabel}
         </Button>
       )}
 
-      {/* Caja closed warning */}
-      {!cajaAbierta && (
-        <div className="flex items-center gap-1.5 text-xs text-[var(--warning)]">
-          <Info size={12} />
-          <span>Caja cerrada — Efectivo de Caja no disponible</span>
-        </div>
-      )}
-
-      {/* Errors - below the summary, red ONLY for real blocking issues, amber for guidance */}
+      {/* Errores globales - solo bloqueos reales (rojo) */}
       {errors.length > 0 && (
-        <div className="space-y-1 mt-0.5">
-          {errors.map((error, index) => {
-            const isBlocking = 
-              error.includes("insuficientes") || 
-              error.includes("No hay") || 
-              error.includes("duplicados") || 
-              error.includes("superó") ||
-              error.includes("negativos") ||
-              error.includes("al menos");
-            return (
-              <div
-                key={index}
-                className={cn(
-                  "flex items-center gap-1.5 text-xs",
-                  isBlocking ? "text-[var(--danger)]" : "text-[var(--warning)]"
-                )}
-              >
-                <AlertTriangle size={12} />
-                <span>{error}</span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Success State */}
-      {errors.length === 0 && payments.some(p => p.monto > 0) && remaining === 0 && (
-        <div className="flex items-center gap-1.5 text-xs text-[var(--success)]">
-          <CheckCircle size={12} />
-          <span>Pago distribuido correctamente</span>
+        <div className="space-y-1">
+          {errors.map((error, index) => (
+            <div key={index} className="flex items-center gap-1.5 text-xs text-[var(--danger)]">
+              <AlertTriangle size={12} />
+              <span>{error}</span>
+            </div>
+          ))}
         </div>
       )}
     </div>

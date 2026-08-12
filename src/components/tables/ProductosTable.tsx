@@ -20,6 +20,10 @@ import { PaymentDistribution, PaymentMethod } from "@/components/ui/PaymentDistr
 import ReactivarModal from "@/components/ui/ReactivarModal";
 import RestarStockModal from "@/components/ui/RestarStockModal";
 import { TableShell } from "@/components/ui/table-shell";
+import {
+  getProductPurchaseCost,
+  isProductPaymentDistributionIncomplete,
+} from "@/lib/product-purchase-payments";
 import { cn,formatCurrency } from "@/lib/utils";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import {
@@ -405,6 +409,11 @@ export default function ProductosTable({
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [cantidadAReponer, setCantidadAReponer] = useState<number | "">("");
   const [payments, setPayments] = useState<PaymentMethod[]>([]);
+  const [productPurchaseCost, setProductPurchaseCost] = useState(0);
+  const distribucionIncompleta = isProductPaymentDistributionIncomplete(
+    productPurchaseCost,
+    payments
+  );
   const [cajaBalance, setCajaBalance] = useState<number>(0);
   const [cajaAbierta, setCajaAbierta] = useState<boolean>(true);
 
@@ -487,6 +496,7 @@ export default function ProductosTable({
     setMarcaValue(product.marca || "");
     setCategoriaValue(product.categoria.nombre);
     setPayments([]);
+    setProductPurchaseCost(0);
     setIsModalOpen(true);
   }, []);
 
@@ -499,6 +509,7 @@ export default function ProductosTable({
     setMarcaValue("");
     setCategoriaValue("");
     setPayments([]);
+    setProductPurchaseCost(0);
     setIsModalOpen(true);
   }, []);
 
@@ -585,6 +596,15 @@ export default function ProductosTable({
     formData.set("marca", marcaValue);
     const matchedCat = categorias.find(c => c.nombre === categoriaValue);
     formData.set("categoriaId", matchedCat ? String(matchedCat.id) : "");
+
+    const currentPurchaseCost = getProductPurchaseCost(
+      formData,
+      editingProduct ? "edit" : "create"
+    );
+    if (isProductPaymentDistributionIncomplete(currentPurchaseCost, payments)) {
+      setErrorMsg("Completá una distribución de pago válida antes de guardar.");
+      return;
+    }
 
     // Add payments data if available
     if (payments.length > 0) {
@@ -1349,7 +1369,19 @@ export default function ProductosTable({
             </DialogDescription>
           </DialogHeader>
 
-          <form id={PRODUCT_FORM_ID} onSubmit={handleFormSubmit} className="flex-1 overflow-y-auto md:overflow-y-hidden px-4 py-3 space-y-2.5">
+          <form
+            id={PRODUCT_FORM_ID}
+            onSubmit={handleFormSubmit}
+            onInput={(event) => {
+              setProductPurchaseCost(
+                getProductPurchaseCost(
+                  new FormData(event.currentTarget),
+                  editingProduct ? "edit" : "create"
+                )
+              );
+            }}
+            className="flex-1 overflow-y-auto md:overflow-y-hidden px-4 py-3 space-y-2.5"
+          >
 
             {/* ── Nombre del Repuesto (full width) ── */}
             <FormField label="Nombre del Repuesto" required className="mb-0">
@@ -1501,6 +1533,7 @@ export default function ProductosTable({
                     </FormField>
                     <FormField label="Cantidad a Reponer" className="mb-0">
                       <Input
+                        name="cantidadAReponer"
                         type="number"
                         min="0"
                         value={cantidadAReponer}
@@ -1527,7 +1560,7 @@ export default function ProductosTable({
                     {/* Payment Distribution for Restocking */}
                     <div className="col-span-full">
                       <PaymentDistribution
-                        total={((Number(cantidadAReponer) || 0)) * editingProduct.precioCompra}
+                        total={productPurchaseCost}
                         onChange={setPayments}
                         cajaBalance={cajaBalance}
                         cajaAbierta={cajaAbierta}
@@ -1543,7 +1576,7 @@ export default function ProductosTable({
                     {/* Payment Distribution for Initial Stock */}
                     <div className="col-span-full">
                       <PaymentDistribution
-                        total={0} // Will be calculated based on quantity and price
+                        total={productPurchaseCost}
                         onChange={setPayments}
                         cajaBalance={cajaBalance}
                         cajaAbierta={cajaAbierta}
@@ -1577,7 +1610,7 @@ export default function ProductosTable({
             <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)} disabled={isPending}>
               Cancelar
             </Button>
-            <Button type="submit" form={PRODUCT_FORM_ID} loading={isPending} disabled={isPending}>
+            <Button type="submit" form={PRODUCT_FORM_ID} loading={isPending} disabled={isPending || distribucionIncompleta}>
               {editingProduct ? "Guardar cambios" : "Agregar Repuesto"}
             </Button>
           </div>

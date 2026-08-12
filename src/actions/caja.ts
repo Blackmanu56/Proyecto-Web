@@ -27,6 +27,14 @@ export async function getCajaActiva() {
             compra: {
               include: {
                 proveedor: { select: { id: true, nombre: true } },
+                pagos: {
+                  select: {
+                    id: true,
+                    medio: true,
+                    monto: true,
+                    observacion: true,
+                  },
+                },
                 detalles: {
                   include: {
                     producto: {

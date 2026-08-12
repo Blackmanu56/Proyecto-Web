@@ -3,6 +3,7 @@
 import React from "react";
 import { formatCurrency, formatDateShort, formatTime24 } from "@/lib/utils";
 import { formatMovimientoDescripcion } from "@/lib/movimiento-format";
+import { getProductPurchasePaymentSummary } from "@/lib/product-purchase-payments";
 import type { MovimientoCompra } from "@/lib/caja-filters";
 import { X, Calendar, Clock, User, Tag, FileText, ArrowUpRight, ArrowDownLeft, Hash, PackagePlus } from "lucide-react";
 
@@ -19,6 +20,17 @@ interface MovimientoDetalle {
   itemNumber?: number;
   saldoAcumulado?: number;
 }
+
+interface PagoCompraDetalle {
+  id: number;
+  medio: string;
+  monto: number;
+  observacion?: string | null;
+}
+
+type MovimientoCompraConPagos = MovimientoCompra & {
+  pagos?: PagoCompraDetalle[];
+};
 
 interface MovimientoDetalleModalProps {
   open: boolean;
@@ -52,8 +64,12 @@ export default function MovimientoDetalleModal({
   const esReposicion =
     !esAjuste &&
     (!!movimiento.compraId || (desc || "").toLowerCase().includes("reposici"));
-  const compra = movimiento.compra ?? null;
+  const compra = (movimiento.compra as MovimientoCompraConPagos | null) ?? null;
   const compraDetalles = compra?.detalles ?? [];
+  const compraPagos = compra?.pagos ?? [];
+  const paymentSummary = compra
+    ? getProductPurchasePaymentSummary(compra.total, compraPagos)
+    : null;
   const detalleUnico = compraDetalles.length === 1 ? compraDetalles[0] : null;
 
   let tipoLabel = "Movimiento";
@@ -119,7 +135,7 @@ export default function MovimientoDetalleModal({
 
           {/* Monto */}
           <div className={`px-4 py-2.5 rounded-xl border ${isIncome ? "bg-[var(--success-light)] border-[var(--success)]/20" : "bg-[var(--danger-light)] border-[var(--danger)]/20"}`}>
-            <p className={`text-xs font-semibold ${isIncome ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>Monto</p>
+            <p className={`text-xs font-semibold ${isIncome ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>{esReposicion ? "Afectó Caja" : "Monto"}</p>
             <p className={`text-2xl font-black font-mono ${isIncome ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
               {isIncome ? "+" : "-"}{formatCurrency(movimiento.monto)}
             </p>
@@ -258,6 +274,43 @@ export default function MovimientoDetalleModal({
                   </div>
                 </>
               )}
+            </div>
+          )}
+
+          {compra && paymentSummary && (
+            <div className="pt-3 border-t border-[var(--border)] space-y-3">
+              <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">
+                Distribución de pago
+              </p>
+              <div className="bg-[var(--panel)] border border-[var(--border)] rounded-xl p-4 space-y-2">
+                {paymentSummary.payments.map((pago, index) => (
+                  <div key={pago.id ?? `${pago.medio}-${index}`} className="space-y-1">
+                    <div className="flex items-center justify-between gap-4 text-xs">
+                      <span className="text-[var(--text-muted)] font-semibold">
+                        {pago.label}
+                      </span>
+                      <span className="text-[var(--text)] font-mono font-bold">
+                        {formatCurrency(pago.monto)}
+                      </span>
+                    </div>
+                    {pago.medio === "FONDOS_EXTERNOS" && pago.observacion && (
+                      <p className="text-[11px] text-[var(--text-secondary)]">
+                        Origen: {pago.observacion}
+                      </p>
+                    )}
+                  </div>
+                ))}
+                <div className="pt-2 mt-2 border-t border-[var(--border)] space-y-1.5">
+                  <div className="flex items-center justify-between gap-4 text-xs">
+                    <span className="text-[var(--text-muted)] font-semibold">Total reposición</span>
+                    <span className="text-[var(--text)] font-mono font-bold">{formatCurrency(paymentSummary.total)}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 text-xs">
+                    <span className="text-[var(--text-muted)] font-semibold">Afectó Caja</span>
+                    <span className="text-[var(--danger)] font-mono font-bold">{formatCurrency(paymentSummary.cashImpact)}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
