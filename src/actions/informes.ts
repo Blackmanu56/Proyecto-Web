@@ -12,6 +12,13 @@ export interface DashboardData {
     ingresosCaja: number;
     stockBajoCount: number;
     totalClientes: number;
+    ventasHoyCount: number;
+    productosSinStock: number;
+    productosActivosCount: number;
+    movimientosInventarioHoy: number;
+    comprasHoy: number;
+    clientesAtendidosHoy: number;
+    proveedoresActivos: number;
   };
   ventasGrafico: { fecha: string; total: number }[];
   productosMasVendidos: { nombre: string; cantidad: number }[];
@@ -46,7 +53,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     const hoyFin = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 23, 59, 59);
 
     // 1. Estadísticas básicas
-    // Ventas de hoy
+    // Ventas de hoy (monto total)
     const ventasHoyDb = await prisma.venta.aggregate({
       where: {
         fecha: {
@@ -56,6 +63,16 @@ export async function getDashboardData(): Promise<DashboardData> {
       },
       _sum: {
         total: true,
+      },
+    });
+
+    // Ventas de hoy (cantidad de operaciones)
+    const ventasHoyCountDb = await prisma.venta.count({
+      where: {
+        fecha: {
+          gte: hoyInicio,
+          lte: hoyFin,
+        },
       },
     });
 
@@ -75,8 +92,49 @@ export async function getDashboardData(): Promise<DashboardData> {
       },
     });
 
+    // Productos sin stock (cantidad = 0)
+    const productosSinStockDb = await prisma.producto.count({
+      where: {
+        activo: true,
+        cantidad: 0,
+      },
+    });
+
+    // Productos activos
+    const productosActivosCountDb = await prisma.producto.count({
+      where: { activo: true },
+    });
+
+    // Movimientos de inventario hoy (compras registradas)
+    const movimientosInventarioHoyDb = await prisma.compra.count({
+      where: {
+        fecha: {
+          gte: hoyInicio,
+          lte: hoyFin,
+        },
+      },
+    });
+
     // Total clientes
     const clientesCount = await prisma.cliente.count();
+
+    // Clientes atendidos hoy (distintos)
+    const clientesAtendidosHoyDb = await prisma.venta.findMany({
+      where: {
+        fecha: {
+          gte: hoyInicio,
+          lte: hoyFin,
+        },
+      },
+      select: { clienteId: true },
+      distinct: ["clienteId"],
+    });
+    const clientesAtendidosHoyCount = clientesAtendidosHoyDb.length;
+
+    // Proveedores activos
+    const proveedoresActivosDb = await prisma.proveedor.count({
+      where: { activo: true },
+    });
 
     // 2. Gráfico de ventas (Últimos 7 días)
     const sieteDiasAtras = new Date(ahora.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -205,6 +263,13 @@ export async function getDashboardData(): Promise<DashboardData> {
         ingresosCaja: ingresosCajaVal,
         stockBajoCount: stockBajoDb,
         totalClientes: clientesCount,
+        ventasHoyCount: ventasHoyCountDb,
+        productosSinStock: productosSinStockDb,
+        productosActivosCount: productosActivosCountDb,
+        movimientosInventarioHoy: movimientosInventarioHoyDb,
+        comprasHoy: movimientosInventarioHoyDb,
+        clientesAtendidosHoy: clientesAtendidosHoyCount,
+        proveedoresActivos: proveedoresActivosDb,
       },
       ventasGrafico,
       productosMasVendidos,
@@ -216,7 +281,19 @@ export async function getDashboardData(): Promise<DashboardData> {
   } catch (error) {
     console.error("Error en getDashboardData:", error);
     return {
-      stats: { ventasHoy: 0, ingresosCaja: 0, stockBajoCount: 0, totalClientes: 0 },
+      stats: {
+        ventasHoy: 0,
+        ingresosCaja: 0,
+        stockBajoCount: 0,
+        totalClientes: 0,
+        ventasHoyCount: 0,
+        productosSinStock: 0,
+        productosActivosCount: 0,
+        movimientosInventarioHoy: 0,
+        comprasHoy: 0,
+        clientesAtendidosHoy: 0,
+        proveedoresActivos: 0,
+      },
       ventasGrafico: [],
       productosMasVendidos: [],
       categoriaVentas: [],
