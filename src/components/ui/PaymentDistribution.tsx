@@ -37,6 +37,33 @@ const PAYMENT_METHODS = [
   { value: "FONDOS_EXTERNOS", label: "Fondos Externos", cajaImpact: false, requiresOpenCaja: false },
 ] as const;
 
+/* ── Helpers monetarios (convención es-AR del sistema, sin librería nueva) ── */
+
+/** Formatea un número sin símbolo: 21000 -> "21.000,00" */
+function formatAmount(value: number): string {
+  return new Intl.NumberFormat("es-AR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+/**
+ * Parsea texto es-AR a número:
+ * "16.039,20" -> 16039.2 | "16039.20" -> 16039.2 | "2" -> 2 | "" -> 0
+ */
+function parseAmountInput(raw: string): number {
+  if (raw === "") return 0;
+  const hasComma = raw.includes(",");
+  const normalized = hasComma ? raw.replace(/\./g, "").replace(",", ".") : raw.replace(/,/g, ".");
+  const num = parseFloat(normalized);
+  return Number.isNaN(num) ? 0 : num;
+}
+
+/** Filtra caracteres no monetarios: solo dígitos, punto y coma */
+function sanitizeAmountInput(raw: string): string {
+  return raw.replace(/[^\d.,]/g, "");
+}
+
 export function PaymentDistribution({
   total,
   onChange,
@@ -47,6 +74,11 @@ export function PaymentDistribution({
   const [payments, setPayments] = useState<PaymentMethod[]>([
     { id: "1", medio: "EFECTIVO_CAJA", monto: 0 },
   ]);
+
+  // Texto crudo del input por fila ("" = vacío, NO es un valor real)
+  const [rawInputs, setRawInputs] = useState<Record<string, string>>({});
+  // Filas que el usuario dejó (blur) — usadas para errores de importe 0
+  const [blurredRows, setBlurredRows] = useState<Record<string, boolean>>({});
 
   const totalAssigned = payments.reduce((sum, p) => sum + (p.monto || 0), 0);
   const remaining = total - totalAssigned;
@@ -60,13 +92,14 @@ export function PaymentDistribution({
 
     const newErrors: string[] = [];
 
-    // Check for zero amounts (only if user started entering)
-    const hasNonZeroPayment = payments.some(p => p.monto > 0);
-    if (hasNonZeroPayment) {
-      const hasZeroAmount = payments.some(p => p.monto === 0);
-      if (hasZeroAmount) {
-        newErrors.push("Todos los montos deben ser mayores a 0");
-      }
+    // Cero: SOLO si el usuario escribió algo en la fila (touched) y la dejó (blur)
+    const hasTouchedZero = payments.some(p =>
+      Object.prototype.hasOwnProperty.call(rawInputs, p.id) &&
+      blurredRows[p.id] === true &&
+      p.monto === 0
+    );
+    if (hasTouchedZero) {
+      newErrors.push("Todos los montos deben ser mayores a 0");
     }
 
     // Check for negative amounts
@@ -94,6 +127,7 @@ export function PaymentDistribution({
     }
 
     // Check sum matches total (only if user started entering)
+    const hasNonZeroPayment = payments.some(p => p.monto > 0);
     if (hasNonZeroPayment && Math.abs(remaining) > 0.01) {
       if (remaining > 0) {
         newErrors.push(`Restan ${formatCurrency(remaining)} por asignar`);
@@ -108,7 +142,7 @@ export function PaymentDistribution({
     }
 
     return newErrors;
-  }, [payments, remaining, cajaBalance, cajaAbierta, hasReposition]);
+  }, [payments, remaining, cajaBalance, cajaAbierta, hasReposition, rawInputs, blurredRows]);
 
   // Notify parent of changes - only valid payments
   const validPayments = useMemo(() => {
@@ -150,6 +184,16 @@ export function PaymentDistribution({
   const removePayment = useCallback((id: string) => {
     if (disabled) return;
     setPayments(prev => prev.filter(p => p.id !== id));
+    setRawInputs(prev => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    setBlurredRows(prev => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   }, [disabled]);
 
   const updatePayment = useCallback((id: string, field: keyof PaymentMethod, value: string | number) => {
@@ -162,13 +206,33 @@ export function PaymentDistribution({
     );
   }, [disabled]);
 
+  /** Handler del input monetario: guarda raw + monto parseado */
+  const handleAmountChange = useCallback((id: string, raw: string) => {
+    if (disabled) return;
+    const clean = sanitizeAmountInput(raw);
+    setRawInputs(prev => ({ ...prev, [id]: clean }));
+    setBlurredRows(prev => ({ ...prev, [id]: false }));
+    updatePayment(id, "monto", parseAmountInput(clean));
+  }, [disabled, updatePayment]);
+
+  /** Al salir del campo: formatea es-AR y marca la fila como blurred */
+  const handleAmountBlur = useCallback((id: string, raw: string) => {
+    if (disabled) return;
+    const value = parseAmountInput(raw);
+    setRawInputs(prev => ({ ...prev, [id]: value > 0 ? formatAmount(value) : "0,00" }));
+    setBlurredRows(prev => ({ ...prev, [id]: true }));
+  }, [disabled]);
+
   const useMaxAvailable = useCallback(() => {
     if (disabled) return;
     
     const efectivoCajaPago = payments.find(p => p.medio === "EFECTIVO_CAJA");
     if (efectivoCajaPago) {
       const maxAmount = Math.min(cajaBalance, remaining + efectivoCajaPago.monto);
-      updatePayment(efectivoCajaPago.id, "monto", Math.max(0, maxAmount));
+      const amount = Math.max(0, maxAmount);
+      setRawInputs(prev => ({ ...prev, [efectivoCajaPago.id]: formatAmount(amount) }));
+      setBlurredRows(prev => ({ ...prev, [efectivoCajaPago.id]: true }));
+      updatePayment(efectivoCajaPago.id, "monto", amount);
     }
   }, [payments, cajaBalance, remaining, disabled, updatePayment]);
 
@@ -187,6 +251,10 @@ export function PaymentDistribution({
    * gris/normal si todavía no se asignó nada (no es un error).
    */
   const assignedStatus = totalAssigned > 0 ? "success" : "muted";
+
+  /** Disponible Caja: neutral normalmente, rojo SOLO si el efectivo solicitado supera el saldo */
+  const efectivoSolicitado = payments.find(p => p.medio === "EFECTIVO_CAJA")?.monto ?? 0;
+  const cajaInsuficiente = efectivoSolicitado > cajaBalance;
 
   const canAddMore = payments.length < PAYMENT_METHODS.length && !disabled && hasReposition;
   const noMoreMethods = payments.length >= PAYMENT_METHODS.length && hasReposition && !disabled;
@@ -211,6 +279,12 @@ export function PaymentDistribution({
     }
     return null;
   }, [cajaBalance, cajaAbierta, hasReposition]);
+
+  /** Etiqueta contextual de la acción de completar con efectivo */
+  const cajaCubreRestante = cajaBalance >= remaining && remaining > 0;
+  const completarLabel = cajaCubreRestante
+    ? `Completar con efectivo (${formatCurrency(remaining)})`
+    : `Usar efectivo disponible (${formatCurrency(cajaBalance)})`;
 
   // If no reposition, don't render anything
   if (!hasReposition) {
@@ -252,12 +326,13 @@ export function PaymentDistribution({
       </div>
 
       {/* Payment Methods - Scrollable list (max ~3 rows visible) */}
-      <div className="max-h-[156px] overflow-y-auto pr-1 space-y-1.5 min-h-[0px]">
+      <div className="scrollbar-thin max-h-[156px] overflow-y-auto pr-2 space-y-1.5 min-h-[0px]">
         {payments.map((payment) => {
           const isCaja = payment.medio === "EFECTIVO_CAJA";
           const isFondosExternos = payment.medio === "FONDOS_EXTERNOS";
           const availableMethods = getAvailableMethods(payment.id);
           const rowError = getRowError(payment);
+          const raw = rawInputs[payment.id] ?? "";
 
           return (
             <div key={payment.id} className="space-y-1">
@@ -294,17 +369,19 @@ export function PaymentDistribution({
                   </Select>
                 </div>
 
-                {/* Amount Input */}
+                {/* Amount Input - text + inputMode decimal (sin flechas nativas) */}
                 <div className="relative w-28">
                   <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-[var(--text-secondary)]">$</span>
                   <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={payment.monto || ""}
-                    onChange={(e) => updatePayment(payment.id, "monto", parseFloat(e.target.value) || 0)}
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    value={raw}
+                    onChange={(e) => handleAmountChange(payment.id, e.target.value)}
+                    onBlur={(e) => handleAmountBlur(payment.id, e.target.value)}
+                    onFocus={(e) => e.target.select()}
                     disabled={disabled}
-                    placeholder="0"
+                    placeholder="0,00"
                     className="h-8 pl-5 pr-2 text-xs font-mono text-right"
                   />
                 </div>
@@ -313,8 +390,9 @@ export function PaymentDistribution({
                 {payments.length > 1 && !disabled && (
                   <button
                     type="button"
+                    title="Eliminar método"
                     onClick={() => removePayment(payment.id)}
-                    className="p-1 rounded hover:bg-[var(--danger-light)] text-[var(--text-secondary)] hover:text-[var(--danger)] transition-colors"
+                    className="p-1 rounded text-[var(--text-secondary)] opacity-70 hover:opacity-100 hover:bg-[var(--danger-light)] hover:text-[var(--danger)] transition-colors"
                   >
                     <X size={14} />
                   </button>
@@ -349,28 +427,33 @@ export function PaymentDistribution({
 
       {/* Summary - ALWAYS visible, outside the scrollable list */}
       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs pt-1.5 border-t border-[var(--border)]/50">
-        <div className="flex justify-between">
+        <div className="flex justify-between items-baseline">
           <span className="text-[var(--text-muted)]">Total:</span>
-          <span className="font-semibold text-[var(--text)]">{formatCurrency(total)}</span>
+          <span className="font-semibold text-[var(--text)] font-mono">{formatCurrency(total)}</span>
         </div>
-        <div className="flex justify-between">
+        <div className="flex justify-between items-baseline">
           <span className="text-[var(--text-muted)]">Disponible Caja:</span>
-          <span className="font-semibold text-[var(--brand)]">{formatCurrency(cajaBalance)}</span>
+          <span className={cn(
+            "font-semibold font-mono",
+            cajaInsuficiente ? "text-[var(--danger)]" : "text-[var(--text)]"
+          )}>
+            {formatCurrency(cajaBalance)}
+          </span>
         </div>
-        <div className="flex justify-between">
+        <div className="flex justify-between items-baseline">
           <span className="text-[var(--text-muted)]">Asignado:</span>
           <span className={cn(
-            "font-semibold",
+            "font-semibold font-mono",
             assignedStatus === "success" && "text-[var(--success)]",
             assignedStatus === "muted" && "text-[var(--text-secondary)]",
           )}>
             {formatCurrency(totalAssigned)}
           </span>
         </div>
-        <div className="flex justify-between">
+        <div className="flex justify-between items-baseline">
           <span className="text-[var(--text-muted)]">Restante:</span>
           <span className={cn(
-            "font-semibold",
+            "font-semibold font-mono",
             getRemainingStatus() === "success" && "text-[var(--success)]",
             getRemainingStatus() === "warning" && "text-[var(--warning)]",
             getRemainingStatus() === "danger" && "text-[var(--danger)]",
@@ -380,7 +463,7 @@ export function PaymentDistribution({
         </div>
       </div>
 
-      {/* Use Max Button - contextual label */}
+      {/* Completar con efectivo - acción secundaria discreta */}
       {payments.some(p => p.medio === "EFECTIVO_CAJA") && cajaAbierta && cajaBalance > 0 && remaining > 0 && (
         <Button
           type="button"
@@ -388,10 +471,10 @@ export function PaymentDistribution({
           size="sm"
           onClick={useMaxAvailable}
           disabled={disabled}
-          className="w-full h-7 text-xs"
+          className="w-full h-7 text-xs text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--border)]/40"
         >
           <Wallet size={12} className="mr-1" />
-          Completar con efectivo disponible ({formatCurrency(Math.min(cajaBalance, remaining))})
+          {completarLabel}
         </Button>
       )}
 
@@ -403,9 +486,9 @@ export function PaymentDistribution({
         </div>
       )}
 
-      {/* Errors - red ONLY for real blocking issues, amber for guidance */}
+      {/* Errors - below the summary, red ONLY for real blocking issues, amber for guidance */}
       {errors.length > 0 && (
-        <div className="space-y-1">
+        <div className="space-y-1 mt-0.5">
           {errors.map((error, index) => {
             const isBlocking = 
               error.includes("insuficientes") || 

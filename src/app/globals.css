@@ -131,6 +131,30 @@ body {
   display: none;
 }
 
+/* ── Scrollbar Thin (dark, discrete) Utility ── */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-hover) transparent;
+}
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--border-hover);
+  border-radius: 9999px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+.scrollbar-thin::-webkit-scrollbar-button {
+  display: none;
+  height: 0;
+}
+
 
 /* ── Terminal Ventas Layout ── */
 @media (min-width: 1024px) {
