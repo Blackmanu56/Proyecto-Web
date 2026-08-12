@@ -28,6 +28,18 @@ enum OrigenPagoCompra {
   FONDOS_EXTERNOS
 }
 
+model PagoCompra {
+  id          Int      @id @default(autoincrement())
+  compraId    Int      @map("compra_id")
+  medio       String   // EFECTIVO_CAJA, TRANSFERENCIA_BANCARIA, MERCADO_PAGO, CUENTA_CORRIENTE_PROVEEDOR, FONDOS_EXTERNOS
+  monto       Float
+  observacion String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  compra      Compra   @relation(fields: [compraId], references: [id], onDelete: Cascade)
+
+  @@map("pagos_compra")
+}
+
 model Rol {
   id       Int       @id @default(autoincrement())
   nombre   String    @unique
@@ -226,6 +238,7 @@ model Compra {
   usuario     Usuario          @relation(fields: [usuarioId], references: [id])
   detalles    DetalleCompra[]
   movimientos MovimientoCaja[]
+  pagos       PagoCompra[]
 
   @@map("compras")
 }

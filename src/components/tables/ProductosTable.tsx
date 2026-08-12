@@ -1,6 +1,7 @@
 "use client";
 
 import { createCategoria,createMarca,getCategorias,getCategoriasWithCount,getMarcasActivas,getMarcasWithCount,toggleCategoriaActivo,toggleMarcaActivo,updateCategoria,updateMarca } from "@/actions/auxiliares";
+import { getCajaActiva } from "@/actions/caja";
 import Image from "next/image";
 import {
 createProducto,
@@ -15,41 +16,41 @@ import { Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle } from 
 import { FormField } from "@/components/ui/form-field";
 import HistorialModal from "@/components/ui/HistorialModal";
 import { Input } from "@/components/ui/input";
+import { PaymentDistribution, PaymentMethod } from "@/components/ui/PaymentDistribution";
 import ReactivarModal from "@/components/ui/ReactivarModal";
 import RestarStockModal from "@/components/ui/RestarStockModal";
 import { TableShell } from "@/components/ui/table-shell";
 import { cn,formatCurrency } from "@/lib/utils";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import {
-AlertTriangle,
-ArrowUpDown,
-Boxes,
-BarChart3,
-Check,
-CheckCircle,
-ChevronDown,
-CircleOff,
-Columns3,
-DollarSign,
-Edit2,
-GripVertical,
-FolderOpen,
-History,
-Info,
-Layers,
-Landmark,
-ListFilter,
-Package,
-PackageCheck,
-PackagePlus,
-PackageX,
-Plus,
-RotateCcw,
-ShieldCheck,
-Tag,
-TrendingDown,
-Truck,
-X
+  AlertTriangle,
+  ArrowUpDown,
+  Boxes,
+  BarChart3,
+  Check,
+  CheckCircle,
+  ChevronDown,
+  CircleOff,
+  Columns3,
+  DollarSign,
+  Edit2,
+  GripVertical,
+  FolderOpen,
+  History,
+  Info,
+  Layers,
+  ListFilter,
+  Package,
+  PackageCheck,
+  PackagePlus,
+  PackageX,
+  Plus,
+  RotateCcw,
+  ShieldCheck,
+  Tag,
+  TrendingDown,
+  Truck,
+  X
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import React,{ useCallback,useEffect,useRef,useState,useTransition } from "react";
@@ -123,12 +124,6 @@ const COLUMN_WIDTH_CLASSES: Record<string, string> = {
 
 const COLUMN_VISIBILITY_KEY = "productos-column-visibility";
 const PRODUCT_FORM_ID = "producto-form";
-const ORIGEN_PAGO_OPTIONS = [
-  { value: "EFECTIVO_CAJA", label: "Efectivo de Caja" },
-  { value: "TRANSFERENCIA_BANCARIA", label: "Transferencia Bancaria" },
-  { value: "CUENTA_CORRIENTE_PROVEEDOR", label: "Cuenta Corriente del Proveedor" },
-  { value: "FONDOS_EXTERNOS", label: "Fondos Externos" },
-] as const;
 
 type FilterOption = {
   value: string;
@@ -410,6 +405,8 @@ export default function ProductosTable({
   const [successMsg, setSuccessMsg] = useState("");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [cantidadAReponer, setCantidadAReponer] = useState<number | "">("");
+  const [payments, setPayments] = useState<PaymentMethod[]>([]);
+  const [cajaBalance, setCajaBalance] = useState<number>(0);
 
   /* ── Form combobox state ── */
   const [marcaValue, setMarcaValue] = useState("");
@@ -439,6 +436,15 @@ export default function ProductosTable({
   useEffect(() => {
     if (isModalOpen) {
       getMarcasActivas().then(setActiveMarcas);
+      // Fetch caja balance for payment distribution
+      getCajaActiva().then(caja => {
+        if (caja) {
+          const balance = caja.montoInicial + caja.totalVentas;
+          setCajaBalance(balance);
+        } else {
+          setCajaBalance(0);
+        }
+      });
     }
   }, [isModalOpen]);
 
@@ -478,6 +484,7 @@ export default function ProductosTable({
     setImagePreview(product.imagen || null);
     setMarcaValue(product.marca || "");
     setCategoriaValue(product.categoria.nombre);
+    setPayments([]);
     setIsModalOpen(true);
   }, []);
 
@@ -489,6 +496,7 @@ export default function ProductosTable({
     setImagePreview(null);
     setMarcaValue("");
     setCategoriaValue("");
+    setPayments([]);
     setIsModalOpen(true);
   }, []);
 
@@ -576,6 +584,14 @@ export default function ProductosTable({
     const matchedCat = categorias.find(c => c.nombre === categoriaValue);
     formData.set("categoriaId", matchedCat ? String(matchedCat.id) : "");
 
+    // Add payments data if available
+    if (payments.length > 0) {
+      const validPayments = payments.filter(p => p.monto > 0);
+      if (validPayments.length > 0) {
+        formData.set("pagos", JSON.stringify(validPayments));
+      }
+    }
+
     startTransition(async () => {
       try {
         const res = editingProduct
@@ -591,6 +607,7 @@ export default function ProductosTable({
           setTimeout(() => {
             setIsModalOpen(false);
             setSuccessMsg("");
+            setPayments([]);
           }, 1500);
           router.refresh();
         } else {
@@ -600,7 +617,7 @@ export default function ProductosTable({
         setErrorMsg(error instanceof Error ? error.message : "Ocurrió un error inesperado.");
       }
     });
-    }, [editingProduct, marcaValue, categoriaValue, categorias, router]);
+    }, [editingProduct, marcaValue, categoriaValue, categorias, payments, router]);
 
   const handleRefreshCategorias = useCallback(async () => {
     const cats = await getCategorias();
@@ -1505,42 +1522,30 @@ export default function ProductosTable({
                         />
                       </div>
                     </FormField>
-                    <FormField label="Origen del Pago" required className="mb-0">
-                      <div className="relative">
-                        <Landmark className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" size={14} />
-                        <select
-                          name="origenPago"
-                          defaultValue="EFECTIVO_CAJA"
-                          required
-                          className="w-full pl-9 pr-4 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-[var(--text)] text-sm focus:outline-none focus:border-[var(--brand)] appearance-none"
-                        >
-                          {ORIGEN_PAGO_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>{option.label}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </FormField>
+                    {/* Payment Distribution for Restocking */}
+                    <div className="col-span-full">
+                      <PaymentDistribution
+                        total={((Number(cantidadAReponer) || 0)) * editingProduct.precioCompra}
+                        onChange={setPayments}
+                        cajaBalance={cajaBalance}
+                        disabled={isPending}
+                      />
+                    </div>
                   </>
                 ) : (
                   <>
                     <FormField label="Stock Inicial" required className="mb-0">
                       <Input name="cantidad" type="number" min="0" required placeholder="0" className="font-mono py-2" />
                     </FormField>
-                    <FormField label="Origen del Pago" required className="mb-0">
-                      <div className="relative">
-                        <Landmark className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" size={14} />
-                        <select
-                          name="origenPago"
-                          defaultValue="EFECTIVO_CAJA"
-                          required
-                          className="w-full pl-9 pr-4 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-[var(--text)] text-sm focus:outline-none focus:border-[var(--brand)] appearance-none"
-                        >
-                          {ORIGEN_PAGO_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>{option.label}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </FormField>
+                    {/* Payment Distribution for Initial Stock */}
+                    <div className="col-span-full">
+                      <PaymentDistribution
+                        total={0} // Will be calculated based on quantity and price
+                        onChange={setPayments}
+                        cajaBalance={cajaBalance}
+                        disabled={isPending}
+                      />
+                    </div>
                   </>
                 )}
               </div>

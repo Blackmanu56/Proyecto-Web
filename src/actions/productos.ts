@@ -9,6 +9,12 @@ import { MotivoEstadoProducto, Prisma } from "@prisma/client";
 import { requirePermission } from "@/lib/auth-permissions";
 import { shouldCreateCajaEgreso } from "@/lib/caja-ajuste";
 
+const pagoSchema = z.object({
+  medio: z.enum(["EFECTIVO_CAJA", "TRANSFERENCIA_BANCARIA", "MERCADO_PAGO", "CUENTA_CORRIENTE_PROVEEDOR", "FONDOS_EXTERNOS"]),
+  monto: z.number().positive("El monto debe ser mayor a 0"),
+  observacion: z.string().optional(),
+});
+
 const productoSchema = z.object({
   nombre: z.string().min(2, "El nombre del producto debe tener al menos 2 caracteres"),
   marca: z.string().optional().nullable(),
@@ -23,6 +29,7 @@ const productoSchema = z.object({
   origenPago: z
     .enum(["EFECTIVO_CAJA", "TRANSFERENCIA_BANCARIA", "CUENTA_CORRIENTE_PROVEEDOR", "FONDOS_EXTERNOS"])
     .default("EFECTIVO_CAJA"),
+  pagos: z.array(pagoSchema).optional(),
 });
 
 /**
@@ -88,6 +95,7 @@ export async function createProducto(formData: FormData) {
     cantidad: Number(formData.get("cantidad")),
     stockMinimo: Number(formData.get("stockMinimo")),
     origenPago: (formData.get("origenPago") as string) || "EFECTIVO_CAJA",
+    pagos: formData.get("pagos") ? JSON.parse(formData.get("pagos") as string) : undefined,
   };
 
   // Handle file upload if present
@@ -102,6 +110,38 @@ export async function createProducto(formData: FormData) {
     throw new Error(validation.error.errors[0].message);
   }
 
+  // Validate payments if provided
+  const pagos = validation.data.pagos;
+  if (pagos && pagos.length > 0) {
+    const totalPagos = pagos.reduce((sum, pago) => sum + pago.monto, 0);
+    const totalCosto = validation.data.cantidad * validation.data.precioCompra;
+    
+    if (Math.abs(totalPagos - totalCosto) > 0.01) {
+      throw new Error(`La suma de los pagos ($${totalPagos.toFixed(2)}) no coincide con el total ($${totalCosto.toFixed(2)}).`);
+    }
+
+    // Check for duplicate payment methods
+    const medios = pagos.map(p => p.medio);
+    const uniqueMedios = new Set(medios);
+    if (uniqueMedios.size !== medios.length) {
+      throw new Error("No se permiten métodos de pago duplicados.");
+    }
+
+    // Validate Caja balance for EFECTIVO_CAJA payments
+    const efectivoCajaPago = pagos.find(p => p.medio === "EFECTIVO_CAJA");
+    if (efectivoCajaPago && efectivoCajaPago.monto > 0) {
+      const cajaAbierta = await prisma.caja.findFirst({ where: { estado: "ABIERTA" } });
+      if (!cajaAbierta) {
+        throw new Error("No hay una caja abierta para registrar el pago en efectivo.");
+      }
+      
+      const cajaActual = cajaAbierta.montoInicial + cajaAbierta.totalVentas;
+      if (efectivoCajaPago.monto > cajaActual) {
+        throw new Error(`El monto en efectivo ($${efectivoCajaPago.monto.toFixed(2)}) excede el saldo disponible en caja ($${cajaActual.toFixed(2)}).`);
+      }
+    }
+  }
+
   try {
     const producto = await prisma.$transaction(async (tx) => {
       // 0. Si hay stock inicial, buscar caja una sola vez
@@ -110,7 +150,7 @@ export async function createProducto(formData: FormData) {
         : null;
 
       // Si el pago es en efectivo y no hay caja abierta, rechazar ANTES de cualquier escritura.
-      if (validation.data.cantidad > 0 && shouldCreateCajaEgreso(validation.data.origenPago) && !cajaAbierta) {
+      if (validation.data.cantidad > 0 && shouldCreateCajaEgreso(validation.data.origenPago) && !cajaAbierta && (!pagos || pagos.length === 0)) {
         throw new Error("No hay una caja abierta para registrar el pago en efectivo.");
       }
 
@@ -153,27 +193,65 @@ export async function createProducto(formData: FormData) {
           },
         });
 
-        // Solo el efectivo de caja genera movimiento y decrementa el saldo físico.
-        if (cajaAbierta && shouldCreateCajaEgreso(validation.data.origenPago)) {
-          await tx.movimientoCaja.create({
-            data: {
-              cajaId: cajaAbierta.id,
-              usuarioId: session.userId,
+        // Create payment records if provided
+        if (pagos && pagos.length > 0) {
+          await tx.pagoCompra.createMany({
+            data: pagos.map(pago => ({
               compraId: compra.id,
-              tipo: "EGRESO",
-              monto: totalCosto,
-              descripcion: `Stock inicial de '${validation.data.nombre}' x${validation.data.cantidad}`,
-            },
+              medio: pago.medio,
+              monto: pago.monto,
+              observacion: pago.observacion || null,
+            })),
           });
 
-          await tx.caja.update({
-            where: { id: cajaAbierta.id },
-            data: {
-              totalVentas: {
-                decrement: totalCosto,
+          // Create cash movements for EFECTIVO_CAJA payments
+          for (const pago of pagos) {
+            if (pago.medio === "EFECTIVO_CAJA" && pago.monto > 0 && cajaAbierta) {
+              await tx.movimientoCaja.create({
+                data: {
+                  cajaId: cajaAbierta.id,
+                  usuarioId: session.userId,
+                  compraId: compra.id,
+                  tipo: "EGRESO",
+                  monto: pago.monto,
+                  descripcion: `Stock inicial de '${validation.data.nombre}' x${validation.data.cantidad} (Efectivo)`,
+                },
+              });
+
+              await tx.caja.update({
+                where: { id: cajaAbierta.id },
+                data: {
+                  totalVentas: {
+                    decrement: pago.monto,
+                  },
+                },
+              });
+            }
+          }
+        } else {
+          // Legacy behavior: single payment method
+          // Solo el efectivo de caja genera movimiento y decrementa el saldo físico.
+          if (cajaAbierta && shouldCreateCajaEgreso(validation.data.origenPago)) {
+            await tx.movimientoCaja.create({
+              data: {
+                cajaId: cajaAbierta.id,
+                usuarioId: session.userId,
+                compraId: compra.id,
+                tipo: "EGRESO",
+                monto: totalCosto,
+                descripcion: `Stock inicial de '${validation.data.nombre}' x${validation.data.cantidad}`,
               },
-            },
-          });
+            });
+
+            await tx.caja.update({
+              where: { id: cajaAbierta.id },
+              data: {
+                totalVentas: {
+                  decrement: totalCosto,
+                },
+              },
+            });
+          }
         }
       }
 
@@ -207,6 +285,7 @@ export async function updateProducto(id: number, formData: FormData) {
       cantidad: Number(formData.get("cantidad")),
       stockMinimo: Number(formData.get("stockMinimo")),
       origenPago: (formData.get("origenPago") as string) || "EFECTIVO_CAJA",
+      pagos: formData.get("pagos") ? JSON.parse(formData.get("pagos") as string) : undefined,
     };
 
     // Handle file upload if present
@@ -243,7 +322,7 @@ export async function updateProducto(id: number, formData: FormData) {
         ? await tx.caja.findFirst({ where: { estado: "ABIERTA" } })
         : null;
 
-      if (nuevoStock > stockAnterior && shouldCreateCajaEgreso(validation.data.origenPago) && !cajaAbierta) {
+      if (nuevoStock > stockAnterior && shouldCreateCajaEgreso(validation.data.origenPago) && !cajaAbierta && (!validation.data.pagos || validation.data.pagos.length === 0)) {
         throw new Error("No hay una caja abierta para registrar el pago en efectivo.");
       }
 
@@ -287,27 +366,89 @@ export async function updateProducto(id: number, formData: FormData) {
           },
         });
 
-        // Registrar egreso en la Caja solo si hay una caja abierta Y el pago salió del cajón
-        if (cajaAbierta && shouldCreateCajaEgreso(validation.data.origenPago)) {
-          await tx.movimientoCaja.create({
-            data: {
-              cajaId: cajaAbierta.id,
-              usuarioId: session.userId,
+        // Handle multiple payments if provided
+        const pagos = validation.data.pagos;
+        if (pagos && pagos.length > 0) {
+          // Validate payment sum
+          const totalPagos = pagos.reduce((sum, pago) => sum + pago.monto, 0);
+          if (Math.abs(totalPagos - totalCosto) > 0.01) {
+            throw new Error(`La suma de los pagos ($${totalPagos.toFixed(2)}) no coincide con el total ($${totalCosto.toFixed(2)}).`);
+          }
+
+          // Check for duplicate payment methods
+          const medios = pagos.map(p => p.medio);
+          const uniqueMedios = new Set(medios);
+          if (uniqueMedios.size !== medios.length) {
+            throw new Error("No se permiten métodos de pago duplicados.");
+          }
+
+          // Validate Caja balance for EFECTIVO_CAJA payments
+          const efectivoCajaPago = pagos.find(p => p.medio === "EFECTIVO_CAJA");
+          if (efectivoCajaPago && efectivoCajaPago.monto > 0 && cajaAbierta) {
+            const cajaActual = cajaAbierta.montoInicial + cajaAbierta.totalVentas;
+            if (efectivoCajaPago.monto > cajaActual) {
+              throw new Error(`El monto en efectivo ($${efectivoCajaPago.monto.toFixed(2)}) excede el saldo disponible en caja ($${cajaActual.toFixed(2)}).`);
+            }
+          }
+
+          // Create payment records
+          await tx.pagoCompra.createMany({
+            data: pagos.map(pago => ({
               compraId: compra.id,
-              tipo: "EGRESO",
-              monto: totalCosto,
-              descripcion: `Reposición de '${validation.data.nombre}' x${diferencia}`,
-            },
+              medio: pago.medio,
+              monto: pago.monto,
+              observacion: pago.observacion || null,
+            })),
           });
 
-          await tx.caja.update({
-            where: { id: cajaAbierta.id },
-            data: {
-              totalVentas: {
-                decrement: totalCosto,
+          // Create cash movements for EFECTIVO_CAJA payments
+          for (const pago of pagos) {
+            if (pago.medio === "EFECTIVO_CAJA" && pago.monto > 0 && cajaAbierta) {
+              await tx.movimientoCaja.create({
+                data: {
+                  cajaId: cajaAbierta.id,
+                  usuarioId: session.userId,
+                  compraId: compra.id,
+                  tipo: "EGRESO",
+                  monto: pago.monto,
+                  descripcion: `Reposición de '${validation.data.nombre}' x${diferencia} (Efectivo)`,
+                },
+              });
+
+              await tx.caja.update({
+                where: { id: cajaAbierta.id },
+                data: {
+                  totalVentas: {
+                    decrement: pago.monto,
+                  },
+                },
+              });
+            }
+          }
+        } else {
+          // Legacy behavior: single payment method
+          // Registrar egreso en la Caja solo si hay una caja abierta Y el pago salió del cajón
+          if (cajaAbierta && shouldCreateCajaEgreso(validation.data.origenPago)) {
+            await tx.movimientoCaja.create({
+              data: {
+                cajaId: cajaAbierta.id,
+                usuarioId: session.userId,
+                compraId: compra.id,
+                tipo: "EGRESO",
+                monto: totalCosto,
+                descripcion: `Reposición de '${validation.data.nombre}' x${diferencia}`,
               },
-            },
-          });
+            });
+
+            await tx.caja.update({
+              where: { id: cajaAbierta.id },
+              data: {
+                totalVentas: {
+                  decrement: totalCosto,
+                },
+              },
+            });
+          }
         }
       }
 
