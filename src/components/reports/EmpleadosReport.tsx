@@ -22,6 +22,8 @@ import {
 import { Fragment, useEffect, useMemo, useState, useTransition } from "react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 
+type SubViewId = "analisis" | "detalle";
+
 type PeriodoSeleccion = PeriodoPreset | "personalizado";
 
 const PERIOD_OPTIONS: { value: PeriodoSeleccion; label: string }[] = [
@@ -191,7 +193,7 @@ function EmpleadoDetalle({ emp }: { emp: EmpleadoDashboardRow }) {
                   <p className="font-semibold text-[var(--text)]">
                     {a.tipo} <span className="font-normal text-[var(--text-muted)]">· {a.descripcion}</span>
                   </p>
-                  <p className="text-[var(--text-muted)]">{a.fechaLabel}</p>
+                   <p className="text-[var(--text-muted)]">{a.fechaLabel}</p>
                 </div>
               </div>
             ))}
@@ -218,6 +220,7 @@ export default function EmpleadosReport({ initialData }: Props) {
   const [isPending, startTransition] = useTransition();
   const [printSection, setPrintSection] = useState<string | null>(null);
   const [expandedUsuarioId, setExpandedUsuarioId] = useState<number | null>(null);
+  const [activeSubView, setActiveSubView] = useState<SubViewId>("analisis");
 
   useEffect(() => {
     if (printSection) {
@@ -398,6 +401,23 @@ export default function EmpleadosReport({ initialData }: Props) {
         )}
       </div>
 
+      {/* Selector de sub-vista */}
+      <div className="print:hidden flex flex-wrap gap-1 bg-[var(--panel)] border border-[var(--border)] rounded-xl p-1">
+        {(["analisis", "detalle"] as SubViewId[]).map((v) => (
+          <button
+            key={v}
+            onClick={() => setActiveSubView(v)}
+            className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
+              activeSubView === v
+                ? "bg-[var(--brand)] text-white"
+                : "bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--text)] border border-[var(--border)]"
+            }`}
+          >
+            {v === "analisis" ? "Análisis" : "Detalle de empleados"}
+          </button>
+        ))}
+      </div>
+
       <div className="print:bg-white print:text-black space-y-4">
         {/* Encabezado de impresión */}
         <div className="hidden print:block text-center mb-6">
@@ -407,6 +427,8 @@ export default function EmpleadosReport({ initialData }: Props) {
           <hr className="my-2 border-gray-300" />
         </div>
 
+        {activeSubView === "analisis" && (
+          <>
         {/* Resumen (6 tarjetas) */}
         <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl p-4">
           <h3 className={sectionHeaderClass + " mb-3"}>Resumen</h3>
@@ -581,8 +603,11 @@ export default function EmpleadosReport({ initialData }: Props) {
             )}
           </div>
         </div>
+          </>
+        )}
 
         {/* Tabla Empleados (con fila expandible por empleado) */}
+        {activeSubView === "detalle" && (
         <div className="report-section" data-section-id="tabla" data-print-active={printActive("tabla")}>
           <div className="flex items-center justify-between mb-2">
             <h3 className={sectionHeaderClass}>Empleados</h3>
@@ -660,6 +685,7 @@ export default function EmpleadosReport({ initialData }: Props) {
             </div>
           </div>
         </div>
+        )}
       </div>
     </div>
   );
