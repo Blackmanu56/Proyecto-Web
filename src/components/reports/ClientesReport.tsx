@@ -397,9 +397,9 @@ export default function ClientesReport({ initialData, userRole }: Props) {
               <Printer size={12} />
             </button>
           </div>
-          {/* Búsqueda de clientes: solo afecta a esta tabla */}
-          <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl overflow-hidden mb-3">
-            <div className="flex items-center gap-3 px-4 py-3">
+          <div className="bg-[var(--card)] print:bg-white border border-[var(--border)] print:border-gray-300 rounded-xl overflow-hidden">
+            {/* Búsqueda de clientes: solo afecta a esta tabla — pegada a la tabla */}
+            <div className="print:hidden flex items-center gap-3 px-4 py-3 border-b border-[var(--border)] print:border-gray-300">
               <Search size={16} className="text-[var(--text-muted)] shrink-0" />
               <label className="text-xs font-semibold text-[var(--text-muted)] shrink-0">
                 Buscar cliente
@@ -412,8 +412,6 @@ export default function ClientesReport({ initialData, userRole }: Props) {
                 className={inputClass}
               />
             </div>
-          </div>
-          <div className="bg-[var(--card)] print:bg-white border border-[var(--border)] print:border-gray-300 rounded-xl overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
