@@ -3,12 +3,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import type { ClientesDashboard } from "@/actions/informes";
 import ChartWrapper, { CHART_COLORS } from "@/components/ui/ChartWrapper";
-import { Badge } from "@/components/ui/badge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { ArrowDown, ArrowUp, ArrowUpDown, CheckCircle, Printer, Search, XCircle } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Printer, Search } from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -211,7 +210,7 @@ export default function ClientesReport({ initialData, userRole }: Props) {
         {/* 2. Resumen KPI */}
         <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl p-4">
           <h3 className={sectionHeaderClass + " mb-3"}>Resumen</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 text-center flex flex-col items-center justify-center">
               <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Total de Clientes</div>
               <div className="text-sm font-bold text-[var(--text)]">{data.resumen.total}</div>
@@ -239,10 +238,6 @@ export default function ClientesReport({ initialData, userRole }: Props) {
               ) : (
                 <div className="text-sm font-bold text-[var(--text)]">—</div>
               )}
-            </div>
-            <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 text-center flex flex-col items-center justify-center">
-              <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Total Facturado</div>
-              <div className="text-sm font-bold text-[var(--text)]">{formatCurrency(data.resumen.totalFacturado)}</div>
             </div>
           </div>
         </div>
@@ -487,9 +482,9 @@ export default function ClientesReport({ initialData, userRole }: Props) {
                       <td className="px-4 py-3 text-xs text-[var(--text-muted)]">{c.dni}</td>
                       <td className="px-4 py-3 text-center">
                         {c.activo ? (
-                          <Badge variant="success" size="sm"><CheckCircle size={10} /> Activo</Badge>
+                          <span className="text-xs font-semibold text-[var(--success)]">Activo</span>
                         ) : (
-                          <Badge variant="danger" size="sm"><XCircle size={10} /> Inactivo</Badge>
+                          <span className="text-xs font-semibold text-[var(--danger)]">Inactivo</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-right text-[var(--text-muted)]">{c.cantidadCompras}</td>
