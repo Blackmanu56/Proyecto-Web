@@ -447,7 +447,7 @@ export default function ProveedoresReport({ initialData, userRole }: Props) {
   // de búsqueda/estado/categoría/marca re-disparan la action server-side.
   const [data, setData] = useState<ProveedoresDashboard>(initialData);
   const [filtros, setFiltros] = useState<ProveedoresDashboardFilters>(DEFAULT_FILTERS);
-  const [showFilters, setShowFilters] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
   const [reposicionExpandidaId, setReposicionExpandidaId] = useState<number | null>(null);
   const [printSection, setPrintSection] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();

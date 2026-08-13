@@ -65,11 +65,11 @@ export default async function InformesPage() {
     <div className="fixed inset-0 top-[5.5rem] bg-[var(--bg)] flex flex-col overflow-hidden z-10">
       <div className="flex-1 flex flex-col min-h-0 overflow-y-auto p-2 lg:p-3 space-y-3">
         {/* Encabezado */}
-        <div className="flex items-center justify-center gap-2 shrink-0 mb-1">
-          <div className="p-1.5 bg-[var(--brand-light)] rounded-lg text-[var(--brand)]">
-            <BarChart3 size={16} />
+        <div className="flex items-center justify-center gap-3 shrink-0 mb-2 text-center">
+          <div className="p-2.5 bg-[var(--brand-light)] rounded-xl text-[var(--brand)] ring-1 ring-[var(--brand)]/20">
+            <BarChart3 size={24} />
           </div>
-          <h1 className="text-base lg:text-lg font-extrabold text-[var(--text)] tracking-tight">
+          <h1 className="text-2xl lg:text-3xl font-black text-[var(--text)] tracking-tight">
             Informes
           </h1>
         </div>
