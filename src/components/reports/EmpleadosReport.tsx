@@ -22,7 +22,7 @@ import {
 import { Fragment, useEffect, useMemo, useState, useTransition } from "react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 
-type SubViewId = "analisis" | "detalle";
+type SubViewId = "analisis" | "detalle" | "actividad";
 
 type PeriodoSeleccion = PeriodoPreset | "personalizado";
 
@@ -295,7 +295,7 @@ export default function EmpleadosReport({ initialData }: Props) {
                 : "bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--text)] border border-[var(--border)]"
             }`}
           >
-            {v === "analisis" ? "Análisis" : "Detalle de empleados"}
+            {v === "analisis" ? "Análisis" : v === "detalle" ? "Detalle de empleados" : "Actividad"}
           </button>
         ))}
       </div>
@@ -570,8 +570,12 @@ export default function EmpleadosReport({ initialData }: Props) {
             ))}
           </div>
         </div>
+          </>
+        )}
 
-        {/* Actividad Reciente (cronológica desc) */}
+        {/* Actividad Reciente (log) */}
+        {activeSubView === "actividad" && (
+          <>
         <div className="report-section" data-section-id="actividad-reciente" data-print-active={printActive("actividad-reciente")}>
           <div className="flex items-center justify-between mb-2">
             <h3 className={sectionHeaderClass}>Actividad Reciente</h3>
