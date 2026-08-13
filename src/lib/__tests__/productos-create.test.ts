@@ -8,7 +8,9 @@ const mocks = vi.hoisted(() => {
     producto: { create: vi.fn() },
     compra: { create: vi.fn() },
     caja: { findFirst: vi.fn(), update: vi.fn() },
+    cuentaFinanciera: { findFirst: vi.fn() },
     movimientoCaja: { create: vi.fn() },
+    movimientoFinanciero: { create: vi.fn() },
   };
 
   return {
@@ -67,9 +69,24 @@ beforeEach(() => {
   );
   mocks.tx.producto.create.mockResolvedValue({ id: 10, nombre: "Kit transmisión" });
   mocks.tx.compra.create.mockResolvedValue({ id: 50 });
-  mocks.tx.caja.findFirst.mockResolvedValue({ id: 30, estado: "ABIERTA" });
+  mocks.tx.caja.findFirst.mockResolvedValue({
+    id: 30,
+    estado: "ABIERTA",
+    montoInicial: 500,
+    totalVentas: 500,
+    movimientos: [{ tipo: "INGRESO", monto: 1_000 }],
+  });
   mocks.tx.movimientoCaja.create.mockResolvedValue({ id: 70 });
   mocks.tx.caja.update.mockResolvedValue({ id: 30 });
+  mocks.tx.cuentaFinanciera.findFirst.mockResolvedValue({
+    id: 1,
+    tipo: "BANCO",
+    esPrincipal: true,
+    activa: true,
+    saldoInicial: 500_000,
+    movimientos: [],
+  });
+  mocks.tx.movimientoFinanciero.create.mockResolvedValue({ id: 80 });
 });
 
 afterEach(() => vi.restoreAllMocks());
@@ -130,37 +147,51 @@ describe("createProducto initial stock", () => {
     mocks.tx.caja.findFirst.mockResolvedValueOnce(null);
 
     const result = await createProducto(
-      productoForm({ origenPago: "FONDOS_EXTERNOS" })
+      productoForm({ origenPago: "TRANSFERENCIA_BANCARIA" })
     );
 
     expect(result.success).toBe(true);
     expect(mocks.tx.producto.create).toHaveBeenCalledOnce();
     expect(mocks.tx.compra.create).toHaveBeenCalledWith(expect.objectContaining({
-      data: expect.objectContaining({ origenPago: "FONDOS_EXTERNOS" }),
+      data: expect.objectContaining({ origenPago: "TRANSFERENCIA_BANCARIA" }),
     }));
     expect(mocks.tx.movimientoCaja.create).not.toHaveBeenCalled();
     expect(mocks.tx.caja.update).not.toHaveBeenCalled();
   });
+
+  it("revalidates products only after a successful transaction", async () => {
+    mocks.tx.caja.findFirst.mockReset().mockResolvedValue({
+      id: 30,
+      estado: "ABIERTA",
+      montoInicial: 500,
+      totalVentas: 500,
+      movimientos: [{ tipo: "INGRESO", monto: 1_000 }],
+    });
+    const result = await createProducto(productoForm());
+
+    expect(result.success).toBe(true);
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/productos");
+
+    vi.clearAllMocks();
+    mocks.requirePermission.mockResolvedValue(session);
+    mocks.transaction.mockRejectedValueOnce(new Error("transaction failed"));
+    const failed = await createProducto(productoForm());
+
+    expect(failed.error).toBeTruthy();
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
 });
 
-describe("ProductosTable new-product payment origin", () => {
-  it("renders a required origin selector for both initial stock and replenishment", () => {
+describe("ProductosTable purchase payment input", () => {
+  it("renders PaymentDistribution for both initial stock and replenishment", () => {
     const currentDir = dirname(fileURLToPath(import.meta.url));
     const source = readFileSync(
       resolve(currentDir, "../../components/tables/ProductosTable.tsx"),
       "utf8"
     );
 
-    expect(source.match(/name="origenPago"/g)).toHaveLength(2);
-    expect(source.match(/defaultValue="EFECTIVO_CAJA"/g)).toHaveLength(2);
-    expect(source.match(/ORIGEN_PAGO_OPTIONS\.map/g)).toHaveLength(2);
-    for (const origin of [
-      "EFECTIVO_CAJA",
-      "TRANSFERENCIA_BANCARIA",
-      "CUENTA_CORRIENTE_PROVEEDOR",
-      "FONDOS_EXTERNOS",
-    ]) {
-      expect(source).toContain(`value: "${origin}"`);
-    }
+    expect(source.match(/<PaymentDistribution/g)).toHaveLength(2);
+    expect(source).toContain("onChange={setPayments}");
+    expect(source).toContain('formData.set("pagos", JSON.stringify(validPayments))');
   });
 });

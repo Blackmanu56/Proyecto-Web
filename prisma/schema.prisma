@@ -28,6 +28,30 @@ enum OrigenPagoCompra {
   FONDOS_EXTERNOS
 }
 
+enum TipoCuentaFinanciera {
+  BANCO
+  POR_ACREDITAR
+  BILLETERA
+  OTRA
+}
+
+enum TipoMovimientoFinanciero {
+  INGRESO
+  EGRESO
+}
+
+model PagoCompra {
+  id          Int      @id @default(autoincrement())
+  compraId    Int      @map("compra_id")
+  medio       String   // EFECTIVO_CAJA, TRANSFERENCIA_BANCARIA, MERCADO_PAGO, CUENTA_CORRIENTE_PROVEEDOR, FONDOS_EXTERNOS
+  monto       Float
+  observacion String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  compra      Compra   @relation(fields: [compraId], references: [id], onDelete: Cascade)
+
+  @@map("pagos_compra")
+}
+
 model Rol {
   id       Int       @id @default(autoincrement())
   nombre   String    @unique
@@ -56,6 +80,7 @@ model Usuario {
   movimientos       MovimientoCaja[]
   favoritos         ProductoFavorito[]
   historialEstados  HistorialEstado[]
+  movimientosFinancieros MovimientoFinanciero[]
   rol               Rol                @relation(fields: [rolId], references: [id])
   ventas            Venta[]
 
@@ -162,6 +187,7 @@ model Venta {
   cuotas          Int?             @map("cuotas")
   detalles        DetalleVenta[]
   movimientos     MovimientoCaja[]
+  movimientosFinancieros MovimientoFinanciero[]
   cliente         Cliente          @relation(fields: [clienteId], references: [id])
   usuario         Usuario          @relation(fields: [usuarioId], references: [id])
 
@@ -191,6 +217,7 @@ model Caja {
   estado         String           @default("ABIERTA")
   gastosManuales Float            @default(0.0) @map("gastos_manuales")
   totalContado   Float?           @map("total_contado")
+  observacionCierre String?       @map("observacion_cierre")
   usuario        Usuario          @relation(fields: [usuarioId], references: [id])
   movimientos    MovimientoCaja[]
 
@@ -226,6 +253,8 @@ model Compra {
   usuario     Usuario          @relation(fields: [usuarioId], references: [id])
   detalles    DetalleCompra[]
   movimientos MovimientoCaja[]
+  pagos       PagoCompra[]
+  movimientosFinancieros MovimientoFinanciero[]
 
   @@map("compras")
 }
@@ -270,4 +299,41 @@ model HistorialEstado {
   @@index([productoId, fecha])
   @@index([usuarioId])
   @@map("historial_estado_producto")
+}
+
+model CuentaFinanciera {
+  id           Int                    @id @default(autoincrement())
+  nombre       String
+  tipo         TipoCuentaFinanciera
+  saldoInicial Float                  @default(0.0) @map("saldo_inicial")
+  activa       Boolean                @default(true)
+  esPrincipal  Boolean                @default(false) @map("es_principal")
+  createdAt    DateTime               @default(now()) @map("created_at")
+  updatedAt    DateTime               @updatedAt @map("updated_at")
+  movimientos  MovimientoFinanciero[]
+
+  @@map("cuentas_financieras")
+}
+
+model MovimientoFinanciero {
+  id                 Int                      @id @default(autoincrement())
+  cuentaFinancieraId Int                      @map("cuenta_financiera_id")
+  tipo               TipoMovimientoFinanciero
+  monto              Float
+  fecha              DateTime                 @default(now())
+  descripcion        String
+  usuarioId          Int?                     @map("usuario_id")
+  ventaId            Int?                     @map("venta_id")
+  compraId           Int?                     @map("compra_id")
+  referencia         String?
+  createdAt          DateTime                 @default(now()) @map("created_at")
+  cuentaFinanciera   CuentaFinanciera         @relation(fields: [cuentaFinancieraId], references: [id], onDelete: Restrict)
+  usuario            Usuario?                 @relation(fields: [usuarioId], references: [id])
+  venta              Venta?                   @relation(fields: [ventaId], references: [id])
+  compra             Compra?                  @relation(fields: [compraId], references: [id])
+
+  @@index([cuentaFinancieraId, fecha])
+  @@index([ventaId])
+  @@index([compraId])
+  @@map("movimientos_financieros")
 }

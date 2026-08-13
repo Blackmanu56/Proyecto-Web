@@ -21,16 +21,13 @@ import {
 import {
   TrendingUp,
   Package,
-  AlertTriangle,
   Activity,
   ArrowUpRight,
   ArrowDownLeft,
-  ShoppingCart,
-  Wallet,
-  Users,
   Inbox,
   Loader2,
 } from "lucide-react";
+import { getCardsForRole, type DashboardMetrics } from "@/lib/dashboard-config";
 
 /* ──────────────────────────────────────────────
    CONSTANTS
@@ -674,60 +671,31 @@ export default function DashboardClient({ data, userName, role, formattedDate, c
 function getStatCards(data: DashboardData, role: string) {
   const { stats } = data;
 
-  const allStats: StatCardProps[] = [
-    {
-      title: "Ventas del Día",
-      value: formatCurrency(stats.ventasHoy),
-      sub: "Facturado hoy",
-      icon: <ShoppingCart size={26} className="text-[var(--danger)]" />,
-      colorClass: "bg-[var(--danger-light)]",
-      borderColor: "border-l-[var(--danger)]",
-      valueColor: "text-[var(--danger)]",
-      trend: stats.ventasHoy > 0 ? { value: "+12% vs ayer", isPositive: true } : { value: "Sin ventas hoy", isPositive: false },
-      roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS"],
-    },
-    {
-      title: "Efectivo en Caja",
-      value: formatCurrency(stats.ingresosCaja),
-      sub: "Saldo actual",
-      icon: <Wallet size={26} className="text-[var(--success)]" />,
-      colorClass: "bg-[var(--success-light)]",
-      borderColor: "border-l-[var(--success)]",
-      valueColor: "text-[var(--success)]",
-      roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS"],
-    },
-    {
-      title: "Clientes",
-      value: stats.totalClientes,
-      sub: "Registrados",
-      icon: <Users size={26} className="text-[var(--info)]" />,
-      colorClass: "bg-[var(--info-light)]",
-      borderColor: "border-l-[var(--info)]",
-      valueColor: "text-[var(--info)]",
-      roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS"],
-    },
-    {
-      title: "Stock Bajo",
-      value: stats.stockBajoCount,
-      sub: "Bajo mínimo",
-      icon: <AlertTriangle size={26} className="text-[var(--warning)]" />,
-      colorClass: "bg-[var(--warning-light)]",
-      borderColor: "border-l-[var(--warning)]",
-      valueColor: "text-[var(--warning)]",
-      trend: stats.stockBajoCount > 0 ? { value: `${stats.stockBajoCount} productos`, isPositive: false } : undefined,
-      roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS", "ENCARGADO_STOCK"],
-    },
-    {
-      title: "Productos Activos",
-      value: data.productosMasVendidos?.length || 0,
-      sub: "En catálogo",
-      icon: <Package size={26} className="text-purple-400" />,
-      colorClass: "bg-purple-500/20",
-      borderColor: "border-l-purple-500",
-      valueColor: "text-purple-400",
-      roles: ["ADMINISTRADOR", "ENCARGADO_STOCK"],
-    },
-  ];
+  const metrics: DashboardMetrics = {
+    ventasHoy: stats.ventasHoy,
+    ingresosCaja: stats.ingresosCaja,
+    stockBajoCount: stats.stockBajoCount,
+    totalClientes: stats.totalClientes,
+    productosMasVendidosCount: data.productosMasVendidos?.length || 0,
+    ventasHoyCount: stats.ventasHoyCount,
+    productosSinStock: stats.productosSinStock,
+    productosActivosCount: stats.productosActivosCount,
+    movimientosInventarioHoy: stats.movimientosInventarioHoy,
+    comprasHoy: stats.comprasHoy,
+    clientesAtendidosHoy: stats.clientesAtendidosHoy,
+    proveedoresActivos: stats.proveedoresActivos,
+  };
 
-  return allStats.filter((stat) => stat.roles?.includes(role));
+  const cards = getCardsForRole(role);
+
+  return cards.map((card) => ({
+    title: card.title,
+    value: card.getValue(metrics),
+    sub: card.sub,
+    icon: card.icon,
+    colorClass: card.colorClass,
+    borderColor: card.borderColor,
+    valueColor: card.valueColor,
+    trend: card.trend?.(metrics),
+  }));
 }

@@ -97,6 +97,8 @@
   --color-danger-light: var(--danger-light);
   --color-info: var(--info);
   --color-info-light: var(--info-light);
+  --color-banco: #38bdf8;
+  --color-banco-egr: #f97316;
   --font-sans: var(--font-family);
   --shadow-sm: var(--shadow-sm);
   --shadow-md: var(--shadow-md);
@@ -129,6 +131,30 @@ body {
 }
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+/* ── Scrollbar Thin (dark, discrete) Utility ── */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-hover) transparent;
+}
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--border-hover);
+  border-radius: 9999px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+.scrollbar-thin::-webkit-scrollbar-button {
+  display: none;
+  height: 0;
 }
 
 
@@ -326,33 +352,55 @@ input::-webkit-credentials-autofill-button {
   #print-overlay .cj-header { position: relative; display: flex; align-items: center; justify-content: center; gap: 16px; border-bottom: 3px solid #d62828; padding-bottom: 8px; margin-bottom: 10px; }
   #print-overlay .cj-logo { position: absolute; left: 0; top: 50%; transform: translateY(-50%); height: 48px; }
   #print-overlay .cj-header-center { flex: 0 0 auto; text-align: center; }
+  #print-overlay .cj-company { font-size: 12px; font-weight: 700; color: #333; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
   #print-overlay .cj-title { font-size: 20px; font-weight: 900; color: #d62828; text-transform: uppercase; letter-spacing: 0.5px; }
   #print-overlay .cj-meta { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
   #print-overlay .cj-meta-item { background: #f8f8f8; border: 1px solid #ddd; border-radius: 3px; padding: 5px 7px; min-height: 32px; }
   #print-overlay .cj-meta-label { font-weight: 700; color: #666; text-transform: uppercase; font-size: 7px; letter-spacing: 0.5px; }
   #print-overlay .cj-meta-value { color: #000; font-weight: 600; margin-top: 1px; font-size: 10px; white-space: nowrap; }
   #print-overlay .cj-filters { background: #fff8f0; border: 1px solid #f0c08a; border-radius: 3px; padding: 4px 6px; margin-bottom: 10px; font-size: 8px; color: #8a5a00; }
-  #print-overlay .cj-table { width: 100%; border-collapse: collapse; font-size: 9px; }
+
+  /* Resumen financiero superior/inferior */
+  #print-overlay .cj-financial-summary { margin-bottom: 10px; border: 1px solid #ddd; border-radius: 3px; padding: 8px; background: #fafafa; }
+  #print-overlay .cj-financial-summary.cj-financial-bottom { margin-top: 10px; margin-bottom: 0; }
+  #print-overlay .cj-financial-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  #print-overlay .cj-financial-item { flex: 1; min-width: 100px; text-align: center; padding: 4px 6px; border: 1px solid #e0e0e0; border-radius: 2px; background: #fff; }
+  #print-overlay .cj-financial-item.cj-financial-total { border-color: #000; border-width: 2px; background: #f0f0f0; }
+  #print-overlay .cj-financial-label { font-size: 7px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
+  #print-overlay .cj-financial-value { font-size: 11px; font-weight: 800; margin-top: 2px; color: #000; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #print-overlay .cj-closing-row { margin-top: 6px; padding-top: 6px; border-top: 1px dashed #ccc; }
+
+  #print-overlay .cj-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 8pt; }
   #print-overlay .cj-table thead { display: table-header-group; }
-  #print-overlay .cj-table thead th { background: #d62828; color: #fff; font-weight: 700; padding: 5px 6px; text-align: left; text-transform: uppercase; font-size: 8px; letter-spacing: 0.3px; border: 1px solid #b01e1e; white-space: nowrap; }
-  #print-overlay .cj-table tbody td { padding: 4px 6px; border-bottom: 1px solid #e0e0e0; vertical-align: middle; color: #000; }
+  #print-overlay .cj-table thead th { background: #d62828; color: #fff; font-weight: 700; padding: 4px 3px; text-align: left; text-transform: uppercase; font-size: 7pt; letter-spacing: 0; border: 1px solid #b01e1e; white-space: nowrap; }
+  #print-overlay .cj-table tbody td { padding: 3px 3px; border-bottom: 1px solid #e0e0e0; vertical-align: middle; color: #000; overflow-wrap: anywhere; }
   #print-overlay .cj-table tbody tr:nth-child(even) { background: #f9f9f9; }
   #print-overlay .cj-table tbody { page-break-inside: auto; }
   #print-overlay .cj-table tr { break-inside: avoid; page-break-inside: avoid; }
-  #print-overlay .cj-table .col-num { width: 3%; text-align: center; white-space: nowrap; }
-  #print-overlay .cj-table .col-fecha { width: 9%; white-space: nowrap; }
-  #print-overlay .cj-table .col-hora { width: 7%; white-space: nowrap; }
-  #print-overlay .cj-table .col-desc { width: 30%; word-wrap: break-word; }
-  #print-overlay .cj-table .col-tipo { width: 9%; text-align: center; white-space: nowrap; }
-  #print-overlay .cj-table .col-user { width: 14%; white-space: nowrap; }
-  #print-overlay .cj-table .col-ing { width: 10%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  #print-overlay .cj-table .col-egr { width: 9%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  #print-overlay .cj-table .col-saldo { width: 9%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #print-overlay .cj-table .col-num { width: 2%; text-align: center; white-space: nowrap; }
+  #print-overlay .cj-table .col-fecha { width: 6.5%; white-space: nowrap; }
+  #print-overlay .cj-table .col-hora { width: 4.5%; white-space: nowrap; }
+  #print-overlay .cj-table .col-desc { width: 16.5%; word-wrap: break-word; }
+  #print-overlay .cj-table .col-tipo { width: 6%; text-align: center; white-space: nowrap; }
+  #print-overlay .cj-table .col-pago { width: 7%; text-align: center; white-space: nowrap; }
+  #print-overlay .cj-table .col-importe { width: 8%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #print-overlay .cj-table .col-user { width: 7.5%; }
+  #print-overlay .cj-table .col-ing { width: 8%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #print-overlay .cj-table .col-egr { width: 8%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #print-overlay .cj-table .col-saldo { width: 8%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #print-overlay .cj-table .col-ing-caja { width: 7%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #print-overlay .cj-table .col-egr-caja { width: 7%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #print-overlay .cj-table .col-saldo-caja { width: 7%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #print-overlay .cj-table .col-ing-banco { width: 7%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #print-overlay .cj-table .col-egr-banco { width: 7%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #print-overlay .cj-table .col-saldo-banco { width: 7%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
   #print-overlay .cj-table .text-right { text-align: right; }
   #print-overlay .cj-table .text-center { text-align: center; }
   #print-overlay .cj-table .font-bold { font-weight: 700; }
   #print-overlay .cj-table .text-green { color: #16a34a; }
   #print-overlay .cj-table .text-red { color: #dc2626; }
+  #print-overlay .cj-table .text-banco { color: #38bdf8; }
+  #print-overlay .cj-table .text-banco-egr { color: #f97316; }
   #print-overlay .cj-table .badge { display: inline-block; padding: 1px 4px; border-radius: 2px; font-size: 7px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
   #print-overlay .cj-table .badge-success { background: #dcfce7; color: #166534; }
   #print-overlay .cj-table .badge-danger { background: #fee2e2; color: #991b1b; }
@@ -361,33 +409,16 @@ input::-webkit-credentials-autofill-button {
   #print-overlay .cj-table .badge-default { background: #f3f4f6; color: #374151; }
   #print-overlay .cj-summary { margin-top: 10px; border-top: 2px solid #000; padding-top: 8px; page-break-inside: avoid; }
   #print-overlay .cj-summary-title { font-weight: 800; font-size: 10px; text-transform: uppercase; margin-bottom: 6px; color: #000; }
-  #print-overlay .cj-summary-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+  #print-overlay .cj-summary-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
   #print-overlay .cj-summary-item { border: 1px solid #ddd; border-radius: 3px; padding: 6px 5px; text-align: center; }
   #print-overlay .cj-summary-label { font-size: 7px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
   #print-overlay .cj-summary-value { font-size: 11px; font-weight: 800; margin-top: 2px; color: #000; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  #print-overlay .cj-summary-item.cj-summary-saldo-final { border-color: #000; border-width: 2px; }
 
-  /* Resumen por forma de pago */
-  #print-overlay .cj-pagos { margin-top: 10px; page-break-inside: avoid; }
-  #print-overlay .cj-section-title { font-weight: 800; font-size: 10px; text-transform: uppercase; margin-bottom: 6px; color: #000; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
-  #print-overlay .cj-pagos-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
-  #print-overlay .cj-pago-item { border: 1px solid #ddd; border-radius: 3px; padding: 6px 5px; text-align: center; }
-  #print-overlay .cj-pago-label { font-size: 7px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
-  #print-overlay .cj-pago-value { font-size: 11px; font-weight: 800; margin-top: 2px; color: #000; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  /* Resumen por forma de pago — removed in Part 6 (replaced by PAGO column in table) */
 
-  /* Datos del cierre */
-  #print-overlay .cj-cierre { margin-top: 10px; page-break-inside: avoid; }
-  #print-overlay .cj-cierre-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-  #print-overlay .cj-cierre-item { border: 1px solid #ddd; border-radius: 3px; padding: 5px 7px; }
-  #print-overlay .cj-cierre-label { font-weight: 700; color: #666; text-transform: uppercase; font-size: 7px; letter-spacing: 0.5px; }
-  #print-overlay .cj-cierre-value { color: #000; font-weight: 600; margin-top: 1px; font-size: 10px; white-space: nowrap; }
+  /* Datos del cierre — integrated into financial summary in Part 6 */
 
-  /* Firmas */
-  #print-overlay .cj-firmas { display: flex; justify-content: space-between; gap: 40px; margin-top: 44px; page-break-inside: avoid; }
-  #print-overlay .cj-firma { flex: 1; text-align: center; }
-  #print-overlay .cj-firma-titulo { font-size: 9px; font-weight: 700; color: #000; text-transform: uppercase; letter-spacing: 0.3px; }
-  #print-overlay .cj-firma-linea { margin-top: 44px; border-bottom: 1px solid #000; }
-  #print-overlay .cj-firma-nombre { margin-top: 4px; font-size: 8px; color: #555; }
+  /* Firmas — removed in Part 6 */
 
   /* Pie de página fijo: se repite en cada página en Chrome */
   #print-overlay .cj-page-footer { position: fixed; bottom: 0; left: 0; right: 0; display: flex; justify-content: flex-end; border-top: 1px solid #ddd; padding-top: 4px; font-size: 8px; color: #777; }

@@ -14,7 +14,7 @@ function readSource(path: string) {
 describe("Caja modal lifecycle contract", () => {
   it("closes the cash closing modal only after a successful close", () => {
     const source = readSource(cajaTerminalPath);
-    const confirmarCierre = source.match(/const confirmarCierre = \(\) => \{[\s\S]*?\n  \};/)?.[0] ?? "";
+    const confirmarCierre = source.match(/const confirmarCierre = \([^)]*\) => \{[\s\S]*?\n  \};/)?.[0] ?? "";
 
     expect(confirmarCierre).toMatch(/if \(res\.success\) \{[\s\S]*setShowCerrarModal\(false\);[\s\S]*router\.refresh\(\);[\s\S]*\}/);
     expect(confirmarCierre).toMatch(/else \{[\s\S]*setCierreErrorMsg\(res\.error \|\| "Error al cerrar la caja\."\);[\s\S]*\}/);

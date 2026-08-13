@@ -39,6 +39,7 @@ function enriched(overrides: Partial<MovimientoEnriched> = {}): MovimientoEnrich
     compraId: null,
     itemNumber: 1,
     saldoAcumulado: 100,
+    saldoBanco: 0,
     ...overrides,
   };
 }

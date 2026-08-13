@@ -11,8 +11,7 @@
     "db:seed": "npx prisma db seed"
   },
   "prisma": {
-    "seed": "tsx prisma/seed.ts",
-    "seed-users": "tsx prisma/seed-users.ts"
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

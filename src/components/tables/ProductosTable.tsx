@@ -1,6 +1,7 @@
 "use client";
 
 import { createCategoria,createMarca,getCategorias,getCategoriasWithCount,getMarcasActivas,getMarcasWithCount,toggleCategoriaActivo,toggleMarcaActivo,updateCategoria,updateMarca } from "@/actions/auxiliares";
+import { getCajaActiva } from "@/actions/caja";
 import Image from "next/image";
 import {
 createProducto,
@@ -15,41 +16,45 @@ import { Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle } from 
 import { FormField } from "@/components/ui/form-field";
 import HistorialModal from "@/components/ui/HistorialModal";
 import { Input } from "@/components/ui/input";
+import { PaymentDistribution, PaymentMethod } from "@/components/ui/PaymentDistribution";
 import ReactivarModal from "@/components/ui/ReactivarModal";
 import RestarStockModal from "@/components/ui/RestarStockModal";
 import { TableShell } from "@/components/ui/table-shell";
+import {
+  getProductPurchaseCost,
+  isProductPaymentDistributionIncomplete,
+} from "@/lib/product-purchase-payments";
+import { calcularEfectivoFisico } from "@/lib/caja-balance";
 import { cn,formatCurrency } from "@/lib/utils";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import {
-AlertTriangle,
-ArrowUpDown,
-Boxes,
-BarChart3,
-Check,
-CheckCircle,
-ChevronDown,
-CircleOff,
-Columns3,
-DollarSign,
-Edit2,
-GripVertical,
-FolderOpen,
-History,
-Info,
-Layers,
-Landmark,
-ListFilter,
-Package,
-PackageCheck,
-PackagePlus,
-PackageX,
-Plus,
-RotateCcw,
-ShieldCheck,
-Tag,
-TrendingDown,
-Truck,
-X
+  AlertTriangle,
+  ArrowUpDown,
+  Boxes,
+  BarChart3,
+  Check,
+  CheckCircle,
+  ChevronDown,
+  CircleOff,
+  Columns3,
+  DollarSign,
+  Edit2,
+  GripVertical,
+  FolderOpen,
+  History,
+  Layers,
+  ListFilter,
+  Package,
+  PackageCheck,
+  PackagePlus,
+  PackageX,
+  Plus,
+  RotateCcw,
+  ShieldCheck,
+  Tag,
+  TrendingDown,
+  Truck,
+  X
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import React,{ useCallback,useEffect,useRef,useState,useTransition } from "react";
@@ -123,12 +128,6 @@ const COLUMN_WIDTH_CLASSES: Record<string, string> = {
 
 const COLUMN_VISIBILITY_KEY = "productos-column-visibility";
 const PRODUCT_FORM_ID = "producto-form";
-const ORIGEN_PAGO_OPTIONS = [
-  { value: "EFECTIVO_CAJA", label: "Efectivo de Caja" },
-  { value: "TRANSFERENCIA_BANCARIA", label: "Transferencia Bancaria" },
-  { value: "CUENTA_CORRIENTE_PROVEEDOR", label: "Cuenta Corriente del Proveedor" },
-  { value: "FONDOS_EXTERNOS", label: "Fondos Externos" },
-] as const;
 
 type FilterOption = {
   value: string;
@@ -410,6 +409,14 @@ export default function ProductosTable({
   const [successMsg, setSuccessMsg] = useState("");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [cantidadAReponer, setCantidadAReponer] = useState<number | "">("");
+  const [payments, setPayments] = useState<PaymentMethod[]>([]);
+  const [productPurchaseCost, setProductPurchaseCost] = useState(0);
+  const distribucionIncompleta = isProductPaymentDistributionIncomplete(
+    productPurchaseCost,
+    payments
+  );
+  const [cajaBalance, setCajaBalance] = useState<number>(0);
+  const [cajaAbierta, setCajaAbierta] = useState<boolean>(true);
 
   /* ── Form combobox state ── */
   const [marcaValue, setMarcaValue] = useState("");
@@ -439,6 +446,19 @@ export default function ProductosTable({
   useEffect(() => {
     if (isModalOpen) {
       getMarcasActivas().then(setActiveMarcas);
+      // Fetch caja balance for payment distribution
+      getCajaActiva().then(caja => {
+        if (caja) {
+          const balance = calcularEfectivoFisico(
+            caja.movimientos
+          ).efectivoEsperado;
+          setCajaBalance(balance);
+          setCajaAbierta(true);
+        } else {
+          setCajaBalance(0);
+          setCajaAbierta(false);
+        }
+      });
     }
   }, [isModalOpen]);
 
@@ -478,6 +498,8 @@ export default function ProductosTable({
     setImagePreview(product.imagen || null);
     setMarcaValue(product.marca || "");
     setCategoriaValue(product.categoria.nombre);
+    setPayments([]);
+    setProductPurchaseCost(0);
     setIsModalOpen(true);
   }, []);
 
@@ -489,6 +511,8 @@ export default function ProductosTable({
     setImagePreview(null);
     setMarcaValue("");
     setCategoriaValue("");
+    setPayments([]);
+    setProductPurchaseCost(0);
     setIsModalOpen(true);
   }, []);
 
@@ -576,6 +600,23 @@ export default function ProductosTable({
     const matchedCat = categorias.find(c => c.nombre === categoriaValue);
     formData.set("categoriaId", matchedCat ? String(matchedCat.id) : "");
 
+    const currentPurchaseCost = getProductPurchaseCost(
+      formData,
+      editingProduct ? "edit" : "create"
+    );
+    if (isProductPaymentDistributionIncomplete(currentPurchaseCost, payments)) {
+      setErrorMsg("Completá una distribución de pago válida antes de guardar.");
+      return;
+    }
+
+    // Add payments data if available
+    if (payments.length > 0) {
+      const validPayments = payments.filter(p => p.monto > 0);
+      if (validPayments.length > 0) {
+        formData.set("pagos", JSON.stringify(validPayments));
+      }
+    }
+
     startTransition(async () => {
       try {
         const res = editingProduct
@@ -591,6 +632,7 @@ export default function ProductosTable({
           setTimeout(() => {
             setIsModalOpen(false);
             setSuccessMsg("");
+            setPayments([]);
           }, 1500);
           router.refresh();
         } else {
@@ -600,7 +642,7 @@ export default function ProductosTable({
         setErrorMsg(error instanceof Error ? error.message : "Ocurrió un error inesperado.");
       }
     });
-    }, [editingProduct, marcaValue, categoriaValue, categorias, router]);
+    }, [editingProduct, marcaValue, categoriaValue, categorias, payments, router]);
 
   const handleRefreshCategorias = useCallback(async () => {
     const cats = await getCategorias();
@@ -1330,7 +1372,19 @@ export default function ProductosTable({
             </DialogDescription>
           </DialogHeader>
 
-          <form id={PRODUCT_FORM_ID} onSubmit={handleFormSubmit} className="flex-1 overflow-y-auto md:overflow-y-hidden px-4 py-3 space-y-2.5">
+          <form
+            id={PRODUCT_FORM_ID}
+            onSubmit={handleFormSubmit}
+            onInput={(event) => {
+              setProductPurchaseCost(
+                getProductPurchaseCost(
+                  new FormData(event.currentTarget),
+                  editingProduct ? "edit" : "create"
+                )
+              );
+            }}
+            className="flex-1 overflow-y-auto md:overflow-y-hidden px-4 py-3 space-y-2.5"
+          >
 
             {/* ── Nombre del Repuesto (full width) ── */}
             <FormField label="Nombre del Repuesto" required className="mb-0">
@@ -1482,6 +1536,7 @@ export default function ProductosTable({
                     </FormField>
                     <FormField label="Cantidad a Reponer" className="mb-0">
                       <Input
+                        name="cantidadAReponer"
                         type="number"
                         min="0"
                         value={cantidadAReponer}
@@ -1505,56 +1560,40 @@ export default function ProductosTable({
                         />
                       </div>
                     </FormField>
-                    <FormField label="Origen del Pago" required className="mb-0">
-                      <div className="relative">
-                        <Landmark className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" size={14} />
-                        <select
-                          name="origenPago"
-                          defaultValue="EFECTIVO_CAJA"
-                          required
-                          className="w-full pl-9 pr-4 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-[var(--text)] text-sm focus:outline-none focus:border-[var(--brand)] appearance-none"
-                        >
-                          {ORIGEN_PAGO_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>{option.label}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </FormField>
+                    {/* Payment Distribution for Restocking */}
+                    <div className="col-span-full">
+                      <PaymentDistribution
+                        total={productPurchaseCost}
+                        onChange={setPayments}
+                        cajaBalance={cajaBalance}
+                        cajaAbierta={cajaAbierta}
+                        disabled={isPending}
+                      />
+                    </div>
                   </>
                 ) : (
                   <>
                     <FormField label="Stock Inicial" required className="mb-0">
                       <Input name="cantidad" type="number" min="0" required placeholder="0" className="font-mono py-2" />
                     </FormField>
-                    <FormField label="Origen del Pago" required className="mb-0">
-                      <div className="relative">
-                        <Landmark className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" size={14} />
-                        <select
-                          name="origenPago"
-                          defaultValue="EFECTIVO_CAJA"
-                          required
-                          className="w-full pl-9 pr-4 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-[var(--text)] text-sm focus:outline-none focus:border-[var(--brand)] appearance-none"
-                        >
-                          {ORIGEN_PAGO_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>{option.label}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </FormField>
+                    {/* Payment Distribution for Initial Stock */}
+                    <div className="col-span-full">
+                      <PaymentDistribution
+                        total={productPurchaseCost}
+                        onChange={setPayments}
+                        cajaBalance={cajaBalance}
+                        cajaAbierta={cajaAbierta}
+                        disabled={isPending}
+                      />
+                    </div>
                   </>
                 )}
               </div>
             </div>
+          </form>
 
-            {/* ── Regla Transaccional (one line, no card) ── */}
-            {editingProduct && (
-              <div className="flex items-center gap-1.5 text-[11px] text-[var(--text-muted)] py-1">
-                <Info size={12} className="text-[var(--brand)]" />
-                <span><strong>Regla:</strong> Al incrementar stock se registrará una reposición. La salida en Caja ocurre solo si el origen de pago es Efectivo de Caja.</span>
-              </div>
-            )}
-
-            {/* ── Alertas ── */}
+          {/* ── Alertas (siempre visibles, ancladas sobre el footer) ── */}
+          <div className="shrink-0 px-4 pt-1.5 space-y-2">
             {errorMsg && (
               <div className="p-2 bg-[var(--danger-light)] border border-[var(--danger)]/20 text-[var(--danger)] text-xs font-semibold rounded-[var(--radius-md)] flex items-center space-x-2">
                 <AlertTriangle size={14} />
@@ -1567,15 +1606,14 @@ export default function ProductosTable({
                 <span>{successMsg}</span>
               </div>
             )}
-
-          </form>
+          </div>
 
           {/* ── Footer fijo: Botones ── */}
           <div className="px-4 py-2.5 border-t border-[var(--border)] flex justify-end gap-3 shrink-0">
             <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)} disabled={isPending}>
               Cancelar
             </Button>
-            <Button type="submit" form={PRODUCT_FORM_ID} loading={isPending} disabled={isPending}>
+            <Button type="submit" form={PRODUCT_FORM_ID} loading={isPending} disabled={isPending || distribucionIncompleta}>
               {editingProduct ? "Guardar cambios" : "Agregar Repuesto"}
             </Button>
           </div>

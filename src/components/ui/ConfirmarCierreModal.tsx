@@ -1,13 +1,14 @@
 "use client";
 
 import { formatCurrency,formatDate,formatShiftDuration } from "@/lib/utils";
+import { crearPayloadCierre, type CierreCajaPayload } from "@/lib/caja-closing";
 import { AlertTriangle,ArrowDownLeft,ArrowUpRight,CheckCircle2,Clock,Eye,Loader2,Lock,Scale,TrendingUp,X } from "lucide-react";
 import { useState } from "react";
 
 interface ConfirmarCierreModalProps {
   open: boolean;
   onClose: () => void;
-  onConfirm: (observacion?: string) => void;
+  onConfirm: (payload: CierreCajaPayload) => void;
   isPending: boolean;
   errorMessage?: string;
   montoInicial: number;
@@ -105,7 +106,7 @@ function ConfirmarCierreModalContent({
               <div className="p-1.5 rounded-lg bg-[var(--info)]/10 text-[var(--info)]">
                 <TrendingUp size={14} />
               </div>
-              <span className="text-xs font-semibold text-[var(--info)]">Saldo esperado en caja</span>
+              <span className="text-xs font-semibold text-[var(--info)]">Efectivo esperado</span>
             </div>
             <span className="text-sm font-black text-[var(--info)] font-mono">
               {formatCurrency(saldoEsperado)}
@@ -133,7 +134,7 @@ function ConfirmarCierreModalContent({
           {/* Monto Contado - INPUT */}
           <div className="space-y-1.5">
             <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">
-              Monto contado (efectivo en mano)
+              Efectivo contado
             </label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] text-sm font-bold">$</span>
@@ -227,7 +228,11 @@ function ConfirmarCierreModalContent({
             Cancelar
           </button>
           <button
-            onClick={() => onConfirm(observacion || undefined)}
+            onClick={() => {
+              if (montoContadoNum !== null) {
+                onConfirm(crearPayloadCierre(montoContadoNum, observacion || undefined));
+              }
+            }}
             disabled={isPending || montoContado === ""}
             className="px-4 py-2 bg-[var(--danger)] hover:bg-[var(--danger)]/90 text-white text-sm font-bold rounded-lg transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >

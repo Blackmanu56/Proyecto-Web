@@ -71,10 +71,9 @@ export default function Navbar({ user }: NavbarProps) {
     ? navItems.filter((item) => item.roles.includes(user.role))
     : [];
 
-  // Split modules into left and right groups around the centered logo
-  const midpoint = Math.ceil(allowedItems.length / 2);
-  const leftItems = allowedItems.slice(0, midpoint);
-  const rightItems = allowedItems.slice(midpoint);
+  const leftPaths = new Set(["/dashboard", "/productos", "/ventas", "/caja"]);
+  const leftItems = allowedItems.filter((item) => leftPaths.has(item.path));
+  const rightItems = allowedItems.filter((item) => !leftPaths.has(item.path));
 
   // Build user object for EmployeePanel
   const panelUser = user ? {
@@ -92,49 +91,51 @@ export default function Navbar({ user }: NavbarProps) {
 
   return (
     <>
-      <header className="sticky top-0 z-50 h-[5.5rem] flex items-center justify-between px-6 bg-gradient-to-r from-[var(--panel)] via-[#1a1e27] to-[var(--panel)] border-b border-[var(--border)]/40 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.35)] relative">
-        {/* Left Navigation */}
-        <nav className="hidden md:flex items-center gap-1.5 shrink-0 mr-6">
-          {leftItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = pathname.startsWith(item.path);
-            return (
-              <Link
-                key={item.name}
-                href={item.path}
-                className={`relative flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all duration-200 ${
-                  isActive
-                    ? "bg-[var(--brand)]/10 text-white border border-[var(--brand)]/20 shadow-[0_0_14px_rgba(214,40,40,0.15)] font-bold"
-                    : "text-[var(--text-secondary)] hover:text-white hover:bg-[var(--card)]/60 border border-transparent"
-                }`}
-              >
-                <Icon size={15} className={`shrink-0 transition-all duration-200 ${isActive ? "scale-110" : "group-hover:brightness-125"}`} />
-                <span>{item.name}</span>
-                {isActive && (
-                  <span className="absolute bottom-[-14px] left-1/2 -translate-x-1/2 w-7 h-[2px] bg-gradient-to-r from-transparent via-[var(--brand)] to-transparent rounded-full" />
-                )}
-              </Link>
-            );
-          })}
-        </nav>
+      <header className="sticky top-0 z-50 h-[5.5rem] px-6 bg-gradient-to-r from-[var(--panel)] via-[#1a1e27] to-[var(--panel)] border-b border-[var(--border)]/40 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.35)]">
+        <div className="flex h-full items-center justify-between gap-6">
+          <div className="flex min-w-0 items-center gap-5">
+            <Link
+              href="/dashboard"
+              className="hidden xl:flex items-center shrink-0 group"
+            >
+              <Image
+                src="/logo.png"
+                alt="Logo de Chopper Repuestos"
+                width={148}
+                height={66}
+                className="h-[3.9rem] w-auto object-contain rounded-lg drop-shadow-[0_2px_12px_rgba(0,0,0,0.5)] transition-all duration-300 group-hover:scale-105 group-hover:brightness-110 group-hover:drop-shadow-[0_4px_16px_rgba(0,0,0,0.6)]"
+              />
+            </Link>
 
-        {/* Centered Logo — absolutely positioned so it stays centered regardless of module count */}
-        <Link
-          href="/dashboard"
-          className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 flex items-center z-10 group"
-        >
-          <Image
-            src="/logo.png"
-            alt="Logo de Chopper Repuestos"
-            width={160}
-            height={72}
-            className="h-[4.5rem] w-auto object-contain rounded-lg drop-shadow-[0_2px_12px_rgba(0,0,0,0.5)] transition-all duration-300 group-hover:scale-105 group-hover:brightness-110 group-hover:drop-shadow-[0_4px_16px_rgba(0,0,0,0.6)]"
-          />
-        </Link>
+            <div className="hidden xl:block w-px h-10 bg-gradient-to-b from-transparent via-white/18 to-transparent shadow-[0_0_8px_rgba(255,255,255,0.08)]" />
 
-        {/* Right Navigation + User */}
-        <div className="flex items-center gap-4 shrink-0">
-          <nav className="hidden md:flex items-center gap-1.5 ml-6">
+            <nav className="hidden xl:flex items-center gap-1.5 shrink-0">
+              {leftItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = pathname.startsWith(item.path);
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.path}
+                    className={`relative flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all duration-200 ${
+                      isActive
+                        ? "bg-[var(--brand)]/10 text-white border border-[var(--brand)]/20 shadow-[0_0_14px_rgba(214,40,40,0.15)] font-bold"
+                        : "text-[var(--text-secondary)] hover:text-white hover:bg-[var(--card)]/60 border border-transparent"
+                    }`}
+                  >
+                    <Icon size={15} className={`shrink-0 transition-all duration-200 ${isActive ? "scale-110" : "group-hover:brightness-125"}`} />
+                    <span>{item.name}</span>
+                    {isActive && (
+                      <span className="absolute bottom-[-14px] left-1/2 -translate-x-1/2 w-7 h-[2px] bg-gradient-to-r from-transparent via-[var(--brand)] to-transparent rounded-full" />
+                    )}
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+
+          <div className="flex items-center gap-4 shrink-0">
+            <nav className="hidden xl:flex items-center gap-1.5">
             {rightItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname.startsWith(item.path);
@@ -156,57 +157,58 @@ export default function Navbar({ user }: NavbarProps) {
                 </Link>
               );
             })}
-          </nav>
+            </nav>
 
-          {/* Separator */}
-          <div className="hidden md:block w-px h-9 bg-gradient-to-b from-transparent via-[var(--border)]/50 to-transparent" />
+            {/* Separator */}
+            <div className="hidden xl:block w-px h-10 bg-gradient-to-b from-transparent via-white/18 to-transparent shadow-[0_0_8px_rgba(255,255,255,0.08)]" />
 
-          {/* User block */}
-          {user && (
-            <>
-              <button
-                onClick={() => setShowProfile(true)}
-                className="hidden sm:flex items-center gap-3 hover:bg-[var(--card)]/80 border border-[var(--border)]/20 hover:border-[var(--border)]/40 rounded-xl px-3 py-2 transition-all duration-300 cursor-pointer"
-              >
-                <Avatar
-                  fotoUrl={user.fotoUrl ?? null}
-                  nombreCompleto={user.username}
-                  size="sm"
-                  activo={true}
-                />
-                <div className="flex flex-col items-start leading-none gap-0.5">
-                  <span className="text-xs font-bold text-[var(--text)] max-w-[120px] truncate">
-                    {user.username}
-                  </span>
-                  <span className="text-[9px] text-[var(--text-muted)] font-black uppercase tracking-wider">
-                    {user.role.replace("_", " ")}
-                  </span>
-                </div>
-              </button>
+            {/* User block */}
+            {user && (
+              <>
+                <button
+                  onClick={() => setShowProfile(true)}
+                className="hidden xl:flex items-center gap-3 hover:bg-[var(--card)]/80 border border-[var(--border)]/20 hover:border-[var(--border)]/40 rounded-xl px-3 py-2 transition-all duration-300 cursor-pointer"
+                >
+                  <Avatar
+                    fotoUrl={user.fotoUrl ?? null}
+                    nombreCompleto={user.username}
+                    size="sm"
+                    activo={true}
+                  />
+                  <div className="flex flex-col items-start leading-none gap-0.5">
+                    <span className="text-xs font-bold text-[var(--text)] max-w-[120px] truncate">
+                      {user.username}
+                    </span>
+                    <span className="text-[9px] text-[var(--text-muted)] font-black uppercase tracking-wider">
+                      {user.role.replace("_", " ")}
+                    </span>
+                  </div>
+                </button>
 
-              <button
-                onClick={handleLogout}
-                title="Cerrar sesión"
-                className="hidden sm:flex items-center justify-center p-2.5 rounded-xl text-[var(--text-secondary)] hover:text-[var(--danger)] hover:bg-[var(--danger-light)] border border-transparent hover:border-[var(--danger)]/10 transition-all duration-300"
-              >
-                <LogOut size={16} />
-              </button>
+                <button
+                  onClick={handleLogout}
+                  title="Cerrar sesión"
+                className="hidden xl:flex items-center justify-center p-2.5 rounded-xl text-[var(--text-secondary)] hover:text-[var(--danger)] hover:bg-[var(--danger-light)] border border-transparent hover:border-[var(--danger)]/10 transition-all duration-300"
+                >
+                  <LogOut size={16} />
+                </button>
 
-              {/* Mobile menu button */}
-              <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="md:hidden p-2.5 rounded-xl text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--card)] transition-all duration-300 border border-transparent hover:border-[var(--border)]/40"
-              >
-                {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
-              </button>
-            </>
-          )}
+                {/* Mobile menu button */}
+                <button
+                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                  className="xl:hidden p-2.5 rounded-xl text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--card)] transition-all duration-300 border border-transparent hover:border-[var(--border)]/40"
+                >
+                  {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </header>
 
       {/* Mobile menu dropdown */}
       {mobileMenuOpen && (
-        <div className="md:hidden fixed inset-x-0 top-[5.5rem] z-40 bg-gradient-to-b from-[var(--panel)] to-[#1a1e27] border-b border-[var(--border)]/40 shadow-[0_8px_30px_-4px_rgba(0,0,0,0.4)] animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="xl:hidden fixed inset-x-0 top-[5.5rem] z-40 bg-gradient-to-b from-[var(--panel)] to-[#1a1e27] border-b border-[var(--border)]/40 shadow-[0_8px_30px_-4px_rgba(0,0,0,0.4)] animate-in fade-in slide-in-from-top-2 duration-200">
           {/* User info (mobile) */}
           {user && (
             <div className="px-5 py-4 border-b border-[var(--border)]/40 flex items-center gap-3">
@@ -267,7 +269,7 @@ export default function Navbar({ user }: NavbarProps) {
       {/* Overlay for mobile menu */}
       {mobileMenuOpen && (
         <div
-          className="md:hidden fixed inset-0 z-30 bg-black/50"
+          className="xl:hidden fixed inset-0 z-30 bg-black/50"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
