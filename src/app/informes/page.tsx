@@ -4,12 +4,13 @@ import {
   getReporteVentas,
   getReporteCierres,
   getReporteProductos,
-  getReporteEmpleados,
-  getProveedoresReport,
+  getEmpleadosDashboard,
+  getProveedoresDashboard,
   getUsuariosActivos,
   getClientesDashboard,
   type ClientesDashboard,
 } from "@/actions/informes";
+import { EMPTY_EMPLEADOS_DASHBOARD, EMPTY_PROVEEDORES_DASHBOARD } from "@/lib/report-constants";
 import { getCategorias, getProveedores, getClientesDistinct, getMetodosPago } from "@/actions/auxiliares";
 import { formatLocalDateTimeStart } from "@/lib/reportPeriods";
 import InformesTabs from "@/components/reports/InformesTabs";
@@ -24,7 +25,6 @@ const EMPTY_CLIENTES_DASHBOARD: ClientesDashboard = {
   top10: [],
   frecuencia: [],
   sinComprar90d: [],
-  clientesPorGasto: [],
   clientesCompleto: [],
 };
 
@@ -51,9 +51,9 @@ export default async function InformesPage() {
     canSeeVentas ? getReporteVentas(hoyStr, hoyStr) : Promise.resolve({ ventas: [], totales: { cantidad: 0, total: 0, promedio: 0 } }),
     canSeeCierres ? getReporteCierres(hoyStr, hoyStr) : Promise.resolve([]),
     canSeeProductos ? getReporteProductos() : Promise.resolve([]),
-    canSeeEmpleados ? getReporteEmpleados(hoyStr, hoyStr) : Promise.resolve([]),
+    canSeeEmpleados ? getEmpleadosDashboard(hoyStr, hoyStr) : Promise.resolve(EMPTY_EMPLEADOS_DASHBOARD),
     canSeeClientes ? getClientesDashboard() : Promise.resolve(EMPTY_CLIENTES_DASHBOARD),
-    canSeeProveedores ? getProveedoresReport({ page: 1, limit: 50 }) : Promise.resolve({ data: [], total: 0, page: 1, pageSize: 50, totalPages: 0 }),
+    canSeeProveedores ? getProveedoresDashboard() : Promise.resolve(EMPTY_PROVEEDORES_DASHBOARD),
     getUsuariosActivos(),
     getCategorias(),
     getProveedores(),
@@ -62,8 +62,8 @@ export default async function InformesPage() {
   ]);
 
   return (
-    <div className="flex-1 bg-[var(--bg)] pt-2 pb-4 md:pt-3 md:pb-6 lg:pt-4 lg:pb-8">
-      <div className="max-w-screen-2xl mx-auto space-y-4 px-6 md:px-8 xl:px-10">
+    <div className="fixed inset-0 top-[5.5rem] bg-[var(--bg)] flex flex-col overflow-hidden z-10">
+      <div className="flex-1 flex flex-col min-h-0 overflow-y-auto p-2 lg:p-3 space-y-3">
         {/* Encabezado */}
         <div className="flex items-center justify-center gap-2 shrink-0 mb-1">
           <div className="p-1.5 bg-[var(--brand-light)] rounded-lg text-[var(--brand)]">

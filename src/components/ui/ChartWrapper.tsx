@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useSyncExternalStore } from "react";
+import React, { useEffect, useState } from "react";
 import { ResponsiveContainer } from "recharts";
 
 interface ChartWrapperProps {
   title: string;
   children: React.ReactElement;
   height?: number;
+  action?: React.ReactNode;
 }
 
 const CHART_COLORS = [
@@ -26,6 +27,7 @@ export default function ChartWrapper({
   title,
   children,
   height = 300,
+  action,
 }: ChartWrapperProps) {
   // Gateamos el montaje de los charts hasta el primer paint del cliente.
   // Recharts mide el contenedor con getBoundingClientRect/ResizeObserver; si el
@@ -33,11 +35,10 @@ export default function ChartWrapper({
   // SVG nace con tamaño 0 y, si el data nunca cambia (no hay Cargar/filtros),
   // no hay re-render que dispare una re-medición → gráficos vacíos para siempre.
   // Al montar el ResponsiveContainer recién acá, nace con layout real.
-  const mounted = useSyncExternalStore(
-    () => () => {},
-    () => true,
-    () => false
-  );
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Render children directly dentro de ResponsiveContainer.
   // Antes usábamos React.cloneElement para inyectar margin + Tooltip + Legend,
@@ -46,7 +47,10 @@ export default function ChartWrapper({
   // children directamente — cada informe puede agregar Tooltip/Legend si lo necesita.
   return (
     <div className="bg-card rounded-xl p-4 border border-border">
-      <h3 className="text-sm font-semibold text-text-muted mb-4">{title}</h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-semibold text-text-muted">{title}</h3>
+        {action}
+      </div>
       <div style={{ width: "100%", height }}>
         {mounted && <ResponsiveContainer>{children}</ResponsiveContainer>}
       </div>
