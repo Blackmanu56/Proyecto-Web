@@ -3,14 +3,8 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   getReporteVentas,
-  getVentasPorCategoria,
-  getVentasPorCliente,
-  getVentasPorVendedorComision,
-  getTopProductos,
   getEvolucionVentas,
-  getResumenVentas,
-  getVentasPorMetodoPago,
-  getVentasPorDiaSemana,
+  getVentasAnalisisBatch,
 } from "@/actions/informes";
 import { parse } from "date-fns";
 import { Search, Calendar, User, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
@@ -94,30 +88,14 @@ export default function VentasReport({ initialData, usuarios }: Props) {
   const loadAnalisisData = useCallback(async (): Promise<AnalisisCache> => {
     const filters = { fechaDesde: fechaDesde || undefined, fechaHasta: fechaHasta || undefined };
     const prev = getPreviousWindow(activePeriod, fechaDesde, fechaHasta);
-    const granularity = granularityRef.current;
-    const [resumenR, prevR, evoR, catR, topR, cliR, vendR, metR, diaR] = await Promise.allSettled([
-      getResumenVentas(filters.fechaDesde, filters.fechaHasta, usuarioId),
-      prev ? getResumenVentas(prev.desde, prev.hasta, usuarioId) : Promise.resolve(null),
-      getEvolucionVentas(filters.fechaDesde, filters.fechaHasta, granularity),
-      getVentasPorCategoria(filters),
-      getTopProductos(filters, 10),
-      getVentasPorCliente({ ...filters, page: 1 }),
-      getVentasPorVendedorComision({ ...filters, page: 1 }),
-      getVentasPorMetodoPago(filters), // D4: date-only (D3: charts sin filtro de vendedor)
-      getVentasPorDiaSemana(filters), // D6: date-only
-    ]);
-    const emptyResumen = { cantidad: 0, total: 0, productosVendidos: 0, clientesAtendidos: 0 };
-    return {
-      resumen: resumenR.status === "fulfilled" ? resumenR.value : emptyResumen,
-      prevResumen: prevR.status === "fulfilled" ? prevR.value : null,
-      evolucion: evoR.status === "fulfilled" ? evoR.value.data : [],
-      categoria: catR.status === "fulfilled" ? catR.value.data : [],
-      metodoPago: metR.status === "fulfilled" ? metR.value.data : [],
-      topProductos: topR.status === "fulfilled" ? topR.value.data : [],
-      topClientes: cliR.status === "fulfilled" ? cliR.value.data : [],
-      vendedores: vendR.status === "fulfilled" ? vendR.value.data : [],
-      diaSemana: diaR.status === "fulfilled" ? diaR.value.data : [],
-    };
+    return getVentasAnalisisBatch({
+      fechaDesde: filters.fechaDesde,
+      fechaHasta: filters.fechaHasta,
+      usuarioId,
+      prevFechaDesde: prev?.desde,
+      prevFechaHasta: prev?.hasta,
+      agruparPor: granularityRef.current,
+    });
   }, [fechaDesde, fechaHasta, usuarioId, activePeriod]);
 
   // Fetch-on-first-activation (spec: lazy mount). La invalidación por rangeKey pone la
@@ -224,13 +202,6 @@ export default function VentasReport({ initialData, usuarios }: Props) {
   );
 
   const handleSearch = useCallback(() => fetchTabla(), [fetchTabla]);
-
-  // Montaje: solo fetch de la tabla — las fechas ya son 7d y el efecto de
-  // activación corre el batch de Análisis (exactamente 1 de cada uno)
-  useEffect(() => {
-    fetchTabla();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // -- Print section: imprime y resetea --
   useEffect(() => {

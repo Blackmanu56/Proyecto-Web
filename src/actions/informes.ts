@@ -1747,6 +1747,387 @@ export async function getTopProductos(filters: ReportFilters = {}, limit: number
   }
 }
 
+export type VentasAnalisisBatchData = {
+  resumen: { cantidad: number; total: number; productosVendidos: number; clientesAtendidos: number };
+  prevResumen: { cantidad: number; total: number; productosVendidos: number; clientesAtendidos: number } | null;
+  evolucion: { periodo: string; ventas: number; ganancia: number; fechaInicio: string; fechaFin: string }[];
+  categoria: { categoria: string; cantidad: number; subtotal: number; ganancia: number }[];
+  metodoPago: { metodo: string; cantidadVentas: number; total: number }[];
+  topProductos: { productoId: number; producto: string; categoria: string; cantidad: number; ingreso: number }[];
+  topClientes: { clienteId: number; cliente: string; cantidad: number; total: number }[];
+  vendedores: { usuarioId: number; vendedor: string; cantidadVentas: number; totalVendido: number; comision: number }[];
+  diaSemana: { dow: number; ventas: number; total: number }[];
+};
+
+type VentaAnalisisRecord = {
+  id: number;
+  total: number;
+  fecha: Date;
+  metodoPago: string | null;
+  clienteId: number;
+  usuarioId: number;
+  cliente: { nombre: string };
+  usuario: { username: string; nombreCompleto: string | null };
+  detalles: {
+    cantidad: number;
+    subtotal: number;
+    producto: {
+      id: number;
+      nombre: string;
+      precioCompra: number;
+      categoria: { nombre: string } | null;
+    };
+  }[];
+};
+
+function toBuenosAiresWallTime(date: Date) {
+  return new Date(date.getTime() - 3 * 60 * 60 * 1000);
+}
+
+function buildResumenVentasFromRecords(ventas: VentaAnalisisRecord[]) {
+  return {
+    cantidad: ventas.length,
+    total: ventas.reduce((sum, venta) => sum + venta.total, 0),
+    productosVendidos: ventas.reduce((sum, venta) => sum + venta.detalles.length, 0),
+    clientesAtendidos: new Set(ventas.map((venta) => venta.clienteId)).size,
+  };
+}
+
+function buildEvolucionVentasFromRecords(
+  ventas: VentaAnalisisRecord[],
+  agruparPor: "dia" | "semana" | "mes" | "anio"
+) {
+  const agrupado = new Map<
+    string,
+    { ventas: number; costo: number; fechaInicio: Date; fechaFin: Date }
+  >();
+
+  for (const venta of ventas) {
+    const fechaLocal = toBuenosAiresWallTime(venta.fecha);
+    let periodo: string;
+    let fechaInicio = fechaLocal;
+    let fechaFin = fechaLocal;
+
+    if (agruparPor === "anio") {
+      periodo = fechaLocal.toLocaleDateString("es-AR", { year: "numeric" });
+      fechaInicio = new Date(fechaLocal.getFullYear(), 0, 1);
+      fechaFin = new Date(fechaLocal.getFullYear(), 11, 31, 23, 59, 59, 999);
+    } else if (agruparPor === "mes") {
+      periodo = fechaLocal.toLocaleDateString("es-AR", { month: "long", year: "numeric" });
+      fechaInicio = new Date(fechaLocal.getFullYear(), fechaLocal.getMonth(), 1);
+      fechaFin = new Date(fechaLocal.getFullYear(), fechaLocal.getMonth() + 1, 0, 23, 59, 59, 999);
+    } else if (agruparPor === "semana") {
+      const dayOfWeek = fechaLocal.getDay();
+      const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      fechaInicio = new Date(
+        fechaLocal.getFullYear(),
+        fechaLocal.getMonth(),
+        fechaLocal.getDate() - diffToMonday
+      );
+      fechaFin = new Date(
+        fechaLocal.getFullYear(),
+        fechaLocal.getMonth(),
+        fechaLocal.getDate() - diffToMonday + 6,
+        23,
+        59,
+        59,
+        999
+      );
+      const diaDelMes = fechaInicio.getDate();
+      const numSemana = Math.ceil(diaDelMes / 7);
+      const mesLargo = fechaInicio.toLocaleDateString("es-AR", { month: "long" });
+      periodo = `S${numSemana} ${mesLargo}`;
+    } else {
+      periodo = fechaLocal.toLocaleDateString("es-AR", {
+        day: "2-digit",
+        month: "short",
+        year: "2-digit",
+      });
+      fechaInicio = new Date(
+        fechaLocal.getFullYear(),
+        fechaLocal.getMonth(),
+        fechaLocal.getDate()
+      );
+      fechaFin = new Date(
+        fechaLocal.getFullYear(),
+        fechaLocal.getMonth(),
+        fechaLocal.getDate(),
+        23,
+        59,
+        59,
+        999
+      );
+    }
+
+    const costoVenta = venta.detalles.reduce(
+      (sum, detalle) => sum + detalle.cantidad * detalle.producto.precioCompra,
+      0
+    );
+
+    const existente = agrupado.get(periodo);
+    if (existente) {
+      existente.ventas += venta.total;
+      existente.costo += costoVenta;
+      if (fechaInicio < existente.fechaInicio) existente.fechaInicio = fechaInicio;
+      if (fechaFin > existente.fechaFin) existente.fechaFin = fechaFin;
+    } else {
+      agrupado.set(periodo, {
+        ventas: venta.total,
+        costo: costoVenta,
+        fechaInicio,
+        fechaFin,
+      });
+    }
+  }
+
+  return Array.from(agrupado.entries())
+    .map(([periodo, values]) => ({
+      periodo,
+      ventas: values.ventas,
+      ganancia: values.ventas - values.costo,
+      fechaInicio: values.fechaInicio.toISOString(),
+      fechaFin: values.fechaFin.toISOString(),
+    }))
+    .sort((a, b) => a.fechaInicio.localeCompare(b.fechaInicio));
+}
+
+function buildVentasPorCategoriaFromRecords(ventas: VentaAnalisisRecord[]) {
+  const agrupado = new Map<string, { cantidad: number; subtotal: number; ganancia: number }>();
+
+  for (const venta of ventas) {
+    for (const detalle of venta.detalles) {
+      const categoria = detalle.producto.categoria?.nombre ?? "Sin categoría";
+      const existente = agrupado.get(categoria) ?? { cantidad: 0, subtotal: 0, ganancia: 0 };
+      existente.cantidad += detalle.cantidad;
+      existente.subtotal += detalle.subtotal;
+      existente.ganancia += detalle.subtotal - detalle.cantidad * detalle.producto.precioCompra;
+      agrupado.set(categoria, existente);
+    }
+  }
+
+  return Array.from(agrupado.entries())
+    .map(([categoria, values]) => ({ categoria, ...values }))
+    .sort((a, b) => b.subtotal - a.subtotal);
+}
+
+function buildTopProductosFromRecords(ventas: VentaAnalisisRecord[], limit: number) {
+  const agrupado = new Map<
+    number,
+    { producto: string; categoria: string; cantidad: number; ingreso: number }
+  >();
+
+  for (const venta of ventas) {
+    for (const detalle of venta.detalles) {
+      const existente = agrupado.get(detalle.producto.id) ?? {
+        producto: detalle.producto.nombre,
+        categoria: detalle.producto.categoria?.nombre ?? "Sin categoría",
+        cantidad: 0,
+        ingreso: 0,
+      };
+      existente.cantidad += detalle.cantidad;
+      existente.ingreso += detalle.subtotal;
+      agrupado.set(detalle.producto.id, existente);
+    }
+  }
+
+  return Array.from(agrupado.entries())
+    .map(([productoId, values]) => ({ productoId, ...values }))
+    .sort((a, b) => b.cantidad - a.cantidad)
+    .slice(0, limit);
+}
+
+function buildVentasPorClienteFromRecords(ventas: VentaAnalisisRecord[]) {
+  const agrupado = new Map<number, { cliente: string; cantidad: number; total: number }>();
+
+  for (const venta of ventas) {
+    const existente = agrupado.get(venta.clienteId) ?? {
+      cliente: venta.cliente.nombre,
+      cantidad: 0,
+      total: 0,
+    };
+    existente.cantidad += 1;
+    existente.total += venta.total;
+    agrupado.set(venta.clienteId, existente);
+  }
+
+  return Array.from(agrupado.entries())
+    .map(([clienteId, values]) => ({ clienteId, ...values }))
+    .sort((a, b) => b.total - a.total);
+}
+
+function buildVentasPorVendedorFromRecords(ventas: VentaAnalisisRecord[]) {
+  const agrupado = new Map<
+    number,
+    { vendedor: string; cantidadVentas: number; totalVendido: number }
+  >();
+
+  for (const venta of ventas) {
+    const existente = agrupado.get(venta.usuarioId) ?? {
+      vendedor: venta.usuario.nombreCompleto ?? venta.usuario.username,
+      cantidadVentas: 0,
+      totalVendido: 0,
+    };
+    existente.cantidadVentas += 1;
+    existente.totalVendido += venta.total;
+    agrupado.set(venta.usuarioId, existente);
+  }
+
+  return Array.from(agrupado.entries())
+    .map(([usuarioId, values]) => ({
+      usuarioId,
+      ...values,
+      comision: Math.round(values.totalVendido * 0.05 * 100) / 100,
+    }))
+    .sort((a, b) => b.totalVendido - a.totalVendido);
+}
+
+function buildVentasPorMetodoPagoFromRecords(ventas: VentaAnalisisRecord[]) {
+  const conocidos = new Set(METODOS_PAGO_ORDEN);
+  const agrupado = new Map<string, { cantidadVentas: number; total: number }>();
+
+  for (const venta of ventas) {
+    const clave = venta.metodoPago && conocidos.has(venta.metodoPago)
+      ? venta.metodoPago
+      : "OTROS";
+    const existente = agrupado.get(clave) ?? { cantidadVentas: 0, total: 0 };
+    existente.cantidadVentas += 1;
+    existente.total += venta.total;
+    agrupado.set(clave, existente);
+  }
+
+  return [
+    ...METODOS_PAGO_ORDEN.filter((metodo) => agrupado.has(metodo)),
+    ...(agrupado.has("OTROS") ? ["OTROS"] : []),
+  ].map((metodo) => ({
+    metodo,
+    ...(agrupado.get(metodo) ?? { cantidadVentas: 0, total: 0 }),
+  }));
+}
+
+function buildVentasPorDiaSemanaFromRecords(ventas: VentaAnalisisRecord[]) {
+  const agrupado = new Map<number, { ventas: number; total: number }>();
+
+  for (const venta of ventas) {
+    const fechaLocal = toBuenosAiresWallTime(venta.fecha);
+    const dow = (fechaLocal.getDay() + 6) % 7;
+    const existente = agrupado.get(dow) ?? { ventas: 0, total: 0 };
+    existente.ventas += 1;
+    existente.total += venta.total;
+    agrupado.set(dow, existente);
+  }
+
+  return Array.from(agrupado.entries())
+    .map(([dow, values]) => ({ dow, ...values }))
+    .sort((a, b) => a.dow - b.dow);
+}
+
+export async function getVentasAnalisisBatch(params: {
+  fechaDesde?: string;
+  fechaHasta?: string;
+  usuarioId?: number;
+  prevFechaDesde?: string;
+  prevFechaHasta?: string;
+  agruparPor?: "dia" | "semana" | "mes" | "anio";
+}): Promise<VentasAnalisisBatchData> {
+  try {
+    await requirePermission("informes.ver");
+
+    const whereActual: Prisma.VentaWhereInput = {
+      ...buildDateFilter(params.fechaDesde, params.fechaHasta),
+    };
+    if (params.usuarioId) whereActual.usuarioId = params.usuarioId;
+
+    const whereAnterior: Prisma.VentaWhereInput = {
+      ...buildDateFilter(params.prevFechaDesde, params.prevFechaHasta),
+    };
+    if (params.usuarioId) whereAnterior.usuarioId = params.usuarioId;
+
+    const currentVentasPromise = prisma.venta.findMany({
+      where: whereActual,
+      select: {
+        id: true,
+        total: true,
+        fecha: true,
+        metodoPago: true,
+        clienteId: true,
+        usuarioId: true,
+        cliente: { select: { nombre: true } },
+        usuario: { select: { username: true, nombreCompleto: true } },
+        detalles: {
+          select: {
+            cantidad: true,
+            subtotal: true,
+            producto: {
+              select: {
+                id: true,
+                nombre: true,
+                precioCompra: true,
+                categoria: { select: { nombre: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { fecha: "asc" },
+    });
+
+    const prevResumenPromise =
+      params.prevFechaDesde && params.prevFechaHasta
+        ? Promise.all([
+            prisma.venta.aggregate({
+              where: whereAnterior,
+              _count: { id: true },
+              _sum: { total: true },
+            }),
+            prisma.detalleVenta.count({ where: { venta: whereAnterior } }),
+            prisma.venta.groupBy({
+              by: ["clienteId"],
+              where: whereAnterior,
+              _count: { _all: true },
+            }),
+          ]).then(([agg, lineas, clientes]) => ({
+            cantidad: agg._count.id,
+            total: agg._sum.total || 0,
+            productosVendidos: lineas,
+            clientesAtendidos: clientes.length,
+          }))
+        : Promise.resolve(null);
+
+    const [currentVentas, prevResumen] = await Promise.all([
+      currentVentasPromise,
+      prevResumenPromise,
+    ]);
+
+    return {
+      resumen: buildResumenVentasFromRecords(currentVentas),
+      prevResumen,
+      evolucion: buildEvolucionVentasFromRecords(
+        currentVentas,
+        params.agruparPor ?? "dia"
+      ),
+      categoria: buildVentasPorCategoriaFromRecords(currentVentas),
+      metodoPago: buildVentasPorMetodoPagoFromRecords(currentVentas),
+      topProductos: buildTopProductosFromRecords(currentVentas, 10),
+      topClientes: buildVentasPorClienteFromRecords(currentVentas),
+      vendedores: buildVentasPorVendedorFromRecords(currentVentas),
+      diaSemana: buildVentasPorDiaSemanaFromRecords(currentVentas),
+    };
+  } catch (error) {
+    console.error("Error en getVentasAnalisisBatch:", error);
+    return {
+      resumen: { cantidad: 0, total: 0, productosVendidos: 0, clientesAtendidos: 0 },
+      prevResumen: null,
+      evolucion: [],
+      categoria: [],
+      metodoPago: [],
+      topProductos: [],
+      topClientes: [],
+      vendedores: [],
+      diaSemana: [],
+    };
+  }
+}
+
 // ─── 19. BOTTOM PRODUCTOS ────────────────────────────────────
 
 export async function getBottomProductos(filters: ReportFilters = {}, limit: number = 10): Promise<{
