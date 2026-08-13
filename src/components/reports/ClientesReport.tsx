@@ -199,23 +199,6 @@ export default function ClientesReport({ initialData, userRole }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* 1. Barra de búsqueda (único filtro) */}
-      <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl overflow-hidden mb-4">
-        <div className="flex items-center gap-3 px-4 py-3">
-          <Search size={16} className="text-[var(--text-muted)] shrink-0" />
-          <label className="text-xs font-semibold text-[var(--text-muted)] shrink-0">
-            Buscar cliente
-          </label>
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nombre o DNI..."
-            className={inputClass}
-          />
-        </div>
-      </div>
-
       <div className="print:bg-white print:text-black space-y-4">
         {/* Encabezado de impresión */}
         <div className="hidden print:block text-center mb-6">
@@ -413,6 +396,22 @@ export default function ClientesReport({ initialData, userRole }: Props) {
             <button onClick={() => setPrintSection("clientes")} className={printButtonClass} title="Imprimir esta sección">
               <Printer size={12} />
             </button>
+          </div>
+          {/* Búsqueda de clientes: solo afecta a esta tabla */}
+          <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl overflow-hidden mb-3">
+            <div className="flex items-center gap-3 px-4 py-3">
+              <Search size={16} className="text-[var(--text-muted)] shrink-0" />
+              <label className="text-xs font-semibold text-[var(--text-muted)] shrink-0">
+                Buscar cliente
+              </label>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar por nombre o DNI..."
+                className={inputClass}
+              />
+            </div>
           </div>
           <div className="bg-[var(--card)] print:bg-white border border-[var(--border)] print:border-gray-300 rounded-xl overflow-hidden">
             <div className="overflow-x-auto">
