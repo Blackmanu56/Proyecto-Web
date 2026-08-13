@@ -455,7 +455,7 @@ export async function getReporteVentas(
       where,
       include: {
         cliente: { select: { nombre: true } },
-        usuario: { select: { username: true } },
+        usuario: { select: { username: true, nombreCompleto: true } },
         _count: { select: { detalles: true } },
       },
       orderBy: { fecha: "desc" },
@@ -470,7 +470,7 @@ export async function getReporteVentas(
         id: v.id,
         fecha: formatDate(v.fecha),
         cliente: v.cliente.nombre,
-        usuario: v.usuario.username,
+        usuario: v.usuario.nombreCompleto || v.usuario.username,
         total: v.total,
         cantidadProductos: v._count.detalles,
       })),
