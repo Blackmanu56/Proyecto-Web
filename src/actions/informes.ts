@@ -2336,6 +2336,7 @@ export async function getEvolucionVentas(
   agruparPor: "dia" | "semana" | "mes" | "anio" = "dia"
 ): Promise<{ data: { periodo: string; ventas: number; ganancia: number; fechaInicio: string; fechaFin: string }[] }> {
   try {
+    await requirePermission("informes.ver");
     const dateFilter = buildDateFilter(fechaDesde, fechaHasta);
 
     const ventas = await prisma.venta.findMany({

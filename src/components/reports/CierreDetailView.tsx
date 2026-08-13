@@ -3,6 +3,7 @@
 import React from "react";
 import type { DetalleCierreCompleto } from "@/actions/informes";
 import { formatCurrency } from "@/lib/utils";
+import { formatMovimientoDescripcion } from "@/lib/movimiento-format";
 import {
   Calendar, Clock, User, Info, CheckCircle, XCircle, Coins,
   ArrowUpRight, ArrowDownLeft, Wallet, Receipt,
@@ -100,7 +101,7 @@ export default function CierreDetailView({ detalleData }: CierreDetailViewProps)
                     <td className="px-3 py-2 text-text-muted print:text-gray-600 font-mono">
                       {m.fecha?.split(" ")[1] || m.fecha}
                     </td>
-                    <td className="px-3 py-2 text-white print:text-gray-900 font-medium truncate max-w-[200px]">{m.descripcion}</td>
+                    <td className="px-3 py-2 text-white print:text-gray-900 font-medium truncate max-w-[200px]">{formatMovimientoDescripcion(m.descripcion)}</td>
                     <td className="px-3 py-2 text-right text-emerald-400 print:text-emerald-700 font-bold font-mono">+{formatCurrency(m.monto)}</td>
                     <td className="px-3 py-2 text-right text-text-secondary print:text-gray-500">@{m.usuario}</td>
                   </tr>
@@ -134,7 +135,7 @@ export default function CierreDetailView({ detalleData }: CierreDetailViewProps)
                     <td className="px-3 py-2 text-text-muted print:text-gray-600 font-mono">
                       {m.fecha?.split(" ")[1] || m.fecha}
                     </td>
-                    <td className="px-3 py-2 text-white print:text-gray-900 font-medium truncate max-w-[200px]">{m.descripcion}</td>
+                    <td className="px-3 py-2 text-white print:text-gray-900 font-medium truncate max-w-[200px]">{formatMovimientoDescripcion(m.descripcion)}</td>
                     <td className="px-3 py-2 text-right text-rose-400 print:text-red-700 font-bold font-mono">-{formatCurrency(m.monto)}</td>
                     <td className="px-3 py-2 text-right text-text-secondary print:text-gray-500">@{m.usuario}</td>
                   </tr>
