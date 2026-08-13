@@ -660,19 +660,6 @@ export default function EmpleadosReport({ initialData }: Props) {
             </div>
           </div>
         </div>
-
-        {/* Información pendiente — no se imprime */}
-        <div className="print:hidden border border-yellow-500/40 bg-yellow-500/5 rounded-xl p-4">
-          <p className="text-sm font-bold text-[var(--text)] mb-1">Información pendiente</p>
-          <p className="text-xs text-[var(--text-muted)] mb-3">
-            Esta métrica no se puede obtener con los datos actuales del sistema.
-          </p>
-          <ul className="list-disc list-inside space-y-1">
-            {data.faltanDatos.map((msg) => (
-              <li key={msg} className="text-xs text-[var(--text-muted)]">{msg}</li>
-            ))}
-          </ul>
-        </div>
       </div>
     </div>
   );
