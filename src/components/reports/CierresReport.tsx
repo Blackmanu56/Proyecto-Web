@@ -12,16 +12,15 @@ import { getCierresDateRange, toApiDate } from "@/lib/reportPeriods";
 import type { PeriodoPreset } from "@/lib/reportPeriods";
 import {
   Search, Calendar, User, RefreshCw, Eye, ChevronUp, Loader2,
-  CheckCircle, XCircle, Printer,
+  CheckCircle, Printer,
   ChevronDown, History,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import ResultadoBadge from "./ResultadoBadge";
-import CierreAccordionRow from "./CierreAccordionRow";
+import ResultadoLabel from "./ResultadoLabel";
+import CierreDetailModal from "./CierreDetailModal";
 import CierreDetailPrintView from "./CierreDetailPrintView";
 
 type CierreRow = ReporteCierre;
@@ -51,15 +50,11 @@ interface Props {
 /* ─── Tabla de cierres (compartida: vista diaria y expansión mensual) ────── */
 function CierresTable({
   rows,
-  expandedCierreId,
-  onToggle,
-  onPrint,
+  onViewDetail,
   emptyMessage = "Sin cierres en el período.",
 }: {
   rows: CierreRow[];
-  expandedCierreId: number | null;
-  onToggle: (id: number) => void;
-  onPrint: (id: number) => void;
+  onViewDetail: (id: number) => void;
   emptyMessage?: string;
 }) {
   return (
@@ -87,45 +82,36 @@ function CierresTable({
               </td>
             </tr>
           ) : rows.map((c) => (
-            <React.Fragment key={c.id}>
-              <tr className={`transition-colors ${expandedCierreId === c.id ? "bg-panel/50" : "hover:bg-border/40"}`}>
-                <td className="px-4 py-3 font-bold text-text">#{c.id}</td>
-                <td className="px-4 py-3 text-xs text-text-muted">{c.fechaApertura}</td>
-                <td className="px-4 py-3 text-xs text-text-muted">{c.fechaCierre || "\u2014"}</td>
-                <td className="px-4 py-3 text-text-muted">{c.usuario}</td>
-                <td className="px-4 py-3 text-right text-text-muted">{formatCurrency(c.montoInicial)}</td>
-                <td className="px-4 py-3 text-right font-bold text-success">{formatCurrency(c.totalVentas)}</td>
-                <td className="px-4 py-3 text-right text-text-muted">{formatCurrency(c.totalEsperado)}</td>
-                <td className="px-4 py-3 text-center">
-                  {c.estado === "ABIERTA" ? (
-                    <Badge variant="warning" size="sm"><XCircle size={10} />ABIERTA</Badge>
-                  ) : (
-                    <Badge variant="success" size="sm"><CheckCircle size={10} />CERRADA</Badge>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-center print:hidden">
-                  <ResultadoBadge totalContado={c.totalContado} totalEsperado={c.totalEsperado} />
-                </td>
-                <td className="px-4 py-3 text-center print:hidden">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onToggle(c.id)}
-                    className="h-8 w-8 p-0"
-                    title={expandedCierreId === c.id ? "Ocultar detalle" : "Ver detalle"}
-                  >
-                    {expandedCierreId === c.id ? <ChevronUp size={14} /> : <Eye size={14} />}
-                  </Button>
-                </td>
-              </tr>
-              {expandedCierreId === c.id && (
-                <tr>
-                  <td colSpan={10} className="p-0">
-                    <CierreAccordionRow cajaId={c.id} onPrint={onPrint} />
-                  </td>
-                </tr>
-              )}
-            </React.Fragment>
+            <tr key={c.id} className="hover:bg-border/40 transition-colors">
+              <td className="px-4 py-3 font-bold text-text">#{c.id}</td>
+              <td className="px-4 py-3 text-xs text-text-muted">{c.fechaApertura}</td>
+              <td className="px-4 py-3 text-xs text-text-muted">{c.fechaCierre || "\u2014"}</td>
+              <td className="px-4 py-3 text-text-muted">{c.usuario}</td>
+              <td className="px-4 py-3 text-right text-text-muted">{formatCurrency(c.montoInicial)}</td>
+              <td className="px-4 py-3 text-right font-bold text-success">{formatCurrency(c.totalVentas)}</td>
+              <td className="px-4 py-3 text-right text-text-muted">{formatCurrency(c.totalEsperado)}</td>
+              <td className="px-4 py-3 text-center">
+                {c.estado === "ABIERTA" ? (
+                  <span className="text-amber-400 font-bold">ABIERTA</span>
+                ) : (
+                  <span className="text-success font-bold">CERRADA</span>
+                )}
+              </td>
+              <td className="px-4 py-3 text-center print:hidden">
+                  <ResultadoLabel totalContado={c.totalContado} totalEsperado={c.totalEsperado} />
+              </td>
+              <td className="px-4 py-3 text-center print:hidden">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onViewDetail(c.id)}
+                  className="h-8 w-8 p-0"
+                  title="Ver detalle"
+                >
+                  <Eye size={14} />
+                </Button>
+              </td>
+            </tr>
           ))}
         </tbody>
       </table>
@@ -147,7 +133,7 @@ export default function CierresReport({ initialData, usuarios }: Props) {
   const [estadoFiltro, setEstadoFiltro] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  const [expandedCierreId, setExpandedCierreId] = useState<number | null>(null);
+  const [detalleCierreId, setDetalleCierreId] = useState<number | null>(null);
   const [printSection, setPrintSection] = useState<string | null>(null);
   const [printingCajaId, setPrintingCajaId] = useState<number | null>(null);
 
@@ -473,9 +459,7 @@ export default function CierresReport({ initialData, usuarios }: Props) {
               <div className="bg-card print:bg-white border border-border print:border-gray-300 rounded-xl overflow-hidden">
                 <CierresTable
                   rows={cierresFiltrados}
-                  expandedCierreId={expandedCierreId}
-                  onToggle={(id) => setExpandedCierreId(prev => (prev === id ? null : id))}
-                  onPrint={handlePrintDetalle}
+                  onViewDetail={setDetalleCierreId}
                 />
               </div>
             </div>
@@ -567,9 +551,7 @@ export default function CierresReport({ initialData, usuarios }: Props) {
                                     <div className="bg-[var(--card)] print:bg-white border border-[var(--border)] print:border-gray-300 rounded-xl overflow-hidden">
                                       <CierresTable
                                         rows={expandedMesRows}
-                                        expandedCierreId={expandedCierreId}
-                                        onToggle={(id) => setExpandedCierreId(prev => (prev === id ? null : id))}
-                                        onPrint={handlePrintDetalle}
+                                        onViewDetail={setDetalleCierreId}
                                         emptyMessage="Sin cierres en este mes"
                                       />
                                     </div>
@@ -592,6 +574,14 @@ export default function CierresReport({ initialData, usuarios }: Props) {
       {printingCajaId && (
         <CierreDetailPrintView
           cajaId={printingCajaId}
+        />
+      )}
+
+      {detalleCierreId !== null && (
+        <CierreDetailModal
+          cajaId={detalleCierreId}
+          onClose={() => setDetalleCierreId(null)}
+          onPrint={handlePrintDetalle}
         />
       )}
     </div>
