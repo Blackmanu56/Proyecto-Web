@@ -7,6 +7,8 @@ import {
   TipoCuentaFinanciera,
   TipoMovimientoFinanciero,
 } from "@prisma/client";
+import { existsSync } from "node:fs";
+import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 import {
@@ -336,7 +338,13 @@ const BRAND_DEMOS: readonly DemoBrandSeed[] = [
   { nombre: "Genérico" },
 ] as const;
 
-const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
+const SEED_PRODUCT_IMAGE_BASE_PATH = "/seed/productos";
+
+function seedProductImage(filename: string) {
+  return `${SEED_PRODUCT_IMAGE_BASE_PATH}/${filename}`;
+}
+
+export const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
   {
     key: "kit-transmision-cg150",
     nombre: "Kit de transmisión para Honda CG 150",
@@ -348,6 +356,7 @@ const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
     initialQuantity: 8,
     stockMinimo: 4,
     codigo: "TRN-HON-CG150",
+    imagen: seedProductImage("kit-transmision-cg150.webp"),
   },
   {
     key: "pastillas-ns200",
@@ -360,6 +369,7 @@ const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
     initialQuantity: 6,
     stockMinimo: 5,
     codigo: "FRN-BAJ-NS200",
+    imagen: seedProductImage("pastillas-ns200.webp"),
   },
   {
     key: "bateria-fz16",
@@ -372,6 +382,7 @@ const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
     initialQuantity: 3,
     stockMinimo: 3,
     codigo: "ELE-YAM-FZ16",
+    imagen: seedProductImage("bateria-fz16.webp"),
   },
   {
     key: "cubierta-pirelli-130-70-17",
@@ -384,6 +395,7 @@ const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
     initialQuantity: 5,
     stockMinimo: 2,
     codigo: "NEU-PIR-13070",
+    imagen: seedProductImage("cubierta-pirelli-130-70-17.webp"),
   },
   {
     key: "aceite-motul-5100",
@@ -408,6 +420,7 @@ const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
     initialQuantity: 2,
     stockMinimo: 2,
     codigo: "SUS-YAM-FZ16",
+    imagen: seedProductImage("amortiguador-fz16.webp"),
   },
   {
     key: "cadena-428h-cg",
@@ -781,6 +794,25 @@ export function getSeedInvariantErrors(): string[] {
       errors.push(`El stock final del producto ${productKey} queda negativo.`);
     }
   });
+
+  for (const product of PRODUCT_DEMOS) {
+    if (!product.imagen) continue;
+
+    if (/^[A-Za-z]:\\/.test(product.imagen)) {
+      errors.push(`El producto ${product.key} usa una ruta absoluta local para imagen.`);
+      continue;
+    }
+
+    if (!product.imagen.startsWith(`${SEED_PRODUCT_IMAGE_BASE_PATH}/`)) {
+      errors.push(`El producto ${product.key} debe usar assets demo bajo ${SEED_PRODUCT_IMAGE_BASE_PATH}.`);
+      continue;
+    }
+
+    const assetPath = path.join(process.cwd(), "public", product.imagen.replace(/^\//, ""));
+    if (!existsSync(assetPath)) {
+      errors.push(`Falta el asset demo para ${product.key}: ${product.imagen}`);
+    }
+  }
 
   return errors;
 }

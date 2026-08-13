@@ -1,8 +1,11 @@
+import { existsSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
   DEMO_PASSWORD,
   buildRoleSeedData,
+  PRODUCT_DEMOS,
   getSeedInvariantErrors,
   SALE_DEMOS,
   REPOSICION_DEMOS,
@@ -28,5 +31,23 @@ describe("seed única oficial", () => {
     expect(FINANCIAL_ACCOUNT_DEMOS.filter((account) => account.tipo === "BANCO" && account.esPrincipal)).toHaveLength(1);
     expect(FINANCIAL_ACCOUNT_DEMOS.filter((account) => account.tipo === "POR_ACREDITAR")).toHaveLength(1);
     expect(getSeedInvariantErrors()).toEqual([]);
+  });
+
+  it("versiona los assets demo de productos dentro del repositorio", () => {
+    expect(PRODUCT_DEMOS).toHaveLength(13);
+
+    const productsWithImage = PRODUCT_DEMOS.filter((product) => product.imagen);
+    const productsWithoutImage = PRODUCT_DEMOS.filter((product) => !product.imagen);
+
+    expect(productsWithImage).toHaveLength(5);
+    expect(productsWithoutImage).toHaveLength(8);
+
+    productsWithImage.forEach((product) => {
+      expect(product.imagen).toMatch(/^\/seed\/productos\/.+\.(jpg|jpeg|png|webp|gif)$/);
+      expect(product.imagen?.startsWith("/uploads/")).toBe(false);
+
+      const assetPath = path.join(process.cwd(), "public", product.imagen!.replace(/^\//, ""));
+      expect(existsSync(assetPath), `${product.key} should reference an existing demo asset`).toBe(true);
+    });
   });
 });
