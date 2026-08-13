@@ -283,6 +283,23 @@ export default function EmpleadosReport({ initialData }: Props) {
 
   return (
     <div className="space-y-4">
+      {/* Selector de sub-vista */}
+      <div className="print:hidden flex flex-wrap gap-1 bg-[var(--panel)] border border-[var(--border)] rounded-xl p-1">
+        {(["analisis", "detalle"] as SubViewId[]).map((v) => (
+          <button
+            key={v}
+            onClick={() => setActiveSubView(v)}
+            className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
+              activeSubView === v
+                ? "bg-[var(--brand)] text-white"
+                : "bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--text)] border border-[var(--border)]"
+            }`}
+          >
+            {v === "analisis" ? "Análisis" : "Detalle de empleados"}
+          </button>
+        ))}
+      </div>
+
       {/* Barra de filtros colapsable (mismo patrón que VentasReport/CierresReport) */}
       <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl overflow-hidden">
         {/* Fila superior: toggle + período */}
@@ -399,23 +416,6 @@ export default function EmpleadosReport({ initialData }: Props) {
             </div>
           </div>
         )}
-      </div>
-
-      {/* Selector de sub-vista */}
-      <div className="print:hidden flex flex-wrap gap-1 bg-[var(--panel)] border border-[var(--border)] rounded-xl p-1">
-        {(["analisis", "detalle"] as SubViewId[]).map((v) => (
-          <button
-            key={v}
-            onClick={() => setActiveSubView(v)}
-            className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
-              activeSubView === v
-                ? "bg-[var(--brand)] text-white"
-                : "bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--text)] border border-[var(--border)]"
-            }`}
-          >
-            {v === "analisis" ? "Análisis" : "Detalle de empleados"}
-          </button>
-        ))}
       </div>
 
       <div className="print:bg-white print:text-black space-y-4">
