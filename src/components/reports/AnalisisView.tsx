@@ -171,13 +171,19 @@ export default function AnalisisView({
   const topProdsBarData = useMemo(
     () =>
       cache
-        ? cache.topProductos.slice(0, 8).map((p) => ({
-            name: truncate(p.producto, 22),
-            cantidad: p.cantidad,
-            ingreso: p.ingreso,
-          }))
+        ? cache.topProductos
+            .slice() // no mutar el array del cache
+            .sort((a, b) =>
+              topProductsMetric === "unidades" ? b.cantidad - a.cantidad : b.ingreso - a.ingreso
+            )
+            .slice(0, 8)
+            .map((p) => ({
+              name: truncate(p.producto, 22),
+              cantidad: p.cantidad,
+              ingreso: p.ingreso,
+            }))
         : [],
-    [cache]
+    [cache, topProductsMetric]
   );
 
   const diaSemanaData = useMemo(() => {
