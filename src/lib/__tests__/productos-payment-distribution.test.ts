@@ -3,10 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 type Pago = {
   medio:
     | "EFECTIVO_CAJA"
-    | "TRANSFERENCIA_BANCARIA"
-    | "MERCADO_PAGO"
-    | "CUENTA_CORRIENTE_PROVEEDOR"
-    | "FONDOS_EXTERNOS";
+    | "TRANSFERENCIA_BANCARIA";
   monto: number;
   observacion?: string;
 };
@@ -24,7 +21,11 @@ const mocks = vi.hoisted(() => {
       findFirst: vi.fn(),
       update: vi.fn(),
     },
+    cuentaFinanciera: {
+      findFirst: vi.fn(),
+    },
     movimientoCaja: { create: vi.fn() },
+    movimientoFinanciero: { create: vi.fn() },
   };
 
   return {
@@ -55,6 +56,7 @@ const OPEN_CAJA = {
   estado: "ABIERTA",
   montoInicial: 100_000,
   totalVentas: 104_840,
+  movimientos: [{ tipo: "INGRESO", monto: 204_840 }],
 };
 
 const session = {
@@ -131,20 +133,6 @@ function expectNoCajaImpact() {
   expect(mocks.tx.caja.update).not.toHaveBeenCalled();
 }
 
-function expectAnchoredCajaMovement(monto: number) {
-  expect(mocks.tx.movimientoCaja.create).toHaveBeenCalledOnce();
-  expect(mocks.tx.movimientoCaja.create).toHaveBeenCalledWith({
-    data: expect.objectContaining({
-      cajaId: 30,
-      usuarioId: 1,
-      compraId: 50,
-      tipo: "EGRESO",
-      monto,
-      descripcion: expect.stringContaining("Total:"),
-    }),
-  });
-}
-
 function expectCajaRevalidated() {
   expect(mocks.revalidatePath).toHaveBeenCalledWith("/productos");
   expect(mocks.revalidatePath).toHaveBeenCalledWith("/caja");
@@ -167,11 +155,38 @@ beforeEach(() => {
   mocks.tx.caja.findFirst.mockResolvedValue(OPEN_CAJA);
   mocks.tx.movimientoCaja.create.mockResolvedValue({ id: 70 });
   mocks.tx.caja.update.mockResolvedValue({ id: 30 });
+  mocks.tx.cuentaFinanciera.findFirst.mockResolvedValue({
+    id: 1,
+    tipo: "BANCO",
+    esPrincipal: true,
+    activa: true,
+    saldoInicial: 500_000,
+    movimientos: [],
+  });
+  mocks.tx.movimientoFinanciero.create.mockResolvedValue({ id: 80 });
 });
 
 afterEach(() => vi.restoreAllMocks());
 
 describe("payment distribution in product purchases", () => {
+  it("validates cash availability from movements instead of legacy totalVentas", async () => {
+    mocks.tx.caja.findFirst.mockResolvedValueOnce({
+      id: 30,
+      estado: "ABIERTA",
+      montoInicial: 100_000,
+      totalVentas: 1_000_000,
+      movimientos: [{ tipo: "INGRESO", monto: 100_000 }],
+    });
+    const pagos: Pago[] = [{ medio: "EFECTIVO_CAJA", monto: 123_600 }];
+
+    const result = await createProducto(productoForm({ cantidad: "1", pagos }));
+
+    expect(result.error).toContain("Fondos insuficientes en Caja");
+    expect(mocks.tx.producto.create).not.toHaveBeenCalled();
+    expect(mocks.tx.movimientoCaja.create).not.toHaveBeenCalled();
+    expect(mocks.tx.caja.update).not.toHaveBeenCalled();
+  });
+
   it("1. persists initial stock paid only with cash and affects Caja once", async () => {
     const pagos: Pago[] = [{ medio: "EFECTIVO_CAJA", monto: 123_600 }];
 
@@ -204,7 +219,7 @@ describe("payment distribution in product purchases", () => {
     }));
     expectPayments(pagos);
     expect(mocks.tx.caja.findFirst).toHaveBeenCalledOnce();
-    expectAnchoredCajaMovement(0);
+    expectNoCajaImpact();
     expect(mocks.tx.caja.update).not.toHaveBeenCalled();
     expectCajaRevalidated();
   });
@@ -229,7 +244,8 @@ describe("payment distribution in product purchases", () => {
     expectPayments(pagos);
     expectNoCajaImpact();
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/productos");
-    expect(mocks.revalidatePath).not.toHaveBeenCalledWith("/caja");
+    // Revalida /caja porque el MovimientoFinanciero impacta el saldo del Banco
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/caja");
   });
 
   it("rejects initial stock assigned to Caja cash when no Caja is open", async () => {
@@ -269,56 +285,41 @@ describe("payment distribution in product purchases", () => {
 
     expect(result.success).toBe(true);
     expectSuccessfulReplenishment(pagos);
-    expectAnchoredCajaMovement(0);
+    expectNoCajaImpact();
     expect(mocks.tx.caja.update).not.toHaveBeenCalled();
     expectCajaRevalidated();
   });
 
-  it("3. persists Mercado Pago without affecting Caja", async () => {
-    const pagos: Pago[] = [{ medio: "MERCADO_PAGO", monto: 247_200 }];
+  it("3. persists a bank transfer without affecting Caja", async () => {
+    const pagos: Pago[] = [{ medio: "TRANSFERENCIA_BANCARIA", monto: 247_200 }];
 
     const result = await updateProducto(10, productoForm({ pagos }));
 
     expect(result.success).toBe(true);
     expectSuccessfulReplenishment(pagos);
-    expectAnchoredCajaMovement(0);
+    expectNoCajaImpact();
     expect(mocks.tx.caja.update).not.toHaveBeenCalled();
   });
 
-  it("4. persists supplier current account without affecting Caja", async () => {
-    const pagos: Pago[] = [{ medio: "CUENTA_CORRIENTE_PROVEEDOR", monto: 247_200 }];
+  it("4. persists a bank transfer without affecting Caja (second variant)", async () => {
+    const pagos: Pago[] = [{ medio: "TRANSFERENCIA_BANCARIA", monto: 247_200 }];
 
     const result = await updateProducto(10, productoForm({ pagos }));
 
     expect(result.success).toBe(true);
     expectSuccessfulReplenishment(pagos);
-    expectAnchoredCajaMovement(0);
+    expectNoCajaImpact();
     expect(mocks.tx.caja.update).not.toHaveBeenCalled();
   });
 
-  it("5. persists external funds without an observation", async () => {
-    const pagos: Pago[] = [{ medio: "FONDOS_EXTERNOS", monto: 247_200 }];
+  it("5. persists a bank transfer without an observation", async () => {
+    const pagos: Pago[] = [{ medio: "TRANSFERENCIA_BANCARIA", monto: 247_200 }];
 
     const result = await updateProducto(10, productoForm({ pagos }));
 
     expect(result.success).toBe(true);
     expectSuccessfulReplenishment(pagos);
-    expectAnchoredCajaMovement(0);
-    expect(mocks.tx.caja.update).not.toHaveBeenCalled();
-  });
-
-  it("6. persists the optional external-funds origin/reference", async () => {
-    const pagos: Pago[] = [{
-      medio: "FONDOS_EXTERNOS",
-      monto: 247_200,
-      observacion: "Aporte socio 08/2026",
-    }];
-
-    const result = await updateProducto(10, productoForm({ pagos }));
-
-    expect(result.success).toBe(true);
-    expectSuccessfulReplenishment(pagos);
-    expectAnchoredCajaMovement(0);
+    expectNoCajaImpact();
     expect(mocks.tx.caja.update).not.toHaveBeenCalled();
   });
 
@@ -353,7 +354,8 @@ describe("payment distribution in product purchases", () => {
     expectSuccessfulReplenishment(pagos);
     expectNoCajaImpact();
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/productos");
-    expect(mocks.revalidatePath).not.toHaveBeenCalledWith("/caja");
+    // Revalida /caja porque el MovimientoFinanciero impacta el saldo del Banco
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/caja");
   });
 
   it("rejects replenishment assigned to Caja cash when no Caja is open", async () => {
@@ -387,10 +389,10 @@ describe("payment distribution in product purchases", () => {
     expect(mocks.revalidatePath).not.toHaveBeenCalled();
   });
 
-  it("8. accepts cash exactly equal to the available Caja balance", async () => {
+  it("8. accepts cash exactly equal to the available Caja balance with a bank transfer", async () => {
     const pagos: Pago[] = [
       { medio: "EFECTIVO_CAJA", monto: 204_840 },
-      { medio: "MERCADO_PAGO", monto: 42_360 },
+      { medio: "TRANSFERENCIA_BANCARIA", monto: 42_360 },
     ];
 
     const result = await updateProducto(10, productoForm({ pagos }));

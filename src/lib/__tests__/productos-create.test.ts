@@ -8,7 +8,9 @@ const mocks = vi.hoisted(() => {
     producto: { create: vi.fn() },
     compra: { create: vi.fn() },
     caja: { findFirst: vi.fn(), update: vi.fn() },
+    cuentaFinanciera: { findFirst: vi.fn() },
     movimientoCaja: { create: vi.fn() },
+    movimientoFinanciero: { create: vi.fn() },
   };
 
   return {
@@ -72,9 +74,19 @@ beforeEach(() => {
     estado: "ABIERTA",
     montoInicial: 500,
     totalVentas: 500,
+    movimientos: [{ tipo: "INGRESO", monto: 1_000 }],
   });
   mocks.tx.movimientoCaja.create.mockResolvedValue({ id: 70 });
   mocks.tx.caja.update.mockResolvedValue({ id: 30 });
+  mocks.tx.cuentaFinanciera.findFirst.mockResolvedValue({
+    id: 1,
+    tipo: "BANCO",
+    esPrincipal: true,
+    activa: true,
+    saldoInicial: 500_000,
+    movimientos: [],
+  });
+  mocks.tx.movimientoFinanciero.create.mockResolvedValue({ id: 80 });
 });
 
 afterEach(() => vi.restoreAllMocks());
@@ -135,13 +147,13 @@ describe("createProducto initial stock", () => {
     mocks.tx.caja.findFirst.mockResolvedValueOnce(null);
 
     const result = await createProducto(
-      productoForm({ origenPago: "FONDOS_EXTERNOS" })
+      productoForm({ origenPago: "TRANSFERENCIA_BANCARIA" })
     );
 
     expect(result.success).toBe(true);
     expect(mocks.tx.producto.create).toHaveBeenCalledOnce();
     expect(mocks.tx.compra.create).toHaveBeenCalledWith(expect.objectContaining({
-      data: expect.objectContaining({ origenPago: "FONDOS_EXTERNOS" }),
+      data: expect.objectContaining({ origenPago: "TRANSFERENCIA_BANCARIA" }),
     }));
     expect(mocks.tx.movimientoCaja.create).not.toHaveBeenCalled();
     expect(mocks.tx.caja.update).not.toHaveBeenCalled();
@@ -153,6 +165,7 @@ describe("createProducto initial stock", () => {
       estado: "ABIERTA",
       montoInicial: 500,
       totalVentas: 500,
+      movimientos: [{ tipo: "INGRESO", monto: 1_000 }],
     });
     const result = await createProducto(productoForm());
 

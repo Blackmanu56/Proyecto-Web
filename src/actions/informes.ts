@@ -1,6 +1,7 @@
 "use server";
 
 import { requirePermission } from "@/lib/auth-permissions";
+import { calcularEfectivoCajaActiva } from "@/lib/caja-balance";
 import { prisma } from "@/lib/prisma";
 import { formatDate,formatDateShort } from "@/lib/utils";
 import { formatMovimientoDescripcion } from "@/lib/movimiento-format";
@@ -79,8 +80,13 @@ export async function getDashboardData(): Promise<DashboardData> {
     // Saldo en caja activa
     const cajaActiva = await prisma.caja.findFirst({
       where: { estado: "ABIERTA" },
+      include: {
+        movimientos: {
+          select: { tipo: true, monto: true },
+        },
+      },
     });
-    const ingresosCajaVal = cajaActiva ? cajaActiva.montoInicial + cajaActiva.totalVentas : 0;
+    const ingresosCajaVal = calcularEfectivoCajaActiva(cajaActiva);
 
     // Conteo stock bajo
     const stockBajoDb = await prisma.producto.count({

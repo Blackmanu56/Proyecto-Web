@@ -92,14 +92,15 @@ describe("product purchase payment behavior", () => {
 });
 
 describe("new replenishment payment selector", () => {
-  it("does not offer Mercado Pago while preserving historical type compatibility", () => {
+  it("offers only Efectivo and Transferencia for new purchases while preserving historical labels", () => {
     expect(SELECTABLE_PRODUCT_PAYMENT_METHODS.map((method) => method.value)).toEqual([
       "EFECTIVO_CAJA",
       "TRANSFERENCIA_BANCARIA",
-      "CUENTA_CORRIENTE_PROVEEDOR",
-      "FONDOS_EXTERNOS",
     ]);
+    // Historical labels are preserved for display of old records
     expect(PRODUCT_PURCHASE_PAYMENT_METHOD_LABELS.MERCADO_PAGO).toBe("Mercado Pago");
+    expect(PRODUCT_PURCHASE_PAYMENT_METHOD_LABELS.CUENTA_CORRIENTE_PROVEEDOR).toBe("Cta. Cte. Proveedor");
+    expect(PRODUCT_PURCHASE_PAYMENT_METHOD_LABELS.FONDOS_EXTERNOS).toBe("Fondos Externos");
   });
 
   it("uses the short Transferencia label", () => {

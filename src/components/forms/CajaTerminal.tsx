@@ -3,14 +3,22 @@
 import {
 abrirCaja,
 cerrarCaja,
+registrarAjusteBanco,
 registrarGastoCaja
 } from "@/actions/caja";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import AjustarBancoModal, { type AjusteBancoPayload } from "@/components/ui/AjustarBancoModal";
 import ConfirmarCierreModal from "@/components/ui/ConfirmarCierreModal";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import MovimientoDetalleModal from "@/components/ui/MovimientoDetalleModal";
-import { ReposicionDescripcion } from "@/components/ui/ReposicionDescripcion";
 import { TableShell } from "@/components/ui/table-shell";
 import { ToolbarSelect, type ToolbarSelectTone } from "@/components/ui/toolbar-select";
 import {
@@ -21,55 +29,112 @@ getConcepto,
 getTipoVisual,
 getUsuariosUnicos,
 type MovimientoCompra,
-type MovimientoEnriched
+type MovimientoEnriched,
+type MovimientoInput,
+type MovimientoVenta
 } from "@/lib/caja-filters";
-import { formatCurrency,formatDate,formatDateShort,formatTime24 } from "@/lib/utils";
-import { formatMovimientoDescripcion,formatReposicionCorta,formatReposicionFila } from "@/lib/movimiento-format";
+import { enviarCierreCaja, type CierreCajaPayload } from "@/lib/caja-closing";
+import {
+  calcularFlujosImpresion,
+  construirDescripcionImpresion,
+  crearFilaImpresionLibroDiario,
+  crearModeloImpresionLibroDiario,
+  type MovimientoFinancieroImpresion,
+} from "@/lib/caja-print";
+import { formatCurrency, formatDate, formatDateShort, formatTime24 } from "@/lib/utils";
+import { formatMovimientoDescripcion,formatReposicionFila,formatTipoComprobante } from "@/lib/movimiento-format";
 import { isSameDay } from "date-fns";
 import {
-Activity,
-AlertCircle,
-AlertTriangle,
-ArrowDownLeft,
-ArrowUpRight,
-Calendar,
-Clock,
-Download,
-Filter,
-FolderOpen,
-History,
-ListFilter,
-Lock,
-MinusCircle,
-PackagePlus,
-PlusCircle,
-Printer,
-Receipt,
-RotateCcw,
-Search,
-ShoppingCart,
-Tags,
-Unlock,
-User,
-UserRound,
-Waves,
-X
+  Activity,
+  AlertCircle,
+  AlertTriangle,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Calendar,
+  Clock,
+  Download,
+  Filter,
+  FolderOpen,
+  Landmark,
+  ListFilter,
+  Lock,
+  MinusCircle,
+  PackagePlus,
+  PlusCircle,
+  Printer,
+  Receipt,
+  RotateCcw,
+  Search,
+  ShoppingCart,
+  Tags,
+  Unlock,
+  User,
+  UserRound,
+  Waves,
+  X
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import React,{ useEffect,useMemo,useState,useTransition } from "react";
-
-const METODOS_PAGO_ORDEN = ["EFECTIVO", "TRANSFERENCIA", "TARJETA_DEBITO", "TARJETA_CREDITO"];
+import React, { useEffect, useMemo, useState, useTransition } from "react";
 
 function labelMetodoPago(metodo: string): string {
   const labels: Record<string, string> = {
     EFECTIVO: "Efectivo",
+    EFECTIVO_CAJA: "Efectivo",
     TRANSFERENCIA: "Transferencia",
+    TRANSFERENCIA_BANCARIA: "Transferencia",
     TARJETA_DEBITO: "Débito",
     TARJETA_CREDITO: "Crédito",
+    CUENTA_CORRIENTE_PROVEEDOR: "Cta. Cte.",
+    FONDOS_EXTERNOS: "Fondos externos",
     MERCADOPAGO: "Mercado Pago",
+    MERCADO_PAGO: "Mercado Pago",
     OTROS: "Otros",
   };
   return labels[metodo] ?? metodo;
+}
+
+function renderPagoBadge(medio: string) {
+  if (medio === "—") {
+    return <span className="text-[var(--text-secondary)] opacity-50">{"\u2014"}</span>;
+  }
+
+  let style = "";
+  switch (medio) {
+    case "Efectivo":
+      style = "bg-[#22C55E]/10 text-[#22C55E] border-[#22C55E]/20";
+      break;
+    case "Transferencia":
+    case "Débito":
+    case "Crédito":
+    case "Mercado Pago":
+      style = "bg-[#3B82F6]/10 text-[#3B82F6] border-[#3B82F6]/20";
+      break;
+    case "Mixto":
+      style = "bg-[#A855F7]/10 text-[#A855F7] border-[#A855F7]/20";
+      break;
+    case "Cta. Cte.":
+      style = "bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/20";
+      break;
+    case "Fondos externos":
+      style = "bg-[#6366F1]/10 text-[#6366F1] border-[#6366F1]/20";
+      break;
+    default:
+      style = "bg-card text-text-muted border-border";
+  }
+
+  return (
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${style} whitespace-nowrap`}>
+      {medio}
+    </span>
+  );
+}
+
+function getVentaDescripcionClean(mov: MovimientoInput): string {
+  if (mov.venta) {
+    const tipo = mov.venta.tipoComprobante ? formatTipoComprobante(mov.venta.tipoComprobante) : "Comprobante";
+    return `${tipo} N° ${mov.venta.id}`;
+  }
+  return formatMovimientoDescripcion(mov.descripcion ?? "");
 }
 
 const cajaSelectBase = {
@@ -100,9 +165,9 @@ const cajaSelectToneUsuario: ToolbarSelectTone = {
 };
 
 const cajaSelectClassName = {
-  trigger: "h-[38px] rounded-[10px]",
+  trigger: "h-[36px] rounded-[10px]",
   icon: "h-[26px] w-[26px] rounded-full",
-  label: "mb-0.5 text-[#7890B2] tracking-[0.04em]",
+  label: "mb-0.5 text-[#8EA4C7] tracking-[0.06em] font-semibold",
   content: "rounded-[10px] p-1.5 shadow-[0_12px_30px_rgba(0,0,0,0.35)]",
   item: "rounded-[10px] text-[#CBD5E1]",
 };
@@ -115,9 +180,22 @@ interface Movimiento {
   fecha: Date;
   usuario: { username: string; nombreCompleto?: string };
   ventaId?: number | null;
-  venta?: { id: number; metodoPago: string | null } | null;
+  venta?: MovimientoVenta | null;
   compraId?: number | null;
   compra?: MovimientoCompra | null;
+}
+
+interface VentaNoEfectiva {
+  id: number;
+  total: number;
+  fecha: Date | string;
+  metodoPago?: string | null;
+  descuentoTipo?: string | null;
+  montoDescuento?: number;
+  tipoComprobante?: string | null;
+  usuario?: { id?: number; username: string; nombreCompleto?: string } | null;
+  cliente?: { id: number; nombre: string; dni?: string | null; cuit?: string | null } | null;
+  detalles?: { id: number; cantidad: number; precioUnitario: number; subtotal: number; producto: { id: number; nombre: string; marca?: string | null; categoria?: { id: number; nombre: string } | null } }[];
 }
 
 interface CajaActiva {
@@ -131,6 +209,7 @@ interface CajaActiva {
   gastosManuales: number;
   totalContado: number | null;
   movimientos: Movimiento[];
+  ventasNoEfectivas?: VentaNoEfectiva[];
 }
 
 interface CajaHistorial {
@@ -154,12 +233,28 @@ interface CajaTerminalProps {
     fotoUrl?: string | null;
     rol?: { id: number; nombre: string };
   };
+  saldosFinancieros?: {
+    efectivoFisico: number;
+    banco: number;
+    porAcreditar: number;
+    totalDisponible: number;
+  };
+  resumenBancoPeriodo?: {
+    inicial: number;
+    ingresos: number;
+    egresos: number;
+    saldo: number;
+  };
+  movimientosBanco?: MovimientoFinancieroImpresion[];
 }
 
 export default function CajaTerminal({
   cajaActiva,
-  historialCajas,
+  userRole,
   user,
+  saldosFinancieros,
+  resumenBancoPeriodo,
+  movimientosBanco = [],
 }: CajaTerminalProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -170,6 +265,9 @@ export default function CajaTerminal({
   const [aperturaCompletada, setAperturaCompletada] = useState(false);
 
   const [showCerrarModal, setShowCerrarModal] = useState(false);
+  const [showAjustarBancoModal, setShowAjustarBancoModal] = useState(false);
+  const [showGastoModal, setShowGastoModal] = useState(false);
+  const [ajusteBancoErrorMsg, setAjusteBancoErrorMsg] = useState("");
   const [showDetalleModal, setShowDetalleModal] = useState(false);
   const [movimientoSeleccionado, setMovimientoSeleccionado] = useState<MovimientoEnriched | null>(null);
 
@@ -180,7 +278,6 @@ export default function CajaTerminal({
   const [filtroConcepto, setFiltroConcepto] = useState("");
   const [filtroUsuario, setFiltroUsuario] = useState("");
   const [filtroBusqueda, setFiltroBusqueda] = useState("");
-  const [showFiltros, setShowFiltros] = useState(false);
 
   const [now, setNow] = useState(new Date());
 
@@ -229,11 +326,24 @@ export default function CajaTerminal({
     setShowCerrarModal(true);
   };
 
-  const confirmarCierre = () => {
+  const handleAjusteBanco = (payload: AjusteBancoPayload) => {
+    setAjusteBancoErrorMsg("");
+    startTransition(async () => {
+      const res = await registrarAjusteBanco(payload);
+      if (res.success) {
+        setShowAjustarBancoModal(false);
+        router.refresh();
+        return;
+      }
+      setAjusteBancoErrorMsg(res.error || "Error al registrar el ajuste del Banco.");
+    });
+  };
+
+  const confirmarCierre = (payload: CierreCajaPayload) => {
     if (!cajaActiva) return;
     setCierreErrorMsg("");
     startTransition(async () => {
-      const res = await cerrarCaja(cajaActiva.id);
+      const res = await enviarCierreCaja(cerrarCaja, cajaActiva.id, payload);
       if (res.success) {
         setAperturaCompletada(false);
         setShowCerrarModal(false);
@@ -256,14 +366,61 @@ export default function CajaTerminal({
     const formData = new FormData(e.currentTarget);
     startTransition(async () => {
       const res = await registrarGastoCaja(formData);
-      if (res.success) { setGastoDesc(""); setGastoMonto(""); router.refresh(); }
+      if (res.success) { setGastoDesc(""); setGastoMonto(""); setShowGastoModal(false); router.refresh(); }
       else { setErrorMsg(res.error || "Error al registrar el gasto."); }
     });
   };
 
+  const cerrarModalGasto = () => {
+    if (isPending) return;
+    setShowGastoModal(false);
+    setErrorMsg("");
+    setGastoDesc("");
+    setGastoMonto("");
+  };
+
+  // Proyectar ventas no efectivas como MovimientoInput para mezclar en el Libro Diario
+  const movimientosCombinados = useMemo(() => {
+    const fisicos: MovimientoInput[] = (cajaActiva?.movimientos ?? []).map((m) => ({
+      ...m,
+      venta: m.venta ?? null,
+      impactaCaja: true,
+      esNoEfectivo: false,
+    }));
+
+    const proyectados: MovimientoInput[] = (cajaActiva?.ventasNoEfectivas ?? []).map((v) => ({
+      // IDs negativos evitan colisiones con MovimientoCaja.id reales
+      id: -(v.id + 100_000),
+      tipo: "INGRESO" as const,
+      monto: v.total,
+      descripcion: `Venta #${v.id} · ${labelMetodoPago(v.metodoPago ?? "")} — Total ${formatCurrency(v.total)}`,
+      fecha: v.fecha,
+      usuario: v.usuario ? { username: v.usuario.username, nombreCompleto: v.usuario.nombreCompleto } : { username: "unknown" },
+      ventaId: v.id,
+      venta: {
+        id: v.id,
+        total: v.total,
+        fecha: v.fecha,
+        metodoPago: v.metodoPago ?? null,
+        descuentoTipo: v.descuentoTipo ?? null,
+        montoDescuento: v.montoDescuento ?? null,
+        tipoComprobante: v.tipoComprobante ?? null,
+        cliente: v.cliente ?? null,
+        usuario: v.usuario ?? null,
+        detalles: v.detalles ?? [],
+      },
+      compraId: null,
+      compra: null,
+      esNoEfectivo: true,
+      impactaCaja: false,
+    }));
+
+    return [...fisicos, ...proyectados];
+  }, [cajaActiva]);
+
   const movimientosConSaldo = useMemo(
-    () => enrichMovimientos(cajaActiva?.movimientos ?? null),
-    [cajaActiva]
+    () => enrichMovimientos(movimientosCombinados),
+    [movimientosCombinados]
   );
 
   const movimientosFiltrados = useMemo(
@@ -276,6 +433,29 @@ export default function CajaTerminal({
       }),
     [movimientosConSaldo, filtroNaturaleza, filtroConcepto, filtroUsuario, filtroBusqueda]
   );
+
+  const movimientosLibroDiario = useMemo(
+    () => crearModeloImpresionLibroDiario(
+      movimientosConSaldo,
+      movimientosBanco,
+      cajaActiva?.fechaApertura,
+      resumenBancoPeriodo?.inicial ?? 0
+    ),
+    [movimientosConSaldo, movimientosBanco, cajaActiva?.fechaApertura, resumenBancoPeriodo?.inicial]
+  );
+
+  const movimientosLibroDiarioFiltrados = useMemo(
+    () => filtrarMovimientos(movimientosLibroDiario, {
+      naturaleza: filtroNaturaleza,
+      concepto: filtroConcepto,
+      usuario: filtroUsuario,
+      busqueda: filtroBusqueda,
+    }),
+    [movimientosLibroDiario, filtroNaturaleza, filtroConcepto, filtroUsuario, filtroBusqueda]
+  );
+
+  const movimientosImpresion = movimientosLibroDiario;
+  const movimientosImpresionFiltrados = movimientosLibroDiarioFiltrados;
 
   const filtrosActivos = [filtroNaturaleza, filtroConcepto, filtroUsuario, filtroBusqueda].filter(Boolean);
   const hayFiltrosActivos = filtrosActivos.length > 0;
@@ -299,8 +479,14 @@ export default function CajaTerminal({
   const totalEgresosTurno = totalesTurno.totalEgresos;
   const saldoFinalTurno = totalesTurno.saldoFinal;
 
-  const totalIngresosFiltrado = totalesFiltrado.totalIngresos;
-  const totalEgresosFiltrado = totalesFiltrado.totalEgresos;
+  const gastoMontoNumero = useMemo(() => {
+    const parsed = Number(gastoMonto);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }, [gastoMonto]);
+
+  const saldoCajaActual = saldosFinancieros?.efectivoFisico ?? saldoFinalTurno;
+  const saldoCajaResultante = gastoMontoNumero !== null ? saldoCajaActual - gastoMontoNumero : saldoCajaActual;
+
   const saldoFinalFiltrado = totalesFiltrado.saldoFinal;
 
   // "Ventas" = ingresos por ventas reales (excluye el saldo inicial de apertura)
@@ -311,27 +497,73 @@ export default function CajaTerminal({
     .filter((m) => m.tipo === "INGRESO" && getConcepto(m) === "VENTA")
     .reduce((sum, m) => sum + m.monto, 0);
 
-  const totalReposiciones = movimientosConSaldo
-    .filter(m => m.tipo === "EGRESO" && ((m.descripcion || "").toLowerCase().includes("reposici") || (m.descripcion || "").toLowerCase().includes("stock inicial") || m.compraId))
+  const totalReposicionesTurno = movimientosImpresion
+    .filter((m) => m.tipo === "EGRESO" && m.compraId != null)
+    .reduce((total, m) => total + crearFilaImpresionLibroDiario(m).importe, 0);
+  const totalReposicionesFiltrado = movimientosImpresionFiltrados
+    .filter((m) => m.tipo === "EGRESO" && m.compraId != null)
+    .reduce((total, m) => total + crearFilaImpresionLibroDiario(m).importe, 0);
+  const totalGastosTurno = movimientosConSaldo
+    .filter(m => m.tipo === "EGRESO" && m.descripcion.toLowerCase().startsWith("gasto:"))
     .reduce((sum, m) => sum + m.monto, 0);
-  const totalGastos = movimientosConSaldo
+  const totalGastosFiltrado = movimientosFiltrados
     .filter(m => m.tipo === "EGRESO" && m.descripcion.toLowerCase().startsWith("gasto:"))
     .reduce((sum, m) => sum + m.monto, 0);
 
-  const pagosPorMetodo = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const m of cajaActiva?.movimientos ?? []) {
-      if (m.tipo === "INGRESO" && m.ventaId && m.venta?.metodoPago) {
-        const metodo = m.venta.metodoPago;
-        map.set(metodo, (map.get(metodo) ?? 0) + m.monto);
+  // ─── Totales de flujo por fondo (Parte 7.4 — impresión) ──────────
+  const flujosTurno = useMemo(
+    () => calcularFlujosImpresion(movimientosImpresion),
+    [movimientosImpresion]
+  );
+  const flujosFiltrado = useMemo(
+    () => calcularFlujosImpresion(movimientosImpresionFiltrados),
+    [movimientosImpresionFiltrados]
+  );
+
+  const porAcreditarTurno = movimientosImpresion.reduce((total, mov) => {
+    const fila = crearFilaImpresionLibroDiario(mov);
+    return total + fila.ingresoPorAcreditar - fila.egresoPorAcreditar;
+  }, 0);
+  const porAcreditarFiltrado = movimientosImpresionFiltrados.reduce((total, mov) => {
+    const fila = crearFilaImpresionLibroDiario(mov);
+    return total + fila.ingresoPorAcreditar - fila.egresoPorAcreditar;
+  }, 0);
+
+  const resumenInferior = hayFiltrosActivos
+    ? {
+        movimientos: movimientosFiltrados.length,
+        ventas: totalVentasFiltrado,
+        reposiciones: totalReposicionesFiltrado,
+        gastos: totalGastosFiltrado,
+        cajaInicial: cajaActiva?.montoInicial ?? 0,
+        cajaIngresos: flujosFiltrado.ingresosCaja,
+        cajaEgresos: flujosFiltrado.egresosCaja,
+        cajaSaldo: saldoFinalFiltrado,
+        bancoInicial: resumenBancoPeriodo?.inicial ?? 0,
+        bancoIngresos: flujosFiltrado.ingresosBanco,
+        bancoEgresos: flujosFiltrado.egresosBanco,
+        bancoSaldo:
+          (resumenBancoPeriodo?.inicial ?? 0) +
+          flujosFiltrado.ingresosBanco -
+          flujosFiltrado.egresosBanco,
+        porAcreditar: porAcreditarFiltrado,
       }
-    }
-    const otros = [...map.keys()].filter((k) => !METODOS_PAGO_ORDEN.includes(k)).sort();
-    return [...METODOS_PAGO_ORDEN.filter((k) => map.has(k)), ...otros].map((metodo) => ({
-      metodo,
-      monto: map.get(metodo) ?? 0,
-    }));
-  }, [cajaActiva]);
+    : {
+        movimientos: movimientosConSaldo.length,
+        ventas: totalVentasTurno,
+        reposiciones: totalReposicionesTurno,
+        gastos: totalGastosTurno,
+        cajaInicial: cajaActiva?.montoInicial ?? 0,
+        cajaIngresos: flujosTurno.ingresosCaja,
+        cajaEgresos: flujosTurno.egresosCaja,
+        cajaSaldo: saldoFinalTurno,
+        bancoInicial: resumenBancoPeriodo?.inicial ?? 0,
+        bancoIngresos: resumenBancoPeriodo?.ingresos ?? flujosTurno.ingresosBanco,
+        bancoEgresos: resumenBancoPeriodo?.egresos ?? flujosTurno.egresosBanco,
+        bancoSaldo: resumenBancoPeriodo?.saldo ?? 0,
+        porAcreditar: saldosFinancieros?.porAcreditar ?? porAcreditarTurno,
+      };
+  const totalDisponibleResumen = resumenInferior.cajaSaldo + resumenInferior.bancoSaldo;
 
   const handlePrint = () => {
     const report = document.getElementById("caja-print-report");
@@ -381,38 +613,40 @@ export default function CajaTerminal({
       lines.push("");
     }
 
-    lines.push("N°;Fecha;Hora;Descripción;Cantidad;Tipo;Usuario;Ingreso;Egreso;Saldo");
+    // Header: 17 columnas — datos base + 3 Caja + 3 Banco + 3 Por Acreditar
+    lines.push("N°;Fecha;Hora;Descripción;Tipo;Pago;Importe;Usuario;Ingreso Caja;Egreso Caja;Saldo Caja;Ingreso Banco;Egreso Banco;Saldo Banco;Ingreso Por Acreditar;Egreso Por Acreditar;Saldo Por Acreditar");
 
-    const movimientos = movimientosFiltrados;
+    const movimientos = movimientosLibroDiarioFiltrados;
+    let saldoPorAcreditar = 0;
     for (const mov of movimientos) {
       const d = new Date(mov.fecha);
       const fechaStr = formatDateShort(d);
       const horaStr = formatTime24(d);
-      const isIncome = mov.tipo === "INGRESO";
-      const ingreso = isIncome ? formatCurrency(mov.monto) : "";
-      const egreso = !isIncome ? formatCurrency(mov.monto) : "";
-      const saldo = formatCurrency(mov.saldoAcumulado);
-      const descRaw = mov.compra
-        ? formatReposicionCorta(mov.compra) ?? formatMovimientoDescripcion(mov.descripcion)
-        : formatMovimientoDescripcion(mov.descripcion);
-      const desc = descRaw.replace(/"/g, '""');
-      const cantidad = mov.compra
-        ? String(mov.compra.detalles.reduce((sum, d) => sum + (Number(d.cantidad) || 0), 0))
-        : "";
+      const fila = crearFilaImpresionLibroDiario(mov);
+      const desc = construirDescripcionImpresion(mov).replace(/"/g, '""');
+      saldoPorAcreditar += fila.ingresoPorAcreditar - fila.egresoPorAcreditar;
 
-      lines.push(`${mov.itemNumber};${fechaStr};${horaStr};"${desc}";${cantidad};${mov.tipo};@${mov.usuario.username};${ingreso};${egreso};${saldo}`);
+      lines.push(
+        `${mov.itemNumber};${fechaStr};${horaStr};"${desc}";${mov.tipo};${fila.pago};${fila.importe};@${mov.usuario.username};${fila.ingresoCaja};${fila.egresoCaja};${fila.saldoCaja};${fila.ingresoBanco};${fila.egresoBanco};${fila.saldoBanco};${fila.ingresoPorAcreditar};${fila.egresoPorAcreditar};${saldoPorAcreditar}`
+      );
     }
 
     lines.push("");
     lines.push("RESUMEN");
     lines.push(`Movimientos: ${movimientos.length}`);
-    lines.push(`Saldo Inicial: ${formatCurrency(cajaActiva.montoInicial)}`);
-    lines.push(`Ventas: ${formatCurrency(hayFiltrosActivos ? totalVentasFiltrado : totalVentasTurno)}`);
-    lines.push(`Reposiciones: ${formatCurrency(totalReposiciones)}`);
-    lines.push(`Gastos: ${formatCurrency(totalGastos)}`);
-    lines.push(`Ingresos: ${formatCurrency(hayFiltrosActivos ? totalIngresosFiltrado : totalIngresosTurno)}`);
-    lines.push(`Egresos: ${formatCurrency(hayFiltrosActivos ? totalEgresosFiltrado : totalEgresosTurno)}`);
-    lines.push(`Saldo Final: ${formatCurrency(hayFiltrosActivos ? saldoFinalFiltrado : saldoFinalTurno)}`);
+    lines.push(`Ventas: ${formatCurrency(resumenInferior.ventas)}`);
+    lines.push(`Reposiciones: ${formatCurrency(resumenInferior.reposiciones)}`);
+    lines.push(`Gastos: ${formatCurrency(resumenInferior.gastos)}`);
+    lines.push(`Efectivo Inicial: ${formatCurrency(resumenInferior.cajaInicial)}`);
+    lines.push(`Ingresos Caja: ${formatCurrency(resumenInferior.cajaIngresos)}`);
+    lines.push(`Egresos Caja: ${formatCurrency(resumenInferior.cajaEgresos)}`);
+    lines.push(`Efectivo Esperado: ${formatCurrency(resumenInferior.cajaSaldo)}`);
+    lines.push(`Banco Inicial: ${formatCurrency(resumenInferior.bancoInicial)}`);
+    lines.push(`Ingresos Banco: ${formatCurrency(resumenInferior.bancoIngresos)}`);
+    lines.push(`Egresos Banco: ${formatCurrency(resumenInferior.bancoEgresos)}`);
+    lines.push(`Banco Disponible: ${formatCurrency(resumenInferior.bancoSaldo)}`);
+    lines.push(`Por Acreditar: ${formatCurrency(resumenInferior.porAcreditar)}`);
+    lines.push(`Total Disponible: ${formatCurrency(totalDisponibleResumen)}`);
     if (hayFiltrosActivos) {
       lines.push("");
       lines.push("Totales correspondientes a los filtros aplicados.");
@@ -438,9 +672,10 @@ export default function CajaTerminal({
 
   return (
     <>
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch h-full min-h-0">
+    <style>{`#print-overlay .cj-summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }`}</style>
+    <div className="flex flex-col gap-2 h-full min-h-0">
       {/* ═══ SECCIÓN PRINCIPAL ═══ */}
-      <div className={`${cajaActiva ? "lg:col-span-9" : "lg:col-span-12"} flex flex-col min-h-0 overflow-hidden`}>
+      <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
 
         {/* ── CASO A: Caja Cerrada ── */}
         {!cajaActiva ? (
@@ -492,7 +727,7 @@ export default function CajaTerminal({
 
         /* ── CASO B: Caja Abierta ── */
         ) : (
-          <div className="animate-in fade-in duration-200 flex flex-col min-h-0 gap-2">
+          <div className="animate-in fade-in duration-200 flex flex-1 flex-col min-h-0 gap-2">
 
             {/* Day-change warning */}
             {dayChanged && (
@@ -528,75 +763,122 @@ export default function CajaTerminal({
                 <Badge variant="success" size="sm" className="uppercase font-black tracking-wider">Abierta</Badge>
               </div>
               <div className="flex items-center gap-1.5">
+                {userRole === "ADMINISTRADOR" && saldosFinancieros && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setErrorMsg("");
+                      setShowGastoModal(true);
+                    }}
+                    disabled={dayChanged || isPending}
+                    leftIcon={<MinusCircle size={14} />}
+                  >
+                    Registrar Gasto
+                  </Button>
+                )}
+                {userRole === "ADMINISTRADOR" && saldosFinancieros && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setAjusteBancoErrorMsg("");
+                      setShowAjustarBancoModal(true);
+                    }}
+                    leftIcon={<Landmark size={14} />}
+                  >
+                    Ajustar Banco
+                  </Button>
+                )}
                 <Button variant="outline" size="sm" onClick={handlePrint} leftIcon={<Printer size={14} />}>Imprimir</Button>
                 <Button variant="outline" size="sm" onClick={handleExportCSV} leftIcon={<Download size={14} />}>CSV</Button>
                 <Button variant="danger" size="sm" onClick={handleCerrar} disabled={isPending} leftIcon={<Lock size={14} />}>Cerrar Caja</Button>
               </div>
             </div>
 
-            {/* ═══ BUSCADOR + FILTROS ═══ */}
-            <div className="shrink-0 space-y-1">
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7890B2]" />
-                  <input
-                    type="text"
-                    placeholder="Buscar por descripción, factura, usuario o referencia..."
-                    value={filtroBusqueda}
-                    onChange={(e) => setFiltroBusqueda(e.target.value)}
-                    className="h-[38px] w-full pl-9 pr-3 bg-[#101114] border border-[#2B303B] rounded-[10px] text-[13px] text-[#F8FAFC] placeholder:text-[#64748B] focus:outline-none focus:border-[#D62828] focus:ring-2 focus:ring-[rgba(214,40,40,0.15)] hover:bg-[#17191F] hover:border-[#3A414F] transition-colors"
-                  />
-                  {filtroBusqueda && (
-                    <button
-                      onClick={() => setFiltroBusqueda("")}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] hover:text-[var(--text)] transition-colors"
-                    >
-                      <X size={12} />
-                    </button>
-                  )}
+            {/* ═══ RESUMEN FINANCIERO ═══ */}
+            {saldosFinancieros && (
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 shrink-0">
+                {/* Efectivo disponible */}
+                <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 shadow-[var(--shadow-sm)]">
+                  <div className="text-[10px] font-semibold text-[#22c55e] uppercase tracking-wider">Efectivo disponible</div>
+                  <div className="text-sm font-black font-mono text-[var(--text)] mt-0.5">
+                    {formatCurrency(saldosFinancieros.efectivoFisico)}
+                  </div>
                 </div>
-                <button
-                  onClick={() => setShowFiltros(!showFiltros)}
-                  className={`group flex h-[38px] items-center justify-center gap-2 rounded-[10px] border px-3.5 text-[13px] font-semibold outline-none transition-all duration-200 focus-visible:ring-2 focus-visible:ring-[rgba(214,40,40,0.15)] ${
-                    showFiltros
-                      ? "border-[#D62828] bg-[#17191F] text-white"
-                      : "border-[#2B303B] bg-[#101114] text-[#F8FAFC] hover:bg-[#17191F] hover:border-[#D62828] hover:text-white"
-                  }`}
-                >
-                  <span className="flex h-[26px] w-[26px] items-center justify-center rounded-full bg-[rgba(214,40,40,0.12)] text-[#EF4444] transition-colors group-hover:text-[#EF4444]">
-                    <Filter size={16} strokeWidth={2.5} />
-                  </span>
-                  Filtros
-                  {hayFiltrosActivos && (
-                    <span className="ml-0.5 px-1.5 py-0.5 text-[9px] font-black bg-[#D62828] text-white rounded-full leading-none">
-                      {filtrosActivos.length}
-                    </span>
-                  )}
-                </button>
-                {hayFiltrosActivos && (
+
+                {/* Banco disponible */}
+                <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 shadow-[var(--shadow-sm)]">
+                  <div className="text-[10px] font-semibold text-[#38bdf8] uppercase tracking-wider">Banco disponible</div>
+                  <div className="text-sm font-black font-mono text-[var(--text)] mt-0.5">
+                    {formatCurrency(saldosFinancieros.banco)}
+                  </div>
+                </div>
+
+                {/* Por acreditar */}
+                <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 shadow-[var(--shadow-sm)]">
+                  <div className="text-[10px] font-semibold text-[#c084fc] uppercase tracking-wider">Por acreditar</div>
+                  <div className="text-sm font-black font-mono text-[var(--text)] mt-0.5">
+                    {formatCurrency(saldosFinancieros.porAcreditar)}
+                  </div>
+                </div>
+
+                {/* Total disponible */}
+                <div className="bg-[var(--card)] border border-[var(--brand)]/30 rounded-lg px-3 py-2 shadow-[var(--shadow-sm)]">
+                  <div className="text-[10px] font-semibold text-[var(--brand)] uppercase tracking-wider">Total disponible</div>
+                  <div className="text-sm font-black font-mono text-[var(--text)] mt-0.5">
+                    {formatCurrency(saldosFinancieros.totalDisponible)}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ═══ BUSCADOR + FILTROS ═══ */}
+            <div className="shrink-0 rounded-lg border border-[#2B303B] bg-[#1E2129]/90 p-2 shadow-[var(--shadow-sm)]">
+              <div className="flex flex-col gap-2 xl:flex-row xl:items-end xl:justify-between">
+                <div className="relative flex-1 xl:pr-2">
+                    <label className={`${cajaSelectClassName.label} mb-1 block text-[10px] uppercase tracking-[0.14em]`}>
+                      Búsqueda
+                    </label>
+                    <Input
+                      placeholder="Buscar por descripción, factura, usuario o referencia..."
+                      value={filtroBusqueda}
+                      onChange={(e) => setFiltroBusqueda(e.target.value)}
+                      leftIcon={<Search size={14} />}
+                      className="h-[36px] rounded-[10px] border-[#2B303B] bg-[#101114] pr-3 text-[13px] text-[#F8FAFC] placeholder:text-[#64748B] hover:border-[#3A414F] hover:bg-[#17191F] focus-visible:outline-brand"
+                    />
+                    {filtroBusqueda && (
+                      <button
+                        onClick={() => setFiltroBusqueda("")}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] hover:text-[var(--text)] transition-colors"
+                      >
+                        <X size={12} />
+                      </button>
+                    )}
+                </div>
+                <div className="flex flex-wrap items-end gap-1.5 xl:flex-nowrap xl:justify-end">
                   <button
                     onClick={limpiarFiltros}
-                    className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg border border-[var(--danger)]/30 bg-[var(--danger-light)] text-[var(--danger)] text-sm font-semibold transition flex-shrink-0 hover:bg-[var(--danger)]/10"
+                    disabled={!hayFiltrosActivos}
+                    className={`flex h-[36px] items-center justify-center gap-1.5 rounded-[10px] border px-2.5 text-[11px] font-semibold transition xl:min-w-[96px] ${
+                      hayFiltrosActivos
+                        ? "border-[var(--danger)]/30 bg-[var(--danger-light)] text-[var(--danger)] hover:bg-[var(--danger)]/10"
+                        : "cursor-not-allowed border-[#2B303B] bg-[#101114] text-[#64748B]"
+                    }`}
                   >
-                    <RotateCcw size={14} />
+                    <RotateCcw size={13} />
                     Limpiar
                   </button>
-                )}
-              </div>
-
-              {showFiltros && (
-                <div className="bg-[#1E2129] border border-[#2B303B] rounded-[12px] p-3 animate-in fade-in duration-150">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <ToolbarSelect
                       label="Naturaleza"
                       value={filtroNaturaleza || "all"}
                       onValueChange={(v) => setFiltroNaturaleza(v === "all" ? "" : v)}
                       triggerIcon={Waves}
-                      minWidth="w-full"
+                      minWidth="w-full sm:min-w-[150px]"
                       tone={cajaSelectToneNaturaleza}
                       triggerClassName={cajaSelectClassName.trigger}
                       iconClassName={cajaSelectClassName.icon}
-                      labelClassName={cajaSelectClassName.label}
+                      labelClassName={`${cajaSelectClassName.label} text-[10px] tracking-[0.12em] uppercase`}
                       contentClassName={cajaSelectClassName.content}
                       itemClassName={cajaSelectClassName.item}
                       options={[
@@ -610,11 +892,11 @@ export default function CajaTerminal({
                       value={filtroConcepto || "all"}
                       onValueChange={(v) => setFiltroConcepto(v === "all" ? "" : v)}
                       triggerIcon={Tags}
-                      minWidth="w-full"
+                      minWidth="w-full sm:min-w-[172px]"
                       tone={cajaSelectToneConcepto}
                       triggerClassName={cajaSelectClassName.trigger}
                       iconClassName={cajaSelectClassName.icon}
-                      labelClassName={cajaSelectClassName.label}
+                      labelClassName={`${cajaSelectClassName.label} text-[10px] tracking-[0.12em] uppercase`}
                       contentClassName={cajaSelectClassName.content}
                       itemClassName={cajaSelectClassName.item}
                       options={[
@@ -631,11 +913,11 @@ export default function CajaTerminal({
                       value={filtroUsuario || "all"}
                       onValueChange={(v) => setFiltroUsuario(v === "all" ? "" : v)}
                       triggerIcon={UserRound}
-                      minWidth="w-full"
+                      minWidth="w-full sm:min-w-[160px]"
                       tone={cajaSelectToneUsuario}
                       triggerClassName={cajaSelectClassName.trigger}
                       iconClassName={cajaSelectClassName.icon}
-                      labelClassName={cajaSelectClassName.label}
+                      labelClassName={`${cajaSelectClassName.label} text-[10px] tracking-[0.12em] uppercase`}
                       contentClassName={cajaSelectClassName.content}
                       itemClassName={cajaSelectClassName.item}
                       options={[
@@ -647,81 +929,108 @@ export default function CajaTerminal({
                         })),
                       ]}
                     />
-                  </div>
-                  <div className="flex items-center justify-between mt-[10px] pt-2 border-t border-[#2B303B]/60">
-                    <span className="text-[12px] font-normal text-[#64748B]">
-                      {movimientosFiltrados.length} de {movimientosConSaldo.length} movimientos
-                    </span>
-                  </div>
                 </div>
-              )}
+              </div>
             </div>
 
-            {/* ═══ LIBRO DIARIO + RESUMEN ═══ */}
-            <div className="flex flex-col min-h-0 flex-1">
+            {/* ═══ LIBRO DIARIO ═══ */}
+            <div className="flex flex-1 basis-0 flex-col min-h-0">
               <TableShell
                 title="Libro Diario"
-                isEmpty={movimientosFiltrados.length === 0}
+                isEmpty={movimientosLibroDiarioFiltrados.length === 0}
                 emptyMessage={hayFiltrosActivos ? "No se encontraron movimientos con estos filtros." : "No se registran movimientos en este turno."}
                 emptyIcon={<Activity size={32} className="opacity-40" />}
               >
-                <table className="w-full text-sm text-left border-collapse min-w-[700px]">
-                    <thead className="bg-[var(--panel)] text-[var(--text-secondary)] uppercase font-semibold text-xs tracking-wider border-b border-[var(--border)] sticky top-0 z-10">
+                <table className="w-full min-w-[1720px] border-collapse text-sm text-left">
+                    <thead className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--panel)] text-[11px] font-semibold uppercase tracking-wider text-[var(--text-secondary)] shadow-[0_1px_0_var(--border)]">
                       <tr>
-                        <th className="py-3 px-3 text-center w-[4%]">#</th>
-                        <th className="py-3 px-3 w-[10%]">Fecha</th>
-                        <th className="py-3 px-3 w-[7%]">Hora</th>
-                        <th className="py-3 px-3 w-[38%]">Descripción</th>
-                        <th className="py-3 px-2 text-center whitespace-nowrap w-[9%]">Tipo</th>
-                        <th className="py-3 px-2 whitespace-nowrap w-[9%]">Usuario</th>
-                        <th className="py-3 px-3 text-right whitespace-nowrap w-[8%]">Ingreso</th>
-                        <th className="py-3 px-3 text-right whitespace-nowrap w-[8%]">Egreso</th>
-                        <th className="py-3 px-3 text-right whitespace-nowrap w-[7%]">Saldo</th>
+                        <th className="w-[4%] bg-[var(--panel)] px-3 py-3 text-center">#</th>
+                        <th className="w-[8%] bg-[var(--panel)] px-3 py-3">Fecha</th>
+                        <th className="w-[6%] bg-[var(--panel)] px-3 py-3">Hora</th>
+                        <th className="w-[24%] bg-[var(--panel)] px-3 py-3">Descripción</th>
+                        <th className="w-[8%] bg-[var(--panel)] px-2 py-3 text-center whitespace-nowrap">Tipo</th>
+                        <th className="w-[9%] bg-[var(--panel)] px-2 py-3 whitespace-nowrap">Pago</th>
+                        <th className="w-[9%] bg-[var(--panel)] px-3 py-3 text-right whitespace-nowrap">Importe</th>
+                        <th className="w-[8%] bg-[var(--panel)] px-2 py-3 whitespace-nowrap">Usuario</th>
+                        <th className="w-[7%] bg-[var(--panel)] px-3 py-3 text-right whitespace-nowrap">Ing. Caja</th>
+                        <th className="w-[7%] bg-[var(--panel)] px-3 py-3 text-right whitespace-nowrap">Egr. Caja</th>
+                        <th className="w-[7%] bg-[var(--panel)] px-3 py-3 text-right whitespace-nowrap">Saldo Caja</th>
+                        <th className="w-[7%] bg-[var(--panel)] px-3 py-3 text-right whitespace-nowrap">Ing. Banco</th>
+                        <th className="w-[7%] bg-[var(--panel)] px-3 py-3 text-right whitespace-nowrap">Egr. Banco</th>
+                        <th className="w-[7%] bg-[var(--panel)] px-3 py-3 text-right whitespace-nowrap">Saldo Banco</th>
+                        <th className="w-[7%] bg-[var(--panel)] px-3 py-3 text-right whitespace-nowrap">Ing. Pend.</th>
+                        <th className="w-[7%] bg-[var(--panel)] px-3 py-3 text-right whitespace-nowrap">Saldo Pend.</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--border)] font-mono text-xs">
-                      {movimientosFiltrados.map((mov) => {
-                        const isIncome = mov.tipo === "INGRESO";
+                      {movimientosLibroDiarioFiltrados.map((mov) => {
                         const d = new Date(mov.fecha);
                         const fechaStr = formatDateShort(d);
                         const horaStr = formatTime24(d);
                         const visual = getTipoVisual(mov);
                         const reposicionFila = mov.compra ? formatReposicionFila(mov.compra) : null;
+                        const descTitle = mov.venta ? getVentaDescripcionClean(mov) : mov.compra ? (reposicionFila ? reposicionFila.principal : formatMovimientoDescripcion(mov.descripcion)) : formatMovimientoDescripcion(mov.descripcion);
+                        const fila = crearFilaImpresionLibroDiario(mov);
+                        const renderMoneyOrDash = (value: number, tone?: string) =>
+                          value > 0 ? (
+                            <span className={tone}>{formatCurrency(value)}</span>
+                          ) : (
+                            <span className="text-[var(--text-secondary)] opacity-50">{"\u2014"}</span>
+                          );
 
                         return (
-                          <tr key={mov.id} onClick={() => openDetalle(mov)} className="hover:bg-[var(--brand)]/[0.03] transition-colors cursor-pointer">
-                            <td className="py-3 px-3 text-center text-[var(--text-secondary)] font-semibold whitespace-nowrap">{mov.itemNumber}</td>
-                            <td className="py-3 px-3 text-[var(--text-muted)] whitespace-nowrap">{fechaStr}</td>
-                            <td className="py-3 px-3 text-[var(--text-secondary)] whitespace-nowrap">{horaStr}</td>
-                            <td className="py-3 px-3 text-[var(--text)] font-sans pr-2 leading-tight" title={formatMovimientoDescripcion(mov.descripcion)}>
-                              {mov.compra ? (
-                                reposicionFila ? (
-                                  <ReposicionDescripcion reposicionFila={reposicionFila} />
-                                ) : (
-                                  <span className="block whitespace-nowrap overflow-hidden text-ellipsis" style={{ maxWidth: 400 }}>
-                                    {formatMovimientoDescripcion(mov.descripcion)}
-                                  </span>
-                                )
+                          <tr key={mov.id} onClick={() => openDetalle(mov)} className="cursor-pointer transition-colors hover:bg-[var(--brand)]/[0.03]">
+                            <td className="px-3 py-3.5 text-center font-semibold whitespace-nowrap text-[var(--text-secondary)]">{mov.itemNumber}</td>
+                            <td className="px-3 py-3.5 whitespace-nowrap text-[var(--text-muted)]">{fechaStr}</td>
+                            <td className="px-3 py-3.5 whitespace-nowrap text-[var(--text-secondary)]">{horaStr}</td>
+                            <td className="px-3 py-3.5 pr-2 font-sans leading-tight text-[var(--text)]" title={descTitle}>
+                              {mov.venta ? (
+                                <span className="block whitespace-normal break-words line-clamp-2">
+                                  {getVentaDescripcionClean(mov)}
+                                </span>
+                              ) : mov.compra ? (
+                                <span className="block whitespace-nowrap overflow-hidden text-ellipsis" style={{ maxWidth: 400 }}>
+                                  {reposicionFila ? reposicionFila.principal : formatMovimientoDescripcion(mov.descripcion)}
+                                </span>
                               ) : (
                                 <span className="block whitespace-normal break-words line-clamp-2">
                                   {formatMovimientoDescripcion(mov.descripcion)}
                                 </span>
                               )}
                             </td>
-                            <td className="py-3 px-2 text-center whitespace-nowrap">
+                            <td className="px-2 py-3.5 text-center whitespace-nowrap">
                               <Badge variant={visual.variant} size="sm">
                                 {visual.label}
                               </Badge>
                             </td>
-                            <td className="py-3 px-2 text-[var(--text-muted)] font-sans whitespace-nowrap" title={mov.usuario.nombreCompleto || undefined}>@{mov.usuario.username}</td>
-                            <td className="py-3 px-3 text-right text-[var(--success)] font-semibold whitespace-nowrap">
-                              {isIncome ? formatCurrency(mov.monto) : "\u2014"}
+                            <td className="px-2 py-3.5 whitespace-nowrap">{renderPagoBadge(fila.pago)}</td>
+                            <td className="px-3 py-3.5 text-right font-semibold text-[var(--text)] whitespace-nowrap">
+                              {formatCurrency(fila.importe)}
                             </td>
-                            <td className="py-3 px-3 text-right text-[var(--danger)] font-semibold whitespace-nowrap">
-                              {!isIncome ? formatCurrency(mov.monto) : "\u2014"}
+                            <td className="px-2 py-3.5 font-sans whitespace-nowrap text-[var(--text-muted)]" title={mov.usuario.nombreCompleto || undefined}>@{mov.usuario.username}</td>
+                            <td className="px-3 py-3.5 text-right font-semibold whitespace-nowrap">
+                              {renderMoneyOrDash(fila.ingresoCaja, "text-[var(--success)]")}
                             </td>
-                            <td className="py-3 px-3 text-right text-[var(--text)] font-bold whitespace-nowrap">
-                              {formatCurrency(mov.saldoAcumulado)}
+                            <td className="px-3 py-3.5 text-right font-semibold whitespace-nowrap">
+                              {renderMoneyOrDash(fila.egresoCaja, "text-[var(--danger)]")}
+                            </td>
+                            <td className="px-3 py-3.5 text-right font-bold whitespace-nowrap text-[var(--text)]">
+                              {formatCurrency(fila.saldoCaja)}
+                            </td>
+                            <td className="px-3 py-3.5 text-right font-semibold whitespace-nowrap">
+                              {renderMoneyOrDash(fila.ingresoBanco, "text-[#38bdf8]")}
+                            </td>
+                            <td className="px-3 py-3.5 text-right font-semibold whitespace-nowrap">
+                              {renderMoneyOrDash(fila.egresoBanco, "text-[#fb923c]")}
+                            </td>
+                            <td className="px-3 py-3.5 text-right font-bold whitespace-nowrap text-[#38bdf8]">
+                              {formatCurrency(fila.saldoBanco)}
+                            </td>
+                            <td className="px-3 py-3.5 text-right font-semibold whitespace-nowrap">
+                              {renderMoneyOrDash(fila.ingresoPorAcreditar, "text-[#c084fc]")}
+                            </td>
+                            <td className="px-3 py-3.5 text-right font-bold whitespace-nowrap text-[#d8b4fe]">
+                              {formatCurrency(fila.saldoPorAcreditar)}
                             </td>
                           </tr>
                         );
@@ -729,135 +1038,117 @@ export default function CajaTerminal({
                     </tbody>
                   </table>
               </TableShell>
-
-              {/* ═══ RESUMEN INFERIOR ═══ */}
-              <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 shadow-[var(--shadow-sm)] shrink-0 mt-2">
-                {hayFiltrosActivos && (
-                  <p className="text-xs text-[var(--brand)] font-semibold uppercase tracking-wider mb-2 flex items-center gap-1">
-                    <Filter size={12} />
-                    Totales según filtros aplicados
-                  </p>
-                )}
-                <div className="grid grid-cols-4 lg:grid-cols-8 gap-3">
-                  <div className="space-y-1">
-                    <span className="text-xs text-[var(--text-secondary)] font-medium uppercase tracking-wider block">Movimientos</span>
-                    <span className="text-sm font-bold text-[var(--text)]">{movimientosFiltrados.length}{hayFiltrosActivos ? `/${movimientosConSaldo.length}` : ""}</span>
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-xs text-[var(--text-secondary)] font-medium uppercase tracking-wider block">Inicial</span>
-                    <span className="text-sm font-bold text-[var(--info)] font-mono">{formatCurrency(cajaActiva.montoInicial)}</span>
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-xs text-[var(--text-secondary)] font-medium uppercase tracking-wider block">Ventas</span>
-                    <span className="text-sm font-bold text-[var(--success)] font-mono">{formatCurrency(hayFiltrosActivos ? totalVentasFiltrado : totalVentasTurno)}</span>
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-xs text-[var(--text-secondary)] font-medium uppercase tracking-wider block">Reposic.</span>
-                    <span className="text-sm font-bold text-[var(--warning)] font-mono">{formatCurrency(totalReposiciones)}</span>
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-xs text-[var(--text-secondary)] font-medium uppercase tracking-wider block">Gastos</span>
-                    <span className="text-sm font-bold text-[var(--danger)] font-mono">{formatCurrency(totalGastos)}</span>
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-xs text-[var(--text-secondary)] font-medium uppercase tracking-wider block">Ingresos</span>
-                    <span className="text-sm font-bold text-[var(--success)] font-mono">{formatCurrency(hayFiltrosActivos ? totalIngresosFiltrado : totalIngresosTurno)}</span>
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-xs text-[var(--text-secondary)] font-medium uppercase tracking-wider block">Egresos</span>
-                    <span className="text-sm font-bold text-[var(--danger)] font-mono">{formatCurrency(hayFiltrosActivos ? totalEgresosFiltrado : totalEgresosTurno)}</span>
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-xs text-[var(--brand)] font-bold uppercase tracking-wider block">Saldo Final</span>
-                    <span className={`text-lg font-black font-mono ${(hayFiltrosActivos ? saldoFinalFiltrado : saldoFinalTurno) >= 0 ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
-                      {formatCurrency(hayFiltrosActivos ? saldoFinalFiltrado : saldoFinalTurno)}
-                    </span>
-                  </div>
-                </div>
-              </div>
             </div>
-
           </div>
         )}
       </div>
 
-      {/* ═══ COLUMNA DERECHA ═══ */}
       {cajaActiva && (
-        <div className="lg:col-span-3 flex flex-col gap-3 min-h-0">
-          {/* Panel Gasto Manual */}
-          <div className={`bg-[var(--card)] border border-[var(--border)] rounded-lg p-4 shadow-[var(--shadow-sm)] flex flex-col shrink-0 ${dayChanged ? "opacity-50 pointer-events-none" : ""}`}>
-            <div className="flex items-center space-x-2.5 text-[var(--brand)] border-b border-[var(--border)] pb-3 mb-3">
-              <MinusCircle size={18} />
-              <h2 className="text-sm font-bold text-[var(--text)]">Registrar Gasto Diario</h2>
-            </div>
-            {dayChanged ? (
-              <div className="flex-1 flex items-center justify-center">
-                <p className="text-xs text-[var(--text-secondary)] text-center">Cierre pendiente del día anterior</p>
-              </div>
-            ) : (
-            <form onSubmit={handleGasto} className="flex-1 flex flex-col justify-between space-y-3">
-              <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider block">Concepto del Gasto</label>
-                  <Input name="descripcion" placeholder="Ej: Artículos de limpieza, Viáticos..." value={gastoDesc} onChange={e => setGastoDesc(e.target.value)} required disabled={isPending} className="w-full text-sm" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider block">Monto ($)</label>
-                  <Input name="monto" type="number" placeholder="0.00" value={gastoMonto} onChange={e => setGastoMonto(e.target.value)} className="font-mono font-bold text-sm" required disabled={isPending} />
-                </div>
-                {errorMsg && (
-                  <div className="p-2.5 bg-[var(--danger-light)] border border-[var(--danger)]/20 text-[var(--danger)] text-xs font-semibold rounded-lg flex items-center justify-center space-x-1.5">
-                    <AlertTriangle size={14} />
-                    <span>{errorMsg}</span>
-                  </div>
-                )}
-              </div>
-              <Button type="submit" variant="danger" className="w-full py-3" disabled={isPending} loading={isPending} leftIcon={<PlusCircle size={16} />}>
-                {isPending ? "Registrando..." : "Registrar Egreso"}
-              </Button>
-            </form>
+        <div className="pt-1">
+          {/* ═══ RESUMEN INFERIOR ═══ */}
+          <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-2.5 shadow-[var(--shadow-sm)] flex flex-col justify-end">
+            {hayFiltrosActivos && (
+              <p className="text-xs text-[var(--brand)] font-semibold uppercase tracking-wider mb-2 flex items-center gap-1">
+                <Filter size={12} />
+                Totales según filtros aplicados
+              </p>
             )}
-          </div>
-
-          {/* Historial de Arqueos */}
-          <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-4 shadow-[var(--shadow-sm)] flex-1 min-h-[160px] max-h-[calc(100vh-34rem)] flex flex-col">
-            <div className="flex items-center space-x-2.5 text-[var(--brand)] border-b border-[var(--border)] pb-3 mb-3">
-              <History size={18} />
-              <h2 className="text-sm font-bold text-[var(--text)]">Historial de Arqueos</h2>
-            </div>
-            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 scrollbar-hide">
-              {historialCajas.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full py-12 text-center">
-                  <History size={24} className="text-[var(--text-secondary)] opacity-40 mb-1" />
-                  <p className="text-xs text-[var(--text-secondary)]">No hay registros de arqueos.</p>
+            <div className="grid gap-2 xl:grid-cols-5">
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--panel)]/45 p-2.5">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Operación económica</p>
+                <div className="mt-2 space-y-2">
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-[var(--text-secondary)]">Movimientos</span>
+                    <span className="font-bold text-[var(--text)]">{resumenInferior.movimientos}{hayFiltrosActivos ? `/${movimientosConSaldo.length}` : ""}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-[var(--text-secondary)]">Ventas</span>
+                    <span className="font-mono font-bold text-[var(--success)]">{formatCurrency(resumenInferior.ventas)}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-[var(--text-secondary)]">Reposiciones</span>
+                    <span className="font-mono font-bold text-[var(--warning)]">{formatCurrency(resumenInferior.reposiciones)}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-[var(--text-secondary)]">Gastos</span>
+                    <span className="font-mono font-bold text-[var(--danger)]">{formatCurrency(resumenInferior.gastos)}</span>
+                  </div>
                 </div>
-              ) : (
-                historialCajas.map(hc => {
-                  const totalCaja = hc.montoInicial + hc.totalVentas;
-                  return (
-                    <div key={hc.id} className="p-3 bg-[var(--panel)]/50 border border-[var(--border)] rounded-xl space-y-2 hover:border-[var(--border-hover)] transition-all">
-                      <div className="flex justify-between items-center">
-                        <span className="font-bold text-sm text-[var(--text)]">Caja #{hc.id.toString().padStart(4, "0")}</span>
-                        <Badge variant={hc.estado === "ABIERTA" ? "success" : "default"} size="sm">{hc.estado}</Badge>
-                      </div>
-                      <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 text-xs text-[var(--text-muted)]">
-                        <div>
-                          <span className="text-[10px] text-[var(--text-secondary)] block">Cierre</span>
-                          <span className="font-semibold text-[var(--text)]">{hc.fechaCierre ? formatDate(hc.fechaCierre) : "N/D"}</span>
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-[var(--text-secondary)] block">Cajero</span>
-                          <span className="font-semibold text-[var(--text)]">{hc.usuario.nombreCompleto || hc.usuario.username}</span>
-                        </div>
-                      </div>
-                      <div className="pt-2 border-t border-[var(--border)]/60 flex justify-between items-center text-xs">
-                        <span className="text-[var(--text-secondary)] font-semibold">Saldo al cierre:</span>
-                        <span className="font-mono font-bold text-[var(--success)]">{formatCurrency(totalCaja)}</span>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
+              </div>
+
+              <div className="rounded-xl border border-[var(--border)] bg-[rgba(34,197,94,0.07)] p-2.5">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#4ade80]">Caja</p>
+                <div className="mt-2 space-y-2">
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-[var(--text-secondary)]">Inicial Caja</span>
+                    <span className="font-mono font-bold text-[var(--info)]">{formatCurrency(resumenInferior.cajaInicial)}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-[var(--text-secondary)]">Ingresos Caja</span>
+                    <span className="font-mono font-bold text-[var(--success)]">{formatCurrency(resumenInferior.cajaIngresos)}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-[var(--text-secondary)]">Egresos Caja</span>
+                    <span className="font-mono font-bold text-[var(--danger)]">{formatCurrency(resumenInferior.cajaEgresos)}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-[var(--text-secondary)]">Saldo Caja</span>
+                    <span className={`font-mono text-base font-black ${resumenInferior.cajaSaldo >= 0 ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
+                      {formatCurrency(resumenInferior.cajaSaldo)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-[var(--border)] bg-[rgba(56,189,248,0.07)] p-2.5">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#38bdf8]">Banco</p>
+                <div className="mt-2 space-y-2">
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-[var(--text-secondary)]">Inicial Banco</span>
+                    <span className="font-mono font-bold text-[var(--info)]">{formatCurrency(resumenInferior.bancoInicial)}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-[var(--text-secondary)]">Ingresos Banco</span>
+                    <span className="font-mono font-bold text-[#38bdf8]">{formatCurrency(resumenInferior.bancoIngresos)}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-[var(--text-secondary)]">Egresos Banco</span>
+                    <span className="font-mono font-bold text-[#fb923c]">{formatCurrency(resumenInferior.bancoEgresos)}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-[var(--text-secondary)]">Saldo Banco</span>
+                    <span className={`font-mono text-base font-black ${resumenInferior.bancoSaldo >= 0 ? "text-[#38bdf8]" : "text-[var(--danger)]"}`}>
+                      {formatCurrency(resumenInferior.bancoSaldo)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-[var(--border)] bg-[rgba(168,85,247,0.08)] p-2.5">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#c084fc]">Pendiente</p>
+                <div className="mt-2 space-y-2">
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-[var(--text-secondary)]">Por acreditar</span>
+                    <span className="font-mono text-base font-black text-[#c084fc]">{formatCurrency(resumenInferior.porAcreditar)}</span>
+                  </div>
+                  <p className="pt-2 text-[11px] leading-relaxed text-[var(--text-secondary)]">
+                    Crédito no entra en Banco hasta acreditarse.
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-[var(--brand)]/30 bg-[var(--brand-light)]/40 p-2.5">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--brand)]">Total</p>
+                <div className="mt-2 space-y-2">
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-[var(--text-secondary)]">Total disponible</span>
+                    <span className="font-mono text-lg font-black text-[var(--brand)]">{formatCurrency(totalDisponibleResumen)}</span>
+                  </div>
+                  <p className="pt-2 text-[11px] leading-relaxed text-[var(--text-secondary)]">
+                    Caja + Banco. No incluye Por acreditar.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -887,200 +1178,328 @@ export default function CajaTerminal({
       movimiento={movimientoSeleccionado}
     />
 
-    {/* ═══ REPORTE OCULTO PARA IMPRESIÓN ═══ */}
-    {cajaActiva && (
-      <div id="caja-print-report" className="caja-print-source">
+    {saldosFinancieros && (
+      <AjustarBancoModal
+        open={showAjustarBancoModal}
+        onClose={() => {
+          if (isPending) return;
+          setShowAjustarBancoModal(false);
+          setAjusteBancoErrorMsg("");
+        }}
+        onConfirm={handleAjusteBanco}
+        isPending={isPending}
+        saldoActual={saldosFinancieros.banco}
+        errorMessage={ajusteBancoErrorMsg}
+      />
+    )}
 
-        <div className="cj-header">
-          {/* eslint-disable-next-line @next/next/no-img-element -- Logo de reporte imprimible: el HTML de impresion necesita la ruta directa sin wrapper de next/image. */}
-          <img src="/logo.png" alt="Logo de Chopper Repuestos" className="cj-logo" />
-          <div className="cj-header-center">
-            <div className="cj-title">Libro Diario de Caja</div>
-          </div>
-        </div>
+    <Dialog open={showGastoModal} onOpenChange={(open) => !open && cerrarModalGasto()}>
+      <DialogContent className="max-w-[28rem] border-[var(--border)] bg-[var(--card)] p-5 sm:p-6">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2.5 text-[var(--text)]">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--danger-light)] text-[var(--danger)] ring-1 ring-[var(--danger)]/20">
+              <MinusCircle size={16} />
+            </span>
+            Registrar Gasto Diario
+          </DialogTitle>
+        </DialogHeader>
 
-        <div className="cj-meta">
-          <div className="cj-meta-item">
-            <div className="cj-meta-label">Caja</div>
-            <div className="cj-meta-value">#{cajaActiva.id.toString().padStart(4, "0")}</div>
+        {dayChanged ? (
+          <div className="rounded-xl border border-[var(--warning)]/20 bg-[var(--warning-light)] px-3 py-2 text-sm font-semibold text-[var(--warning)]">
+            Cierre pendiente del día anterior.
           </div>
-          <div className="cj-meta-item">
-            <div className="cj-meta-label">Apertura</div>
-            <div className="cj-meta-value">{formatDate(cajaActiva.fechaApertura)}</div>
-          </div>
-          <div className="cj-meta-item">
-            <div className="cj-meta-label">Cajero</div>
-            <div className="cj-meta-value">{cajaActiva.usuario.nombreCompleto || cajaActiva.usuario.username}</div>
-          </div>
-          <div className="cj-meta-item">
-            <div className="cj-meta-label">Estado</div>
-            <div className="cj-meta-value">{cajaActiva.estado}</div>
-          </div>
-          <div className="cj-meta-item">
-            <div className="cj-meta-label">Saldo Inicial</div>
-            <div className="cj-meta-value">{formatCurrency(cajaActiva.montoInicial)}</div>
-          </div>
-          <div className="cj-meta-item">
-            <div className="cj-meta-label">Duración Turno</div>
-            <div className="cj-meta-value">{duracionStr}</div>
-          </div>
-          <div className="cj-meta-item">
-            <div className="cj-meta-label">Movimientos</div>
-            <div className="cj-meta-value">{movimientosFiltrados.length}{hayFiltrosActivos ? ` / ${movimientosConSaldo.length}` : ""}</div>
-          </div>
-          <div className="cj-meta-item">
-            <div className="cj-meta-label">Emisión</div>
-            <div className="cj-meta-value">{formatDate(new Date())}</div>
-          </div>
-        </div>
+        ) : (
+          <form onSubmit={handleGasto} className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#9FB1CC]">
+                Concepto del Gasto
+              </label>
+              <Input
+                name="descripcion"
+                placeholder="Ej: Artículos de limpieza, Viáticos..."
+                value={gastoDesc}
+                onChange={(e) => setGastoDesc(e.target.value)}
+                required
+                disabled={isPending}
+                className="h-10 text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#9FB1CC]">
+                Monto ($)
+              </label>
+              <div className="relative">
+                <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm font-bold text-[var(--text-secondary)]">
+                  $
+                </span>
+                <Input
+                  name="monto"
+                  type="number"
+                  placeholder="0.00"
+                  value={gastoMonto}
+                  onChange={(e) => setGastoMonto(e.target.value)}
+                  required
+                  disabled={isPending}
+                  className="h-10 pl-8 font-mono font-bold text-sm"
+                />
+              </div>
+            </div>
 
-        {hayFiltrosActivos && (
-          <div className="cj-filters">
-            <strong>Filtros aplicados:</strong>{" "}
-            {filtroNaturaleza && `Naturaleza: ${filtroNaturaleza}`}
-            {filtroConcepto && ` | Concepto: ${filtroConcepto}`}
-            {filtroUsuario && ` | Usuario: ${usuariosConNombre.find((u) => u.username === filtroUsuario)?.nombreCompleto || filtroUsuario}`}
-            {filtroBusqueda && ` | Búsqueda: "${filtroBusqueda}"`}
-          </div>
-        )}
-
-        <table className="cj-table">
-          <thead>
-            <tr>
-              <th className="col-num">#</th>
-              <th className="col-fecha">Fecha</th>
-              <th className="col-hora">Hora</th>
-              <th className="col-desc">Descripción</th>
-              <th className="col-tipo">Tipo</th>
-              <th className="col-user">Usuario</th>
-              <th className="col-ing">Ingreso</th>
-              <th className="col-egr">Egreso</th>
-              <th className="col-saldo">Saldo</th>
-            </tr>
-          </thead>
-          <tbody>
-            {movimientosFiltrados.map((mov) => {
-              const isIncome = mov.tipo === "INGRESO";
-              const d = new Date(mov.fecha);
-              const fechaStr = formatDateShort(d);
-              const horaStr = formatTime24(d);
-              const visual = getTipoVisual(mov);
-              const badgeClass = visual.variant === "success" ? "badge-success" : visual.variant === "danger" ? "badge-danger" : visual.variant === "warning" ? "badge-warning" : visual.variant === "info" ? "badge-info" : "badge-default";
-
-              return (
-                <tr key={mov.id}>
-                  <td className="col-num text-center">{mov.itemNumber}</td>
-                  <td className="col-fecha">{fechaStr}</td>
-                  <td className="col-hora">{horaStr}</td>
-                  <td className="col-desc">{mov.compra ? formatReposicionCorta(mov.compra) ?? formatMovimientoDescripcion(mov.descripcion) : formatMovimientoDescripcion(mov.descripcion)}</td>
-                  <td className="col-tipo text-center"><span className={`badge ${badgeClass}`}>{visual.label}</span></td>
-                  <td className="col-user">{mov.usuario.nombreCompleto || mov.usuario.username}</td>
-                  <td className="col-ing text-right font-bold text-green">{isIncome ? formatCurrency(mov.monto) : "—"}</td>
-                  <td className="col-egr text-right font-bold text-red">{!isIncome ? formatCurrency(mov.monto) : "—"}</td>
-                  <td className="col-saldo text-right font-bold">{formatCurrency(mov.saldoAcumulado)}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-
-        <div className="cj-summary">
-          <div className="cj-summary-title">Resumen del Turno</div>
-          <div className="cj-summary-grid">
-            <div className="cj-summary-item">
-              <div className="cj-summary-label">Movimientos</div>
-              <div className="cj-summary-value">{movimientosFiltrados.length}</div>
-            </div>
-            <div className="cj-summary-item">
-              <div className="cj-summary-label">Saldo Inicial</div>
-              <div className="cj-summary-value" style={{color:"#0369a1"}}>{formatCurrency(cajaActiva.montoInicial)}</div>
-            </div>
-            <div className="cj-summary-item">
-              <div className="cj-summary-label">Ventas</div>
-              <div className="cj-summary-value" style={{color:"#16a34a"}}>{formatCurrency(hayFiltrosActivos ? totalVentasFiltrado : totalVentasTurno)}</div>
-            </div>
-            <div className="cj-summary-item">
-              <div className="cj-summary-label">Reposiciones</div>
-              <div className="cj-summary-value" style={{color:"#d97706"}}>{formatCurrency(totalReposiciones)}</div>
-            </div>
-            <div className="cj-summary-item">
-              <div className="cj-summary-label">Gastos</div>
-              <div className="cj-summary-value" style={{color:"#dc2626"}}>{formatCurrency(totalGastos)}</div>
-            </div>
-            <div className="cj-summary-item">
-              <div className="cj-summary-label">Ingresos</div>
-              <div className="cj-summary-value" style={{color:"#16a34a"}}>{formatCurrency(hayFiltrosActivos ? totalIngresosFiltrado : totalIngresosTurno)}</div>
-            </div>
-            <div className="cj-summary-item">
-              <div className="cj-summary-label">Egresos</div>
-              <div className="cj-summary-value" style={{color:"#dc2626"}}>{formatCurrency(hayFiltrosActivos ? totalEgresosFiltrado : totalEgresosTurno)}</div>
-            </div>
-            <div className="cj-summary-item cj-summary-saldo-final">
-              <div className="cj-summary-label">Saldo Final</div>
-              <div className="cj-summary-value" style={{color:(hayFiltrosActivos ? saldoFinalFiltrado : saldoFinalTurno) >= 0 ? "#16a34a" : "#dc2626", fontSize:"13px"}}>{formatCurrency(hayFiltrosActivos ? saldoFinalFiltrado : saldoFinalTurno)}</div>
-            </div>
-          </div>
-        </div>
-
-        <div className="cj-pagos">
-          <div className="cj-section-title">Resumen por Forma de Pago</div>
-          {pagosPorMetodo.length === 0 ? (
-            <div style={{fontSize:"9px", color:"#777"}}>Sin ventas registradas en este turno.</div>
-          ) : (
-            <div className="cj-pagos-grid">
-              {pagosPorMetodo.map((p) => (
-                <div className="cj-pago-item" key={p.metodo}>
-                  <div className="cj-pago-label">{labelMetodoPago(p.metodo)}</div>
-                  <div className="cj-pago-value">{formatCurrency(p.monto)}</div>
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--panel)]/70 p-3">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
+                Resumen
+              </div>
+              <div className="mt-2 space-y-2 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-[var(--text-secondary)]">Saldo Caja actual</span>
+                  <span className="font-mono font-bold text-[var(--text)]">{formatCurrency(saldoCajaActual)}</span>
                 </div>
-              ))}
+                {gastoMontoNumero !== null && (
+                  <>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-[var(--text-secondary)]">Gasto</span>
+                      <span className="font-mono font-bold text-[var(--danger)]">
+                        -{formatCurrency(gastoMontoNumero)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] pt-2">
+                      <span className="text-[var(--text-secondary)]">Saldo resultante</span>
+                      <span className={`font-mono text-base font-black ${saldoCajaResultante >= 0 ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
+                        {formatCurrency(saldoCajaResultante)}
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+            {errorMsg && (
+              <div className="flex items-center justify-center space-x-1.5 rounded-lg border border-[var(--danger)]/20 bg-[var(--danger-light)] p-2 text-xs font-semibold text-[var(--danger)]">
+                <AlertTriangle size={14} />
+                <span>{errorMsg}</span>
+              </div>
+            )}
+
+            <DialogFooter className="gap-2 sm:justify-end">
+              <Button type="button" variant="outline" onClick={cerrarModalGasto} disabled={isPending}>
+                Cancelar
+              </Button>
+              <Button type="submit" variant="danger" className="h-10 min-w-[168px]" disabled={isPending} loading={isPending} leftIcon={<PlusCircle size={15} />}>
+                {isPending ? "Registrando..." : "Registrar Egreso"}
+              </Button>
+            </DialogFooter>
+          </form>
+        )}
+      </DialogContent>
+    </Dialog>
+
+    {/* ═══ REPORTE DE IMPRESIÓN (OCULTO EN PANTALLA) ═══ */}
+    {cajaActiva && (
+    <div id="caja-print-report" className="caja-print-source">
+      <div className="cj-header">
+        {/* eslint-disable-next-line @next/next/no-img-element -- El HTML clonado para impresión necesita una ruta directa. */}
+        <img src="/logo.png" alt="Logo de Chopper Repuestos" className="cj-logo" />
+        <div className="cj-header-center">
+          <div className="cj-title">Libro Diario de Caja</div>
+        </div>
+      </div>
+
+      <div className="cj-meta">
+        <div className="cj-meta-item">
+          <div className="cj-meta-label">Caja</div>
+          <div className="cj-meta-value">#{cajaActiva.id.toString().padStart(4, "0")}</div>
+        </div>
+        <div className="cj-meta-item">
+          <div className="cj-meta-label">Apertura</div>
+          <div className="cj-meta-value">{formatDate(cajaActiva.fechaApertura)}</div>
+        </div>
+        <div className="cj-meta-item">
+          <div className="cj-meta-label">Cajero</div>
+          <div className="cj-meta-value">{cajaActiva.usuario.nombreCompleto || cajaActiva.usuario.username}</div>
+        </div>
+        <div className="cj-meta-item">
+          <div className="cj-meta-label">Estado</div>
+          <div className="cj-meta-value">{cajaActiva.estado}</div>
+        </div>
+        <div className="cj-meta-item">
+          <div className="cj-meta-label">Saldo Inicial</div>
+          <div className="cj-meta-value">{formatCurrency(cajaActiva.montoInicial)}</div>
+        </div>
+        <div className="cj-meta-item">
+          <div className="cj-meta-label">Duración Turno</div>
+          <div className="cj-meta-value">{duracionStr}</div>
+        </div>
+        <div className="cj-meta-item">
+          <div className="cj-meta-label">Movimientos</div>
+          <div className="cj-meta-value">{movimientosImpresionFiltrados.length}{hayFiltrosActivos ? ` / ${movimientosImpresion.length}` : ""}</div>
+        </div>
+        <div className="cj-meta-item">
+          <div className="cj-meta-label">Emisión</div>
+          <div className="cj-meta-value">{formatDate(new Date())}</div>
+        </div>
+      </div>
+
+      {hayFiltrosActivos && (
+        <div className="cj-filters">
+          <strong>Filtros aplicados:</strong>{" "}
+          {filtroNaturaleza && `Naturaleza: ${filtroNaturaleza}`}
+          {filtroConcepto && ` | Concepto: ${filtroConcepto}`}
+          {filtroUsuario && ` | Usuario: ${usuariosConNombre.find((u) => u.username === filtroUsuario)?.nombreCompleto || filtroUsuario}`}
+          {filtroBusqueda && ` | Búsqueda: "${filtroBusqueda}"`}
+        </div>
+      )}
+
+      {/* ═══ TABLA LIBRO DIARIO ═══ */}
+      <table className="cj-table">
+        <thead>
+          <tr>
+            <th className="col-num">#</th>
+            <th className="col-fecha">Fecha</th>
+            <th className="col-hora">Hora</th>
+            <th className="col-desc">Descripción</th>
+            <th className="col-tipo">Tipo</th>
+            <th className="col-pago">Pago</th>
+            <th className="col-importe">Importe</th>
+            <th className="col-user">Usuario</th>
+            <th className="col-ing-caja">Ing. Caja</th>
+            <th className="col-egr-caja">Egr. Caja</th>
+            <th className="col-saldo-caja">Saldo Caja</th>
+            <th className="col-ing-banco">Ing. Banco</th>
+            <th className="col-egr-banco">Egr. Banco</th>
+            <th className="col-saldo-banco">Saldo Banco</th>
+          </tr>
+        </thead>
+        <tbody>
+          {movimientosImpresionFiltrados.map((mov) => {
+            const d = new Date(mov.fecha);
+            const fechaStr = formatDateShort(d);
+            const horaStr = formatTime24(d);
+            const visual = getTipoVisual(mov);
+            const badgeClass = visual.variant === "success" ? "badge-success" : visual.variant === "danger" ? "badge-danger" : visual.variant === "warning" ? "badge-warning" : visual.variant === "info" ? "badge-info" : "badge-default";
+
+            const filaImpresion = crearFilaImpresionLibroDiario(mov);
+
+            // Helpers para mostrar "—" cuando el valor es 0
+            const fmtCajaIn = filaImpresion.ingresoCaja > 0 ? formatCurrency(filaImpresion.ingresoCaja) : "—";
+            const fmtCajaEgr = filaImpresion.egresoCaja > 0 ? formatCurrency(filaImpresion.egresoCaja) : "—";
+            const fmtBancoIn = filaImpresion.ingresoBanco > 0 ? formatCurrency(filaImpresion.ingresoBanco) : "—";
+            const fmtBancoEgr = filaImpresion.egresoBanco > 0 ? formatCurrency(filaImpresion.egresoBanco) : "—";
+
+            return (
+              <tr key={mov.id}>
+                <td className="col-num text-center">{mov.itemNumber}</td>
+                <td className="col-fecha">{fechaStr}</td>
+                <td className="col-hora">{horaStr}</td>
+                <td className="col-desc">{construirDescripcionImpresion(mov)}</td>
+                <td className="col-tipo text-center"><span className={`badge ${badgeClass}`}>{visual.label}</span></td>
+                <td className="col-pago text-center">{filaImpresion.pago}</td>
+                <td className="col-importe text-right font-bold">{formatCurrency(filaImpresion.importe)}</td>
+                <td className="col-user">{mov.usuario.nombreCompleto || mov.usuario.username}</td>
+                <td className="col-ing-caja text-right font-bold text-green">{fmtCajaIn}</td>
+                <td className="col-egr-caja text-right font-bold text-red">{fmtCajaEgr}</td>
+                <td className="col-saldo-caja text-right font-bold">{formatCurrency(filaImpresion.saldoCaja)}</td>
+                <td className="col-ing-banco text-right font-bold text-banco">{fmtBancoIn}</td>
+                <td className="col-egr-banco text-right font-bold text-banco-egr">{fmtBancoEgr}</td>
+                <td className="col-saldo-banco text-right font-bold text-banco">{formatCurrency(filaImpresion.saldoBanco)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      {/* ═══ RESUMEN DEL TURNO (IMPRESO) ═══ */}
+      <div className="cj-summary">
+        <div className="cj-summary-title">Resumen del Turno</div>
+        <div className="cj-summary-grid">
+          <div className="cj-summary-item">
+            <div className="cj-summary-label">Movimientos</div>
+            <div className="cj-summary-value">{movimientosImpresionFiltrados.length}</div>
+          </div>
+          <div className="cj-summary-item">
+            <div className="cj-summary-label">Ventas</div>
+            <div className="cj-summary-value" style={{color:"#16a34a"}}>{formatCurrency(resumenInferior.ventas)}</div>
+          </div>
+          <div className="cj-summary-item">
+            <div className="cj-summary-label">Reposiciones</div>
+            <div className="cj-summary-value" style={{color:"#d97706"}}>{formatCurrency(resumenInferior.reposiciones)}</div>
+          </div>
+          <div className="cj-summary-item">
+            <div className="cj-summary-label">Gastos</div>
+            <div className="cj-summary-value" style={{color:"#dc2626"}}>{formatCurrency(resumenInferior.gastos)}</div>
+          </div>
+          <div className="cj-summary-item">
+            <div className="cj-summary-label">Ingresos Caja</div>
+            <div className="cj-summary-value" style={{color:"#16a34a"}}>{formatCurrency(resumenInferior.cajaIngresos)}</div>
+          </div>
+          <div className="cj-summary-item">
+            <div className="cj-summary-label">Egresos Caja</div>
+            <div className="cj-summary-value" style={{color:"#dc2626"}}>{formatCurrency(resumenInferior.cajaEgresos)}</div>
+          </div>
+          <div className="cj-summary-item">
+            <div className="cj-summary-label">Ingresos Banco</div>
+            <div className="cj-summary-value" style={{color:"#38bdf8"}}>{formatCurrency(resumenInferior.bancoIngresos)}</div>
+          </div>
+          <div className="cj-summary-item">
+            <div className="cj-summary-label">Egresos Banco</div>
+            <div className="cj-summary-value" style={{color:"#f97316"}}>{formatCurrency(resumenInferior.bancoEgresos)}</div>
+          </div>
+          <div className="cj-summary-item">
+            <div className="cj-summary-label">Por Acreditar</div>
+            <div className="cj-summary-value" style={{color:"#c084fc"}}>{formatCurrency(resumenInferior.porAcreditar)}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* ═══ RESUMEN FINANCIERO INFERIOR ═══ */}
+      <div className="cj-financial-summary cj-financial-bottom">
+          <div className="cj-financial-row">
+            <div className="cj-financial-item">
+              <div className="cj-financial-label">Efectivo Inicial</div>
+              <div className="cj-financial-value">{formatCurrency(resumenInferior.cajaInicial)}</div>
+            </div>
+            <div className="cj-financial-item">
+              <div className="cj-financial-label">Efectivo Esperado</div>
+              <div className="cj-financial-value">{formatCurrency(resumenInferior.cajaSaldo)}</div>
+            </div>
+            <div className="cj-financial-item">
+              <div className="cj-financial-label">Banco Inicial</div>
+              <div className="cj-financial-value">{formatCurrency(resumenInferior.bancoInicial)}</div>
+            </div>
+            <div className="cj-financial-item">
+              <div className="cj-financial-label">Ingresos Banco</div>
+              <div className="cj-financial-value">{formatCurrency(resumenInferior.bancoIngresos)}</div>
+            </div>
+            <div className="cj-financial-item">
+              <div className="cj-financial-label">Egresos Banco</div>
+              <div className="cj-financial-value">{formatCurrency(resumenInferior.bancoEgresos)}</div>
+            </div>
+            <div className="cj-financial-item">
+              <div className="cj-financial-label">Banco Disponible</div>
+              <div className="cj-financial-value">{formatCurrency(resumenInferior.bancoSaldo)}</div>
+            </div>
+            <div className="cj-financial-item">
+              <div className="cj-financial-label">Por Acreditar</div>
+              <div className="cj-financial-value">{formatCurrency(resumenInferior.porAcreditar)}</div>
+            </div>
+            <div className="cj-financial-item cj-financial-total">
+              <div className="cj-financial-label">Total Disponible</div>
+              <div className="cj-financial-value">{formatCurrency(totalDisponibleResumen)}</div>
+            </div>
+          </div>
+          {cajaActiva.estado === "CERRADA" && cajaActiva.totalContado !== null && (
+            <div className="cj-financial-row cj-closing-row">
+              <div className="cj-financial-item">
+                <div className="cj-financial-label">Efectivo Contado</div>
+                <div className="cj-financial-value">{formatCurrency(cajaActiva.totalContado)}</div>
+              </div>
+              <div className="cj-financial-item">
+                <div className="cj-financial-label">Diferencia</div>
+                <div className="cj-financial-value" style={{color: (cajaActiva.totalContado - saldoFinalTurno) >= 0 ? "#16a34a" : "#dc2626"}}>
+                  {formatCurrency(cajaActiva.totalContado - saldoFinalTurno)}
+                  {(cajaActiva.totalContado - saldoFinalTurno) === 0 ? " (Balanceada)" : (cajaActiva.totalContado - saldoFinalTurno) > 0 ? " (Sobrante)" : " (Faltante)"}
+                </div>
+              </div>
             </div>
           )}
-        </div>
-
-        {cajaActiva.estado === "CERRADA" && cajaActiva.fechaCierre && (
-          <div className="cj-cierre">
-            <div className="cj-section-title">Datos del Cierre</div>
-            <div className="cj-cierre-grid">
-              <div className="cj-cierre-item">
-                <div className="cj-cierre-label">Fecha y Hora</div>
-                <div className="cj-cierre-value">{formatDate(cajaActiva.fechaCierre)} {formatTime24(cajaActiva.fechaCierre)}</div>
-              </div>
-              <div className="cj-cierre-item">
-                <div className="cj-cierre-label">Responsable</div>
-                <div className="cj-cierre-value">{cajaActiva.usuario.nombreCompleto || cajaActiva.usuario.username}</div>
-              </div>
-              <div className="cj-cierre-item">
-                <div className="cj-cierre-label">Saldo Esperado</div>
-                <div className="cj-cierre-value">{formatCurrency(saldoFinalTurno)}</div>
-              </div>
-              <div className="cj-cierre-item">
-                <div className="cj-cierre-label">Saldo Contado</div>
-                <div className="cj-cierre-value">{cajaActiva.totalContado !== null ? formatCurrency(cajaActiva.totalContado) : "—"}</div>
-              </div>
-              <div className="cj-cierre-item">
-                <div className="cj-cierre-label">Diferencia</div>
-                <div className="cj-cierre-value">{cajaActiva.totalContado !== null ? formatCurrency(saldoFinalTurno - cajaActiva.totalContado) : "—"}</div>
-              </div>
-              <div className="cj-cierre-item">
-                <div className="cj-cierre-label">Observaciones</div>
-                <div className="cj-cierre-value">—</div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="cj-firmas">
-          <div className="cj-firma">
-            <div className="cj-firma-titulo">Firma del Cajero</div>
-            <div className="cj-firma-linea" />
-            <div className="cj-firma-nombre">{cajaActiva.usuario.nombreCompleto || cajaActiva.usuario.username}</div>
-          </div>
-          <div className="cj-firma">
-            <div className="cj-firma-titulo">Firma del Responsable</div>
-            <div className="cj-firma-linea" />
-            <div className="cj-firma-nombre">Nombre y aclaración</div>
-          </div>
         </div>
 
         <div className="cj-page-footer">
@@ -1089,5 +1508,6 @@ export default function CajaTerminal({
       </div>
     )}
     </>
+
   );
 }

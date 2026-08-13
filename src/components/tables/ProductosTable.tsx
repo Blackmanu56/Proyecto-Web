@@ -24,6 +24,7 @@ import {
   getProductPurchaseCost,
   isProductPaymentDistributionIncomplete,
 } from "@/lib/product-purchase-payments";
+import { calcularEfectivoFisico } from "@/lib/caja-balance";
 import { cn,formatCurrency } from "@/lib/utils";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import {
@@ -448,7 +449,9 @@ export default function ProductosTable({
       // Fetch caja balance for payment distribution
       getCajaActiva().then(caja => {
         if (caja) {
-          const balance = caja.montoInicial + caja.totalVentas;
+          const balance = calcularEfectivoFisico(
+            caja.movimientos
+          ).efectivoEsperado;
           setCajaBalance(balance);
           setCajaAbierta(true);
         } else {

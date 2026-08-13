@@ -8,9 +8,11 @@ import { saveFile, deleteFile } from "@/lib/upload";
 import { MotivoEstadoProducto, Prisma } from "@prisma/client";
 import { requirePermission } from "@/lib/auth-permissions";
 import { shouldCreateCajaEgreso } from "@/lib/caja-ajuste";
+import { calcularEfectivoFisico, type MovimientoFisicoCaja } from "@/lib/caja-balance";
+import { calcularSaldoCuentaFinanciera } from "@/lib/cuenta-financiera";
 
 const pagoSchema = z.object({
-  medio: z.enum(["EFECTIVO_CAJA", "TRANSFERENCIA_BANCARIA", "MERCADO_PAGO", "CUENTA_CORRIENTE_PROVEEDOR", "FONDOS_EXTERNOS"]),
+  medio: z.enum(["EFECTIVO_CAJA", "TRANSFERENCIA_BANCARIA"]),
   monto: z.number().positive("El monto debe ser mayor a 0"),
   observacion: z.string().optional(),
 });
@@ -105,7 +107,7 @@ function getPurchaseMovementDescription(
 }
 
 function assertCajaSupportsCash(
-  cajaAbierta: { montoInicial: number; totalVentas: number } | null,
+  cajaAbierta: { movimientos: MovimientoFisicoCaja[] } | null,
   efectivoCaja: number
 ) {
   if (efectivoCaja <= 0) return;
@@ -115,7 +117,9 @@ function assertCajaSupportsCash(
     );
   }
 
-  const cajaActual = cajaAbierta.montoInicial + cajaAbierta.totalVentas;
+  const cajaActual = calcularEfectivoFisico(
+    cajaAbierta.movimientos
+  ).efectivoEsperado;
   if (efectivoCaja > cajaActual) {
     failBusiness(
       `Fondos insuficientes en Caja. Disponible: $${cajaActual.toFixed(2)}, Solicitado: $${efectivoCaja.toFixed(2)}, Faltante: $${(efectivoCaja - cajaActual).toFixed(2)}.`
@@ -240,9 +244,15 @@ export async function createProducto(formData: FormData) {
       const debeBuscarCaja =
         validation.data.cantidad > 0 && (tieneDistribucion || usaEfectivoLegacy);
       const cajaAbierta = debeBuscarCaja
-        ? await tx.caja.findFirst({ where: { estado: "ABIERTA" } })
+        ? await tx.caja.findFirst({
+            where: { estado: "ABIERTA" },
+            include: {
+              movimientos: { select: { tipo: true, monto: true } },
+            },
+          })
         : null;
       let cajaMovimientoCreado = false;
+      let bancoMovimientoCreado = false;
 
       if (usaEfectivoLegacy && !cajaAbierta) {
         failBusiness("No hay una caja abierta para registrar el pago en efectivo.");
@@ -251,6 +261,31 @@ export async function createProducto(formData: FormData) {
         cajaAbierta,
         usaEfectivoLegacy ? totalCosto : efectivoCaja
       );
+
+      // Validación anticipada de saldo Banco para transferencias
+      const montoTransferencia = (pagos ?? []).reduce(
+        (sum, pago) => pago.medio === "TRANSFERENCIA_BANCARIA" ? sum + pago.monto : sum,
+        0
+      );
+      let cuentaBancoPrincipal: { id: number; saldoInicial: number; movimientos: { tipo: string; monto: number }[] } | null = null;
+      if (montoTransferencia > 0) {
+        cuentaBancoPrincipal = await tx.cuentaFinanciera.findFirst({
+          where: { tipo: "BANCO", esPrincipal: true, activa: true },
+          include: { movimientos: { select: { tipo: true, monto: true } } },
+        });
+        if (!cuentaBancoPrincipal) {
+          failBusiness("No hay una cuenta bancaria principal configurada.");
+        }
+        const saldoBanco = calcularSaldoCuentaFinanciera(
+          cuentaBancoPrincipal.saldoInicial,
+          cuentaBancoPrincipal.movimientos
+        ).saldoActual;
+        if (montoTransferencia > saldoBanco) {
+          failBusiness(
+            `Saldo bancario insuficiente. Disponible: $${saldoBanco.toFixed(2)}, Solicitado: $${montoTransferencia.toFixed(2)}, Faltante: $${(montoTransferencia - saldoBanco).toFixed(2)}.`
+          );
+        }
+      }
 
       // 1. Crear producto
       const p = await tx.producto.create({
@@ -302,8 +337,8 @@ export async function createProducto(formData: FormData) {
             })),
           });
 
-          // Una única ancla conserva la reposición en Caja; su monto es solo el efectivo físico.
-          if (cajaAbierta) {
+          // Ancla en Caja solo si hay efectivo físico
+          if (efectivoCaja > 0 && cajaAbierta) {
             await tx.movimientoCaja.create({
               data: {
                 cajaId: cajaAbierta.id,
@@ -320,16 +355,29 @@ export async function createProducto(formData: FormData) {
             });
             cajaMovimientoCreado = true;
 
-            if (efectivoCaja > 0) {
-              await tx.caja.update({
-                where: { id: cajaAbierta.id },
-                data: {
-                  totalVentas: {
-                    decrement: efectivoCaja,
-                  },
+            await tx.caja.update({
+              where: { id: cajaAbierta.id },
+              data: {
+                totalVentas: {
+                  decrement: efectivoCaja,
                 },
-              });
-            }
+              },
+            });
+          }
+
+          // MovimientoFinanciero para la parte transferida (Banco)
+          if (montoTransferencia > 0 && cuentaBancoPrincipal) {
+            await tx.movimientoFinanciero.create({
+              data: {
+                cuentaFinancieraId: cuentaBancoPrincipal.id,
+                usuarioId: session.userId,
+                compraId: compra.id,
+                tipo: "EGRESO",
+                monto: montoTransferencia,
+                descripcion: `Stock inicial de '${validation.data.nombre}' x${validation.data.cantidad} (transferencia)`,
+              },
+            });
+            bancoMovimientoCreado = true;
           }
         } else {
           // Legacy behavior: single payment method
@@ -359,11 +407,11 @@ export async function createProducto(formData: FormData) {
         }
       }
 
-      return { producto: p, cajaMovimientoCreado };
+      return { producto: p, cajaMovimientoCreado, bancoMovimientoCreado };
     });
 
     revalidatePath("/productos");
-    if (transactionResult.cajaMovimientoCreado) {
+    if (transactionResult.cajaMovimientoCreado || transactionResult.bancoMovimientoCreado) {
       revalidatePath("/caja");
     }
     return { success: true, producto: transactionResult.producto };
@@ -442,9 +490,15 @@ export async function updateProducto(id: number, formData: FormData) {
       const tieneDistribucion = !!pagos && pagos.length > 0;
       const debeBuscarCaja = hayReposicion && (tieneDistribucion || usaEfectivoLegacy);
       const cajaAbierta = debeBuscarCaja
-        ? await tx.caja.findFirst({ where: { estado: "ABIERTA" } })
+        ? await tx.caja.findFirst({
+            where: { estado: "ABIERTA" },
+            include: {
+              movimientos: { select: { tipo: true, monto: true } },
+            },
+          })
         : null;
       let cajaMovimientoCreado = false;
+      let bancoMovimientoCreado = false;
 
       if (usaEfectivoLegacy && !cajaAbierta) {
         failBusiness("No hay una caja abierta para registrar el pago en efectivo.");
@@ -453,6 +507,31 @@ export async function updateProducto(id: number, formData: FormData) {
         cajaAbierta,
         usaEfectivoLegacy ? totalCosto : efectivoCaja
       );
+
+      // Validación anticipada de saldo Banco para transferencias
+      const montoTransferencia = (pagos ?? []).reduce(
+        (sum, pago) => pago.medio === "TRANSFERENCIA_BANCARIA" ? sum + pago.monto : sum,
+        0
+      );
+      let cuentaBancoPrincipal: { id: number; saldoInicial: number; movimientos: { tipo: string; monto: number }[] } | null = null;
+      if (hayReposicion && montoTransferencia > 0) {
+        cuentaBancoPrincipal = await tx.cuentaFinanciera.findFirst({
+          where: { tipo: "BANCO", esPrincipal: true, activa: true },
+          include: { movimientos: { select: { tipo: true, monto: true } } },
+        });
+        if (!cuentaBancoPrincipal) {
+          failBusiness("No hay una cuenta bancaria principal configurada.");
+        }
+        const saldoBanco = calcularSaldoCuentaFinanciera(
+          cuentaBancoPrincipal.saldoInicial,
+          cuentaBancoPrincipal.movimientos
+        ).saldoActual;
+        if (montoTransferencia > saldoBanco) {
+          failBusiness(
+            `Saldo bancario insuficiente. Disponible: $${saldoBanco.toFixed(2)}, Solicitado: $${montoTransferencia.toFixed(2)}, Faltante: $${(montoTransferencia - saldoBanco).toFixed(2)}.`
+          );
+        }
+      }
 
       // 1. Modificar producto en BD
       const p = await tx.producto.update({
@@ -503,8 +582,8 @@ export async function updateProducto(id: number, formData: FormData) {
             })),
           });
 
-          // Una única ancla conserva la reposición en Caja; su monto es solo el efectivo físico.
-          if (cajaAbierta) {
+          // Ancla en Caja solo si hay efectivo físico
+          if (efectivoCaja > 0 && cajaAbierta) {
             await tx.movimientoCaja.create({
               data: {
                 cajaId: cajaAbierta.id,
@@ -521,16 +600,29 @@ export async function updateProducto(id: number, formData: FormData) {
             });
             cajaMovimientoCreado = true;
 
-            if (efectivoCaja > 0) {
-              await tx.caja.update({
-                where: { id: cajaAbierta.id },
-                data: {
-                  totalVentas: {
-                    decrement: efectivoCaja,
-                  },
+            await tx.caja.update({
+              where: { id: cajaAbierta.id },
+              data: {
+                totalVentas: {
+                  decrement: efectivoCaja,
                 },
-              });
-            }
+              },
+            });
+          }
+
+          // MovimientoFinanciero para la parte transferida (Banco)
+          if (montoTransferencia > 0 && cuentaBancoPrincipal) {
+            await tx.movimientoFinanciero.create({
+              data: {
+                cuentaFinancieraId: cuentaBancoPrincipal.id,
+                usuarioId: session.userId,
+                compraId: compra.id,
+                tipo: "EGRESO",
+                monto: montoTransferencia,
+                descripcion: `Reposición de '${validation.data.nombre}' x${diferencia} (transferencia)`,
+              },
+            });
+            bancoMovimientoCreado = true;
           }
         } else {
           // Legacy behavior: single payment method
@@ -560,11 +652,11 @@ export async function updateProducto(id: number, formData: FormData) {
         }
       }
 
-      return { producto: p, cajaMovimientoCreado };
+      return { producto: p, cajaMovimientoCreado, bancoMovimientoCreado };
     });
 
     revalidatePath("/productos");
-    if (transactionResult.cajaMovimientoCreado) {
+    if (transactionResult.cajaMovimientoCreado || transactionResult.bancoMovimientoCreado) {
       revalidatePath("/caja");
     }
     return { success: true, producto: transactionResult.producto };

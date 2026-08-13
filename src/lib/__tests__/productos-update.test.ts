@@ -16,7 +16,13 @@ const mocks = vi.hoisted(() => {
       findFirst: vi.fn(),
       update: vi.fn(),
     },
+    cuentaFinanciera: {
+      findFirst: vi.fn(),
+    },
     movimientoCaja: {
+      create: vi.fn(),
+    },
+    movimientoFinanciero: {
       create: vi.fn(),
     },
   };
@@ -119,6 +125,15 @@ function setupActionMocks(producto: Record<string, unknown> | null = productoBas
   mocks.tx.caja.findFirst.mockResolvedValue(null);
   mocks.tx.movimientoCaja.create.mockResolvedValue({ id: 70 });
   mocks.tx.caja.update.mockResolvedValue({ id: 30 });
+  mocks.tx.cuentaFinanciera.findFirst.mockResolvedValue({
+    id: 1,
+    tipo: "BANCO",
+    esPrincipal: true,
+    activa: true,
+    saldoInicial: 500_000,
+    movimientos: [],
+  });
+  mocks.tx.movimientoFinanciero.create.mockResolvedValue({ id: 80 });
 }
 
 beforeEach(() => {
@@ -187,6 +202,7 @@ describe("updateProducto", () => {
       estado: "ABIERTA",
       montoInicial: 500,
       totalVentas: 500,
+      movimientos: [{ tipo: "INGRESO", monto: 1_000 }],
     });
 
     const result = await updateProducto(10, productoForm({ cantidad: "12" }));
@@ -248,7 +264,11 @@ describe("updateProducto", () => {
   });
 
   it("keeps creating the cash egreso when origenPago is EFECTIVO_CAJA", async () => {
-    mocks.tx.caja.findFirst.mockResolvedValueOnce({ id: 30, estado: "ABIERTA" });
+    mocks.tx.caja.findFirst.mockResolvedValueOnce({
+      id: 30,
+      estado: "ABIERTA",
+      movimientos: [{ tipo: "INGRESO", monto: 1_000 }],
+    });
 
     const result = await updateProducto(
       10,

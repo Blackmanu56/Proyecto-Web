@@ -14,8 +14,6 @@ export type ProductPurchasePaymentMethod =
 export const SELECTABLE_PRODUCT_PAYMENT_METHODS = [
   { value: "EFECTIVO_CAJA", label: "Efectivo de Caja", cajaImpact: true, requiresOpenCaja: true },
   { value: "TRANSFERENCIA_BANCARIA", label: "Transferencia", cajaImpact: false, requiresOpenCaja: false },
-  { value: "CUENTA_CORRIENTE_PROVEEDOR", label: "Cta. Cte. Proveedor", cajaImpact: false, requiresOpenCaja: false },
-  { value: "FONDOS_EXTERNOS", label: "Fondos Externos", cajaImpact: false, requiresOpenCaja: false },
 ] as const;
 
 type ProductPayment = {

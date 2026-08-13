@@ -123,13 +123,14 @@ describe("formatReposicionCorta", () => {
     expect(formatReposicionCorta({ total: 247_200, detalles: [] })).toBeNull();
   });
 
-  it("conserva las llamadas por defecto usadas por CSV e impresión", () => {
+  it("usa el helper unificado de impresión/CSV y no vuelve a depender del texto corto histórico", () => {
     const calls = cajaTerminalSource
       .split(/\r?\n/)
       .filter((line) => line.includes("formatReposicionCorta(mov.compra"));
 
-    expect(calls).toHaveLength(2);
-    expect(calls.every((line) => line.includes("formatReposicionCorta(mov.compra)"))).toBe(true);
+    expect(calls).toHaveLength(0);
+    expect(cajaTerminalSource).toContain("construirDescripcionImpresion(mov)");
+    expect(cajaTerminalSource).toContain("crearFilaImpresionLibroDiario(mov)");
   });
 });
 

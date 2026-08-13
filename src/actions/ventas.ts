@@ -6,6 +6,8 @@ import { getSession } from "@/lib/auth.server";
 import { requirePermission } from "@/lib/auth-permissions";
 import { formatTipoComprobante } from "@/lib/movimiento-format";
 import { validateVentaPayload } from "@/lib/ventas-validation";
+import { resolverDestinoFinanciero } from "@/lib/cuenta-financiera";
+import type { DestinoFinanciero } from "@/lib/cuenta-financiera";
 
 interface VentaItem {
   productoId: number;
@@ -138,13 +140,15 @@ export async function createVenta(
         throw new Error("El cliente seleccionado est? dado de baja.");
       }
 
-      // 1. Validar que la caja est? abierta
-      const cajaAbierta = await tx.caja.findFirst({
-        where: { estado: "ABIERTA" },
-      });
+      const esCobroEfectivo = ventaInput.metodoPago === "EFECTIVO";
 
-      if (!cajaAbierta) {
-        throw new Error("Debe abrir la caja antes de poder registrar ventas.");
+      // Solo un cobro físico en efectivo requiere una Caja abierta.
+      const cajaAbierta = esCobroEfectivo
+        ? await tx.caja.findFirst({ where: { estado: "ABIERTA" } })
+        : null;
+
+      if (esCobroEfectivo && !cajaAbierta) {
+        throw new Error("No hay una caja abierta para registrar un cobro en efectivo.");
       }
 
       let totalVenta = 0.0;
@@ -210,7 +214,26 @@ export async function createVenta(
 
       const totalFinal = totalVenta - descuentoAplicado;
       if (!Number.isFinite(totalFinal) || totalFinal < 0) {
-        throw new Error("El total final de la venta no es v?lido.");
+        throw new Error("El total final de la venta no es v\u00e1lido.");
+      }
+
+      // ─── Resolución de cuenta financiera para medios no-efectivo ──────
+      let destinoFinanciero: DestinoFinanciero | null = null;
+      if (!esCobroEfectivo && totalFinal > 0) {
+        const cuentaBanco = await tx.cuentaFinanciera.findFirst({
+          where: { tipo: "BANCO", esPrincipal: true, activa: true },
+          select: { id: true },
+        });
+        const cuentaPorAcreditar = await tx.cuentaFinanciera.findFirst({
+          where: { tipo: "POR_ACREDITAR", activa: true },
+          select: { id: true },
+        });
+        destinoFinanciero = resolverDestinoFinanciero(
+          ventaInput.metodoPago,
+          totalFinal,
+          cuentaBanco,
+          cuentaPorAcreditar
+        );
       }
 
       // 4. Crear cabecera de la Venta
@@ -230,23 +253,40 @@ export async function createVenta(
         },
       });
 
-      // 5. Registrar movimiento de INGRESO en la Caja
-      await tx.movimientoCaja.create({
-        data: {
-          cajaId: cajaAbierta.id,
-          usuarioId: session.userId,
-          ventaId: venta.id,
-          tipo: "INGRESO",
-          monto: totalFinal,
-          descripcion: `${formatTipoComprobante(ventaInput.tipoComprobante)} N° ${venta.id} - ${ventaInput.metodoPago}${descuentoAplicado > 0 ? ` (Dto: $${descuentoAplicado.toFixed(2)})` : ""}`,
-        },
-      });
+      // Solo el efectivo físico genera MovimientoCaja. Los demás medios siguen
+      // siendo ventas económicas, sin cajaId artificial ni movimientos neutros.
+      if (esCobroEfectivo && cajaAbierta && totalFinal > 0) {
+        await tx.movimientoCaja.create({
+          data: {
+            cajaId: cajaAbierta.id,
+            usuarioId: session.userId,
+            ventaId: venta.id,
+            tipo: "INGRESO",
+            monto: totalFinal,
+            descripcion: `${formatTipoComprobante(ventaInput.tipoComprobante)} N° ${venta.id} - ${ventaInput.metodoPago}${descuentoAplicado > 0 ? ` (Dto: $${descuentoAplicado.toFixed(2)})` : ""}`,
+          },
+        });
 
-      // 6. Incrementar totales de la Caja Abierta
-      await tx.caja.update({
-        where: { id: cajaAbierta.id },
-        data: { totalVentas: { increment: totalFinal } },
-      });
+        // Se conserva totalVentas solo por compatibilidad histórica.
+        await tx.caja.update({
+          where: { id: cajaAbierta.id },
+          data: { totalVentas: { increment: totalFinal } },
+        });
+      }
+
+      // ─── MovimientoFinanciero para Transferencia / Débito / Crédito ──
+      if (destinoFinanciero) {
+        await tx.movimientoFinanciero.create({
+          data: {
+            cuentaFinancieraId: destinoFinanciero.cuentaFinancieraId,
+            tipo: "INGRESO",
+            monto: totalFinal,
+            descripcion: `${formatTipoComprobante(ventaInput.tipoComprobante)} N\u00b0 ${venta.id} \u00b7 ${ventaInput.metodoPago}`,
+            usuarioId: session.userId,
+            ventaId: venta.id,
+          },
+        });
+      }
 
       return venta;
     });
