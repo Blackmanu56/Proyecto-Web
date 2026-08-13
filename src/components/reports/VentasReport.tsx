@@ -120,7 +120,11 @@ export default function VentasReport({ initialData, usuarios }: Props) {
     };
   }, [fechaDesde, fechaHasta, usuarioId, activePeriod]);
 
-  // Fetch-on-first-activation (spec: lazy mount). NO depende de chartGranularity.
+  // Fetch-on-first-activation (spec: lazy mount). La invalidación por rangeKey pone la
+  // cache en null → analisisCache en deps hace que este efecto corra de nuevo y refetchee
+  // (fix gate: charts tras cambio de período/vendedor en Análisis). NO depende de
+  // chartGranularity (se parchea aparte). Montaje: el primer run fetchea y el re-render
+  // posterior con cache seteada hace early-return → exactamente UNA llamada.
   useEffect(() => {
     if (activeSubView !== "analisis" || analisisCache) return;
     let cancelled = false;
@@ -135,8 +139,11 @@ export default function VentasReport({ initialData, usuarios }: Props) {
     return () => {
       cancelled = true;
     };
+    // loadAnalisisData es useCallback estable por [fechaDesde, fechaHasta, usuarioId,
+    // activePeriod]; sus cambios de identidad siempre vienen con rangeKey/activeSubView,
+    // ya cubiertos en deps.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSubView, rangeKey]);
+  }, [activeSubView, rangeKey, analisisCache]);
 
   // Cambio de granularidad: patch SOLO de la evolución en la cache (patrón L496-505)
   useEffect(() => {

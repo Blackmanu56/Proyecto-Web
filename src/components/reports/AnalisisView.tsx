@@ -529,7 +529,7 @@ export default function AnalisisView({
                 content={<DiaSemanaTooltip />}
                 cursor={{ fill: "var(--border)", fillOpacity: 0.3 }}
               />
-              <Bar dataKey="ventas" fill={CHART_COLORS[2]} radius={[4, 4, 0, 0]} name="Ventas" />
+              <Bar dataKey="total" fill={CHART_COLORS[2]} radius={[4, 4, 0, 0]} name="Monto facturado" />
             </BarChart>
           ) : (
             <div className="flex items-center justify-center h-full text-[var(--text-secondary)] text-sm">
