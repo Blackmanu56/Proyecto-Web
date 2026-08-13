@@ -975,6 +975,7 @@ export type EmpleadoActividadItem = {
   empleado: string;    // nombreCompleto
   rol: string;         // nombre del rol
   tipo: string;        // "Venta" | "Reposición" | "Movimiento de Caja" | "Cambio de Estado"
+  modulo: string;      // "Ventas" | "Caja" | "Stock" | "Productos"
   descripcion: string;
 };
 
@@ -1133,7 +1134,8 @@ export async function getEmpleadosDashboard(fechaDesde?: string, fechaHasta?: st
         empleado: nombrePorId.get(v.usuarioId) ?? "",
         rol: rolPorId.get(v.usuarioId) ?? "",
         tipo: "Venta",
-        descripcion: `Venta #${v.id}`,
+        modulo: "Ventas",
+        descripcion: `Registró Venta #${v.id}`,
       });
     }
 
@@ -1151,7 +1153,8 @@ export async function getEmpleadosDashboard(fechaDesde?: string, fechaHasta?: st
         empleado: nombrePorId.get(c.usuarioId) ?? "",
         rol: rolPorId.get(c.usuarioId) ?? "",
         tipo: "Reposición",
-        descripcion: `Reposición #${c.id}`,
+        modulo: "Stock",
+        descripcion: `Registró Reposición #${c.id}`,
       });
     }
 
@@ -1174,7 +1177,8 @@ export async function getEmpleadosDashboard(fechaDesde?: string, fechaHasta?: st
         empleado: nombrePorId.get(m.usuarioId) ?? "",
         rol: rolPorId.get(m.usuarioId) ?? "",
         tipo: "Movimiento de Caja",
-        descripcion,
+        modulo: "Caja",
+        descripcion: `Registró ${descripcion}`,
       });
     }
 
@@ -1196,9 +1200,12 @@ export async function getEmpleadosDashboard(fechaDesde?: string, fechaHasta?: st
         empleado: nombrePorId.get(h.usuarioId) ?? "",
         rol: rolPorId.get(h.usuarioId) ?? "",
         tipo: esEdicionDatos ? "Edición de datos" : "Cambio de Estado",
-        descripcion: esEdicionDatos
-          ? `Producto #${h.productoId}: ${h.observacion}`
-          : `Producto #${h.productoId}: ${h.estadoAnterior} → ${h.estadoNuevo}`,
+        modulo: "Productos",
+        descripcion: `Registró ${
+          esEdicionDatos
+            ? `Producto #${h.productoId}: ${h.observacion}`
+            : `Producto #${h.productoId}: ${h.estadoAnterior} → ${h.estadoNuevo}`
+        }`,
       });
     }
 

@@ -583,28 +583,44 @@ export default function EmpleadosReport({ initialData }: Props) {
               <Printer size={12} />
             </button>
           </div>
-          <div className="bg-[var(--card)] print:bg-white border border-[var(--border)] print:border-gray-300 rounded-xl p-4">
-            {data.actividadReciente.length === 0 ? (
-              <p className="text-sm text-[var(--text-secondary)] text-center py-6">Sin actividad en el período</p>
-            ) : (
-              <div className="divide-y divide-[var(--border)] print:divide-gray-300">
-                {data.actividadReciente.map((item) => (
-                  <div key={item.id} className="flex items-start gap-3 py-2.5">
-                    <TipoDot tipo={item.tipo} />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <p className="text-sm font-bold text-[var(--text)]">{item.tipo}</p>
-                        <span className="text-xs font-semibold text-[var(--text-muted)] shrink-0">{item.fechaLabel}</span>
-                      </div>
-                      <p className="text-sm text-[var(--text)]">{item.descripcion}</p>
-                      <p className="text-xs text-[var(--text-muted)]">
-                        {item.empleado} <span className="opacity-70">· {item.rol}</span>
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+          <div className="bg-[var(--card)] print:bg-white border border-[var(--border)] print:border-gray-300 rounded-xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[var(--border)] print:border-gray-300 bg-[var(--panel)] print:bg-gray-100">
+                    <th className={"text-left " + tableCellHeader}>Fecha y hora</th>
+                    <th className={"text-left " + tableCellHeader}>Empleado</th>
+                    <th className={"text-left " + tableCellHeader}>Rol</th>
+                    <th className={"text-left " + tableCellHeader}>Módulo</th>
+                    <th className={"text-left " + tableCellHeader}>Acción</th>
+                    <th className={"text-left " + tableCellHeader}>Descripción</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--border)] print:divide-gray-300">
+                  {data.actividadReciente.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-8 text-center text-[var(--text-secondary)]">
+                        Sin actividad en el período
+                      </td>
+                    </tr>
+                  ) : data.actividadReciente.map((item) => (
+                    <tr key={item.id} className="hover:bg-[var(--border)]/40 transition-colors">
+                      <td className="px-4 py-3 text-xs text-[var(--text-muted)] whitespace-nowrap">{item.fechaLabel}</td>
+                      <td className="px-4 py-3 font-semibold text-[var(--text)]">{item.empleado}</td>
+                      <td className="px-4 py-3 text-[var(--text-muted)]">{item.rol}</td>
+                      <td className="px-4 py-3 text-[var(--text-muted)]">{item.modulo}</td>
+                      <td className="px-4 py-3">
+                        <span className="inline-flex items-center gap-2 [&>span]:mt-0">
+                          <TipoDot tipo={item.tipo} />
+                          <span className="text-[var(--text)]">{item.tipo}</span>
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-[var(--text)]">{item.descripcion}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
           </>
