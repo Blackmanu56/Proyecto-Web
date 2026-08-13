@@ -10,8 +10,7 @@ import {
 } from "@/components/ui/select";
 import { formatCurrency, formatDate, formatDateShort } from "@/lib/utils";
 import {
-  Building2, ChevronDown, ChevronRight, ChevronUp, Package, Printer, RefreshCw,
-  Search, ShoppingCart, TrendingUp, Users,
+  ChevronDown, ChevronRight, ChevronUp, Printer, RefreshCw, Search,
 } from "lucide-react";
 import {
   Bar,
@@ -76,16 +75,13 @@ function KpiCard({
   label,
   value,
   sub,
-  icon,
 }: {
   label: string;
   value: React.ReactNode;
   sub?: string;
-  icon: React.ReactNode;
 }) {
   return (
     <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 text-center flex flex-col items-center justify-center">
-      <div className="flex items-center gap-1.5 text-[var(--brand)] mb-1">{icon}</div>
       <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">{label}</div>
       <div className="text-sm font-bold text-[var(--text)] break-words">{value}</div>
       {sub && <div className="text-[10px] text-[var(--text-secondary)] mt-0.5">{sub}</div>}
@@ -471,11 +467,6 @@ export default function ProveedoresReport({ initialData, userRole }: Props) {
 
   const handleAplicar = () => aplicarFiltros(filtros);
 
-  const handleLimpiar = () => {
-    setFiltros(DEFAULT_FILTERS);
-    aplicarFiltros(DEFAULT_FILTERS);
-  };
-
   const printActive = (id: string) => (printSection === id) || null;
   const { resumen } = data;
 
@@ -563,22 +554,15 @@ export default function ProveedoresReport({ initialData, userRole }: Props) {
                 </SelectContent>
               </Select>
             </div>
-            <div className="sm:col-span-2 lg:col-span-4 flex items-end gap-2">
+            <div className="sm:col-span-2 lg:col-span-4 flex items-end">
               <button
                 type="button"
                 onClick={handleAplicar}
                 disabled={isPending}
-                className="flex-1 px-3 py-2 rounded-lg bg-[var(--brand)] text-xs font-bold text-white disabled:opacity-50 hover:opacity-90 transition"
+                className="px-4 py-2 bg-[var(--brand)] hover:bg-[var(--brand-hover)] disabled:opacity-50 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition"
               >
-                {isPending ? "Calculando..." : "Aplicar"}
-              </button>
-              <button
-                type="button"
-                onClick={handleLimpiar}
-                disabled={isPending}
-                className="px-3 py-2 rounded-lg bg-[var(--border)] text-xs font-bold text-[var(--text)] disabled:opacity-50 hover:opacity-80 transition"
-              >
-                <RefreshCw size={14} />
+                <RefreshCw size={14} className={isPending ? "animate-spin" : ""} />
+                {isPending ? "Buscando..." : "Buscar"}
               </button>
             </div>
           </div>
@@ -602,34 +586,28 @@ export default function ProveedoresReport({ initialData, userRole }: Props) {
             <KpiCard
               label="Total de Proveedores"
               value={resumen.totalProveedores}
-              icon={<Building2 size={16} />}
             />
             <KpiCard
               label="Activos"
               value={resumen.activos}
-              icon={<Users size={16} />}
             />
             <KpiCard
               label="Inactivos"
               value={resumen.inactivos}
-              icon={<Users size={16} />}
             />
             <KpiCard
               label="Productos con Proveedor"
               value={resumen.productosConProveedor}
-              icon={<Package size={16} />}
             />
             <KpiCard
               label="Proveedores sin Compras"
               value={resumen.proveedoresSinCompras}
               sub={resumen.proveedoresSinCompras > 0 ? "requieren atención" : "al día"}
-              icon={<ShoppingCart size={16} />}
             />
             <KpiCard
               label="Proveedor Principal"
               value={resumen.proveedorPrincipal ? resumen.proveedorPrincipal.nombre : "—"}
               sub={resumen.proveedorPrincipal ? `${resumen.proveedorPrincipal.productos} producto(s)` : undefined}
-              icon={<TrendingUp size={16} />}
             />
           </div>
         </div>

@@ -2966,7 +2966,7 @@ export async function getProveedoresDashboard(
       orderBy: { nombre: "asc" },
     });
     const marcas = await prisma.marca.findMany({
-      where: { productos: { some: {} } },
+      where: { activo: true },
       select: { id: true, nombre: true },
       orderBy: { nombre: "asc" },
     });
