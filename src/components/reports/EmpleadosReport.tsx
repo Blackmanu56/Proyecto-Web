@@ -285,7 +285,7 @@ export default function EmpleadosReport({ initialData }: Props) {
     <div className="space-y-4">
       {/* Selector de sub-vista */}
       <div className="print:hidden flex flex-wrap gap-1 bg-[var(--panel)] border border-[var(--border)] rounded-xl p-1">
-        {(["analisis", "detalle"] as SubViewId[]).map((v) => (
+        {(["analisis", "detalle", "actividad"] as SubViewId[]).map((v) => (
           <button
             key={v}
             onClick={() => setActiveSubView(v)}
