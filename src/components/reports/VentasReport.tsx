@@ -166,13 +166,13 @@ export default function VentasReport({ initialData, usuarios }: Props) {
 
   // -- Wiring explícito de fetch de la tabla (D12): sin efecto por rangeKey --
   const fetchTabla = useCallback(
-    async (uidOverride?: number) => {
+    async (uidOverride?: number | null) => {
       setIsPending(true);
       try {
         const r = await getReporteVentas(
           fechaDesde || undefined,
           fechaHasta || undefined,
-          uidOverride !== undefined ? uidOverride : usuarioId
+          uidOverride === null ? undefined : uidOverride ?? usuarioId
         );
         setData(r);
       } finally {
@@ -204,6 +204,20 @@ export default function VentasReport({ initialData, usuarios }: Props) {
       fetchTabla(newId); // auto-search (comportamiento actual)
     },
     [fetchTabla]
+  );
+
+  // El filtro de vendedor solo aplica en Detalle: al volver a Análisis se limpia.
+  // fetchTabla(null) fuerza "todos" (el closure de fetchTabla aún ve el vendedor viejo
+  // hasta el re-render; el override evita el ghost state en la tabla).
+  const handleSubViewChange = useCallback(
+    (v: SubViewId) => {
+      setActiveSubView(v);
+      if (v === "analisis" && usuarioId) {
+        setUsuarioId(undefined);
+        fetchTabla(null);
+      }
+    },
+    [usuarioId, fetchTabla]
   );
 
   const handleSearch = useCallback(() => fetchTabla(), [fetchTabla]);
@@ -275,9 +289,8 @@ export default function VentasReport({ initialData, usuarios }: Props) {
     const v = ventasFiltradas;
     const cantidad = v.length;
     const total = v.reduce((s, x) => s + (x.total || 0), 0);
-    const promedio = cantidad > 0 ? total / cantidad : 0;
     const productosVendidos = v.reduce((s: number, x) => s + (x.cantidadProductos || 0), 0);
-    return { cantidad, total, promedio, productosVendidos };
+    return { cantidad, total, productosVendidos };
   }, [ventasFiltradas]);
 
   const clientesUnicos = useMemo(() => {
@@ -327,8 +340,8 @@ export default function VentasReport({ initialData, usuarios }: Props) {
           </div>
         </div>
 
-        {/* Contenido de filtros: visible si abierto o si la vista activa es Detalle */}
-        {(filtersOpen || activeSubView === "detalle") && (
+        {/* Contenido de filtros: visible solo cuando el panel está abierto */}
+        {filtersOpen && (
           <div className="px-4 pb-4 space-y-3 border-t border-[var(--border)]">
             <div className="pt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <div>
@@ -359,25 +372,27 @@ export default function VentasReport({ initialData, usuarios }: Props) {
                   className={inputClass}
                 />
               </div>
-              <div>
-                <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
-                  <User size={12} /> Vendedor
-                </label>
-                <select
-                  value={usuarioId || ""}
-                  onChange={(e) => handleVendorChange(e.target.value)}
-                  className={inputClass}
-                >
-                  <option value="">Todos</option>
-                  {usuarios
-                    .filter((u) => u.puedeVender)
-                    .map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.nombreCompleto || u.username}
-                      </option>
-                    ))}
-                </select>
-              </div>
+              {activeSubView === "detalle" && (
+                <div>
+                  <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
+                    <User size={12} /> Vendedor
+                  </label>
+                  <select
+                    value={usuarioId || ""}
+                    onChange={(e) => handleVendorChange(e.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="">Todos</option>
+                    {usuarios
+                      .filter((u) => u.puedeVender)
+                      .map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.nombreCompleto || u.username}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
@@ -399,7 +414,7 @@ export default function VentasReport({ initialData, usuarios }: Props) {
         {(["analisis", "detalle"] as SubViewId[]).map((v) => (
           <button
             key={v}
-            onClick={() => setActiveSubView(v)}
+            onClick={() => handleSubViewChange(v)}
             className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${
               activeSubView === v
                 ? "bg-[var(--brand)]/10 text-[var(--brand)] border border-[var(--brand)]/20"

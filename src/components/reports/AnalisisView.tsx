@@ -3,7 +3,6 @@
 import React, { useMemo, useState } from "react";
 import { formatCurrency } from "@/lib/utils";
 import { labelMetodoPago } from "@/lib/metodosPago";
-import StatCard from "@/components/ui/StatCard";
 import ChartWrapper, { CHART_COLORS } from "@/components/ui/ChartWrapper";
 import {
   BarChart,
@@ -19,7 +18,7 @@ import {
   Area,
   ResponsiveContainer,
 } from "recharts";
-import { DollarSign, ShoppingCart, Package, Users } from "lucide-react";
+import { Users } from "lucide-react";
 import {
   ReportPrintHeader,
   DIAS_SEMANA,
@@ -144,46 +143,6 @@ export default function AnalisisView({
   /* ── Derivados de datos ── */
   const resumen = cache?.resumen;
   const prevResumen = cache?.prevResumen ?? null;
-
-  const kpiCards = useMemo(() => {
-    const deltaTotal = calcDelta(resumen?.total ?? 0, prevResumen?.total ?? 0);
-    const deltaCantidad = calcDelta(resumen?.cantidad ?? 0, prevResumen?.cantidad ?? 0);
-    const deltaProductos = calcDelta(resumen?.productosVendidos ?? 0, prevResumen?.productosVendidos ?? 0);
-    const deltaClientes = calcDelta(resumen?.clientesAtendidos ?? 0, prevResumen?.clientesAtendidos ?? 0);
-    const trend = (d: { pct: number; dir: "up" | "down" } | null) =>
-      d ? { direction: d.dir, value: `${Math.abs(d.pct)}% vs período anterior` } : undefined;
-
-    return [
-      {
-        label: "Ventas Totales",
-        value: formatCurrency(resumen?.total ?? 0),
-        icon: <DollarSign size={18} />,
-        color: "emerald" as const,
-        trend: trend(deltaTotal),
-      },
-      {
-        label: "Cantidad de Ventas",
-        value: (resumen?.cantidad ?? 0).toString(),
-        icon: <ShoppingCart size={18} />,
-        color: "indigo" as const,
-        trend: trend(deltaCantidad),
-      },
-      {
-        label: "Productos Vendidos",
-        value: (resumen?.productosVendidos ?? 0).toString(),
-        icon: <Package size={18} />,
-        color: "sky" as const,
-        trend: trend(deltaProductos),
-      },
-      {
-        label: "Clientes Atendidos",
-        value: (resumen?.clientesAtendidos ?? 0).toString(),
-        icon: <Users size={18} />,
-        color: "rose" as const,
-        trend: trend(deltaClientes),
-      },
-    ];
-  }, [resumen, prevResumen]);
 
   const categoriaData = useMemo(() => {
     if (!cache) return [];
@@ -316,11 +275,24 @@ export default function AnalisisView({
     >
       <ReportPrintHeader desde={fechaDesde} hasta={fechaHasta} />
 
-      {/* KPIs con delta real */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {kpiCards.map((k) => (
-          <StatCard key={k.label} {...k} />
-        ))}
+      {/* Resumen compacto (mismo estilo que la barra de Detalle) */}
+      <div className="print:hidden grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3">
+          <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Ventas Totales</div>
+          <div className="text-sm font-bold text-[var(--success)]">{formatCurrency(resumen?.total ?? 0)}</div>
+        </div>
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3">
+          <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Cantidad de Ventas</div>
+          <div className="text-sm font-bold text-[var(--text)]">{resumen?.cantidad ?? 0}</div>
+        </div>
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3">
+          <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Productos Vendidos</div>
+          <div className="text-sm font-bold text-[var(--text)]">{resumen?.productosVendidos ?? 0}</div>
+        </div>
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3">
+          <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Clientes Atendidos</div>
+          <div className="text-sm font-bold text-[var(--text)]">{resumen?.clientesAtendidos ?? 0}</div>
+        </div>
       </div>
 
       {/* Evolución + comparación */}

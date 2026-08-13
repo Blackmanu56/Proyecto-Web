@@ -17,7 +17,7 @@ interface DetalleViewProps {
   data: VentasReportData;
   ventasFiltradas: ReporteVentaRow[]; // filtradas por búsqueda de cliente, más antiguas primero
   sortedVentas: ReporteVentaRow[]; // ordenadas según sortKey/sortDir
-  totales: { cantidad: number; total: number; promedio: number; productosVendidos: number };
+  totales: { cantidad: number; total: number; productosVendidos: number };
   clientesUnicos: number;
   fechaDesde: string;
   fechaHasta: string;
@@ -34,6 +34,7 @@ export default function DetalleView({
   ventasFiltradas,
   sortedVentas,
   totales,
+  clientesUnicos,
   fechaDesde,
   fechaHasta,
   sortKey,
@@ -93,8 +94,8 @@ export default function DetalleView({
           <div className="text-sm font-bold text-[var(--text)]">{totales.productosVendidos}</div>
         </div>
         <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3">
-          <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Ticket Promedio</div>
-          <div className="text-sm font-bold text-[var(--text)]">{formatCurrency(totales.promedio)}</div>
+          <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Clientes Atendidos</div>
+          <div className="text-sm font-bold text-[var(--text)]">{clientesUnicos}</div>
         </div>
       </div>
 
