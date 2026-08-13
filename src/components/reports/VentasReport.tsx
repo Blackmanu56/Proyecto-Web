@@ -13,7 +13,7 @@ import {
   getVentasPorDiaSemana,
 } from "@/actions/informes";
 import { parse } from "date-fns";
-import { Search, Calendar, User, RefreshCw, Printer, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, Calendar, User, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -320,16 +320,11 @@ export default function VentasReport({ initialData, usuarios }: Props) {
             {v === "analisis" ? "Análisis" : "Detalle de ventas"}
           </button>
         ))}
-        <div className="ml-auto flex items-center gap-2">
-          {isPending && <RefreshCw size={14} className="animate-spin text-[var(--text-muted)]" />}
-          <button
-            onClick={() => setPrintSection(activeSubView)}
-            className="p-1.5 rounded-lg bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--brand)] hover:bg-[var(--border)] transition"
-            title="Imprimir"
-          >
-            <Printer size={14} />
-          </button>
-        </div>
+        {isPending && (
+          <div className="ml-auto flex items-center">
+            <RefreshCw size={14} className="animate-spin text-[var(--text-muted)]" />
+          </div>
+        )}
       </div>
 
       {/* Filtros + Período */}
