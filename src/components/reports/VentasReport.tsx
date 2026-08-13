@@ -201,7 +201,7 @@ export default function VentasReport({ initialData, usuarios }: Props) {
     (value: string) => {
       const newId = value ? Number(value) : undefined;
       setUsuarioId(newId);
-      fetchTabla(newId); // auto-search (comportamiento actual)
+      fetchTabla(newId === undefined ? null : newId); // null = "Todos" explícito
     },
     [fetchTabla]
   );
@@ -302,6 +302,33 @@ export default function VentasReport({ initialData, usuarios }: Props) {
 
   return (
     <div className="space-y-4">
+      {/* Selector de sub-vista (patrón SubPestanasProductos) + imprimir */}
+      <div className="print:hidden flex flex-wrap gap-1 bg-[var(--panel)] border border-[var(--border)] rounded-xl p-1">
+        {(["analisis", "detalle"] as SubViewId[]).map((v) => (
+          <button
+            key={v}
+            onClick={() => handleSubViewChange(v)}
+            className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+              activeSubView === v
+                ? "bg-[var(--brand)]/10 text-[var(--brand)] border border-[var(--brand)]/20"
+                : "text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--border)]/50"
+            }`}
+          >
+            {v === "analisis" ? "Análisis" : "Detalle de ventas"}
+          </button>
+        ))}
+        <div className="ml-auto flex items-center gap-2">
+          {isPending && <RefreshCw size={14} className="animate-spin text-[var(--text-muted)]" />}
+          <button
+            onClick={() => setPrintSection(activeSubView)}
+            className="p-1.5 rounded-lg bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--brand)] hover:bg-[var(--border)] transition"
+            title="Imprimir"
+          >
+            <Printer size={14} />
+          </button>
+        </div>
+      </div>
+
       {/* Filtros + Período */}
       <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl overflow-hidden">
         <div className="flex items-center gap-4 px-4 py-3">
@@ -393,6 +420,23 @@ export default function VentasReport({ initialData, usuarios }: Props) {
                   </select>
                 </div>
               )}
+              {activeSubView === "detalle" && (
+                <div>
+                  <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
+                    Cliente
+                  </label>
+                  <div className="relative">
+                    <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                    <input
+                      type="text"
+                      placeholder="Buscar cliente..."
+                      value={clienteSearch}
+                      onChange={(e) => setClienteSearch(e.target.value)}
+                      className={inputClass + " pl-7"}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
@@ -407,33 +451,6 @@ export default function VentasReport({ initialData, usuarios }: Props) {
             </div>
           </div>
         )}
-      </div>
-
-      {/* Selector de sub-vista (patrón SubPestanasProductos) + imprimir */}
-      <div className="print:hidden flex flex-wrap gap-1 bg-[var(--panel)] border border-[var(--border)] rounded-xl p-1">
-        {(["analisis", "detalle"] as SubViewId[]).map((v) => (
-          <button
-            key={v}
-            onClick={() => handleSubViewChange(v)}
-            className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${
-              activeSubView === v
-                ? "bg-[var(--brand)]/10 text-[var(--brand)] border border-[var(--brand)]/20"
-                : "text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--border)]/50"
-            }`}
-          >
-            {v === "analisis" ? "Análisis" : "Detalle de ventas"}
-          </button>
-        ))}
-        <div className="ml-auto flex items-center gap-2">
-          {isPending && <RefreshCw size={14} className="animate-spin text-[var(--text-muted)]" />}
-          <button
-            onClick={() => setPrintSection(activeSubView)}
-            className="p-1.5 rounded-lg bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--brand)] hover:bg-[var(--border)] transition"
-            title="Imprimir"
-          >
-            <Printer size={14} />
-          </button>
-        </div>
       </div>
 
       {/* Vista activa (la otra queda desmontada; su estado vivo está en el contenedor) */}
@@ -461,8 +478,6 @@ export default function VentasReport({ initialData, usuarios }: Props) {
           sortKey={sortKey}
           sortDir={sortDir}
           onSort={handleSort}
-          clienteSearch={clienteSearch}
-          onClienteSearch={setClienteSearch}
           printSection={printSection}
           setPrintSection={setPrintSection}
         />

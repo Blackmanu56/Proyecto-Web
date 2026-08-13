@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { formatCurrency } from "@/lib/utils";
 import DetalleVentaModal from "./DetalleVentaModal";
 import TicketModal from "./TicketModal";
-import { ArrowDown, ArrowUp, ArrowUpDown, Printer, Search, Eye } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Printer, Eye } from "lucide-react";
 import {
   ReportPrintHeader,
   type ReporteVentaRow,
@@ -24,8 +24,6 @@ interface DetalleViewProps {
   sortKey: SortKey | null;
   sortDir: SortDir;
   onSort: (k: SortKey) => void;
-  clienteSearch: string;
-  onClienteSearch: (v: string) => void;
   printSection: string | null;
   setPrintSection: (s: string | null) => void;
 }
@@ -40,8 +38,6 @@ export default function DetalleView({
   sortKey,
   sortDir,
   onSort,
-  clienteSearch,
-  onClienteSearch,
   printSection,
   setPrintSection,
 }: DetalleViewProps) {
@@ -60,9 +56,6 @@ export default function DetalleView({
     );
   };
 
-  const inputClass =
-    "w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/40 focus:border-[var(--brand)] transition";
-
   const thClass =
     "text-left cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors " +
     "px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider";
@@ -73,29 +66,32 @@ export default function DetalleView({
 
   return (
     <section
-      className="report-section"
+      className="report-section space-y-5"
       data-section-id="detalle"
       data-print-active={printSection === "detalle" || null}
     >
       <ReportPrintHeader desde={fechaDesde} hasta={fechaHasta} />
 
       {/* Barra resumen compacta (refleja la búsqueda de cliente activa) */}
-      <div className="print:hidden grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3">
-          <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Ventas Totales</div>
-          <div className="text-sm font-bold text-[var(--success)]">{formatCurrency(totales.total)}</div>
-        </div>
-        <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3">
-          <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Cantidad de Ventas</div>
-          <div className="text-sm font-bold text-[var(--text)]">{totales.cantidad}</div>
-        </div>
-        <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3">
-          <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Productos Vendidos</div>
-          <div className="text-sm font-bold text-[var(--text)]">{totales.productosVendidos}</div>
-        </div>
-        <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3">
-          <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Clientes Atendidos</div>
-          <div className="text-sm font-bold text-[var(--text)]">{clientesUnicos}</div>
+      <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl p-4">
+        <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-3">Resumen</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3">
+            <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Ventas Totales</div>
+            <div className="text-sm font-bold text-[var(--success)]">{formatCurrency(totales.total)}</div>
+          </div>
+          <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3">
+            <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Cantidad de Ventas</div>
+            <div className="text-sm font-bold text-[var(--text)]">{totales.cantidad}</div>
+          </div>
+          <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3">
+            <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Productos Vendidos</div>
+            <div className="text-sm font-bold text-[var(--text)]">{totales.productosVendidos}</div>
+          </div>
+          <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3">
+            <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Clientes Atendidos</div>
+            <div className="text-sm font-bold text-[var(--text)]">{clientesUnicos}</div>
+          </div>
         </div>
       </div>
 
@@ -104,25 +100,13 @@ export default function DetalleView({
         <h3 className="text-sm font-semibold text-[var(--text-muted)]">
           Tabla de Ventas ({ventasFiltradas.length} registros)
         </h3>
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-            <input
-              type="text"
-              placeholder="Buscar cliente..."
-              value={clienteSearch}
-              onChange={(e) => onClienteSearch(e.target.value)}
-              className={inputClass + " pl-7 w-44 sm:w-56"}
-            />
-          </div>
-          <button
-            onClick={() => setPrintSection("detalle")}
-            className="p-1.5 rounded-lg bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--success)] hover:bg-[var(--border)] transition print:hidden"
-            title="Imprimir tabla"
-          >
-            <Printer size={12} />
-          </button>
-        </div>
+        <button
+          onClick={() => setPrintSection("detalle")}
+          className="p-1.5 rounded-lg bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--success)] hover:bg-[var(--border)] transition print:hidden"
+          title="Imprimir tabla"
+        >
+          <Printer size={12} />
+        </button>
       </div>
 
       <div className="bg-[var(--panel)] print:bg-white border border-[var(--border)] print:border-gray-300 rounded-xl overflow-hidden">
