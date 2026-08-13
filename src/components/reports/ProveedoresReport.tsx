@@ -632,7 +632,7 @@ export default function ProveedoresReport({ initialData, userRole }: Props) {
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                   <XAxis type="number" stroke="var(--text-muted)" fontSize={11} allowDecimals={false} />
                   <YAxis type="category" dataKey="nombre" width={110} stroke="var(--text-muted)" fontSize={11} tickFormatter={(v: string) => (v.length > 14 ? v.slice(0, 13) + "…" : v)} />
-                  <Tooltip {...tooltipStyle} />
+                  <Tooltip {...tooltipStyle} cursor={false} />
                   <Bar dataKey="cantidad" name="Productos" fill={CHART_COLORS[0]} radius={[0, 4, 4, 0]} />
                 </BarChart>
               ) : (
@@ -672,7 +672,7 @@ export default function ProveedoresReport({ initialData, userRole }: Props) {
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                   <XAxis type="number" stroke="var(--text-muted)" fontSize={11} tickFormatter={(v: number) => `$${v}`} />
                   <YAxis type="category" dataKey="nombre" width={110} stroke="var(--text-muted)" fontSize={11} tickFormatter={(v: string) => (v.length > 14 ? v.slice(0, 13) + "…" : v)} />
-                  <Tooltip {...tooltipStyle} formatter={(value: number) => formatCurrency(value)} />
+                  <Tooltip {...tooltipStyle} cursor={false} formatter={(value: number) => formatCurrency(value)} />
                   <Bar dataKey="valor" name="Valor a costo" fill={CHART_COLORS[1]} radius={[0, 4, 4, 0]} />
                 </BarChart>
               ) : (
