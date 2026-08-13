@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/select";
 import { formatCurrency, formatDate, formatDateShort } from "@/lib/utils";
 import {
-  Building2, ChevronDown, ChevronRight, Package, Printer, RefreshCw,
+  Building2, ChevronDown, ChevronRight, ChevronUp, Package, Printer, RefreshCw,
   Search, ShoppingCart, TrendingUp, Users,
 } from "lucide-react";
 import {
@@ -483,18 +483,26 @@ export default function ProveedoresReport({ initialData, userRole }: Props) {
     <div className="space-y-4">
       {/* 1. Filtros colapsables (incluye búsqueda por proveedor) */}
       <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl overflow-hidden">
-        <button
-          type="button"
-          className="w-full flex items-center justify-between px-4 py-3 text-left"
-          onClick={() => setShowFilters((s) => !s)}
-        >
-          <span className="text-sm font-semibold text-[var(--text-muted)] flex items-center gap-2">
-            <Search size={16} /> Filtros del informe
-          </span>
-          {showFilters ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-        </button>
+        <div className="flex items-center gap-4 px-4 py-3">
+          <button
+            type="button"
+            className="flex items-center gap-2 hover:text-[var(--text)] transition-colors shrink-0"
+            onClick={() => setShowFilters((s) => !s)}
+          >
+            <Search size={14} className="text-[var(--text-muted)]" />
+            <span className="text-sm font-semibold text-[var(--text-muted)]">
+              {showFilters ? "Ocultar filtros" : "Filtros"}
+            </span>
+            {showFilters ? (
+              <ChevronUp size={14} className="text-[var(--text-muted)]" />
+            ) : (
+              <ChevronDown size={14} className="text-[var(--text-muted)]" />
+            )}
+          </button>
+        </div>
         {showFilters && (
-          <div className="px-4 pb-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="px-4 pb-4 space-y-3 border-t border-[var(--border)]">
+            <div className="pt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
               <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">Buscar proveedor</label>
               <input
@@ -573,6 +581,7 @@ export default function ProveedoresReport({ initialData, userRole }: Props) {
                 <RefreshCw size={14} />
               </button>
             </div>
+          </div>
           </div>
         )}
       </div>
