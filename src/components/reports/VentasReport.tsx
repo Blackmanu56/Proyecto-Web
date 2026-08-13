@@ -165,15 +165,16 @@ export default function VentasReport({ initialData, usuarios }: Props) {
   }, [chartGranularity]);
 
   // -- Wiring explícito de fetch de la tabla (D12): sin efecto por rangeKey --
+  // Los overrides (desde/hasta/uid) evitan el closure obsoleto: los setters de estado
+  // aún no re-renderizaron cuando el handler llama fetchTabla() en el mismo tick.
   const fetchTabla = useCallback(
-    async (uidOverride?: number | null) => {
+    async (opts?: { uid?: number | null; desde?: string; hasta?: string }) => {
       setIsPending(true);
       try {
-        const r = await getReporteVentas(
-          fechaDesde || undefined,
-          fechaHasta || undefined,
-          uidOverride === null ? undefined : uidOverride ?? usuarioId
-        );
+        const d = opts?.desde !== undefined ? opts.desde : fechaDesde;
+        const h = opts?.hasta !== undefined ? opts.hasta : fechaHasta;
+        const u = opts?.uid !== undefined ? (opts.uid === null ? undefined : opts.uid) : usuarioId;
+        const r = await getReporteVentas(d || undefined, h || undefined, u);
         setData(r);
       } finally {
         setIsPending(false);
@@ -192,7 +193,7 @@ export default function VentasReport({ initialData, usuarios }: Props) {
       const range = getVentasDateRange(period);
       setFechaDesde(range.desde);
       setFechaHasta(range.hasta);
-      fetchTabla();
+      fetchTabla({ desde: range.desde, hasta: range.hasta }); // fechas explícitas
     },
     [fetchTabla]
   );
@@ -201,23 +202,25 @@ export default function VentasReport({ initialData, usuarios }: Props) {
     (value: string) => {
       const newId = value ? Number(value) : undefined;
       setUsuarioId(newId);
-      fetchTabla(newId === undefined ? null : newId); // null = "Todos" explícito
+      fetchTabla({ uid: newId === undefined ? null : newId }); // null = "Todos" explícito
     },
     [fetchTabla]
   );
 
-  // El filtro de vendedor solo aplica en Detalle: al volver a Análisis se limpia.
-  // fetchTabla(null) fuerza "todos" (el closure de fetchTabla aún ve el vendedor viejo
-  // hasta el re-render; el override evita el ghost state en la tabla).
+  // Al cambiar de sub-módulo se resetea el filtro completo al estado predeterminado:
+  // período 7d + fechas + vendedor "Todos", y se refetchea la tabla con valores explícitos.
+  // El reset del período invalida la cache de Análisis vía rangeKey (refetch al activarse).
   const handleSubViewChange = useCallback(
     (v: SubViewId) => {
+      const range = getVentasDateRange("7d");
       setActiveSubView(v);
-      if (v === "analisis" && usuarioId) {
-        setUsuarioId(undefined);
-        fetchTabla(null);
-      }
+      setActivePeriod("7d");
+      setFechaDesde(range.desde);
+      setFechaHasta(range.hasta);
+      setUsuarioId(undefined);
+      fetchTabla({ uid: null, desde: range.desde, hasta: range.hasta });
     },
-    [usuarioId, fetchTabla]
+    [fetchTabla]
   );
 
   const handleSearch = useCallback(() => fetchTabla(), [fetchTabla]);
