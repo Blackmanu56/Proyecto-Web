@@ -11,10 +11,13 @@ import {
 } from "@/actions/informes";
 import { formatCurrency } from "@/lib/utils";
 import {
+  ArrowDown, ArrowUp, ArrowUpDown,
   Search, Calendar, User, RefreshCw, TrendingUp, Eye, Printer,
-  Package, Users, ChevronDown, ChevronUp,
+  DollarSign, ShoppingCart, Package, Users, ChevronDown, ChevronUp,
 } from "lucide-react";
-import { CHART_COLORS } from "@/components/ui/ChartWrapper";
+import { parse } from "date-fns";
+import StatCard from "@/components/ui/StatCard";
+import ChartWrapper, { CHART_COLORS } from "@/components/ui/ChartWrapper";
 import DetalleVentaModal from "./DetalleVentaModal";
 import TicketModal from "./TicketModal";
 import {
@@ -29,16 +32,10 @@ import {
 /* ─── Types ─────────────────────────────────────────────────── */
 
 type VentasReportData = Awaited<ReturnType<typeof getReporteVentas>>;
-type VentaRow = VentasReportData["ventas"][number];
-type VentasPorCategoriaRow = Awaited<ReturnType<typeof getVentasPorCategoria>>["data"][number];
-type VentasPorClienteRow = Awaited<ReturnType<typeof getVentasPorCliente>>["data"][number];
-type VentasPorVendedorRow = Awaited<ReturnType<typeof getVentasPorVendedorComision>>["data"][number];
-type TopProductoRow = Awaited<ReturnType<typeof getTopProductos>>["data"][number];
-type EvolucionVentaPoint = Awaited<ReturnType<typeof getEvolucionVentas>>["data"][number];
 
 interface Props {
   initialData: VentasReportData;
-  usuarios: { id: number; username: string; nombreCompleto: string }[];
+  usuarios: { id: number; username: string; nombreCompleto: string; puedeVender: boolean }[];
   userRole: string;
 }
 
@@ -61,27 +58,23 @@ const PERIOD_OPTIONS: PeriodOption[] = [
 
 type ChartGranularity = "dia" | "semana" | "mes" | "anio";
 
-type CategoryPieDatum = { name: string; value: number };
-type TopProductoBarDatum = { name: string; cantidad: number; ingreso: number };
-type ClienteBarDatum = { name: string; compras: number; total: number };
-type EvolutionTooltipPayload = {
-  dataKey?: string | number;
-  value?: number | string;
-  payload?: Partial<EvolucionVentaPoint>;
-};
+type SortKey = "fecha" | "cliente" | "vendedor" | "cantidad" | "total";
+type SortDir = "asc" | "desc";
 
-function toNumber(value: number | string | undefined): number {
-  if (typeof value === "number") return value;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
+// Default direction applied on the first click of each column
+const DEFAULT_SORT_DIR: Record<SortKey, SortDir> = {
+  fecha: "desc",
+  cliente: "asc",
+  vendedor: "asc",
+  cantidad: "desc",
+  total: "desc",
+};
 
 /* --- Helpers ------------------------------------------------- */
 
 function getDateRange(period: PeriodKey): { desde: string; hasta: string } {
   const today = new Date();
-  const fmt = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const fmt = (d: Date) => d.toISOString().split("T")[0];
 
   switch (period) {
     case "hoy":
@@ -114,65 +107,6 @@ function getDateRange(period: PeriodKey): { desde: string; hasta: string } {
   }
 }
 
-function EvolutionTooltip({
-  active,
-  payload,
-  granularity,
-}: {
-  active?: boolean;
-  payload?: EvolutionTooltipPayload[];
-  granularity: ChartGranularity;
-}) {
-  if (!active || !payload?.length) return null;
-  const data = payload[0]?.payload;
-  const ventas = toNumber(payload.find((p) => p.dataKey === "ventas")?.value);
-  const ganancia = toNumber(payload.find((p) => p.dataKey === "ganancia")?.value);
-  const margen = ventas > 0 ? ((ganancia / ventas) * 100).toFixed(1) : "0";
-
-  let fechaCompleta = "";
-  if (data?.fechaInicio) {
-    const inicio = new Date(data.fechaInicio);
-    const fin = data.fechaFin ? new Date(data.fechaFin) : null;
-    if (granularity === "anio") {
-      fechaCompleta = inicio.toLocaleDateString("es-AR", { year: "numeric" });
-    } else if (granularity === "mes") {
-      fechaCompleta = inicio.toLocaleDateString("es-AR", { month: "long", year: "numeric" });
-    } else if (granularity === "semana" && fin && inicio.getTime() !== fin.getTime()) {
-      const optsShort: Intl.DateTimeFormatOptions = { day: "numeric", month: "long" };
-      const optsFull: Intl.DateTimeFormatOptions = { day: "numeric", month: "long", year: "numeric" };
-      fechaCompleta = `${inicio.toLocaleDateString("es-AR", optsShort)} al ${fin.toLocaleDateString("es-AR", optsFull)}`;
-    } else {
-      fechaCompleta = inicio.toLocaleDateString("es-AR", { day: "numeric", month: "long", year: "numeric" });
-    }
-  }
-
-  return (
-    <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 shadow-lg text-xs" style={{ minWidth: 200 }}>
-      <div className="font-bold text-[var(--text)] mb-2 pb-1 border-b border-[var(--border)]">
-        ?? {fechaCompleta}
-      </div>
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-[var(--text-muted)] flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-[#d62828]" /> Ventas
-        </span>
-        <span className="font-semibold text-[var(--text)]">{formatCurrency(ventas)}</span>
-      </div>
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-[var(--text-muted)] flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-[#22c55e]" /> Ganancia
-        </span>
-        <span className="font-semibold" style={{ color: ganancia >= 0 ? "#22c55e" : "#dc2626" }}>
-          {formatCurrency(ganancia)}
-        </span>
-      </div>
-      <div className="flex items-center justify-between pt-1 border-t border-[var(--border)] mt-1">
-        <span className="text-[var(--text-muted)]">Margen</span>
-        <span className="font-semibold text-[var(--text)]">{margen}%</span>
-      </div>
-    </div>
-  );
-}
-
 /* --- Ranking Card Subcomponents ------------------------------ */
 
 function ProductRankingCard({
@@ -184,13 +118,11 @@ function ProductRankingCard({
   index: number;
   maxCantidad: number;
 }) {
-  const medals = ["\u{1F947}", "\u{1F948}", "\u{1F949}"];
-  const medal = medals[index] || `\u{1F51F}`;
   const pct = maxCantidad > 0 ? (item.cantidad / maxCantidad) * 100 : 0;
 
   return (
     <div className="flex items-center gap-3 p-3 rounded-lg bg-[var(--card)] border border-[var(--border)] hover:border-[var(--border-hover)] transition-colors">
-      <span className="text-xl shrink-0 w-8 text-center">{medal}</span>
+      <span className="text-sm font-bold shrink-0 w-8 text-center text-[var(--text-muted)]">{index + 1}</span>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-[var(--text)] truncate">{item.producto}</p>
         <div className="flex items-center gap-2 mt-1">
@@ -216,12 +148,9 @@ function ClientRankingCard({
   item: { cliente: string; total: number; cantidad: number };
   index: number;
 }) {
-  const medals = ["\u{1F947}", "\u{1F948}", "\u{1F949}"];
-  const medal = medals[index] || `\u{1F51F}`;
-
   return (
     <div className="flex items-center gap-3 p-3 rounded-lg bg-[var(--card)] border border-[var(--border)] hover:border-[var(--border-hover)] transition-colors">
-      <span className="text-xl shrink-0 w-8 text-center">{medal}</span>
+      <span className="text-sm font-bold shrink-0 w-8 text-center text-[var(--text-muted)]">{index + 1}</span>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-[var(--text)] truncate">{item.cliente}</p>
         <div className="flex items-center gap-2 mt-1">
@@ -243,14 +172,12 @@ function SellerRankingCard({
   index: number;
   maxTotal: number;
 }) {
-  const medals = ["\u{1F947}", "\u{1F948}", "\u{1F949}"];
-  const medal = medals[index] || `\u{1F51F}`;
   const avg = item.cantidadVentas > 0 ? item.totalVendido / item.cantidadVentas : 0;
   const pct = maxTotal > 0 ? (item.totalVendido / maxTotal) * 100 : 0;
 
   return (
     <div className="flex items-center gap-3 p-3 rounded-lg bg-[var(--card)] border border-[var(--border)] hover:border-[var(--border-hover)] transition-colors">
-      <span className="text-xl shrink-0 w-8 text-center">{medal}</span>
+      <span className="text-sm font-bold shrink-0 w-8 text-center text-[var(--text-muted)]">{index + 1}</span>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-[var(--text)] truncate">{item.vendedor}</p>
         <div className="flex items-center gap-3 mt-1 flex-wrap">
@@ -273,11 +200,11 @@ function SellerRankingCard({
 
 /* --- Main Component ------------------------------------------ */
 
-export default function VentasReport({ initialData, usuarios }: Props) {
+export default function VentasReport({ initialData, usuarios, userRole }: Props) {
   // -- Core state --
   const [data, setData] = useState(initialData);
-  const [fechaDesde, setFechaDesde] = useState(() => getDateRange("7d").desde);
-  const [fechaHasta, setFechaHasta] = useState(() => getDateRange("7d").hasta);
+  const [fechaDesde, setFechaDesde] = useState(new Date().toISOString().split("T")[0]);
+  const [fechaHasta, setFechaHasta] = useState(new Date().toISOString().split("T")[0]);
   const [usuarioId, setUsuarioId] = useState<number | undefined>(undefined);
   const [clienteSearch, setClienteSearch] = useState("");
   const [isPending, setIsPending] = useState(false);
@@ -293,10 +220,10 @@ export default function VentasReport({ initialData, usuarios }: Props) {
   const [chartGranularity, setChartGranularity] = useState<ChartGranularity>("dia");
 
   // -- Secondary chart data (auto-loaded) --
-  const [ventasPorCat, setVentasPorCat] = useState<VentasPorCategoriaRow[] | null>(null);
-  const [topProds, setTopProds] = useState<TopProductoRow[] | null>(null);
-  const [ventasPorVend, setVentasPorVend] = useState<VentasPorVendedorRow[] | null>(null);
-  const [ventasPorCli, setVentasPorCli] = useState<VentasPorClienteRow[] | null>(null);
+  const [ventasPorCat, setVentasPorCat] = useState<any[] | null>(null);
+  const [topProds, setTopProds] = useState<any[] | null>(null);
+  const [ventasPorVend, setVentasPorVend] = useState<any[] | null>(null);
+  const [ventasPorCli, setVentasPorCli] = useState<any[] | null>(null);
   const [loadingCharts, setLoadingCharts] = useState(true);
 
 
@@ -313,11 +240,63 @@ export default function VentasReport({ initialData, usuarios }: Props) {
     const v = data.ventas || [];
     const filtered = !clienteSearch
       ? v
-      : v.filter((x) =>
+      : v.filter((x: any) =>
           (x.cliente || "").toLowerCase().includes(clienteSearch.toLowerCase())
         );
     return [...filtered].reverse();
   }, [data, clienteSearch]);
+
+  // -- Client-side sort of the sales table (no default order until a header is clicked) --
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir(DEFAULT_SORT_DIR[key]);
+    }
+  };
+
+  const sortedVentas = useMemo(() => {
+    if (!sortKey) return ventasFiltradas;
+    return [...ventasFiltradas].sort((a, b) => {
+      let cmp = 0;
+      switch (sortKey) {
+        case "fecha":
+          // Fixed server format "dd/MM/yyyy HH:mm" — parse into local timestamps for comparison
+          cmp =
+            parse(a.fecha, "dd/MM/yyyy HH:mm", new Date()).getTime() -
+            parse(b.fecha, "dd/MM/yyyy HH:mm", new Date()).getTime();
+          break;
+        case "cliente":
+          cmp = a.cliente.localeCompare(b.cliente);
+          break;
+        case "vendedor":
+          cmp = a.usuario.localeCompare(b.usuario);
+          break;
+        case "cantidad":
+          cmp = a.cantidadProductos - b.cantidadProductos;
+          break;
+        case "total":
+          cmp = a.total - b.total;
+          break;
+      }
+      return sortDir === "desc" ? -cmp : cmp;
+    });
+  }, [ventasFiltradas, sortKey, sortDir]);
+
+  const renderSortIndicator = (key: SortKey) => {
+    if (sortKey !== key) {
+      return <ArrowUpDown size={12} className="text-[var(--text-muted)] opacity-50" />;
+    }
+    return sortDir === "asc" ? (
+      <ArrowUp size={12} className="text-[var(--brand)]" />
+    ) : (
+      <ArrowDown size={12} className="text-[var(--brand)]" />
+    );
+  };
 
   // -- KPI calculations --
   const totales = useMemo(() => {
@@ -325,7 +304,7 @@ export default function VentasReport({ initialData, usuarios }: Props) {
     const cantidad = v.length;
     const total = v.reduce((s, x) => s + (x.total || 0), 0);
     const promedio = cantidad > 0 ? total / cantidad : 0;
-    const productosVendidos = v.reduce((s, x) => s + (x.cantidadProductos || 0), 0);
+    const productosVendidos = v.reduce((s: number, x: any) => s + (x.cantidadProductos || 0), 0);
     return { cantidad, total, promedio, productosVendidos };
   }, [ventasFiltradas]);
 
@@ -338,10 +317,45 @@ export default function VentasReport({ initialData, usuarios }: Props) {
     return evolucionData.reduce((sum, d) => sum + d.ganancia, 0);
   }, [evolucionData]);
 
+  const kpiData = useMemo(() => [
+    {
+      label: "Ventas Totales",
+      value: formatCurrency(totales.total),
+      icon: <DollarSign size={18} />,
+      color: "emerald" as const,
+      trend: { direction: "up" as const, value: "vs período anterior" },
+    },
+    {
+      label: "Cantidad de Ventas",
+      value: totales.cantidad.toString(),
+      icon: <ShoppingCart size={18} />,
+      color: "indigo" as const,
+      trend: { direction: "up" as const, value: "vs período anterior" },
+    },
+    {
+      label: "Productos Vendidos",
+      value: totales.productosVendidos.toString(),
+      icon: <Package size={18} />,
+      color: "sky" as const,
+      trend: { direction: "up" as const, value: "vs período anterior" },
+    },
+    {
+      label: "Clientes Atendidos",
+      value: clientesUnicos.toString(),
+      icon: <Users size={18} />,
+      color: "rose" as const,
+      trend: { direction: "up" as const, value: "vs período anterior" },
+    },
+  ], [totales, clientesUnicos]);
+
   // -- Period change handler --
   const handlePeriodChange = useCallback(async (period: PeriodKey) => {
     setActivePeriod(period);
-    if (period === "personalizado") return;
+    if (period === "personalizado") {
+      // El usuario elige Desde/Hasta en el panel de filtros: abrirlo automáticamente
+      setFiltersOpen(true);
+      return;
+    }
 
     const range = getDateRange(period);
     setFechaDesde(range.desde);
@@ -408,9 +422,43 @@ export default function VentasReport({ initialData, usuarios }: Props) {
     fetchData({ usuarioId: newId });
   }, [fetchData]);
 
+  // -- Load evolution chart --
+  const loadEvolutionChart = useCallback(async () => {
+    try {
+      const result = await getEvolucionVentas(fechaDesde || undefined, fechaHasta || undefined, chartGranularity);
+      setEvolucionData(result.data);
+    } catch {
+      setEvolucionData([]);
+    }
+  }, [fechaDesde, fechaHasta, chartGranularity]);
+
+  // -- Load all secondary charts --
+  const loadAllSecondaryCharts = useCallback(async () => {
+    setLoadingCharts(true);
+    try {
+      const filters = { fechaDesde, fechaHasta };
+      const [catResult, topResult, vendResult, cliResult] = await Promise.allSettled([
+        getVentasPorCategoria(filters),
+        getTopProductos(filters, 10),
+        getVentasPorVendedorComision({ ...filters, page: 1 }),
+        getVentasPorCliente({ ...filters, page: 1 }),
+      ]);
+      if (catResult.status === "fulfilled") setVentasPorCat(catResult.value.data);
+      if (topResult.status === "fulfilled") setTopProds(topResult.value.data);
+      if (vendResult.status === "fulfilled") setVentasPorVend(vendResult.value.data);
+      if (cliResult.status === "fulfilled") setVentasPorCli(cliResult.value.data);
+    } catch {
+      // silently handle
+    } finally {
+      setLoadingCharts(false);
+    }
+  }, [fechaDesde, fechaHasta]);
+
   // -- Initial load: set default period and load all data --
   useEffect(() => {
     const range = getDateRange("7d");
+    setFechaDesde(range.desde);
+    setFechaHasta(range.hasta);
 
     let cancelled = false;
 
@@ -440,6 +488,7 @@ export default function VentasReport({ initialData, usuarios }: Props) {
 
     loadAll();
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // -- Reload evolution chart when granularity changes (skip initial mount) --
@@ -449,23 +498,11 @@ export default function VentasReport({ initialData, usuarios }: Props) {
       isFirstRender.current = false;
       return;
     }
-    let cancelled = false;
-
-    async function loadEvolution() {
-      if (!fechaDesde || !fechaHasta) return;
-      try {
-        const result = await getEvolucionVentas(fechaDesde, fechaHasta, chartGranularity);
-        if (!cancelled) setEvolucionData(result.data);
-      } catch {
-        if (!cancelled) setEvolucionData([]);
-      }
+    if (fechaDesde && fechaHasta) {
+      loadEvolutionChart();
     }
-
-    loadEvolution();
-    return () => {
-      cancelled = true;
-    };
-  }, [chartGranularity, fechaDesde, fechaHasta]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chartGranularity]);
 
   // -- Print section handler: reset after print --
   useEffect(() => {
@@ -480,26 +517,35 @@ export default function VentasReport({ initialData, usuarios }: Props) {
 
 
   // -- Chart data for secondary charts --
-  const categoryPieData = useMemo<CategoryPieDatum[]>(() => {
+  const categoryPieData = useMemo(() => {
     if (!ventasPorCat) return [];
-    return ventasPorCat.map((c) => ({
+    return ventasPorCat.map((c: any) => ({
       name: c.categoria,
       value: c.subtotal,
     }));
   }, [ventasPorCat]);
 
-  const topProdsBarData = useMemo<TopProductoBarDatum[]>(() => {
+  const topProdsBarData = useMemo(() => {
     if (!topProds) return [];
-    return topProds.slice(0, 8).map((p) => ({
+    return topProds.slice(0, 8).map((p: any) => ({
       name: p.producto.length > 22 ? p.producto.slice(0, 20) + "…" : p.producto,
       cantidad: p.cantidad,
       ingreso: p.ingreso,
     }));
   }, [topProds]);
 
-  const cliBarData = useMemo<ClienteBarDatum[]>(() => {
+  const vendBarData = useMemo(() => {
+    if (!ventasPorVend) return [];
+    return ventasPorVend.slice(0, 8).map((v: any) => ({
+      name: v.vendedor,
+      ventas: v.cantidadVentas,
+      total: v.totalVendido,
+    }));
+  }, [ventasPorVend]);
+
+  const cliBarData = useMemo(() => {
     if (!ventasPorCli) return [];
-    return ventasPorCli.slice(0, 8).map((c) => ({
+    return ventasPorCli.slice(0, 8).map((c: any) => ({
       name: c.cliente,
       compras: c.cantidad,
       total: c.total,
@@ -511,16 +557,69 @@ export default function VentasReport({ initialData, usuarios }: Props) {
   const top5Clients = useMemo(() => (ventasPorCli || []).slice(0, 5), [ventasPorCli]);
   const topSellers = useMemo(() => (ventasPorVend || []).slice(0, 5), [ventasPorVend]);
   const maxProductQty = useMemo(
-    () => Math.max(...top5Products.map((p) => p.cantidad), 1),
+    () => Math.max(...top5Products.map((p: any) => p.cantidad), 1),
     [top5Products]
   );
   const maxSellerTotal = useMemo(
-    () => Math.max(...topSellers.map((s) => s.totalVendido), 1),
+    () => Math.max(...topSellers.map((s: any) => s.totalVendido), 1),
     [topSellers]
   );
 
   const inputClass =
     "w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/40 focus:border-[var(--brand)] transition";
+
+  // -- Custom tooltip for evolution chart --
+  const EvolutionTooltip = ({ active, payload, granularity }: any) => {
+    if (!active || !payload?.length) return null;
+    const data = payload[0]?.payload;
+    const ventas = payload.find((p: any) => p.dataKey === "ventas")?.value || 0;
+    const ganancia = payload.find((p: any) => p.dataKey === "ganancia")?.value || 0;
+    const margen = ventas > 0 ? ((ganancia / ventas) * 100).toFixed(1) : "0";
+
+    // Format date based on granularity
+    let fechaCompleta = "";
+    if (data?.fechaInicio) {
+      const inicio = new Date(data.fechaInicio);
+      const fin = data.fechaFin ? new Date(data.fechaFin) : null;
+      if (granularity === "anio") {
+        fechaCompleta = inicio.toLocaleDateString("es-AR", { year: "numeric" });
+      } else if (granularity === "mes") {
+        fechaCompleta = inicio.toLocaleDateString("es-AR", { month: "long", year: "numeric" });
+      } else if (granularity === "semana" && fin && inicio.getTime() !== fin.getTime()) {
+        const optsShort: Intl.DateTimeFormatOptions = { day: "numeric", month: "long" };
+        const optsFull: Intl.DateTimeFormatOptions = { day: "numeric", month: "long", year: "numeric" };
+        fechaCompleta = `${inicio.toLocaleDateString("es-AR", optsShort)} al ${fin.toLocaleDateString("es-AR", optsFull)}`;
+      } else {
+        fechaCompleta = inicio.toLocaleDateString("es-AR", { day: "numeric", month: "long", year: "numeric" });
+      }
+    }
+
+    return (
+      <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 shadow-lg text-xs" style={{ minWidth: 200 }}>
+        <div className="font-bold text-[var(--text)] mb-2 pb-1 border-b border-[var(--border)]">
+          {fechaCompleta}
+        </div>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[var(--text-muted)] flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-[#d62828]" /> Ventas
+          </span>
+          <span className="font-semibold text-[var(--text)]">{formatCurrency(ventas)}</span>
+        </div>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[var(--text-muted)] flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-[#22c55e]" /> Ganancia
+          </span>
+          <span className="font-semibold" style={{ color: ganancia >= 0 ? "#22c55e" : "#dc2626" }}>
+            {formatCurrency(ganancia)}
+          </span>
+        </div>
+        <div className="flex items-center justify-between pt-1 border-t border-[var(--border)] mt-1">
+          <span className="text-[var(--text-muted)]">Margen</span>
+          <span className="font-semibold text-[var(--text)]">{margen}%</span>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -615,23 +714,10 @@ export default function VentasReport({ initialData, usuarios }: Props) {
                   className={inputClass}
                 >
                   <option value="">Todos</option>
-                  {usuarios.map((u) => (
+                  {usuarios.filter((u) => u.puedeVender).map((u) => (
                     <option key={u.id} value={u.id}>{u.nombreCompleto || u.username}</option>
                   ))}
                 </select>
-              </div>
-              {/* Cliente */}
-              <div>
-                <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
-                  <Users size={12} /> Cliente
-                </label>
-                <input
-                  type="text"
-                  placeholder="Nombre del cliente..."
-                  value={clienteSearch}
-                  onChange={(e) => setClienteSearch(e.target.value)}
-                  className={inputClass}
-                />
               </div>
             </div>
 
@@ -793,7 +879,7 @@ export default function VentasReport({ initialData, usuarios }: Props) {
                       <ResponsiveContainer width="100%" height="100%">
                         <RePie>
                           <Tooltip
-                            formatter={(value: number, name: string) => {
+                            formatter={(value: number, name: string, props: any) => {
                               const total = categoryPieData.reduce((s, d) => s + d.value, 0);
                               const pct = total > 0 ? ((value / total) * 100).toFixed(1) : "0";
                               return [`${formatCurrency(value)} (${pct}%)`, name];
@@ -818,7 +904,7 @@ export default function VentasReport({ initialData, usuarios }: Props) {
                     </div>
                     {/* Legend */}
                     <div className="w-1/2 space-y-2">
-                      {categoryPieData.map((entry, i) => {
+                      {categoryPieData.map((entry: any, i: number) => {
                         const total = categoryPieData.reduce((s, d) => s + d.value, 0);
                         const pct = total > 0 ? ((entry.value / total) * 100).toFixed(0) : "0";
                         return (
@@ -906,7 +992,7 @@ export default function VentasReport({ initialData, usuarios }: Props) {
               </h3>
               <div className="space-y-2">
                 {top5Products.length > 0 ? (
-                  top5Products.map((p, i) => (
+                  top5Products.map((p: any, i: number) => (
                     <ProductRankingCard key={p.productoId || i} item={p} index={i} maxCantidad={maxProductQty} />
                   ))
                 ) : (
@@ -923,7 +1009,7 @@ export default function VentasReport({ initialData, usuarios }: Props) {
               </h3>
               <div className="space-y-2">
                 {top5Clients.length > 0 ? (
-                  top5Clients.map((c, i) => (
+                  top5Clients.map((c: any, i: number) => (
                     <ClientRankingCard key={c.clienteId || i} item={c} index={i} />
                   ))
                 ) : (
@@ -940,7 +1026,7 @@ export default function VentasReport({ initialData, usuarios }: Props) {
               </h3>
               <div className="space-y-2">
                 {topSellers.length > 0 ? (
-                  topSellers.map((s, i) => (
+                  topSellers.map((s: any, i: number) => (
                     <SellerRankingCard key={s.usuarioId || i} item={s} index={i} maxTotal={maxSellerTotal} />
                   ))
                 ) : (
@@ -957,13 +1043,25 @@ export default function VentasReport({ initialData, usuarios }: Props) {
             <h3 className="text-sm font-semibold text-[var(--text-muted)]">
               Tabla de Ventas ({ventasFiltradas.length} registros)
             </h3>
-            <button
-              onClick={() => setPrintSection("table")}
-              className="p-1.5 rounded-lg bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--success)] hover:bg-[var(--border)] transition print:hidden"
-              title="Imprimir tabla"
-            >
-              <Printer size={12} />
-            </button>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                <input
+                  type="text"
+                  placeholder="Buscar cliente..."
+                  value={clienteSearch}
+                  onChange={(e) => setClienteSearch(e.target.value)}
+                  className={inputClass + " pl-7 w-44 sm:w-56"}
+                />
+              </div>
+              <button
+                onClick={() => setPrintSection("table")}
+                className="p-1.5 rounded-lg bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--success)] hover:bg-[var(--border)] transition print:hidden"
+                title="Imprimir tabla"
+              >
+                <Printer size={12} />
+              </button>
+            </div>
           </div>
           <div className="bg-[var(--panel)] print:bg-white border border-[var(--border)] print:border-gray-300 rounded-xl overflow-hidden">
             <div className="overflow-x-auto">
@@ -971,23 +1069,88 @@ export default function VentasReport({ initialData, usuarios }: Props) {
                 <thead>
                   <tr className="border-b border-[var(--border)] print:border-gray-300 bg-[var(--card)] print:bg-gray-100">
                     <th className="text-left px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">#</th>
-                    <th className="text-left px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Fecha</th>
-                    <th className="text-left px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Cliente</th>
-                    <th className="text-left px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Vendedor</th>
-                    <th className="text-right px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">CANTIDAD</th>
-                    <th className="text-right px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Total</th>
+                    <th
+                      onClick={() => handleSort("fecha")}
+                      aria-label="Ordenar por Fecha"
+                      title="Ordenar por Fecha"
+                      className={
+                        "text-left cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors " +
+                        "px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider"
+                      }
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        Fecha
+                        {renderSortIndicator("fecha")}
+                      </span>
+                    </th>
+                    <th
+                      onClick={() => handleSort("cliente")}
+                      aria-label="Ordenar por Cliente"
+                      title="Ordenar por Cliente"
+                      className={
+                        "text-left cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors " +
+                        "px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider"
+                      }
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        Cliente
+                        {renderSortIndicator("cliente")}
+                      </span>
+                    </th>
+                    <th
+                      onClick={() => handleSort("vendedor")}
+                      aria-label="Ordenar por Vendedor"
+                      title="Ordenar por Vendedor"
+                      className={
+                        "text-left cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors " +
+                        "px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider"
+                      }
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        Vendedor
+                        {renderSortIndicator("vendedor")}
+                      </span>
+                    </th>
+                    <th
+                      onClick={() => handleSort("cantidad")}
+                      aria-label="Ordenar por Cantidad de productos"
+                      title="Ordenar por Cantidad de productos"
+                      className={
+                        "text-right cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors " +
+                        "px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider"
+                      }
+                    >
+                      <span className="inline-flex items-center justify-end gap-1">
+                        CANTIDAD
+                        {renderSortIndicator("cantidad")}
+                      </span>
+                    </th>
+                    <th
+                      onClick={() => handleSort("total")}
+                      aria-label="Ordenar por Total"
+                      title="Ordenar por Total"
+                      className={
+                        "text-right cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors " +
+                        "px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider"
+                      }
+                    >
+                      <span className="inline-flex items-center justify-end gap-1">
+                        Total
+                        {renderSortIndicator("total")}
+                      </span>
+                    </th>
                     <th className="text-center px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider print:hidden">Acc.</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border)]/50 print:divide-gray-300">
-                  {ventasFiltradas.length === 0 ? (
+                  {sortedVentas.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="px-4 py-8 text-center text-[var(--text-secondary)]">
                         Sin ventas en el período.
                       </td>
                     </tr>
                   ) : (
-                    ventasFiltradas.map((venta: VentaRow) => (
+                    sortedVentas.map((venta) => (
                       <tr key={venta.id} className="hover:bg-[var(--card)] transition-colors">
                         <td className="px-4 py-3 font-bold text-[var(--text)] print:text-black">
                           #{String(venta.id).padStart(4, "0")}
@@ -1053,3 +1216,4 @@ export default function VentasReport({ initialData, usuarios }: Props) {
     </div>
   );
 }
+

@@ -3,7 +3,6 @@
 import React from "react";
 import type { DetalleCierreCompleto } from "@/actions/informes";
 import { formatCurrency } from "@/lib/utils";
-import { formatMovimientoDescripcion } from "@/lib/movimiento-format";
 import {
   Calendar, Clock, User, Info, CheckCircle, XCircle, Coins,
   ArrowUpRight, ArrowDownLeft, Wallet, Receipt,
@@ -35,6 +34,11 @@ export default function CierreDetailView({ detalleData }: CierreDetailViewProps)
         <div className="bg-card print:bg-gray-100 rounded-xl p-3.5 border border-border print:border-gray-300">
           <p className="text-[10px] font-bold text-text-secondary print:text-gray-600 uppercase tracking-wider flex items-center gap-1"><User size={11} /> Usuario</p>
           <p className="text-sm font-bold text-white print:text-gray-900 mt-1">{detalleData.usuario}</p>
+          {detalleData.usuarioCierre && (
+            <p className="text-[10px] text-text-secondary print:text-gray-600 mt-0.5">
+              Cerró: @{detalleData.usuarioCierre}
+            </p>
+          )}
         </div>
         <div className="bg-card print:bg-gray-100 rounded-xl p-3.5 border border-border print:border-gray-300">
           <p className="text-[10px] font-bold text-text-secondary print:text-gray-600 uppercase tracking-wider flex items-center gap-1"><Info size={11} /> Estado</p>
@@ -96,7 +100,7 @@ export default function CierreDetailView({ detalleData }: CierreDetailViewProps)
                     <td className="px-3 py-2 text-text-muted print:text-gray-600 font-mono">
                       {m.fecha?.split(" ")[1] || m.fecha}
                     </td>
-                    <td className="px-3 py-2 text-white print:text-gray-900 font-medium truncate max-w-[200px]">{formatMovimientoDescripcion(m.descripcion)}</td>
+                    <td className="px-3 py-2 text-white print:text-gray-900 font-medium truncate max-w-[200px]">{m.descripcion}</td>
                     <td className="px-3 py-2 text-right text-emerald-400 print:text-emerald-700 font-bold font-mono">+{formatCurrency(m.monto)}</td>
                     <td className="px-3 py-2 text-right text-text-secondary print:text-gray-500">@{m.usuario}</td>
                   </tr>
@@ -130,7 +134,7 @@ export default function CierreDetailView({ detalleData }: CierreDetailViewProps)
                     <td className="px-3 py-2 text-text-muted print:text-gray-600 font-mono">
                       {m.fecha?.split(" ")[1] || m.fecha}
                     </td>
-                    <td className="px-3 py-2 text-white print:text-gray-900 font-medium truncate max-w-[200px]">{formatMovimientoDescripcion(m.descripcion)}</td>
+                    <td className="px-3 py-2 text-white print:text-gray-900 font-medium truncate max-w-[200px]">{m.descripcion}</td>
                     <td className="px-3 py-2 text-right text-rose-400 print:text-red-700 font-bold font-mono">-{formatCurrency(m.monto)}</td>
                     <td className="px-3 py-2 text-right text-text-secondary print:text-gray-500">@{m.usuario}</td>
                   </tr>
