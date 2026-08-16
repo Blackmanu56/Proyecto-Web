@@ -15,6 +15,8 @@ export const PERMISSIONS = {
       { key: "productos.editar", label: "Editar productos" },
       { key: "productos.estado", label: "Cambiar estado" },
       { key: "productos.restar_stock", label: "Restar stock" },
+      { key: "productos.reponer", label: "Solicitar reposición" },
+      { key: "productos.aprobar_reposicion", label: "Aprobar reposición" },
       { key: "productos.categorias", label: "Administrar categorías" },
       { key: "productos.marcas", label: "Administrar marcas" },
       { key: "productos.historial", label: "Ver historial" },
@@ -105,7 +107,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   ],
   ENCARGADO_STOCK: [
     "dashboard.ver",
-    "productos.ver", "productos.crear", "productos.editar", "productos.estado", "productos.restar_stock", "productos.categorias", "productos.marcas", "productos.historial",
+    "productos.ver", "productos.crear", "productos.editar", "productos.estado", "productos.restar_stock", "productos.reponer", "productos.categorias", "productos.marcas", "productos.historial",
     "proveedores.ver", "proveedores.crear", "proveedores.editar", "proveedores.estado",
     "informes.ver", "informes.productos", "informes.proveedores",
   ],

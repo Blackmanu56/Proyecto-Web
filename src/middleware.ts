@@ -26,6 +26,7 @@ const protectedRoutes = [
   { path: "/clientes", roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS"] },
   { path: "/proveedores", roles: ["ADMINISTRADOR", "ENCARGADO_STOCK"] },
   { path: "/empleados", roles: ["ADMINISTRADOR"] },
+  { path: "/solicitudes", roles: ["ADMINISTRADOR"] },
   { path: "/informes", roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS", "ENCARGADO_STOCK"] },
 ];
 

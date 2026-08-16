@@ -192,3 +192,31 @@ describe("middleware — exact path matching", () => {
     expect(res.headers.get("location")).toBeNull();
   });
 });
+
+describe("middleware — /solicitudes (reposición)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("permite acceso a ADMINISTRADOR", async () => {
+    vi.useFakeTimers();
+    const token = await signTestToken({ userId: 1, username: "admin", role: "ADMINISTRADOR" });
+    const res = await middleware(makeRequest("/solicitudes", token));
+    expect(res.status).not.toBe(307);
+    expect(res.headers.get("location")).toBeNull();
+  });
+
+  it("deniega acceso a ENCARGADO_STOCK", async () => {
+    vi.useFakeTimers();
+    const token = await signTestToken({ userId: 3, username: "stock", role: "ENCARGADO_STOCK" });
+    const res = await middleware(makeRequest("/solicitudes", token));
+    expect(res.status).toBe(307);
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/dashboard");
+  });
+
+  it("redirige a /login si no está autenticado", async () => {
+    const res = await middleware(makeRequest("/solicitudes"));
+    expect(res.status).toBe(307);
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/login");
+  });
+});

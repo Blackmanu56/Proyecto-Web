@@ -83,6 +83,8 @@ model Usuario {
   movimientosFinancieros MovimientoFinanciero[]
   rol               Rol                @relation(fields: [rolId], references: [id])
   ventas            Venta[]
+  solicitudesSolicitante SolicitudReposicion[] @relation("solicitudesSolicitante")
+  solicitudesAprobador   SolicitudReposicion[] @relation("solicitudesAprobador")
 
   @@map("usuarios")
 }
@@ -126,6 +128,7 @@ model Proveedor {
   creadoEn            DateTime   @default(now()) @map("creado_en")
   compras             Compra[]
   productos           Producto[]
+  solicitudesReposicion SolicitudReposicion[]
 
   @@map("proveedores")
 }
@@ -160,6 +163,7 @@ model Producto {
   marcaRelacionada Marca?           @relation(fields: [marcaId], references: [id])
   favoritos      ProductoFavorito[]
   historialEstados HistorialEstado[]
+  solicitudesReposicion SolicitudReposicion[]
 
   @@map("productos")
 }
@@ -255,6 +259,7 @@ model Compra {
   movimientos MovimientoCaja[]
   pagos       PagoCompra[]
   movimientosFinancieros MovimientoFinanciero[]
+  solicitudReposicion SolicitudReposicion?
 
   @@map("compras")
 }
@@ -270,6 +275,34 @@ model DetalleCompra {
   producto      Producto @relation(fields: [productoId], references: [id])
 
   @@map("detalle_compras")
+}
+
+model SolicitudReposicion {
+  id            Int              @id @default(autoincrement())
+  productoId    Int              @map("producto_id")
+  cantidad      Int
+  costoUnitario Float            @map("costo_unitario")
+  total         Float
+  proveedorId   Int              @map("proveedor_id")
+  estado        String           @default("PENDIENTE") // PENDIENTE|APROBADA|RECHAZADA
+  origenPago    OrigenPagoCompra @default(EFECTIVO_CAJA) @map("origen_pago")
+  pagos         Json?
+  motivo        String?
+  respuesta     String?
+  solicitanteId Int              @map("solicitante_id")
+  aprobadorId   Int?             @map("aprobador_id")
+  compraId      Int?             @map("compra_id") @unique
+  createdAt     DateTime         @default(now()) @map("created_at")
+  resueltoEn    DateTime?        @map("resuelto_en")
+  producto      Producto         @relation(fields: [productoId], references: [id])
+  proveedor     Proveedor        @relation(fields: [proveedorId], references: [id])
+  solicitante   Usuario          @relation("solicitudesSolicitante", fields: [solicitanteId], references: [id])
+  aprobador     Usuario?         @relation("solicitudesAprobador", fields: [aprobadorId], references: [id])
+  compra        Compra?          @relation(fields: [compraId], references: [id])
+
+  @@index([estado, createdAt])
+  @@index([productoId])
+  @@map("solicitudes_reposicion")
 }
 
 model ProductoFavorito {

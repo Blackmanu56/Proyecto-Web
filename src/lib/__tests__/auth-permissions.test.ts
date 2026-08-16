@@ -16,6 +16,7 @@ vi.mock("../prisma", () => ({
 const findUniqueMock = mocks.findUnique;
 
 import { requirePermission, hasPermission } from "../auth-permissions";
+import { DEFAULT_ROLE_PERMISSIONS } from "../permissions";
 
 function rolePermisos(permisos: string[], activo = true): string {
   return JSON.stringify({ activo, descripcion: "", permisos });
@@ -68,7 +69,7 @@ function stockSession(overrides: Partial<TokenPayload> = {}): TokenPayload {
     userId: 3,
     username: "stock",
     role: "ENCARGADO_STOCK",
-    permissions: ["productos.ver", "productos.crear"],
+    permissions: ["productos.ver", "productos.crear", "productos.reponer"],
     ...overrides,
   };
 }
@@ -174,20 +175,20 @@ describe("Role-based access matrix", () => {
     {
       role: "ADMINISTRADOR",
       session: () => adminSession(),
-      can: ["usuarios.ver", "usuarios.crear", "ventas.ver", "productos.crear", "caja.abrir"],
+      can: ["usuarios.ver", "usuarios.crear", "ventas.ver", "productos.crear", "caja.abrir", "productos.reponer", "productos.aprobar_reposicion"],
       cannot: [],
     },
     {
       role: "ENCARGADO_VENTAS",
       session: () => ventasSession(),
       can: ["ventas.ver", "ventas.crear"],
-      cannot: ["usuarios.ver", "usuarios.crear", "productos.crear", "caja.abrir"],
+      cannot: ["usuarios.ver", "usuarios.crear", "productos.crear", "caja.abrir", "productos.reponer", "productos.aprobar_reposicion"],
     },
     {
       role: "ENCARGADO_STOCK",
       session: () => stockSession(),
-      can: ["productos.ver", "productos.crear"],
-      cannot: ["usuarios.ver", "ventas.crear", "caja.abrir"],
+      can: ["productos.ver", "productos.crear", "productos.reponer"],
+      cannot: ["usuarios.ver", "ventas.crear", "caja.abrir", "productos.aprobar_reposicion"],
     },
   ];
 
@@ -209,4 +210,24 @@ describe("Role-based access matrix", () => {
       }
     });
   }
+});
+
+describe("DEFAULT_ROLE_PERMISSIONS — reposición de stock (D7)", () => {
+  it("ENCARGADO_STOCK puede solicitar reposición pero no aprobarla", () => {
+    const stockPerms = DEFAULT_ROLE_PERMISSIONS["ENCARGADO_STOCK"];
+    expect(stockPerms).toContain("productos.reponer");
+    expect(stockPerms).not.toContain("productos.aprobar_reposicion");
+  });
+
+  it("ADMINISTRADOR puede solicitar y aprobar reposición", () => {
+    const adminPerms = DEFAULT_ROLE_PERMISSIONS["ADMINISTRADOR"];
+    expect(adminPerms).toContain("productos.reponer");
+    expect(adminPerms).toContain("productos.aprobar_reposicion");
+  });
+
+  it("ENCARGADO_VENTAS no puede solicitar ni aprobar reposición", () => {
+    const ventasPerms = DEFAULT_ROLE_PERMISSIONS["ENCARGADO_VENTAS"];
+    expect(ventasPerms).not.toContain("productos.reponer");
+    expect(ventasPerms).not.toContain("productos.aprobar_reposicion");
+  });
 });
