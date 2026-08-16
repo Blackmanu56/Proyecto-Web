@@ -36,6 +36,7 @@ type DemoUserSeed = {
   correo: string;
   telefono: string;
   rol: RoleName;
+  fotoUrl?: string | null;
   empleado: {
     nombre: string;
     apellido: string;
@@ -205,6 +206,7 @@ const USER_DEMOS: readonly DemoUserSeed[] = [
     correo: "admin@chopperrepuestos.com",
     telefono: "3764000001",
     rol: "ADMINISTRADOR",
+    fotoUrl: "/uploads/avatars/avatar-1-1784755249503.jpg",
     empleado: { nombre: "Administrador", apellido: "General", cargo: "Gerente" },
   },
   {
@@ -214,6 +216,7 @@ const USER_DEMOS: readonly DemoUserSeed[] = [
     correo: "carlos@chopperrepuestos.com",
     telefono: "3764555001",
     rol: "ENCARGADO_VENTAS",
+    fotoUrl: "/uploads/avatars/avatar-2-1784003261920.webp",
     empleado: { nombre: "Carlos", apellido: "López", cargo: "Encargado de Ventas" },
   },
   {
@@ -223,6 +226,7 @@ const USER_DEMOS: readonly DemoUserSeed[] = [
     correo: "maria@chopperrepuestos.com",
     telefono: "3764555002",
     rol: "ENCARGADO_STOCK",
+    fotoUrl: "/uploads/avatars/avatar-3-1784003243669.webp",
     empleado: { nombre: "María", apellido: "García", cargo: "Encargada de Stock" },
   },
 ] as const;
@@ -338,12 +342,6 @@ const BRAND_DEMOS: readonly DemoBrandSeed[] = [
   { nombre: "Genérico" },
 ] as const;
 
-const SEED_PRODUCT_IMAGE_BASE_PATH = "/seed/productos";
-
-function seedProductImage(filename: string) {
-  return `${SEED_PRODUCT_IMAGE_BASE_PATH}/${filename}`;
-}
-
 export const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
   {
     key: "kit-transmision-cg150",
@@ -356,7 +354,7 @@ export const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
     initialQuantity: 8,
     stockMinimo: 4,
     codigo: "TRN-HON-CG150",
-    imagen: seedProductImage("kit-transmision-cg150.webp"),
+    imagen: "/uploads/1783993604453-tsvgox.webp",
   },
   {
     key: "pastillas-ns200",
@@ -369,7 +367,7 @@ export const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
     initialQuantity: 6,
     stockMinimo: 5,
     codigo: "FRN-BAJ-NS200",
-    imagen: seedProductImage("pastillas-ns200.webp"),
+    imagen: "/uploads/1783994134261-b6u1ge.webp",
   },
   {
     key: "bateria-fz16",
@@ -382,7 +380,7 @@ export const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
     initialQuantity: 3,
     stockMinimo: 3,
     codigo: "ELE-YAM-FZ16",
-    imagen: seedProductImage("bateria-fz16.webp"),
+    imagen: "/uploads/1783994182309-5ufx79.webp",
   },
   {
     key: "cubierta-pirelli-130-70-17",
@@ -395,7 +393,7 @@ export const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
     initialQuantity: 5,
     stockMinimo: 2,
     codigo: "NEU-PIR-13070",
-    imagen: seedProductImage("cubierta-pirelli-130-70-17.webp"),
+    imagen: "/uploads/1783994252200-n6hxrg.webp",
   },
   {
     key: "aceite-motul-5100",
@@ -408,6 +406,7 @@ export const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
     initialQuantity: 10,
     stockMinimo: 6,
     codigo: "LUB-MOT-5100",
+    imagen: "/uploads/1783994280256-7znat5.jpg",
   },
   {
     key: "amortiguador-fz16",
@@ -420,7 +419,7 @@ export const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
     initialQuantity: 2,
     stockMinimo: 2,
     codigo: "SUS-YAM-FZ16",
-    imagen: seedProductImage("amortiguador-fz16.webp"),
+    imagen: "/uploads/1783994311392-49olr2.webp",
   },
   {
     key: "cadena-428h-cg",
@@ -433,6 +432,7 @@ export const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
     initialQuantity: 4,
     stockMinimo: 2,
     codigo: "TRN-HON-CG428",
+    imagen: "/uploads/1783994346515-fs2lv6.webp",
   },
   {
     key: "bujia-ngk-cr8e",
@@ -445,6 +445,7 @@ export const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
     initialQuantity: 20,
     stockMinimo: 10,
     codigo: "ENC-NGK-CR8E",
+    imagen: "/uploads/1783994375572-g7dxdl.webp",
   },
   {
     key: "faro-led-universal",
@@ -457,6 +458,7 @@ export const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
     initialQuantity: 1,
     stockMinimo: 1,
     codigo: "ILU-LED-UNI",
+    imagen: "/uploads/1783994411401-rdyb53.webp",
   },
   {
     key: "filtro-aceite-cg150",
@@ -469,6 +471,7 @@ export const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
     initialQuantity: 7,
     stockMinimo: 3,
     codigo: "MOT-HON-FILT150",
+    imagen: "/uploads/1783994431874-0ubpzf.webp",
   },
   {
     key: "cubierta-delantera-mrf",
@@ -481,6 +484,7 @@ export const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
     initialQuantity: 4,
     stockMinimo: 4,
     codigo: "NEU-MRF-9090",
+    imagen: "/uploads/1783994476358-4rezkj.webp",
   },
   {
     key: "espejo-universal-par",
@@ -493,6 +497,7 @@ export const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
     initialQuantity: 6,
     stockMinimo: 3,
     codigo: "ACC-ESP-UNI",
+    imagen: "/uploads/1784678530331-jx8ogw.webp",
   },
   {
     key: "carenado-lateral-usado",
@@ -506,6 +511,7 @@ export const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
     stockMinimo: 0,
     codigo: "ACC-CAR-USADO",
     activo: false,
+    imagen: null,
   },
 ] as const;
 
@@ -881,6 +887,7 @@ async function seedMasterData(prisma: PrismaClient, freshOperationalState: boole
         telefono: userSeed.telefono,
         activo: true,
         rolId: role.id,
+        fotoUrl: userSeed.fotoUrl ?? null,
       },
       create: {
         username: userSeed.username,
@@ -891,6 +898,7 @@ async function seedMasterData(prisma: PrismaClient, freshOperationalState: boole
         telefono: userSeed.telefono,
         activo: true,
         rolId: role.id,
+        fotoUrl: userSeed.fotoUrl ?? null,
       },
       select: { id: true, username: true },
     });
