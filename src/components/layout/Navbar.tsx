@@ -48,6 +48,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard, roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS", "ENCARGADO_STOCK"] },
   { name: "Productos", path: "/productos", icon: Package, roles: ["ADMINISTRADOR", "ENCARGADO_STOCK"] },
+  { name: "Pedidos", path: "/pedidos", icon: ClipboardList, roles: ["ADMINISTRADOR", "ENCARGADO_STOCK"] },
   { name: "Solicitudes", path: "/solicitudes", icon: ClipboardList, roles: ["ADMINISTRADOR"] },
   { name: "Ventas", path: "/ventas", icon: ShoppingCart, roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS"] },
   { name: "Caja", path: "/caja", icon: Coins, roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS"] },
@@ -73,7 +74,7 @@ export default function Navbar({ user }: NavbarProps) {
     ? navItems.filter((item) => item.roles.includes(user.role))
     : [];
 
-  const leftPaths = new Set(["/dashboard", "/productos", "/ventas", "/caja"]);
+  const leftPaths = new Set(["/dashboard", "/productos", "/pedidos", "/ventas", "/caja"]);
   const leftItems = allowedItems.filter((item) => leftPaths.has(item.path));
   const rightItems = allowedItems.filter((item) => !leftPaths.has(item.path));
 

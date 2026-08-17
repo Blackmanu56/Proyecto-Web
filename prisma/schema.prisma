@@ -43,7 +43,7 @@ enum TipoMovimientoFinanciero {
 model PagoCompra {
   id          Int      @id @default(autoincrement())
   compraId    Int      @map("compra_id")
-  medio       String   // EFECTIVO_CAJA, TRANSFERENCIA_BANCARIA, MERCADO_PAGO, CUENTA_CORRIENTE_PROVEEDOR, FONDOS_EXTERNOS
+  medio       String // EFECTIVO_CAJA, TRANSFERENCIA_BANCARIA, MERCADO_PAGO, CUENTA_CORRIENTE_PROVEEDOR, FONDOS_EXTERNOS
   monto       Float
   observacion String?
   createdAt   DateTime @default(now()) @map("created_at")
@@ -62,29 +62,29 @@ model Rol {
 }
 
 model Usuario {
-  id                Int                @id @default(autoincrement())
-  username          String             @unique
-  passwordHash      String             @map("password_hash")
-  nombreCompleto    String             @map("nombre_completo")
-  dni               String             @unique
-  correo            String?
-  telefono          String?
-  activo            Boolean            @default(true)
-  creadoEn          DateTime           @default(now()) @map("creado_en")
-  rolId             Int                @map("rol_id")
-  fotoActualizadaEn DateTime?          @map("foto_actualizada_en")
-  fotoUrl           String?            @map("foto_url")
-  cajas             Caja[]
-  compras           Compra[]
-  empleado          Empleado?
-  movimientos       MovimientoCaja[]
-  favoritos         ProductoFavorito[]
-  historialEstados  HistorialEstado[]
+  id                     Int                    @id @default(autoincrement())
+  username               String                 @unique
+  passwordHash           String                 @map("password_hash")
+  nombreCompleto         String                 @map("nombre_completo")
+  dni                    String                 @unique
+  correo                 String?
+  telefono               String?
+  activo                 Boolean                @default(true)
+  creadoEn               DateTime               @default(now()) @map("creado_en")
+  rolId                  Int                    @map("rol_id")
+  fotoActualizadaEn      DateTime?              @map("foto_actualizada_en")
+  fotoUrl                String?                @map("foto_url")
+  cajas                  Caja[]
+  compras                Compra[]
+  empleado               Empleado?
+  movimientos            MovimientoCaja[]
+  favoritos              ProductoFavorito[]
+  historialEstados       HistorialEstado[]
   movimientosFinancieros MovimientoFinanciero[]
-  rol               Rol                @relation(fields: [rolId], references: [id])
-  ventas            Venta[]
-  solicitudesSolicitante SolicitudReposicion[] @relation("solicitudesSolicitante")
-  solicitudesAprobador   SolicitudReposicion[] @relation("solicitudesAprobador")
+  rol                    Rol                    @relation(fields: [rolId], references: [id])
+  ventas                 Venta[]
+  solicitudesSolicitante SolicitudReposicion[]  @relation("solicitudesSolicitante")
+  solicitudesAprobador   SolicitudReposicion[]  @relation("solicitudesAprobador")
 
   @@map("usuarios")
 }
@@ -117,17 +117,17 @@ model Cliente {
 }
 
 model Proveedor {
-  id                  Int        @id @default(autoincrement())
-  nombre              String
-  telefono            String?
-  direccion           String?
-  email               String?
-  cuit                String     @unique
-  activo              Boolean    @default(true)
-  contactoResponsable String?    @map("contacto_responsable")
-  creadoEn            DateTime   @default(now()) @map("creado_en")
-  compras             Compra[]
-  productos           Producto[]
+  id                    Int                   @id @default(autoincrement())
+  nombre                String
+  telefono              String?
+  direccion             String?
+  email                 String?
+  cuit                  String                @unique
+  activo                Boolean               @default(true)
+  contactoResponsable   String?               @map("contacto_responsable")
+  creadoEn              DateTime              @default(now()) @map("creado_en")
+  compras               Compra[]
+  productos             Producto[]
   solicitudesReposicion SolicitudReposicion[]
 
   @@map("proveedores")
@@ -143,26 +143,26 @@ model Categoria {
 }
 
 model Producto {
-  id             Int                @id @default(autoincrement())
-  nombre         String
-  categoriaId    Int                @map("categoria_id")
-  precioCompra   Float              @map("precio_compra")
-  precioVenta    Float              @map("precio_venta")
-  cantidad       Int                @default(0)
-  stockMinimo    Int                @default(0) @map("stock_minimo")
-  proveedorId    Int                @map("proveedor_id")
-  activo         Boolean            @default(true)
-  codigo         String?
-  imagen         String?
-  marca          String?
-  marcaId        Int?               @map("marca_id")
-  detalleCompras DetalleCompra[]
-  detalleVentas  DetalleVenta[]
-  categoria      Categoria          @relation(fields: [categoriaId], references: [id])
-  proveedor      Proveedor          @relation(fields: [proveedorId], references: [id])
-  marcaRelacionada Marca?           @relation(fields: [marcaId], references: [id])
-  favoritos      ProductoFavorito[]
-  historialEstados HistorialEstado[]
+  id                    Int                   @id @default(autoincrement())
+  nombre                String
+  categoriaId           Int                   @map("categoria_id")
+  precioCompra          Float                 @map("precio_compra")
+  precioVenta           Float                 @map("precio_venta")
+  cantidad              Int                   @default(0)
+  stockMinimo           Int                   @default(0) @map("stock_minimo")
+  proveedorId           Int                   @map("proveedor_id")
+  activo                Boolean               @default(true)
+  codigo                String?
+  imagen                String?
+  marca                 String?
+  marcaId               Int?                  @map("marca_id")
+  detalleCompras        DetalleCompra[]
+  detalleVentas         DetalleVenta[]
+  categoria             Categoria             @relation(fields: [categoriaId], references: [id])
+  proveedor             Proveedor             @relation(fields: [proveedorId], references: [id])
+  marcaRelacionada      Marca?                @relation(fields: [marcaId], references: [id])
+  favoritos             ProductoFavorito[]
+  historialEstados      HistorialEstado[]
   solicitudesReposicion SolicitudReposicion[]
 
   @@map("productos")
@@ -178,22 +178,22 @@ model Marca {
 }
 
 model Venta {
-  id              Int              @id @default(autoincrement())
-  clienteId       Int              @map("cliente_id")
-  usuarioId       Int              @map("usuario_id")
-  total           Float            @default(0.0)
-  fecha           DateTime         @default(now())
-  estado          String           @default("COMPLETADA")
-  metodoPago      String?          @map("metodo_pago")
-  descuentoTipo   String?          @map("descuento_tipo")
-  montoDescuento  Float            @default(0.0) @map("monto_descuento")
-  tipoComprobante String?          @map("tipo_comprobante")
-  cuotas          Int?             @map("cuotas")
-  detalles        DetalleVenta[]
-  movimientos     MovimientoCaja[]
+  id                     Int                    @id @default(autoincrement())
+  clienteId              Int                    @map("cliente_id")
+  usuarioId              Int                    @map("usuario_id")
+  total                  Float                  @default(0.0)
+  fecha                  DateTime               @default(now())
+  estado                 String                 @default("COMPLETADA")
+  metodoPago             String?                @map("metodo_pago")
+  descuentoTipo          String?                @map("descuento_tipo")
+  montoDescuento         Float                  @default(0.0) @map("monto_descuento")
+  tipoComprobante        String?                @map("tipo_comprobante")
+  cuotas                 Int?                   @map("cuotas")
+  detalles               DetalleVenta[]
+  movimientos            MovimientoCaja[]
   movimientosFinancieros MovimientoFinanciero[]
-  cliente         Cliente          @relation(fields: [clienteId], references: [id])
-  usuario         Usuario          @relation(fields: [usuarioId], references: [id])
+  cliente                Cliente                @relation(fields: [clienteId], references: [id])
+  usuario                Usuario                @relation(fields: [usuarioId], references: [id])
 
   @@map("ventas")
 }
@@ -212,18 +212,18 @@ model DetalleVenta {
 }
 
 model Caja {
-  id             Int              @id @default(autoincrement())
-  usuarioId      Int              @map("usuario_id")
-  fechaApertura  DateTime         @default(now()) @map("fecha_apertura")
-  fechaCierre    DateTime?        @map("fecha_cierre")
-  montoInicial   Float            @map("monto_inicial")
-  totalVentas    Float            @default(0.0) @map("total_ventas")
-  estado         String           @default("ABIERTA")
-  gastosManuales Float            @default(0.0) @map("gastos_manuales")
-  totalContado   Float?           @map("total_contado")
-  observacionCierre String?       @map("observacion_cierre")
-  usuario        Usuario          @relation(fields: [usuarioId], references: [id])
-  movimientos    MovimientoCaja[]
+  id                Int              @id @default(autoincrement())
+  usuarioId         Int              @map("usuario_id")
+  fechaApertura     DateTime         @default(now()) @map("fecha_apertura")
+  fechaCierre       DateTime?        @map("fecha_cierre")
+  montoInicial      Float            @map("monto_inicial")
+  totalVentas       Float            @default(0.0) @map("total_ventas")
+  estado            String           @default("ABIERTA")
+  gastosManuales    Float            @default(0.0) @map("gastos_manuales")
+  totalContado      Float?           @map("total_contado")
+  observacionCierre String?          @map("observacion_cierre")
+  usuario           Usuario          @relation(fields: [usuarioId], references: [id])
+  movimientos       MovimientoCaja[]
 
   @@map("cajas")
 }
@@ -247,19 +247,19 @@ model MovimientoCaja {
 }
 
 model Compra {
-  id          Int              @id @default(autoincrement())
-  proveedorId Int              @map("proveedor_id")
-  usuarioId   Int              @map("usuario_id")
-  total       Float            @default(0.0)
-  fecha       DateTime         @default(now())
-  origenPago  OrigenPagoCompra @default(EFECTIVO_CAJA) @map("origen_pago")
-  proveedor   Proveedor        @relation(fields: [proveedorId], references: [id])
-  usuario     Usuario          @relation(fields: [usuarioId], references: [id])
-  detalles    DetalleCompra[]
-  movimientos MovimientoCaja[]
-  pagos       PagoCompra[]
+  id                     Int                    @id @default(autoincrement())
+  proveedorId            Int                    @map("proveedor_id")
+  usuarioId              Int                    @map("usuario_id")
+  total                  Float                  @default(0.0)
+  fecha                  DateTime               @default(now())
+  origenPago             OrigenPagoCompra       @default(EFECTIVO_CAJA) @map("origen_pago")
+  proveedor              Proveedor              @relation(fields: [proveedorId], references: [id])
+  usuario                Usuario                @relation(fields: [usuarioId], references: [id])
+  detalles               DetalleCompra[]
+  movimientos            MovimientoCaja[]
+  pagos                  PagoCompra[]
   movimientosFinancieros MovimientoFinanciero[]
-  solicitudReposicion SolicitudReposicion?
+  solicitudReposicion    SolicitudReposicion?
 
   @@map("compras")
 }
@@ -291,7 +291,7 @@ model SolicitudReposicion {
   respuesta     String?
   solicitanteId Int              @map("solicitante_id")
   aprobadorId   Int?             @map("aprobador_id")
-  compraId      Int?             @map("compra_id") @unique
+  compraId      Int?             @unique @map("compra_id")
   createdAt     DateTime         @default(now()) @map("created_at")
   resueltoEn    DateTime?        @map("resuelto_en")
   producto      Producto         @relation(fields: [productoId], references: [id])
@@ -318,16 +318,16 @@ model ProductoFavorito {
 }
 
 model HistorialEstado {
-  id             Int                    @id @default(autoincrement())
-  productoId     Int                    @map("producto_id")
-  producto       Producto               @relation(fields: [productoId], references: [id], onDelete: Restrict)
-  estadoAnterior EstadoProducto         @map("estado_anterior")
-  estadoNuevo    EstadoProducto         @map("estado_nuevo")
+  id             Int                  @id @default(autoincrement())
+  productoId     Int                  @map("producto_id")
+  producto       Producto             @relation(fields: [productoId], references: [id], onDelete: Restrict)
+  estadoAnterior EstadoProducto       @map("estado_anterior")
+  estadoNuevo    EstadoProducto       @map("estado_nuevo")
   motivo         MotivoEstadoProducto
   observacion    String?
-  fecha          DateTime               @default(now())
-  usuarioId      Int                    @map("usuario_id")
-  usuario        Usuario                @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  fecha          DateTime             @default(now())
+  usuarioId      Int                  @map("usuario_id")
+  usuario        Usuario              @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
 
   @@index([productoId, fecha])
   @@index([usuarioId])

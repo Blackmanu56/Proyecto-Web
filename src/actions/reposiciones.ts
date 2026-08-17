@@ -235,6 +235,7 @@ export async function aprobarReposicion(id: number) {
     });
 
     revalidatePath("/solicitudes");
+    revalidatePath("/pedidos");
     revalidatePath("/productos");
     if (resultado.cajaMovimientoCreado || resultado.bancoMovimientoCreado) {
       revalidatePath("/caja");
@@ -275,6 +276,7 @@ export async function rechazarReposicion(id: number, respuesta: string) {
     });
 
     revalidatePath("/solicitudes");
+    revalidatePath("/pedidos");
     return { success: true };
   } catch (error: unknown) {
     console.error("Error en rechazarReposicion:", error);
@@ -287,6 +289,7 @@ export async function rechazarReposicion(id: number, respuesta: string) {
 interface GetSolicitudesParams {
   estado?: string;
   productoId?: number;
+  solicitanteId?: number;
 }
 
 export async function getSolicitudesReposicion(filters: GetSolicitudesParams = {}) {
@@ -296,6 +299,7 @@ export async function getSolicitudesReposicion(filters: GetSolicitudesParams = {
     const where: Record<string, unknown> = {};
     if (filters.estado) where.estado = filters.estado;
     if (filters.productoId) where.productoId = filters.productoId;
+    if (filters.solicitanteId) where.solicitanteId = filters.solicitanteId;
 
     const solicitudes = await prisma.solicitudReposicion.findMany({
       where,

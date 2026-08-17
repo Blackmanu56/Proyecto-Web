@@ -19,7 +19,6 @@ import { Input } from "@/components/ui/input";
 import { PaymentDistribution, PaymentMethod } from "@/components/ui/PaymentDistribution";
 import ReactivarModal from "@/components/ui/ReactivarModal";
 import RestarStockModal from "@/components/ui/RestarStockModal";
-import SolicitarReposicionModal from "@/components/ui/SolicitarReposicionModal";
 import { TableShell } from "@/components/ui/table-shell";
 import {
   getProductPurchaseCost,
@@ -429,7 +428,6 @@ export default function ProductosTable({
   const [reactivarModal, setReactivarModal] = useState<{ open: boolean; product: Product | null }>({ open: false, product: null });
   const [historialModal, setHistorialModal] = useState<{ open: boolean; product: Product | null }>({ open: false, product: null });
   const [restarStockModal, setRestarStockModal] = useState<{ open: boolean; product: Product | null }>({ open: false, product: null });
-  const [solicitarReposicionModal, setSolicitarReposicionModal] = useState<{ open: boolean; product: Product | null }>({ open: false, product: null });
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [adminCatsOpen, setAdminCatsOpen] = useState(false);
   const [adminMarcasOpen, setAdminMarcasOpen] = useState(false);
@@ -450,9 +448,9 @@ export default function ProductosTable({
     }
   }, [isModalOpen]);
 
-  // Fetch caja balance whenever a modal that needs it opens
+  // Fetch caja balance whenever the product form modal opens
   useEffect(() => {
-    if (isModalOpen || solicitarReposicionModal.open) {
+    if (isModalOpen) {
       let cancelled = false;
       getCajaActiva().then(caja => {
         if (cancelled) return;
@@ -467,7 +465,7 @@ export default function ProductosTable({
       });
       return () => { cancelled = true; };
     }
-  }, [isModalOpen, solicitarReposicionModal.open]);
+  }, [isModalOpen]);
 
   /* Column visibility: close on outside click or Escape */
   useEffect(() => {
@@ -1325,16 +1323,7 @@ export default function ProductosTable({
                     Restar stock
                   </button>
                 )}
-                {canManageProducts && selectedProduct.activo && (
-                  <button
-                    type="button"
-                    onClick={() => runDrawerAction((p) => setSolicitarReposicionModal({ open: true, product: p }), selectedProduct)}
-                    className="flex h-9 w-full items-center justify-center gap-2 rounded-xl border border-[#059669]/40 bg-[#047857] px-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#065F46] focus-visible:outline-2 focus-visible:outline-[#059669]"
-                  >
-                    <PackagePlus size={15} />
-                    {userRole === "ADMINISTRADOR" ? "Reponer stock" : "Solicitar reposición"}
-                  </button>
-                )}
+
                 <button
                   type="button"
                   onClick={() => runDrawerAction(handleHistorial, selectedProduct)}
@@ -1673,23 +1662,7 @@ export default function ProductosTable({
         />
       )}
 
-      {solicitarReposicionModal.product && (
-        <SolicitarReposicionModal
-          open={solicitarReposicionModal.open}
-          onOpenChange={(open) => setSolicitarReposicionModal({ open, product: open ? solicitarReposicionModal.product : null })}
-          producto={{
-            id: solicitarReposicionModal.product.id,
-            nombre: solicitarReposicionModal.product.nombre,
-            cantidad: solicitarReposicionModal.product.cantidad,
-            precioCompra: solicitarReposicionModal.product.precioCompra,
-            proveedorId: solicitarReposicionModal.product.proveedor.id,
-          }}
-          cajaBalance={cajaBalance}
-          cajaAbierta={cajaAbierta}
-          onSuccess={() => router.refresh()}
-          mode={userRole === "ADMINISTRADOR" ? "reponer_directo" : "solicitar"}
-        />
-      )}
+
     </div>
   );
 }
