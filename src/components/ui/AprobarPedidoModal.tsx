@@ -12,22 +12,15 @@ import {
 } from "@/components/ui/dialog";
 import { AlertTriangle } from "lucide-react";
 import { aprobarReposicion } from "@/actions/reposiciones";
-
-interface AprobarPedidoSolicitud {
-  id: number;
-  producto: string;
-  proveedor: string;
-  cantidad: number;
-  costoUnitario: number;
-  total: number;
-  origenPago: string;
-  motivo?: string | null;
-}
+import type { SolicitudItem } from "@/types/solicitud";
 
 interface AprobarPedidoModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  solicitud: AprobarPedidoSolicitud;
+  solicitud: Pick<SolicitudItem, "id" | "cantidad" | "costoUnitario" | "total" | "origenPago" | "motivo"> & {
+    producto: string;
+    proveedor: string;
+  };
   onSuccess: () => void;
 }
 

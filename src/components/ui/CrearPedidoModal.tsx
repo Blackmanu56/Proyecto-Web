@@ -13,7 +13,7 @@ import { FormField } from "@/components/ui/form-field";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ShoppingCart, AlertTriangle, CheckCircle, Package } from "lucide-react";
-import { solicitarReposicion } from "@/actions/reposiciones";
+import { solicitarReposicion, crearYaprobarReposicion } from "@/actions/reposiciones";
 import { formatCurrency } from "@/lib/utils";
 
 /* ────────────────────── Types ────────────────────── */
@@ -31,6 +31,7 @@ interface CrearPedidoModalProps {
     proveedorNombre: string;
   };
   onSuccess: () => void;
+  canApprove?: boolean;
 }
 
 /* ────────────────────── Constants ────────────────────── */
@@ -51,14 +52,17 @@ export default function CrearPedidoModal({
   onOpenChange,
   producto,
   onSuccess,
+  canApprove,
 }: CrearPedidoModalProps) {
   const [cantidad, setCantidad] = useState<number | "">("");
   const [motivo, setMotivo] = useState("");
   const [motivoOtro, setMotivoOtro] = useState("");
   const [observacion, setObservacion] = useState("");
+  const [aprobarYExec, setAprobarYExec] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
   const cantidadNum = typeof cantidad === "number" ? cantidad : 0;
   const esOtro = motivo === "Otro";
@@ -101,14 +105,29 @@ export default function CrearPedidoModal({
     setError("");
 
     try {
-      const res = await solicitarReposicion(producto.id, {
-        cantidad: cantidadNum,
-        proveedorId: producto.proveedorId,
-        motivo: buildMotivoString(),
-      });
+      let res;
+
+      if (aprobarYExec && canApprove) {
+        res = await crearYaprobarReposicion(producto.id, {
+          cantidad: cantidadNum,
+          proveedorId: producto.proveedorId,
+          motivo: buildMotivoString(),
+        });
+      } else {
+        res = await solicitarReposicion(producto.id, {
+          cantidad: cantidadNum,
+          proveedorId: producto.proveedorId,
+          motivo: buildMotivoString(),
+        });
+      }
 
       if (res.success) {
         setSuccess(true);
+        setSuccessMessage(
+          aprobarYExec && canApprove
+            ? "Pedido creado y ejecutado. El stock se actualizó inmediatamente."
+            : "Pedido creado correctamente. El administrador deberá aprobarlo antes de ejecutar la reposición."
+        );
         setTimeout(() => {
           onOpenChange(false);
           onSuccess();
@@ -130,8 +149,10 @@ export default function CrearPedidoModal({
     setMotivo("");
     setMotivoOtro("");
     setObservacion("");
+    setAprobarYExec(false);
     setError("");
     setSuccess(false);
+    setSuccessMessage("");
   };
 
   const handleClose = () => {
@@ -159,10 +180,7 @@ export default function CrearPedidoModal({
           <div className="p-4 bg-[var(--success-light)] border border-[var(--success)]/20 rounded-[var(--radius-md)] text-center">
             <CheckCircle size={32} className="mx-auto text-[var(--success)] mb-2" />
             <p className="text-sm font-semibold text-[var(--success)]">
-              Pedido creado correctamente.
-            </p>
-            <p className="text-xs text-[var(--text-secondary)] mt-1">
-              El administrador deberá aprobarlo antes de ejecutar la reposición.
+              {successMessage}
             </p>
           </div>
         ) : (
@@ -272,6 +290,22 @@ export default function CrearPedidoModal({
               />
             </FormField>
 
+            {/* ── Crear y aprobar (solo admin) ── */}
+            {canApprove && (
+              <label className="flex items-center gap-3 p-3 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] cursor-pointer hover:border-[var(--brand)]/30 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={aprobarYExec}
+                  onChange={(e) => setAprobarYExec(e.target.checked)}
+                  className="h-4 w-4 rounded border-[var(--border)] text-[#047857] focus:ring-[#059669]"
+                />
+                <div>
+                  <p className="text-sm font-semibold text-[var(--text)]">Aprobar y ejecutar inmediatamente</p>
+                  <p className="text-xs text-[var(--text-secondary)]">Crea el pedido, lo aprueba y actualiza el stock en un solo paso.</p>
+                </div>
+              </label>
+            )}
+
             {/* ── Error ── */}
             {error && (
               <div className="p-3 bg-[var(--danger-light)] border border-[var(--danger)]/20 text-[var(--danger)] text-xs font-semibold rounded-[var(--radius-md)] flex items-center gap-2">
@@ -296,7 +330,7 @@ export default function CrearPedidoModal({
                 disabled={!isValid || loading}
                 className="bg-[#047857] hover:bg-[#065F46] text-white"
               >
-                {loading ? "Creando pedido..." : "Crear pedido"}
+                {loading ? "Creando pedido..." : aprobarYExec && canApprove ? "Crear y aprobar" : "Crear pedido"}
               </Button>
             </div>
           </>

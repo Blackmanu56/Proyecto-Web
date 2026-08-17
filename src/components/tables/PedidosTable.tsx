@@ -10,6 +10,7 @@ import { Search, Package, ShoppingCart, CheckCircle, XCircle, Clock } from "luci
 import CrearPedidoModal from "@/components/ui/CrearPedidoModal";
 import AprobarPedidoModal from "@/components/ui/AprobarPedidoModal";
 import RechazarPedidoModal from "@/components/ui/RechazarPedidoModal";
+import type { SolicitudItem } from "@/types/solicitud";
 
 /* ────────────────────── Types ────────────────────── */
 
@@ -28,25 +29,6 @@ interface Product {
   proveedor: { id: number; nombre: string };
 }
 
-interface SolicitudItem {
-  id: number;
-  cantidad: number;
-  costoUnitario: number;
-  total: number;
-  origenPago: string;
-  pagos?: unknown;
-  motivo?: string | null;
-  respuesta?: string | null;
-  estado: string;
-  createdAt: string | Date;
-  resueltoEn?: string | Date | null;
-  producto: { id: number; nombre: string; precioCompra: number };
-  proveedor: { id: number; nombre: string };
-  solicitante: { username: string };
-  aprobador?: { username: string } | null;
-  compra?: { id: number; total: number } | null;
-}
-
 type PedidosTab = "CREAR_PEDIDO" | "PENDIENTE" | "APROBADA" | "RECHAZADA" | "TODAS";
 
 interface PedidosTableProps {
@@ -55,6 +37,7 @@ interface PedidosTableProps {
   userRole: string;
   solicitudes: SolicitudItem[];
   userId: number;
+  canApprove?: boolean;
 }
 
 /* ────────────────────── Helpers ────────────────────── */
@@ -111,6 +94,7 @@ export default function PedidosTable({
   proveedores,
   userRole,
   solicitudes,
+  canApprove,
 }: PedidosTableProps) {
   const router = useRouter();
   const isAdmin = userRole === "ADMINISTRADOR";
@@ -365,6 +349,7 @@ export default function PedidosTable({
             proveedorNombre: selectedProduct.proveedor.nombre,
           }}
           onSuccess={handleModalSuccess}
+          canApprove={canApprove}
         />
       )}
     </>
@@ -389,11 +374,20 @@ export default function PedidosTable({
             >
               {/* Header */}
               <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="font-bold text-[var(--text)]">{s.producto.nombre}</p>
-                  <p className="text-xs text-[var(--text-secondary)]">
-                    Proveedor: {s.proveedor.nombre} · Solicitante: {s.solicitante.username}
-                  </p>
+                <div className="flex items-start gap-3">
+                  <div className="relative h-9 w-9 shrink-0 rounded-lg border border-[var(--border)] bg-[var(--panel)] flex items-center justify-center overflow-hidden">
+                    {"imagen" in s.producto && s.producto.imagen ? (
+                      <Image src={s.producto.imagen} alt={s.producto.nombre} fill sizes="36px" className="object-contain p-1" />
+                    ) : (
+                      <Package size={16} className="text-[var(--text-secondary)] opacity-40" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="font-bold text-[var(--text)]">{s.producto.nombre}</p>
+                    <p className="text-xs text-[var(--text-secondary)]">
+                      Proveedor: {s.proveedor.nombre} · Solicitante: {s.solicitante.username}
+                    </p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   {estadoBadge(s.estado)}

@@ -66,6 +66,7 @@ export default async function PedidosPage() {
             userRole={userRole}
             solicitudes={solicitudes as React.ComponentProps<typeof PedidosTable>["solicitudes"]}
             userId={session?.userId ?? 0}
+            canApprove={userRole === "ADMINISTRADOR"}
           />
         </div>
       </div>

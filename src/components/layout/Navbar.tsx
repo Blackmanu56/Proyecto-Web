@@ -49,7 +49,6 @@ const navItems: NavItem[] = [
   { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard, roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS", "ENCARGADO_STOCK"] },
   { name: "Productos", path: "/productos", icon: Package, roles: ["ADMINISTRADOR", "ENCARGADO_STOCK"] },
   { name: "Pedidos", path: "/pedidos", icon: ClipboardList, roles: ["ADMINISTRADOR", "ENCARGADO_STOCK"] },
-  { name: "Solicitudes", path: "/solicitudes", icon: ClipboardList, roles: ["ADMINISTRADOR"] },
   { name: "Ventas", path: "/ventas", icon: ShoppingCart, roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS"] },
   { name: "Caja", path: "/caja", icon: Coins, roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS"] },
   { name: "Clientes", path: "/clientes", icon: Users, roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS"] },

@@ -106,13 +106,36 @@ describe("getSolicitudesReposicion", () => {
     );
   });
 
-  it("rejects for users without permission", async () => {
-    mocks.requirePermission.mockRejectedValueOnce(
+  it("rejects for users without any reposicion permission", async () => {
+    mocks.requirePermission.mockRejectedValue(
       new Error("No tiene permisos para realizar esta acci?n.")
     );
 
     const result = await getSolicitudesReposicion();
 
-    expect(result.error).toBe("No tiene permisos para realizar esta acci?n.");
+    expect(result.error).toBe("Acceso Denegado");
+  });
+
+  it("allows ENCARGADO_STOCK with reponer permission to see own solicitudes", async () => {
+    const encargadoSession = {
+      userId: 5,
+      username: "encargado",
+      role: "ENCARGADO_STOCK",
+      permissions: ["productos.reponer"],
+    };
+    mocks.getSession.mockResolvedValue(encargadoSession);
+    mocks.requirePermission
+      .mockRejectedValueOnce(new Error("No tiene permisos para realizar esta acci?n."))
+      .mockResolvedValueOnce(encargadoSession);
+    mocks.findMany.mockResolvedValue([{ id: 1, solicitanteId: 5 }]);
+
+    const result = await getSolicitudesReposicion();
+
+    expect(result.success).toBe(true);
+    expect(mocks.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ solicitanteId: 5 }),
+      })
+    );
   });
 });

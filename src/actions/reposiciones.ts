@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth.server";
 import { requirePermission } from "@/lib/auth-permissions";
+import type { TokenPayload } from "@/lib/jwt";
 import {
   ejecutarReposicion,
   failBusiness,
@@ -106,6 +107,7 @@ export async function solicitarReposicion(
     });
 
     revalidatePath("/solicitudes");
+    revalidatePath("/pedidos");
     return { success: true };
   } catch (error: unknown) {
     console.error("Error en solicitarReposicion:", error);
@@ -284,6 +286,104 @@ export async function rechazarReposicion(id: number, respuesta: string) {
   }
 }
 
+// ─── crearYaprobarReposicion (ADMINISTRADOR only — atomic create+approve) ─
+
+export async function crearYaprobarReposicion(
+  productoId: number,
+  input: {
+    cantidad: number;
+    proveedorId: number;
+    origenPago?: OrigenPagoCompraValue;
+    pagos?: PagoValidado[];
+    motivo?: string;
+  }
+) {
+  try {
+    const session = await requireReposicionPermission("productos.aprobar_reposicion");
+
+    const validation = solicitarReposicionSchema.safeParse(input);
+    if (!validation.success) {
+      failBusiness(validation.error.errors[0].message);
+    }
+
+    const { cantidad, proveedorId, origenPago, pagos, motivo } = validation.data;
+
+    const resultado = await prisma.$transaction(async (tx) => {
+      const producto = await tx.producto.findUnique({ where: { id: productoId } });
+      if (!producto) failBusiness("Producto no encontrado");
+      if (!producto.activo) {
+        failBusiness("No se pueden solicitar reposiciones para productos inactivos");
+      }
+
+      // Create solicitud (momentarily PENDIENTE for referential integrity)
+      const solicitud = await tx.solicitudReposicion.create({
+        data: {
+          productoId,
+          cantidad,
+          costoUnitario: producto.precioCompra,
+          total: cantidad * producto.precioCompra,
+          proveedorId,
+          origenPago,
+          pagos: pagos ?? undefined,
+          motivo: motivo || undefined,
+          estado: "PENDIENTE",
+          solicitanteId: session.userId,
+        },
+      });
+
+      // Validate pagos snapshot
+      let validatedPagos: PagoValidado[] | undefined;
+      if (solicitud.pagos && Array.isArray(solicitud.pagos)) {
+        validatedPagos = z.array(pagoSchema).parse(solicitud.pagos);
+      }
+
+      // Execute financial transaction
+      const txTyped = tx as unknown as ReposicionTx;
+      const execResult = await ejecutarReposicion(txTyped, {
+        productoId,
+        nombreProducto: producto.nombre,
+        cantidad,
+        costoUnitario: producto.precioCompra,
+        proveedorId,
+        origenPago: origenPago as OrigenPagoCompraValue,
+        pagos: validatedPagos,
+        usuarioId: session.userId,
+        descripcionPrefijo: `Reposición de '${producto.nombre}' (crear y aprobar)`,
+      });
+
+      // Increment product stock
+      await tx.producto.update({
+        where: { id: productoId },
+        data: { cantidad: producto.cantidad + cantidad },
+      });
+
+      // Mark solicitud as APROBADA
+      await tx.solicitudReposicion.update({
+        where: { id: solicitud.id },
+        data: {
+          estado: "APROBADA",
+          aprobadorId: session.userId,
+          compraId: execResult.compraId,
+          resueltoEn: new Date(),
+        },
+      });
+
+      return execResult;
+    });
+
+    revalidatePath("/solicitudes");
+    revalidatePath("/pedidos");
+    revalidatePath("/productos");
+    if (resultado.cajaMovimientoCreado || resultado.bancoMovimientoCreado) {
+      revalidatePath("/caja");
+    }
+    return { success: true };
+  } catch (error: unknown) {
+    console.error("Error en crearYaprobarReposicion:", error);
+    return { error: reposicionActionError(error) };
+  }
+}
+
 // ─── getSolicitudesReposicion ─────────────────────────────────────────────
 
 interface GetSolicitudesParams {
@@ -294,12 +394,42 @@ interface GetSolicitudesParams {
 
 export async function getSolicitudesReposicion(filters: GetSolicitudesParams = {}) {
   try {
-    await requireReposicionPermission("productos.aprobar_reposicion");
+    const session = await getSession();
+    if (!session) failBusiness("No autenticado.");
+
+    let resolvedSession: TokenPayload;
+    let enforcedSolicitanteId: number | undefined;
+
+    try {
+      // Try admin path first
+      resolvedSession = await requirePermission("productos.aprobar_reposicion", session);
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        EXPECTED_REPOSICION_ERRORS.has(error.message)
+      ) {
+        // Fallback to encargado path
+        try {
+          resolvedSession = await requirePermission("productos.reponer", session);
+          enforcedSolicitanteId = resolvedSession.userId;
+        } catch {
+          failBusiness("Acceso Denegado");
+        }
+      } else {
+        throw error;
+      }
+    }
 
     const where: Record<string, unknown> = {};
     if (filters.estado) where.estado = filters.estado;
     if (filters.productoId) where.productoId = filters.productoId;
-    if (filters.solicitanteId) where.solicitanteId = filters.solicitanteId;
+
+    // Enforce server-side data isolation for ENCARGADO_STOCK
+    if (enforcedSolicitanteId) {
+      where.solicitanteId = enforcedSolicitanteId;
+    } else if (filters.solicitanteId) {
+      where.solicitanteId = filters.solicitanteId;
+    }
 
     const solicitudes = await prisma.solicitudReposicion.findMany({
       where,
