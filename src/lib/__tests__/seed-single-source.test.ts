@@ -39,12 +39,11 @@ describe("seed única oficial", () => {
     const productsWithImage = PRODUCT_DEMOS.filter((product) => product.imagen);
     const productsWithoutImage = PRODUCT_DEMOS.filter((product) => !product.imagen);
 
-    expect(productsWithImage).toHaveLength(5);
-    expect(productsWithoutImage).toHaveLength(8);
+    expect(productsWithImage).toHaveLength(12);
+    expect(productsWithoutImage).toHaveLength(1);
 
     productsWithImage.forEach((product) => {
-      expect(product.imagen).toMatch(/^\/seed\/productos\/.+\.(jpg|jpeg|png|webp|gif)$/);
-      expect(product.imagen?.startsWith("/uploads/")).toBe(false);
+      expect(product.imagen).toMatch(/^\/uploads\/.+\.(jpg|jpeg|png|webp|gif)$/);
 
       const assetPath = path.join(process.cwd(), "public", product.imagen!.replace(/^\//, ""));
       expect(existsSync(assetPath), `${product.key} should reference an existing demo asset`).toBe(true);

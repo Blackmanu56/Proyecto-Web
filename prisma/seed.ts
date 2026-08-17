@@ -745,6 +745,8 @@ export function buildRoleSeedData(): DemoRoleSeed[] {
   }));
 }
 
+const SEED_PRODUCT_IMAGE_BASE_PATH = "/uploads";
+
 export function getSeedInvariantErrors(): string[] {
   const errors: string[] = [];
 

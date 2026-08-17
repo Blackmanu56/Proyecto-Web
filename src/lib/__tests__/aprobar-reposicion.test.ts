@@ -230,6 +230,15 @@ describe("aprobarReposicion", () => {
     );
   });
 
+  it("does NOT change Producto.proveedorId during approval", async () => {
+    await aprobarReposicion(100);
+
+    const updateCall = mocks.tx.producto.update.mock.calls[0][0];
+    // Only cantidad should be in the data, never proveedorId
+    expect(updateCall.data).not.toHaveProperty("proveedorId");
+    expect(updateCall.data).toEqual({ cantidad: { increment: 5 } });
+  });
+
   it("rejects approval when product is inactive", async () => {
     setupMocks(
       solicitudPendiente({
