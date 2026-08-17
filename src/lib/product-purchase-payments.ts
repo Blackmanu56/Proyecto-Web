@@ -1,4 +1,4 @@
-export type ProductPurchaseMode = "create" | "edit";
+export type ProductPurchaseMode = "create" | "edit" | "reposicion";
 
 export const PRODUCT_PURCHASE_PAYMENT_METHOD_LABELS = {
   EFECTIVO_CAJA: "Efectivo de Caja",
@@ -57,7 +57,7 @@ export function getProductPurchaseCost(
   formData: FormData,
   mode: ProductPurchaseMode
 ) {
-  const quantityField = mode === "create" ? "cantidad" : "cantidadAReponer";
+  const quantityField = mode === "edit" ? "cantidadAReponer" : "cantidad";
   const quantity = readPositiveNumber(formData.get(quantityField));
   const purchasePrice = readPositiveNumber(formData.get("precioCompra"));
 
