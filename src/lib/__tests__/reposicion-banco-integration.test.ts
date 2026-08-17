@@ -401,47 +401,4 @@ describe("Parte 3 — Reposiciones con Banco", () => {
       })
     );
   });
-
-  // ─── Bonus: updateProducto (reposición a producto existente) ───────────────
-  it("updateProducto con transferencia crea MovimientoFinanciero EGRESO", async () => {
-    const pagos: Pago[] = [{ medio: "TRANSFERENCIA_BANCARIA", monto: 100_000 }];
-
-    const result = await updateProducto(10, productoForm({ cantidad: "11", pagos }));
-
-    expect(result.success).toBe(true);
-    expect(mocks.tx.movimientoFinanciero.create).toHaveBeenCalledOnce();
-    expect(mocks.tx.movimientoFinanciero.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          cuentaFinancieraId: 1,
-          tipo: "EGRESO",
-          monto: 100_000,
-        }),
-      })
-    );
-    expectNoCajaImpact();
-  });
-
-  it("updateProducto mixto crea ambos movimientos", async () => {
-    const pagos: Pago[] = [
-      { medio: "EFECTIVO_CAJA", monto: 20_000 },
-      { medio: "TRANSFERENCIA_BANCARIA", monto: 80_000 },
-    ];
-
-    const result = await updateProducto(10, productoForm({ cantidad: "11", pagos }));
-
-    expect(result.success).toBe(true);
-    expect(mocks.tx.movimientoCaja.create).toHaveBeenCalledOnce();
-    expect(mocks.tx.movimientoCaja.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ tipo: "EGRESO", monto: 20_000 }),
-      })
-    );
-    expect(mocks.tx.movimientoFinanciero.create).toHaveBeenCalledOnce();
-    expect(mocks.tx.movimientoFinanciero.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ tipo: "EGRESO", monto: 80_000 }),
-      })
-    );
-  });
 });

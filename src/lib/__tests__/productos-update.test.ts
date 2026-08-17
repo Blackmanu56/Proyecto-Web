@@ -196,105 +196,31 @@ describe("updateProducto", () => {
     expect(mocks.tx.caja.findFirst).not.toHaveBeenCalled();
   });
 
-  it("replenishes positive stock with an open cash register", async () => {
+  it("ignores stock and payment fields — la reposición pasa por SolicitudReposicion (D4)", async () => {
     mocks.tx.caja.findFirst.mockResolvedValueOnce({
       id: 30,
       estado: "ABIERTA",
-      montoInicial: 500,
-      totalVentas: 500,
       movimientos: [{ tipo: "INGRESO", monto: 1_000 }],
     });
 
-    const result = await updateProducto(10, productoForm({ cantidad: "12" }));
+    const result = await updateProducto(
+      10,
+      productoForm({
+        cantidad: "12",
+        origenPago: "EFECTIVO_CAJA",
+        pagos: JSON.stringify([{ medio: "EFECTIVO_CAJA", monto: 200 }]),
+      })
+    );
 
     expect(result.success).toBe(true);
+    // El stock se mantiene: se escribe el valor previo, nunca el del form.
     expect(mocks.tx.producto.update).toHaveBeenCalledWith(expect.objectContaining({
-      data: expect.objectContaining({ cantidad: 12 }),
+      data: expect.objectContaining({ cantidad: 10 }),
     }));
-    expect(mocks.tx.compra.create).toHaveBeenCalledWith(expect.objectContaining({
-      data: expect.objectContaining({
-        proveedorId: 3,
-        usuarioId: 1,
-        total: 200,
-        detalles: { create: expect.objectContaining({ productoId: 10, cantidad: 2, costoUnitario: 100, subtotal: 200 }) },
-      }),
-    }));
-    expect(mocks.tx.movimientoCaja.create).toHaveBeenCalledWith(expect.objectContaining({
-      data: expect.objectContaining({ cajaId: 30, compraId: 50, tipo: "EGRESO", monto: 200 }),
-    }));
-    expect(mocks.tx.caja.update).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: 30 },
-      data: { totalVentas: { decrement: 200 } },
-    }));
-  });
-
-  it("rejects cash replenishment without an open cash register before any write", async () => {
-    mocks.tx.caja.findFirst.mockResolvedValueOnce(null);
-
-    const result = await updateProducto(
-      10,
-      productoForm({ cantidad: "12", origenPago: "EFECTIVO_CAJA" })
-    );
-
-    expect(result.error).toBe(
-      "No hay una caja abierta para registrar el pago en efectivo."
-    );
-    expect(mocks.tx.producto.update).not.toHaveBeenCalled();
     expect(mocks.tx.compra.create).not.toHaveBeenCalled();
-    expect(mocks.tx.movimientoCaja.create).not.toHaveBeenCalled();
-    expect(mocks.tx.caja.update).not.toHaveBeenCalled();
-  });
-
-  it("records origenPago on the purchase and skips the cash egreso for bank transfers", async () => {
-    const result = await updateProducto(
-      10,
-      productoForm({ cantidad: "12", origenPago: "TRANSFERENCIA_BANCARIA" })
-    );
-
-    expect(result.success).toBe(true);
-    expect(mocks.tx.compra.create).toHaveBeenCalledWith(expect.objectContaining({
-      data: expect.objectContaining({
-        origenPago: "TRANSFERENCIA_BANCARIA",
-        total: 200,
-      }),
-    }));
-    expect(mocks.tx.movimientoCaja.create).not.toHaveBeenCalled();
-    expect(mocks.tx.caja.update).not.toHaveBeenCalled();
     expect(mocks.tx.caja.findFirst).not.toHaveBeenCalled();
-  });
-
-  it("keeps creating the cash egreso when origenPago is EFECTIVO_CAJA", async () => {
-    mocks.tx.caja.findFirst.mockResolvedValueOnce({
-      id: 30,
-      estado: "ABIERTA",
-      movimientos: [{ tipo: "INGRESO", monto: 1_000 }],
-    });
-
-    const result = await updateProducto(
-      10,
-      productoForm({ cantidad: "12", origenPago: "EFECTIVO_CAJA" })
-    );
-
-    expect(result.success).toBe(true);
-    expect(mocks.tx.compra.create).toHaveBeenCalledWith(expect.objectContaining({
-      data: expect.objectContaining({ origenPago: "EFECTIVO_CAJA" }),
-    }));
-    expect(mocks.tx.movimientoCaja.create).toHaveBeenCalledOnce();
-    expect(mocks.tx.caja.update).toHaveBeenCalledOnce();
-  });
-
-  it("rejects negative stock values before opening a transaction", async () => {
-    const result = await updateProducto(10, productoForm({ cantidad: "-1" }));
-
-    expect(result.error).toContain("La cantidad no puede ser negativa");
-    expect(mocks.transaction).not.toHaveBeenCalled();
-  });
-
-  it("rejects non numeric stock values before opening a transaction", async () => {
-    const result = await updateProducto(10, productoForm({ cantidad: "abc" }));
-
-    expect(result.error).toBeTruthy();
-    expect(mocks.transaction).not.toHaveBeenCalled();
+    expect(mocks.tx.movimientoCaja.create).not.toHaveBeenCalled();
+    expect(mocks.tx.caja.update).not.toHaveBeenCalled();
   });
 
   it("returns a visible error when the product does not exist", async () => {

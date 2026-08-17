@@ -32,6 +32,22 @@ const productoSchema = z.object({
   pagos: z.array(pagoSchema).optional(),
 });
 
+/**
+ * Esquema de edición pura (D4): sin cantidad/pagos/origenPago.
+ * La reposición de stock pasa por SolicitudReposicion, no por updateProducto.
+ */
+const productoEditSchema = z.object({
+  nombre: z.string().min(2, "El nombre del producto debe tener al menos 2 caracteres"),
+  marca: z.string().optional().nullable(),
+  codigo: z.string().optional().nullable(),
+  imagen: z.string().optional().nullable(),
+  categoriaId: z.number().int().positive("Seleccione una categoría válida"),
+  proveedorId: z.number().int().positive("Seleccione un proveedor válido"),
+  precioCompra: z.number().positive("El precio de compra debe ser mayor a 0"),
+  precioVenta: z.number().positive("El precio de venta debe ser mayor a 0"),
+  stockMinimo: z.number().int().nonnegative("El stock mínimo no puede ser negativo"),
+});
+
 const REPOSICION_TECHNICAL_ERROR =
   "No se pudo registrar la reposición. Intentá nuevamente.";
 
@@ -210,11 +226,12 @@ export async function createProducto(formData: FormData) {
 }
 
 /**
- * Modificar un producto y registrar reposiciones automáticas
+ * Modificar un producto — edición pura (D4): nunca modifica stock ni
+ * genera movimientos financieros. La reposición pasa por SolicitudReposicion.
  */
 export async function updateProducto(id: number, formData: FormData) {
   try {
-    const session = await requireProductoPermission("productos.editar");
+    await requireProductoPermission("productos.editar");
 
     const rawData = {
       nombre: formData.get("nombre") as string,
@@ -225,10 +242,7 @@ export async function updateProducto(id: number, formData: FormData) {
       proveedorId: Number(formData.get("proveedorId")),
       precioCompra: Number(formData.get("precioCompra")),
       precioVenta: Number(formData.get("precioVenta")),
-      cantidad: Number(formData.get("cantidad")),
       stockMinimo: Number(formData.get("stockMinimo")),
-      origenPago: (formData.get("origenPago") as string) || "EFECTIVO_CAJA",
-      pagos: formData.get("pagos") ? JSON.parse(formData.get("pagos") as string) : undefined,
     };
 
     // Handle file upload if present
@@ -242,12 +256,12 @@ export async function updateProducto(id: number, formData: FormData) {
       rawData.imagen = imageUrl;
     }
 
-    const validation = productoSchema.safeParse(rawData);
+    const validation = productoEditSchema.safeParse(rawData);
     if (!validation.success) {
       failBusiness(validation.error.errors[0].message);
     }
 
-    const transactionResult = await prisma.$transaction(async (tx) => {
+    const producto = await prisma.$transaction(async (tx) => {
       // Obtener producto antes de la modificación
       const productoPrevio = await tx.producto.findUnique({
         where: { id },
@@ -257,24 +271,8 @@ export async function updateProducto(id: number, formData: FormData) {
         failBusiness("Producto no encontrado");
       }
 
-      const nuevoStock = validation.data.cantidad;
-      const stockAnterior = productoPrevio.cantidad;
-      const diferencia = nuevoStock - stockAnterior;
-      const pagos = validation.data.pagos;
-      const hayReposicion = diferencia > 0;
-
-      // Validaciones financieras (distribución, caja, banco) ANTES del write del producto.
-      const reposicionValidada = hayReposicion
-        ? await validarReposicion(tx, {
-            cantidad: diferencia,
-            costoUnitario: validation.data.precioCompra,
-            origenPago: validation.data.origenPago,
-            pagos,
-          })
-        : null;
-
-      // 1. Modificar producto en BD
-      const p = await tx.producto.update({
+      // 1. Modificar producto en BD — el stock se mantiene (edit-only, D4)
+      return tx.producto.update({
         where: { id },
         data: {
           nombre: validation.data.nombre,
@@ -285,42 +283,14 @@ export async function updateProducto(id: number, formData: FormData) {
           proveedorId: validation.data.proveedorId,
           precioCompra: validation.data.precioCompra,
           precioVenta: validation.data.precioVenta,
-          cantidad: nuevoStock,
+          cantidad: productoPrevio.cantidad,
           stockMinimo: validation.data.stockMinimo,
         },
       });
-
-      // 2. Si el stock subió, es un reabastecimiento (Compra a proveedor)
-      let cajaMovimientoCreado = false;
-      let bancoMovimientoCreado = false;
-      if (hayReposicion && reposicionValidada) {
-        const resultado = await ejecutarReposicionEscrituras(
-          tx,
-          reposicionValidada,
-          {
-            productoId: id,
-            nombreProducto: validation.data.nombre,
-            cantidad: diferencia,
-            costoUnitario: validation.data.precioCompra,
-            proveedorId: validation.data.proveedorId,
-            origenPago: validation.data.origenPago,
-            pagos,
-            usuarioId: session.userId,
-            descripcionPrefijo: `Reposición de '${validation.data.nombre}'`,
-          }
-        );
-        cajaMovimientoCreado = resultado.cajaMovimientoCreado;
-        bancoMovimientoCreado = resultado.bancoMovimientoCreado;
-      }
-
-      return { producto: p, cajaMovimientoCreado, bancoMovimientoCreado };
     });
 
     revalidatePath("/productos");
-    if (transactionResult.cajaMovimientoCreado || transactionResult.bancoMovimientoCreado) {
-      revalidatePath("/caja");
-    }
-    return { success: true, producto: transactionResult.producto };
+    return { success: true, producto };
   } catch (error: unknown) {
     console.error("Error en updateProducto:", error);
     return { error: productoActionError(error) };
