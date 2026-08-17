@@ -183,14 +183,14 @@ describe("createProducto initial stock", () => {
 });
 
 describe("ProductosTable purchase payment input", () => {
-  it("renders PaymentDistribution for both initial stock and replenishment", () => {
+  it("renders PaymentDistribution in the create dialog (replenishment is in SolicitarReposicionModal)", () => {
     const currentDir = dirname(fileURLToPath(import.meta.url));
     const source = readFileSync(
       resolve(currentDir, "../../components/tables/ProductosTable.tsx"),
       "utf8"
     );
 
-    expect(source.match(/<PaymentDistribution/g)).toHaveLength(2);
+    expect(source.match(/<PaymentDistribution/g)).toHaveLength(1);
     expect(source).toContain("onChange={setPayments}");
     expect(source).toContain('formData.set("pagos", JSON.stringify(validPayments))');
   });

@@ -408,7 +408,6 @@ export default function ProductosTable({
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [cantidadAReponer, setCantidadAReponer] = useState<number | "">("");
   const [payments, setPayments] = useState<PaymentMethod[]>([]);
   const [productPurchaseCost, setProductPurchaseCost] = useState(0);
   const distribucionIncompleta = isProductPaymentDistributionIncomplete(
@@ -429,6 +428,7 @@ export default function ProductosTable({
   const [reactivarModal, setReactivarModal] = useState<{ open: boolean; product: Product | null }>({ open: false, product: null });
   const [historialModal, setHistorialModal] = useState<{ open: boolean; product: Product | null }>({ open: false, product: null });
   const [restarStockModal, setRestarStockModal] = useState<{ open: boolean; product: Product | null }>({ open: false, product: null });
+  const [solicitarReposicionModal, setSolicitarReposicionModal] = useState<{ open: boolean; product: Product | null }>({ open: false, product: null });
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [adminCatsOpen, setAdminCatsOpen] = useState(false);
   const [adminMarcasOpen, setAdminMarcasOpen] = useState(false);
@@ -492,7 +492,6 @@ export default function ProductosTable({
   /* ── Handlers ── */
   const handleEdit = useCallback((product: Product) => {
     setEditingProduct(product);
-    setCantidadAReponer("");
     setErrorMsg("");
     setSuccessMsg("");
     setImagePreview(product.imagen || null);
@@ -505,7 +504,6 @@ export default function ProductosTable({
 
   const handleOpenAdd = useCallback(() => {
     setEditingProduct(null);
-    setCantidadAReponer("");
     setErrorMsg("");
     setSuccessMsg("");
     setImagePreview(null);
@@ -600,20 +598,20 @@ export default function ProductosTable({
     const matchedCat = categorias.find(c => c.nombre === categoriaValue);
     formData.set("categoriaId", matchedCat ? String(matchedCat.id) : "");
 
-    const currentPurchaseCost = getProductPurchaseCost(
-      formData,
-      editingProduct ? "edit" : "create"
-    );
-    if (isProductPaymentDistributionIncomplete(currentPurchaseCost, payments)) {
-      setErrorMsg("Completá una distribución de pago válida antes de guardar.");
-      return;
-    }
+    // Payment distribution validation — only for create (edit is edit-only, D4)
+    if (!editingProduct) {
+      const currentPurchaseCost = getProductPurchaseCost(formData, "create");
+      if (isProductPaymentDistributionIncomplete(currentPurchaseCost, payments)) {
+        setErrorMsg("Completá una distribución de pago válida antes de guardar.");
+        return;
+      }
 
-    // Add payments data if available
-    if (payments.length > 0) {
-      const validPayments = payments.filter(p => p.monto > 0);
-      if (validPayments.length > 0) {
-        formData.set("pagos", JSON.stringify(validPayments));
+      // Add payments data if available
+      if (payments.length > 0) {
+        const validPayments = payments.filter(p => p.monto > 0);
+        if (validPayments.length > 0) {
+          formData.set("pagos", JSON.stringify(validPayments));
+        }
       }
     }
 
@@ -1320,6 +1318,16 @@ export default function ProductosTable({
                     Restar stock
                   </button>
                 )}
+                {canManageProducts && selectedProduct.activo && (
+                  <button
+                    type="button"
+                    onClick={() => runDrawerAction((p) => setSolicitarReposicionModal({ open: true, product: p }), selectedProduct)}
+                    className="flex h-9 w-full items-center justify-center gap-2 rounded-xl border border-[#059669]/40 bg-[#047857] px-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#065F46] focus-visible:outline-2 focus-visible:outline-[#059669]"
+                  >
+                    <PackagePlus size={15} />
+                    Solicitar reposición
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => runDrawerAction(handleHistorial, selectedProduct)}
@@ -1530,47 +1538,9 @@ export default function ProductosTable({
                   <span className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">Stock</span>
                 </div>
                 {editingProduct ? (
-                  <>
-                    <FormField label="Stock Actual" className="mb-0">
-                      <Input type="number" value={editingProduct.cantidad} disabled placeholder="0" className="font-mono bg-[var(--bg)]/50 py-2" />
-                    </FormField>
-                    <FormField label="Cantidad a Reponer" className="mb-0">
-                      <Input
-                        name="cantidadAReponer"
-                        type="number"
-                        min="0"
-                        value={cantidadAReponer}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setCantidadAReponer(val === "" ? "" : Math.max(0, parseInt(val) || 0));
-                        }}
-                        placeholder="0"
-                        className="font-mono py-2"
-                      />
-                    </FormField>
-                    <FormField label="Nuevo Stock" className="mb-0">
-                      <div className="relative">
-                        <Input
-                          name="cantidad"
-                          type="number"
-                          value={editingProduct.cantidad + (Number(cantidadAReponer) || 0)}
-                          readOnly
-                          placeholder="0"
-                          className="font-mono font-bold bg-[var(--brand-light)]/40 text-[var(--brand)] border-[var(--brand)]/30 py-2"
-                        />
-                      </div>
-                    </FormField>
-                    {/* Payment Distribution for Restocking */}
-                    <div className="col-span-full">
-                      <PaymentDistribution
-                        total={productPurchaseCost}
-                        onChange={setPayments}
-                        cajaBalance={cajaBalance}
-                        cajaAbierta={cajaAbierta}
-                        disabled={isPending}
-                      />
-                    </div>
-                  </>
+                  <FormField label="Stock Actual" className="mb-0">
+                    <Input type="number" value={editingProduct.cantidad} disabled placeholder="0" className="font-mono bg-[var(--bg)]/50 py-2" />
+                  </FormField>
                 ) : (
                   <>
                     <FormField label="Stock Inicial" required className="mb-0">
