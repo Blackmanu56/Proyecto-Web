@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { PaymentDistribution, PaymentMethod } from "@/components/ui/PaymentDistribution";
 import ReactivarModal from "@/components/ui/ReactivarModal";
 import RestarStockModal from "@/components/ui/RestarStockModal";
+import SolicitarReposicionModal from "@/components/ui/SolicitarReposicionModal";
 import { TableShell } from "@/components/ui/table-shell";
 import {
   getProductPurchaseCost,
@@ -1663,6 +1664,23 @@ export default function ProductosTable({
           }}
           onSuccess={() => router.refresh()}
           restarStockAction={restarStock}
+        />
+      )}
+
+      {solicitarReposicionModal.product && (
+        <SolicitarReposicionModal
+          open={solicitarReposicionModal.open}
+          onOpenChange={(open) => setSolicitarReposicionModal({ open, product: open ? solicitarReposicionModal.product : null })}
+          producto={{
+            id: solicitarReposicionModal.product.id,
+            nombre: solicitarReposicionModal.product.nombre,
+            cantidad: solicitarReposicionModal.product.cantidad,
+            precioCompra: solicitarReposicionModal.product.precioCompra,
+            proveedorId: solicitarReposicionModal.product.proveedor.id,
+          }}
+          cajaBalance={cajaBalance}
+          cajaAbierta={cajaAbierta}
+          onSuccess={() => router.refresh()}
         />
       )}
     </div>
