@@ -7,6 +7,8 @@ import {
   TipoCuentaFinanciera,
   TipoMovimientoFinanciero,
 } from "@prisma/client";
+import { existsSync } from "node:fs";
+import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 import {
@@ -340,7 +342,7 @@ const BRAND_DEMOS: readonly DemoBrandSeed[] = [
   { nombre: "Genérico" },
 ] as const;
 
-const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
+export const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
   {
     key: "kit-transmision-cg150",
     nombre: "Kit de transmisión para Honda CG 150",
@@ -798,6 +800,25 @@ export function getSeedInvariantErrors(): string[] {
       errors.push(`El stock final del producto ${productKey} queda negativo.`);
     }
   });
+
+  for (const product of PRODUCT_DEMOS) {
+    if (!product.imagen) continue;
+
+    if (/^[A-Za-z]:\\/.test(product.imagen)) {
+      errors.push(`El producto ${product.key} usa una ruta absoluta local para imagen.`);
+      continue;
+    }
+
+    if (!product.imagen.startsWith(`${SEED_PRODUCT_IMAGE_BASE_PATH}/`)) {
+      errors.push(`El producto ${product.key} debe usar assets demo bajo ${SEED_PRODUCT_IMAGE_BASE_PATH}.`);
+      continue;
+    }
+
+    const assetPath = path.join(process.cwd(), "public", product.imagen.replace(/^\//, ""));
+    if (!existsSync(assetPath)) {
+      errors.push(`Falta el asset demo para ${product.key}: ${product.imagen}`);
+    }
+  }
 
   return errors;
 }

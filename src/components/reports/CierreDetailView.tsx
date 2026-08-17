@@ -35,6 +35,11 @@ export default function CierreDetailView({ detalleData }: CierreDetailViewProps)
         <div className="bg-card print:bg-gray-100 rounded-xl p-3.5 border border-border print:border-gray-300">
           <p className="text-[10px] font-bold text-text-secondary print:text-gray-600 uppercase tracking-wider flex items-center gap-1"><User size={11} /> Usuario</p>
           <p className="text-sm font-bold text-white print:text-gray-900 mt-1">{detalleData.usuario}</p>
+          {detalleData.usuarioCierre && (
+            <p className="text-[10px] text-text-secondary print:text-gray-600 mt-0.5">
+              Cerró: @{detalleData.usuarioCierre}
+            </p>
+          )}
         </div>
         <div className="bg-card print:bg-gray-100 rounded-xl p-3.5 border border-border print:border-gray-300">
           <p className="text-[10px] font-bold text-text-secondary print:text-gray-600 uppercase tracking-wider flex items-center gap-1"><Info size={11} /> Estado</p>

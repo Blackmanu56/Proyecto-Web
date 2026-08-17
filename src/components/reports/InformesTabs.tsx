@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import type { ReporteVenta, ReporteCierre, ReporteProducto, ReporteEmpleado, PaginatedResult, ClientesDashboard } from "@/actions/informes";
+import type { ReporteVenta, ReporteCierre, ReporteProducto, EmpleadosDashboard, ClientesDashboard, ProveedoresDashboard } from "@/actions/informes";
 import "./report.css";
 import { BarChart3, Wallet, Package, Users, UserCheck, Building } from "lucide-react";
 import VentasReport from "./VentasReport";
@@ -13,9 +13,8 @@ import ProveedoresReport from "./ProveedoresReport";
 
 type TabId = "ventas" | "cierres" | "productos" | "empleados" | "clientes" | "proveedores";
 
-type UsuarioOption = { id: number; username: string; nombreCompleto: string };
+type UsuarioOption = { id: number; username: string; nombreCompleto: string; puedeVender: boolean };
 type NombreOption = { id: number; nombre: string };
-type ProveedorReportRow = { id: number; nombre: string; cuit: string; productosCount: number; valorStock: number; stockBajoCount: number; ultimaCompra: string | null };
 type MetodoPagoOption = { metodo: string | null; count: number; total: number };
 
 const ALLOWED_TABS: Record<TabId, string[]> = {
@@ -40,9 +39,9 @@ interface Props {
   initialVentas: { ventas: ReporteVenta[]; totales: { cantidad: number; total: number; promedio: number } };
   initialCierres: ReporteCierre[];
   initialProductos: ReporteProducto[];
-  initialEmpleados: ReporteEmpleado[];
+  initialEmpleados: EmpleadosDashboard;
   initialClientes: ClientesDashboard;
-  initialProveedores?: PaginatedResult<ProveedorReportRow>;
+  initialProveedores: ProveedoresDashboard;
   usuarios: UsuarioOption[];
   categorias: NombreOption[];
   proveedores: NombreOption[];

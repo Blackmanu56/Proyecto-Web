@@ -2,10 +2,11 @@
 
 import { requirePermission } from "@/lib/auth-permissions";
 import { calcularEfectivoCajaActiva } from "@/lib/caja-balance";
+import { parseRoleData } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
-import { formatDate,formatDateShort } from "@/lib/utils";
-import { formatMovimientoDescripcion } from "@/lib/movimiento-format";
-import type { Prisma } from "@prisma/client";
+import { METODOS_PAGO_ORDEN } from "@/lib/metodosPago";
+import { formatCurrency, formatDate, formatDateShort, formatTime24 } from "@/lib/utils";
+import { Prisma } from "@prisma/client";
 
 export interface DashboardData {
   stats: {
@@ -218,7 +219,7 @@ export async function getDashboardData(): Promise<DashboardData> {
 
     const cajaMovimientosRecientes = movimientosCaja.map((m) => ({
       id: m.id,
-      descripcion: formatMovimientoDescripcion(m.descripcion),
+      descripcion: m.descripcion,
       monto: m.monto,
       tipo: m.tipo,
       fecha: formatDate(m.fecha),
@@ -359,6 +360,7 @@ export type DetalleCierreCompleto = ReporteCierre & {
   gastosManuales: number;
   diferencia: number | null;
   totalContado: number | null;
+  usuarioCierre: string | null;   // quien cerró la caja (movimiento CIERRE), si existe
   movimientos: {
     id: number;
     tipo: string;
@@ -453,7 +455,7 @@ export async function getReporteVentas(
       where,
       include: {
         cliente: { select: { nombre: true } },
-        usuario: { select: { username: true } },
+        usuario: { select: { username: true, nombreCompleto: true } },
         _count: { select: { detalles: true } },
       },
       orderBy: { fecha: "desc" },
@@ -468,7 +470,7 @@ export async function getReporteVentas(
         id: v.id,
         fecha: formatDate(v.fecha),
         cliente: v.cliente.nombre,
-        usuario: v.usuario.username,
+        usuario: v.usuario.nombreCompleto || v.usuario.username,
         total: v.total,
         cantidadProductos: v._count.detalles,
       })),
@@ -674,19 +676,7 @@ export async function getCierresMensuales(
 
     return Array.from(grupos.values())
       .sort((a, b) => b.anio * 100 + b.mesNum - (a.anio * 100 + a.mesNum))
-      .map((g): CierreMensual => ({
-        mes: g.mes,
-        anio: g.anio,
-        mesLabel: g.mesLabel,
-        totalCierres: g.totalCierres,
-        cerrados: g.cerrados,
-        montoInicial: g.montoInicial,
-        totalVentas: g.totalVentas,
-        totalEsperado: g.totalEsperado,
-        totalContado: g.totalContado,
-        diferenciaNeta: g.diferenciaNeta,
-        conDiferencia: g.conDiferencia,
-      }));
+      .map(({ mesNum, ...g }) => g);
   } catch (error) {
     console.error("Error en getCierresMensuales:", error);
     return [];
@@ -752,6 +742,8 @@ export async function getDetalleCierre(cajaId: number): Promise<DetalleCierreCom
 
     if (!caja) return null;
 
+    const movimientoCierre = caja.movimientos.find((m) => m.tipo === "CIERRE");
+
     const ingresos = caja.movimientos
       .filter((m) => m.tipo === "INGRESO")
       .reduce((sum, m) => sum + m.monto, 0);
@@ -776,11 +768,12 @@ export async function getDetalleCierre(cajaId: number): Promise<DetalleCierreCom
       egresos,
       diferencia,
       totalContado: caja.totalContado,
+      usuarioCierre: movimientoCierre?.usuario.username ?? null,
       movimientos: caja.movimientos.map((m) => ({
         id: m.id,
         tipo: m.tipo,
         monto: m.monto,
-        descripcion: formatMovimientoDescripcion(m.descripcion),
+        descripcion: m.descripcion,
         fecha: formatDate(m.fecha),
         usuario: m.usuario.username,
         ventaId: m.ventaId,
@@ -972,16 +965,389 @@ export async function getReporteEmpleados(
   }
 }
 
+// ─── 8b. DASHBOARD DE EMPLEADOS (actividad y uso del sistema) ─────
+
+export type EmpleadoActividadItem = {
+  id: string;          // key único, ej. "venta-123"
+  fecha: string;       // ISO (toISOString) para ordenar
+  fechaLabel: string;  // "18:03" si es hoy, "Ayer 17:56", o "04/08 17:42"
+  usuarioId: number;
+  empleado: string;    // nombreCompleto
+  rol: string;         // nombre del rol
+  tipo: string;        // "Venta" | "Reposición" | "Movimiento de Caja" | "Cambio de Estado"
+  modulo: string;      // "Ventas" | "Caja" | "Stock" | "Productos"
+  descripcion: string;
+};
+
+export type EmpleadoDashboardRow = {
+  usuarioId: number;
+  nombreCompleto: string;
+  username: string;
+  rol: string;
+  activo: boolean;
+  ultimaActividad: string | null;      // ISO o null
+  ultimaActividadLabel: string | null; // "Hoy 18:03", "Ayer 17:56", "04/08 17:42", o null
+  acciones: number;                    // total acciones en período (definición de acción)
+  ventasCount: number;
+  totalVendido: number;
+  comprasCount: number;
+  totalCompras: number;
+  cajasAbiertasCount: number;
+  cierresCount: number;              // cierres de caja del período (movimiento CIERRE)
+  movimientosCajaCount: number;        // SOLO movimientos manuales (sin ventaId/compraId)
+  cambiosEstadoProductoCount: number;
+  actividadReciente: EmpleadoActividadItem[]; // últimos 5 de ESE empleado
+};
+
+export type EmpleadosDashboard = {
+  resumen: {
+    total: number;           // TOTALES, independientes del período (todos los usuarios registrados)
+    activos: number;         // independiente del período
+    administradores: number; // independiente del período
+    encargadosVentas: number;
+    encargadosStock: number;
+    actividadPeriodo: number; // total acciones en el período seleccionado
+  };
+  empleados: EmpleadoDashboardRow[];
+  actividadPorDia: {
+    fecha: string;    // "yyyy-MM-dd" local
+    label: string;    // "Martes 04/08" (día de semana es-AR + dd/MM)
+    total: number;
+    porEmpleado: { usuarioId: number; nombre: string; acciones: number }[];
+  }[];
+  actividadPorModulo: { modulo: string; acciones: number }[]; // solo módulos con acciones > 0
+  actividadReciente: EmpleadoActividadItem[]; // últimos 20 de TODOS
+  faltanDatos: string[]; // array FIJO con los 4 mensajes en español
+};
+
+import { EMPTY_EMPLEADOS_DASHBOARD, EMPTY_PROVEEDORES_DASHBOARD, FALTAN_DATOS_EMPLEADOS } from "@/lib/report-constants";
+
+const DIAS_SEMANA_ES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+
+const pad2 = (n: number): string => String(n).padStart(2, "0");
+
+/** "yyyy-MM-dd" local — solo para agrupar/ordenar, nunca para el límite servidor. */
+const dayKeyLocal = (d: Date): string =>
+  `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+
+/** "Martes 04/08" — día de semana es-AR + dd/MM (sin toLocaleDateString). */
+const dayLabelLocal = (d: Date): string =>
+  `${DIAS_SEMANA_ES[d.getDay()]} ${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}`;
+
+const isSameLocalDay = (a: Date, b: Date): boolean =>
+  a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
+/**
+ * "18:03" si es hoy, "Ayer 17:56", o "04/08 17:42". Compara con fechas LOCALES
+ * del servidor (suposición del proyecto: servidor UTC-3).
+ */
+const actividadFechaLabel = (d: Date, now: Date): string => {
+  if (isSameLocalDay(d, now)) return formatTime24(d);
+  const ayer = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+  if (isSameLocalDay(d, ayer)) return `Ayer ${formatTime24(d)}`;
+  return `${formatDateShort(d)} ${formatTime24(d)}`;
+};
+
+export async function getEmpleadosDashboard(fechaDesde?: string, fechaHasta?: string): Promise<EmpleadosDashboard> {
+  try {
+    await requirePermission("informes.empleados");
+
+    // TODOS los usuarios (activos e inactivos) — el resumen estructural es global
+    const usuarios = await prisma.usuario.findMany({
+      include: { rol: { select: { nombre: true } } },
+      orderBy: { nombreCompleto: "asc" },
+    });
+    const nombrePorId = new Map(usuarios.map((u) => [u.id, u.nombreCompleto]));
+    const rolPorId = new Map(usuarios.map((u) => [u.id, u.rol.nombre]));
+
+    const ventaDateFilter = buildDateFilter(fechaDesde, fechaHasta);
+    const [ventas, compras, movimientos, historiales, cajasAbiertas] = await Promise.all([
+      prisma.venta.findMany({
+        where: ventaDateFilter,
+        select: { id: true, fecha: true, total: true, usuarioId: true },
+      }),
+      prisma.compra.findMany({
+        // buildDateFilter tipa VentaWhereInput; el shape { fecha: {...} } es
+        // idéntico al filtro de Compra/HistorialEstado, solo difiere el tipo generado.
+        where: ventaDateFilter as Prisma.CompraWhereInput,
+        select: { id: true, fecha: true, total: true, usuarioId: true },
+      }),
+      prisma.movimientoCaja.findMany({
+        where: { ...buildMovimientoCajaDateFilter(fechaDesde, fechaHasta), ventaId: null, compraId: null },
+        select: { id: true, fecha: true, tipo: true, monto: true, descripcion: true, usuarioId: true },
+      }),
+      prisma.historialEstado.findMany({
+        where: ventaDateFilter as Prisma.HistorialEstadoWhereInput,
+        select: { id: true, fecha: true, usuarioId: true, productoId: true, estadoAnterior: true, estadoNuevo: true, observacion: true },
+      }),
+      prisma.caja.groupBy({
+        by: ["usuarioId"],
+        where: buildDateFilter(fechaDesde, fechaHasta, "fechaApertura"),
+        _count: { id: true },
+      }),
+    ]);
+
+    type Acc = {
+      ventasCount: number;
+      totalVendido: number;
+      comprasCount: number;
+      totalCompras: number;
+      movimientosCajaCount: number;
+      cambiosEstadoProductoCount: number;
+      cajasAbiertasCount: number;
+      cierresCount: number;
+      acciones: number;
+      ultimaFecha: Date | null;
+    };
+    const acc: Record<number, Acc> = {};
+    const getAcc = (uid: number): Acc => {
+      let a = acc[uid];
+      if (!a) {
+        a = {
+          ventasCount: 0, totalVendido: 0, comprasCount: 0, totalCompras: 0,
+          movimientosCajaCount: 0, cambiosEstadoProductoCount: 0, cajasAbiertasCount: 0,
+          cierresCount: 0,
+          acciones: 0, ultimaFecha: null,
+        };
+        acc[uid] = a;
+      }
+      return a;
+    };
+    const touch = (a: Acc, fecha: Date): void => {
+      if (!a.ultimaFecha || fecha > a.ultimaFecha) a.ultimaFecha = fecha;
+    };
+
+    const now = new Date();
+    const items: EmpleadoActividadItem[] = [];
+
+    for (const v of ventas) {
+      const a = getAcc(v.usuarioId);
+      a.ventasCount += 1;
+      a.totalVendido += v.total;
+      a.acciones += 1;
+      touch(a, v.fecha);
+      items.push({
+        id: `venta-${v.id}`,
+        fecha: v.fecha.toISOString(),
+        fechaLabel: actividadFechaLabel(v.fecha, now),
+        usuarioId: v.usuarioId,
+        empleado: nombrePorId.get(v.usuarioId) ?? "",
+        rol: rolPorId.get(v.usuarioId) ?? "",
+        tipo: "Venta",
+        modulo: "Ventas",
+        descripcion: `Registró Venta #${v.id}`,
+      });
+    }
+
+    for (const c of compras) {
+      const a = getAcc(c.usuarioId);
+      a.comprasCount += 1;
+      a.totalCompras += c.total;
+      a.acciones += 1;
+      touch(a, c.fecha);
+      items.push({
+        id: `compra-${c.id}`,
+        fecha: c.fecha.toISOString(),
+        fechaLabel: actividadFechaLabel(c.fecha, now),
+        usuarioId: c.usuarioId,
+        empleado: nombrePorId.get(c.usuarioId) ?? "",
+        rol: rolPorId.get(c.usuarioId) ?? "",
+        tipo: "Reposición",
+        modulo: "Stock",
+        descripcion: `Registró Reposición #${c.id}`,
+      });
+    }
+
+    for (const m of movimientos) {
+      const a = getAcc(m.usuarioId);
+      a.movimientosCajaCount += 1;
+      if (m.tipo === "CIERRE") a.cierresCount += 1;
+      a.acciones += 1;
+      touch(a, m.fecha);
+      const montoStr = m.monto > 0 ? ` - ${formatCurrency(m.monto)}` : "";
+      const descripcion =
+        m.descripcion && m.descripcion.trim().length > 0
+          ? `${m.descripcion.charAt(0).toUpperCase()}${m.descripcion.slice(1)}${montoStr}`
+          : `Movimiento ${m.tipo}${montoStr}`;
+      items.push({
+        id: `mov-${m.id}`,
+        fecha: m.fecha.toISOString(),
+        fechaLabel: actividadFechaLabel(m.fecha, now),
+        usuarioId: m.usuarioId,
+        empleado: nombrePorId.get(m.usuarioId) ?? "",
+        rol: rolPorId.get(m.usuarioId) ?? "",
+        tipo: "Movimiento de Caja",
+        modulo: "Caja",
+        descripcion: `Registró ${descripcion}`,
+      });
+    }
+
+    for (const h of historiales) {
+      const a = getAcc(h.usuarioId);
+      // Las ediciones de datos (prefijo [EDITAR]) no son cambios de estado reales:
+      // se etiquetan aparte y no inflan el contador de cambios de estado.
+      const esEdicionDatos = h.observacion?.startsWith("[EDITAR]") ?? false;
+      if (!esEdicionDatos) {
+        a.cambiosEstadoProductoCount += 1;
+      }
+      a.acciones += 1;
+      touch(a, h.fecha);
+      items.push({
+        id: `hist-${h.id}`,
+        fecha: h.fecha.toISOString(),
+        fechaLabel: actividadFechaLabel(h.fecha, now),
+        usuarioId: h.usuarioId,
+        empleado: nombrePorId.get(h.usuarioId) ?? "",
+        rol: rolPorId.get(h.usuarioId) ?? "",
+        tipo: esEdicionDatos ? "Edición de datos" : "Cambio de Estado",
+        modulo: "Productos",
+        descripcion: `Registró ${
+          esEdicionDatos
+            ? `Producto #${h.productoId}: ${h.observacion}`
+            : `Producto #${h.productoId}: ${h.estadoAnterior} → ${h.estadoNuevo}`
+        }`,
+      });
+    }
+
+    for (const caja of cajasAbiertas) {
+      getAcc(caja.usuarioId).cajasAbiertasCount = caja._count.id;
+    }
+
+    // Actividad reciente por empleado (últimos 5 de cada uno)
+    const porUsuario: Record<number, EmpleadoActividadItem[]> = {};
+    for (const it of items) {
+      const list = porUsuario[it.usuarioId];
+      if (list) list.push(it);
+      else porUsuario[it.usuarioId] = [it];
+    }
+    for (const key of Object.keys(porUsuario)) {
+      const uid = Number(key);
+      porUsuario[uid].sort((a, b) => b.fecha.localeCompare(a.fecha));
+      porUsuario[uid] = porUsuario[uid].slice(0, 5);
+    }
+
+    // Filas del dashboard (TODOS los usuarios, activos e inactivos)
+    const ZERO: Acc = {
+      ventasCount: 0, totalVendido: 0, comprasCount: 0, totalCompras: 0,
+      movimientosCajaCount: 0, cambiosEstadoProductoCount: 0, cajasAbiertasCount: 0,
+      cierresCount: 0,
+      acciones: 0, ultimaFecha: null,
+    };
+    const empleados: EmpleadoDashboardRow[] = usuarios.map((u) => {
+      const a = acc[u.id] ?? ZERO;
+      return {
+        usuarioId: u.id,
+        nombreCompleto: u.nombreCompleto,
+        username: u.username,
+        rol: u.rol.nombre,
+        activo: u.activo,
+        ultimaActividad: a.ultimaFecha ? a.ultimaFecha.toISOString() : null,
+        ultimaActividadLabel: a.ultimaFecha ? actividadFechaLabel(a.ultimaFecha, now) : null,
+        acciones: a.acciones,
+        ventasCount: a.ventasCount,
+        totalVendido: a.totalVendido,
+        comprasCount: a.comprasCount,
+        totalCompras: a.totalCompras,
+        cajasAbiertasCount: a.cajasAbiertasCount,
+        cierresCount: a.cierresCount,
+        movimientosCajaCount: a.movimientosCajaCount,
+        cambiosEstadoProductoCount: a.cambiosEstadoProductoCount,
+        actividadReciente: porUsuario[u.id] ?? [],
+      };
+    });
+
+    // Actividad por día (agrupación local yyyy-MM-dd, días asc)
+    const porDia = new Map<string, { label: string; total: number; porEmpleado: Map<number, number> }>();
+    for (const it of items) {
+      const d = new Date(it.fecha);
+      const key = dayKeyLocal(d);
+      let entry = porDia.get(key);
+      if (!entry) {
+        entry = { label: dayLabelLocal(d), total: 0, porEmpleado: new Map() };
+        porDia.set(key, entry);
+      }
+      entry.total += 1;
+      entry.porEmpleado.set(it.usuarioId, (entry.porEmpleado.get(it.usuarioId) ?? 0) + 1);
+    }
+    const actividadPorDia = Array.from(porDia.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([fecha, entry]) => ({
+        fecha,
+        label: entry.label,
+        total: entry.total,
+        porEmpleado: Array.from(entry.porEmpleado.entries()).map(([usuarioId, acciones]) => ({
+          usuarioId,
+          nombre: nombrePorId.get(usuarioId) ?? "",
+          acciones,
+        })),
+      }));
+
+    // Actividad por módulo (solo módulos con acciones > 0)
+    let totalVentas = 0;
+    let totalMovManuales = 0;
+    let totalCompras = 0;
+    let totalCambiosEstado = 0;
+    for (const key of Object.keys(acc)) {
+      const a = acc[Number(key)];
+      totalVentas += a.ventasCount;
+      totalMovManuales += a.movimientosCajaCount;
+      totalCompras += a.comprasCount;
+      totalCambiosEstado += a.cambiosEstadoProductoCount;
+    }
+    const actividadPorModulo = [
+      { modulo: "Ventas", acciones: totalVentas },
+      { modulo: "Caja", acciones: totalMovManuales },
+      { modulo: "Reposiciones", acciones: totalCompras },
+      { modulo: "Productos", acciones: totalCambiosEstado },
+    ].filter((m) => m.acciones > 0);
+
+    // Actividad reciente global (últimos 20, más reciente primero)
+    const actividadReciente = [...items]
+      .sort((a, b) => b.fecha.localeCompare(a.fecha))
+      .slice(0, 20);
+
+    return {
+      resumen: {
+        total: usuarios.length,
+        activos: usuarios.filter((u) => u.activo).length,
+        administradores: usuarios.filter((u) => u.rol.nombre === "ADMINISTRADOR").length,
+        encargadosVentas: usuarios.filter((u) => u.rol.nombre === "ENCARGADO_VENTAS").length,
+        encargadosStock: usuarios.filter((u) => u.rol.nombre === "ENCARGADO_STOCK").length,
+        actividadPeriodo: empleados.reduce((s, e) => s + e.acciones, 0),
+      },
+      empleados,
+      actividadPorDia,
+      actividadPorModulo,
+      actividadReciente,
+      faltanDatos: FALTAN_DATOS_EMPLEADOS,
+    };
+  } catch (error) {
+    console.error("Error en getEmpleadosDashboard:", error);
+    return EMPTY_EMPLEADOS_DASHBOARD;
+  }
+}
+
 // ─── 9. OBTENER USUARIOS PARA FILTROS ──────────────────────────────
 
 export async function getUsuariosActivos() {
   try {
     await requirePermission("informes.ver");
-    return await prisma.usuario.findMany({
+    const usuarios = await prisma.usuario.findMany({
       where: { activo: true },
-      select: { id: true, username: true, nombreCompleto: true },
+      select: {
+        id: true,
+        username: true,
+        nombreCompleto: true,
+        rol: { select: { permisos: true } },
+      },
       orderBy: { nombreCompleto: "asc" },
     });
+    return usuarios.map((u) => ({
+      id: u.id,
+      username: u.username,
+      nombreCompleto: u.nombreCompleto,
+      puedeVender: parseRoleData(u.rol?.permisos ?? null).permisos.includes("ventas.crear"),
+    }));
   } catch (error) {
     console.error("Error en getUsuariosActivos:", error);
     return [];
@@ -1090,6 +1456,7 @@ export async function getClientesReport(filters: ReportFilters = {}): Promise<Pa
 }
 
 // ─── 11. REPORTE PROVEEDORES ─────────────────────────────────
+// ─── DEPRECATED: MOVED TO getProveedoresDashboard (Informes → Proveedores). Se conserva para no romper importaciones externas.
 
 export async function getProveedoresReport(filters: ReportFilters = {}): Promise<PaginatedResult<{
   id: number; nombre: string; cuit: string; productosCount: number;
@@ -1380,6 +1747,387 @@ export async function getTopProductos(filters: ReportFilters = {}, limit: number
   }
 }
 
+export type VentasAnalisisBatchData = {
+  resumen: { cantidad: number; total: number; productosVendidos: number; clientesAtendidos: number };
+  prevResumen: { cantidad: number; total: number; productosVendidos: number; clientesAtendidos: number } | null;
+  evolucion: { periodo: string; ventas: number; ganancia: number; fechaInicio: string; fechaFin: string }[];
+  categoria: { categoria: string; cantidad: number; subtotal: number; ganancia: number }[];
+  metodoPago: { metodo: string; cantidadVentas: number; total: number }[];
+  topProductos: { productoId: number; producto: string; categoria: string; cantidad: number; ingreso: number }[];
+  topClientes: { clienteId: number; cliente: string; cantidad: number; total: number }[];
+  vendedores: { usuarioId: number; vendedor: string; cantidadVentas: number; totalVendido: number; comision: number }[];
+  diaSemana: { dow: number; ventas: number; total: number }[];
+};
+
+type VentaAnalisisRecord = {
+  id: number;
+  total: number;
+  fecha: Date;
+  metodoPago: string | null;
+  clienteId: number;
+  usuarioId: number;
+  cliente: { nombre: string };
+  usuario: { username: string; nombreCompleto: string | null };
+  detalles: {
+    cantidad: number;
+    subtotal: number;
+    producto: {
+      id: number;
+      nombre: string;
+      precioCompra: number;
+      categoria: { nombre: string } | null;
+    };
+  }[];
+};
+
+function toBuenosAiresWallTime(date: Date) {
+  return new Date(date.getTime() - 3 * 60 * 60 * 1000);
+}
+
+function buildResumenVentasFromRecords(ventas: VentaAnalisisRecord[]) {
+  return {
+    cantidad: ventas.length,
+    total: ventas.reduce((sum, venta) => sum + venta.total, 0),
+    productosVendidos: ventas.reduce((sum, venta) => sum + venta.detalles.length, 0),
+    clientesAtendidos: new Set(ventas.map((venta) => venta.clienteId)).size,
+  };
+}
+
+function buildEvolucionVentasFromRecords(
+  ventas: VentaAnalisisRecord[],
+  agruparPor: "dia" | "semana" | "mes" | "anio"
+) {
+  const agrupado = new Map<
+    string,
+    { ventas: number; costo: number; fechaInicio: Date; fechaFin: Date }
+  >();
+
+  for (const venta of ventas) {
+    const fechaLocal = toBuenosAiresWallTime(venta.fecha);
+    let periodo: string;
+    let fechaInicio = fechaLocal;
+    let fechaFin = fechaLocal;
+
+    if (agruparPor === "anio") {
+      periodo = fechaLocal.toLocaleDateString("es-AR", { year: "numeric" });
+      fechaInicio = new Date(fechaLocal.getFullYear(), 0, 1);
+      fechaFin = new Date(fechaLocal.getFullYear(), 11, 31, 23, 59, 59, 999);
+    } else if (agruparPor === "mes") {
+      periodo = fechaLocal.toLocaleDateString("es-AR", { month: "long", year: "numeric" });
+      fechaInicio = new Date(fechaLocal.getFullYear(), fechaLocal.getMonth(), 1);
+      fechaFin = new Date(fechaLocal.getFullYear(), fechaLocal.getMonth() + 1, 0, 23, 59, 59, 999);
+    } else if (agruparPor === "semana") {
+      const dayOfWeek = fechaLocal.getDay();
+      const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      fechaInicio = new Date(
+        fechaLocal.getFullYear(),
+        fechaLocal.getMonth(),
+        fechaLocal.getDate() - diffToMonday
+      );
+      fechaFin = new Date(
+        fechaLocal.getFullYear(),
+        fechaLocal.getMonth(),
+        fechaLocal.getDate() - diffToMonday + 6,
+        23,
+        59,
+        59,
+        999
+      );
+      const diaDelMes = fechaInicio.getDate();
+      const numSemana = Math.ceil(diaDelMes / 7);
+      const mesLargo = fechaInicio.toLocaleDateString("es-AR", { month: "long" });
+      periodo = `S${numSemana} ${mesLargo}`;
+    } else {
+      periodo = fechaLocal.toLocaleDateString("es-AR", {
+        day: "2-digit",
+        month: "short",
+        year: "2-digit",
+      });
+      fechaInicio = new Date(
+        fechaLocal.getFullYear(),
+        fechaLocal.getMonth(),
+        fechaLocal.getDate()
+      );
+      fechaFin = new Date(
+        fechaLocal.getFullYear(),
+        fechaLocal.getMonth(),
+        fechaLocal.getDate(),
+        23,
+        59,
+        59,
+        999
+      );
+    }
+
+    const costoVenta = venta.detalles.reduce(
+      (sum, detalle) => sum + detalle.cantidad * detalle.producto.precioCompra,
+      0
+    );
+
+    const existente = agrupado.get(periodo);
+    if (existente) {
+      existente.ventas += venta.total;
+      existente.costo += costoVenta;
+      if (fechaInicio < existente.fechaInicio) existente.fechaInicio = fechaInicio;
+      if (fechaFin > existente.fechaFin) existente.fechaFin = fechaFin;
+    } else {
+      agrupado.set(periodo, {
+        ventas: venta.total,
+        costo: costoVenta,
+        fechaInicio,
+        fechaFin,
+      });
+    }
+  }
+
+  return Array.from(agrupado.entries())
+    .map(([periodo, values]) => ({
+      periodo,
+      ventas: values.ventas,
+      ganancia: values.ventas - values.costo,
+      fechaInicio: values.fechaInicio.toISOString(),
+      fechaFin: values.fechaFin.toISOString(),
+    }))
+    .sort((a, b) => a.fechaInicio.localeCompare(b.fechaInicio));
+}
+
+function buildVentasPorCategoriaFromRecords(ventas: VentaAnalisisRecord[]) {
+  const agrupado = new Map<string, { cantidad: number; subtotal: number; ganancia: number }>();
+
+  for (const venta of ventas) {
+    for (const detalle of venta.detalles) {
+      const categoria = detalle.producto.categoria?.nombre ?? "Sin categoría";
+      const existente = agrupado.get(categoria) ?? { cantidad: 0, subtotal: 0, ganancia: 0 };
+      existente.cantidad += detalle.cantidad;
+      existente.subtotal += detalle.subtotal;
+      existente.ganancia += detalle.subtotal - detalle.cantidad * detalle.producto.precioCompra;
+      agrupado.set(categoria, existente);
+    }
+  }
+
+  return Array.from(agrupado.entries())
+    .map(([categoria, values]) => ({ categoria, ...values }))
+    .sort((a, b) => b.subtotal - a.subtotal);
+}
+
+function buildTopProductosFromRecords(ventas: VentaAnalisisRecord[], limit: number) {
+  const agrupado = new Map<
+    number,
+    { producto: string; categoria: string; cantidad: number; ingreso: number }
+  >();
+
+  for (const venta of ventas) {
+    for (const detalle of venta.detalles) {
+      const existente = agrupado.get(detalle.producto.id) ?? {
+        producto: detalle.producto.nombre,
+        categoria: detalle.producto.categoria?.nombre ?? "Sin categoría",
+        cantidad: 0,
+        ingreso: 0,
+      };
+      existente.cantidad += detalle.cantidad;
+      existente.ingreso += detalle.subtotal;
+      agrupado.set(detalle.producto.id, existente);
+    }
+  }
+
+  return Array.from(agrupado.entries())
+    .map(([productoId, values]) => ({ productoId, ...values }))
+    .sort((a, b) => b.cantidad - a.cantidad)
+    .slice(0, limit);
+}
+
+function buildVentasPorClienteFromRecords(ventas: VentaAnalisisRecord[]) {
+  const agrupado = new Map<number, { cliente: string; cantidad: number; total: number }>();
+
+  for (const venta of ventas) {
+    const existente = agrupado.get(venta.clienteId) ?? {
+      cliente: venta.cliente.nombre,
+      cantidad: 0,
+      total: 0,
+    };
+    existente.cantidad += 1;
+    existente.total += venta.total;
+    agrupado.set(venta.clienteId, existente);
+  }
+
+  return Array.from(agrupado.entries())
+    .map(([clienteId, values]) => ({ clienteId, ...values }))
+    .sort((a, b) => b.total - a.total);
+}
+
+function buildVentasPorVendedorFromRecords(ventas: VentaAnalisisRecord[]) {
+  const agrupado = new Map<
+    number,
+    { vendedor: string; cantidadVentas: number; totalVendido: number }
+  >();
+
+  for (const venta of ventas) {
+    const existente = agrupado.get(venta.usuarioId) ?? {
+      vendedor: venta.usuario.nombreCompleto ?? venta.usuario.username,
+      cantidadVentas: 0,
+      totalVendido: 0,
+    };
+    existente.cantidadVentas += 1;
+    existente.totalVendido += venta.total;
+    agrupado.set(venta.usuarioId, existente);
+  }
+
+  return Array.from(agrupado.entries())
+    .map(([usuarioId, values]) => ({
+      usuarioId,
+      ...values,
+      comision: Math.round(values.totalVendido * 0.05 * 100) / 100,
+    }))
+    .sort((a, b) => b.totalVendido - a.totalVendido);
+}
+
+function buildVentasPorMetodoPagoFromRecords(ventas: VentaAnalisisRecord[]) {
+  const conocidos = new Set(METODOS_PAGO_ORDEN);
+  const agrupado = new Map<string, { cantidadVentas: number; total: number }>();
+
+  for (const venta of ventas) {
+    const clave = venta.metodoPago && conocidos.has(venta.metodoPago)
+      ? venta.metodoPago
+      : "OTROS";
+    const existente = agrupado.get(clave) ?? { cantidadVentas: 0, total: 0 };
+    existente.cantidadVentas += 1;
+    existente.total += venta.total;
+    agrupado.set(clave, existente);
+  }
+
+  return [
+    ...METODOS_PAGO_ORDEN.filter((metodo) => agrupado.has(metodo)),
+    ...(agrupado.has("OTROS") ? ["OTROS"] : []),
+  ].map((metodo) => ({
+    metodo,
+    ...(agrupado.get(metodo) ?? { cantidadVentas: 0, total: 0 }),
+  }));
+}
+
+function buildVentasPorDiaSemanaFromRecords(ventas: VentaAnalisisRecord[]) {
+  const agrupado = new Map<number, { ventas: number; total: number }>();
+
+  for (const venta of ventas) {
+    const fechaLocal = toBuenosAiresWallTime(venta.fecha);
+    const dow = (fechaLocal.getDay() + 6) % 7;
+    const existente = agrupado.get(dow) ?? { ventas: 0, total: 0 };
+    existente.ventas += 1;
+    existente.total += venta.total;
+    agrupado.set(dow, existente);
+  }
+
+  return Array.from(agrupado.entries())
+    .map(([dow, values]) => ({ dow, ...values }))
+    .sort((a, b) => a.dow - b.dow);
+}
+
+export async function getVentasAnalisisBatch(params: {
+  fechaDesde?: string;
+  fechaHasta?: string;
+  usuarioId?: number;
+  prevFechaDesde?: string;
+  prevFechaHasta?: string;
+  agruparPor?: "dia" | "semana" | "mes" | "anio";
+}): Promise<VentasAnalisisBatchData> {
+  try {
+    await requirePermission("informes.ver");
+
+    const whereActual: Prisma.VentaWhereInput = {
+      ...buildDateFilter(params.fechaDesde, params.fechaHasta),
+    };
+    if (params.usuarioId) whereActual.usuarioId = params.usuarioId;
+
+    const whereAnterior: Prisma.VentaWhereInput = {
+      ...buildDateFilter(params.prevFechaDesde, params.prevFechaHasta),
+    };
+    if (params.usuarioId) whereAnterior.usuarioId = params.usuarioId;
+
+    const currentVentasPromise = prisma.venta.findMany({
+      where: whereActual,
+      select: {
+        id: true,
+        total: true,
+        fecha: true,
+        metodoPago: true,
+        clienteId: true,
+        usuarioId: true,
+        cliente: { select: { nombre: true } },
+        usuario: { select: { username: true, nombreCompleto: true } },
+        detalles: {
+          select: {
+            cantidad: true,
+            subtotal: true,
+            producto: {
+              select: {
+                id: true,
+                nombre: true,
+                precioCompra: true,
+                categoria: { select: { nombre: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { fecha: "asc" },
+    });
+
+    const prevResumenPromise =
+      params.prevFechaDesde && params.prevFechaHasta
+        ? Promise.all([
+            prisma.venta.aggregate({
+              where: whereAnterior,
+              _count: { id: true },
+              _sum: { total: true },
+            }),
+            prisma.detalleVenta.count({ where: { venta: whereAnterior } }),
+            prisma.venta.groupBy({
+              by: ["clienteId"],
+              where: whereAnterior,
+              _count: { _all: true },
+            }),
+          ]).then(([agg, lineas, clientes]) => ({
+            cantidad: agg._count.id,
+            total: agg._sum.total || 0,
+            productosVendidos: lineas,
+            clientesAtendidos: clientes.length,
+          }))
+        : Promise.resolve(null);
+
+    const [currentVentas, prevResumen] = await Promise.all([
+      currentVentasPromise,
+      prevResumenPromise,
+    ]);
+
+    return {
+      resumen: buildResumenVentasFromRecords(currentVentas),
+      prevResumen,
+      evolucion: buildEvolucionVentasFromRecords(
+        currentVentas,
+        params.agruparPor ?? "dia"
+      ),
+      categoria: buildVentasPorCategoriaFromRecords(currentVentas),
+      metodoPago: buildVentasPorMetodoPagoFromRecords(currentVentas),
+      topProductos: buildTopProductosFromRecords(currentVentas, 10),
+      topClientes: buildVentasPorClienteFromRecords(currentVentas),
+      vendedores: buildVentasPorVendedorFromRecords(currentVentas),
+      diaSemana: buildVentasPorDiaSemanaFromRecords(currentVentas),
+    };
+  } catch (error) {
+    console.error("Error en getVentasAnalisisBatch:", error);
+    return {
+      resumen: { cantidad: 0, total: 0, productosVendidos: 0, clientesAtendidos: 0 },
+      prevResumen: null,
+      evolucion: [],
+      categoria: [],
+      metodoPago: [],
+      topProductos: [],
+      topClientes: [],
+      vendedores: [],
+      diaSemana: [],
+    };
+  }
+}
+
 // ─── 19. BOTTOM PRODUCTOS ────────────────────────────────────
 
 export async function getBottomProductos(filters: ReportFilters = {}, limit: number = 10): Promise<{
@@ -1426,6 +2174,115 @@ export async function getBottomProductos(filters: ReportFilters = {}, limit: num
   }
 }
 
+// ─── ANÁLISIS DE VENTAS (informe Ventas → Análisis) ──────────────
+
+export async function getResumenVentas(
+  fechaDesde?: string,
+  fechaHasta?: string,
+  usuarioId?: number
+): Promise<{ cantidad: number; total: number; productosVendidos: number; clientesAtendidos: number }> {
+  try {
+    await requirePermission("informes.ver");
+    const where: Prisma.VentaWhereInput = { ...buildDateFilter(fechaDesde, fechaHasta) };
+    if (usuarioId) where.usuarioId = usuarioId;
+    const [agg, lineas, clientes] = await Promise.all([
+      prisma.venta.aggregate({ where, _count: { id: true }, _sum: { total: true } }),
+      prisma.detalleVenta.count({ where: { venta: where } }),
+      prisma.venta.groupBy({ by: ["clienteId"], where, _count: { _all: true } }),
+    ]);
+    return {
+      cantidad: agg._count.id,
+      total: agg._sum.total || 0,
+      productosVendidos: lineas, // D9: filas de detalle (paridad con KPI actual), no suma de cantidades
+      clientesAtendidos: clientes.length, // clientes distintos por id
+    };
+  } catch (e) {
+    console.error("Error en getResumenVentas:", e);
+    return { cantidad: 0, total: 0, productosVendidos: 0, clientesAtendidos: 0 };
+  }
+}
+
+export async function getVentasPorMetodoPago(filters: ReportFilters = {}): Promise<{
+  data: { metodo: string; cantidadVentas: number; total: number }[];
+  total: number;
+}> {
+  try {
+    await requirePermission("informes.ver");
+    const where: Prisma.VentaWhereInput = { ...buildDateFilter(filters.fechaDesde, filters.fechaHasta) };
+    if (filters.usuarioId) where.usuarioId = filters.usuarioId;
+    const rows = await prisma.venta.groupBy({
+      by: ["metodoPago"],
+      where,
+      _count: { id: true },
+      _sum: { total: true },
+    });
+    const conocidos = new Set(METODOS_PAGO_ORDEN);
+    const mapa: Record<string, { cantidadVentas: number; total: number }> = {};
+    for (const r of rows) {
+      // null/legacy → "OTROS"; el resto conserva su clave original
+      const clave = r.metodoPago && conocidos.has(r.metodoPago) ? r.metodoPago : "OTROS";
+      if (!mapa[clave]) mapa[clave] = { cantidadVentas: 0, total: 0 };
+      mapa[clave].cantidadVentas += r._count.id;
+      mapa[clave].total += r._sum.total || 0;
+    }
+    // orden fijo: METODOS_PAGO_ORDEN primero, "OTROS" al final
+    const data = [...METODOS_PAGO_ORDEN.filter((m) => mapa[m]), ...(mapa["OTROS"] ? ["OTROS"] : [])].map((m) => ({
+      metodo: m,
+      ...mapa[m],
+    }));
+    return { data, total: data.length };
+  } catch (e) {
+    console.error("Error en getVentasPorMetodoPago:", e);
+    return { data: [], total: 0 };
+  }
+}
+
+export type VentasPorDiaSemanaRow = { dow: number; ventas: number; total: number };
+
+/**
+ * Ventas agregadas por día de la semana (0=lunes … 6=domingo).
+ *
+ * Almacenamiento real (gate psql 2026-08-12): la sesión de la DB corre en UTC y
+ * Venta.fecha (timestamp sin tz) guarda la pared UTC (una venta local 19:33 quedó
+ * 22:33). Por eso NO vale el caso "pared almacenada = pared local" del diseño v2:
+ * se aplica la variante fallback con corrección de signo —
+ *   - cotas: literal local + 3h (medianoche local = 03:00 UTC)
+ *   - DOW:   pared almacenada − 3h (equivale a AT TIME ZONE 'UTC' AT TIME ZONE
+ *            'America/Argentina/Buenos_Aires', verificado en gate)
+ * El texto del diseño v2 con `+ INTERVAL '3 hours'` en el DOW está invertido:
+ * atribuiría al día siguiente (venta local 23:30 → pared 02:30 del día próximo).
+ * Argentina no tiene DST desde 2015 → offset fijo de 3h (reportPeriods.ts L12-13).
+ * F1: cotas como literales sin Z (nunca new Date()): deterministas entre driver y
+ * sesión. getResumenVentas/getEvolucionVentas pasan por el engine de alto nivel
+ * de Prisma y no se tocan.
+ */
+export async function getVentasPorDiaSemana(filters: ReportFilters = {}): Promise<{
+  data: VentasPorDiaSemanaRow[];
+  total: number;
+}> {
+  try {
+    await requirePermission("informes.ver");
+    const conds: Prisma.Sql[] = [];
+    if (filters.fechaDesde)
+      conds.push(Prisma.sql`f."fecha" >= (${`${filters.fechaDesde}T00:00:00`}::timestamp + INTERVAL '3 hours')`);
+    if (filters.fechaHasta)
+      conds.push(Prisma.sql`f."fecha" <= (${`${filters.fechaHasta}T23:59:59.999`}::timestamp + INTERVAL '3 hours')`);
+    if (filters.usuarioId) conds.push(Prisma.sql`f."usuario_id" = ${filters.usuarioId}`);
+    const whereSql = conds.length ? Prisma.sql`WHERE ${Prisma.join(conds, " AND ")}` : Prisma.empty;
+    const rows = await prisma.$queryRaw<VentasPorDiaSemanaRow[]>`
+      SELECT (EXTRACT(DOW FROM (f."fecha" - INTERVAL '3 hours'))::int + 6) % 7 AS "dow",
+             COUNT(*)::int AS "ventas",
+             COALESCE(SUM(f."total"), 0)::float8 AS "total"
+      FROM "ventas" f
+      ${whereSql}
+      GROUP BY 1 ORDER BY 1`;
+    return { data: rows, total: rows.length };
+  } catch (e) {
+    console.error("Error en getVentasPorDiaSemana:", e);
+    return { data: [], total: 0 };
+  }
+}
+
 // ─── 20. CIERRES MOVIMIENTOS ─────────────────────────────────
 
 export async function getCierresMovimientos(filters: ReportFilters = {}): Promise<PaginatedResult<{
@@ -1455,7 +2312,7 @@ export async function getCierresMovimientos(filters: ReportFilters = {}): Promis
       cajaId: m.cajaId,
       tipo: m.tipo,
       monto: m.monto,
-      descripcion: formatMovimientoDescripcion(m.descripcion),
+      descripcion: m.descripcion,
       fecha: formatDate(m.fecha),
       usuario: m.usuario.username,
     }));
@@ -1868,7 +2725,6 @@ export async function getEvolucionVentas(
 ): Promise<{ data: { periodo: string; ventas: number; ganancia: number; fechaInicio: string; fechaFin: string }[] }> {
   try {
     await requirePermission("informes.ver");
-
     const dateFilter = buildDateFilter(fechaDesde, fechaHasta);
 
     const ventas = await prisma.venta.findMany({
@@ -1882,6 +2738,10 @@ export async function getEvolucionVentas(
     });
 
     const agrupado: Record<string, { ventas: number; costo: number; fecha: Date; fechaFin: Date }> = {};
+    let lastWeekKey = "";
+    let lastMonth = -1;
+    let semanaEnMes = 0;
+
     for (const v of ventas) {
       let periodo: string;
       let fechaFin = v.fecha;
@@ -1899,6 +2759,17 @@ export async function getEvolucionVentas(
         const inicioLocal = new Date(y, m, d - diffToMonday);
         const finLocal = new Date(y, m, d - diffToMonday + 6);
         fechaFin = finLocal;
+        const weekKey = `${inicioLocal.getFullYear()}-${String(inicioLocal.getMonth() + 1).padStart(2, "0")}-${String(inicioLocal.getDate()).padStart(2, "0")}`;
+        const mesActual = inicioLocal.getMonth();
+        if (weekKey !== lastWeekKey) {
+          if (mesActual !== lastMonth) {
+            semanaEnMes = 1;
+            lastMonth = mesActual;
+          } else {
+            semanaEnMes++;
+          }
+          lastWeekKey = weekKey;
+        }
         // Calcular número de semana real según el día del mes del lunes
         const diaDelMes = inicioLocal.getDate();
         const numSemana = Math.ceil(diaDelMes / 7);
@@ -2018,6 +2889,7 @@ export type ClienteDashboardCliente = {
   cantidadCompras: number;
   totalGastado: number;
   ultimaCompra: string | null;
+  ultimaCompraIso: string | null;
 };
 
 export type ClientesDashboard = {
@@ -2035,7 +2907,6 @@ export type ClientesDashboard = {
   top10: { clienteId: number; nombre: string; total: number }[];
   frecuencia: { clienteId: number; nombre: string; cantidad: number }[];
   sinComprar90d: { clienteId: number; nombre: string; ultimaCompra: string; dias: number }[];
-  clientesPorGasto: { clienteId: number; nombre: string; cantidad: number; total: number; ultimaCompra: string | null; promedio: number }[];
   clientesCompleto: ClienteDashboardCliente[];
 };
 
@@ -2047,13 +2918,12 @@ const EMPTY_CLIENTES_DASHBOARD: ClientesDashboard = {
   top10: [],
   frecuencia: [],
   sinComprar90d: [],
-  clientesPorGasto: [],
   clientesCompleto: [],
 };
 
 export async function getClientesDashboard(): Promise<ClientesDashboard> {
   try {
-    await requirePermission("informes.ver");
+    await requirePermission("informes.clientes");
     const ahora = new Date();
 
     // 1. Conteos base + total facturado + agregados por cliente + todos los clientes (una sola pasada)
@@ -2104,6 +2974,7 @@ export async function getClientesDashboard(): Promise<ClientesDashboard> {
           cantidadCompras: agg?.cantidad ?? 0,
           totalGastado: agg?.total ?? 0,
           ultimaCompra: agg?.ultima ? formatDateShort(agg.ultima) : null,
+          ultimaCompraIso: agg?.ultima ? agg.ultima.toISOString() : null,
         };
       })
       .sort((a, b) => a.nombre.localeCompare(b.nombre));
@@ -2152,28 +3023,24 @@ export async function getClientesDashboard(): Promise<ClientesDashboard> {
       { name: "Inactivos", value: inactivos },
     ];
 
-    // 9. Nuevos por mes — últimos 12 meses incluido el actual (F1: año/mes local)
-    const inicio12 = new Date(ahora.getFullYear(), ahora.getMonth() - 11, 1, 0, 0, 0, 0);
-    const clientesUltimoAnio = await prisma.cliente.findMany({
-      where: { creadoEn: { gte: inicio12 } },
-      select: { creadoEn: true },
-    });
+    // 9. Nuevos por mes — every month with new clients across all years (F1: year/month local).
+    // Reuses `clientes` from the Promise.all above (it already includes creadoEn).
     const porMes = new Map<string, number>();
-    for (const c of clientesUltimoAnio) {
+    for (const c of clientes) {
       const key = `${c.creadoEn.getFullYear()}-${String(c.creadoEn.getMonth() + 1).padStart(2, "0")}`;
       porMes.set(key, (porMes.get(key) ?? 0) + 1);
     }
-    const nuevosPorMes = Array.from({ length: 12 }, (_, i) => {
-      const d = new Date(ahora.getFullYear(), ahora.getMonth() - 11 + i, 1);
-      const mesNum = d.getMonth();
-      const anio = d.getFullYear();
-      const key = `${anio}-${String(mesNum + 1).padStart(2, "0")}`;
-      return {
-        mes: key,
-        label: `${MESES_ES[mesNum].slice(0, 3)} ${anio}`,
-        cantidad: porMes.get(key) ?? 0,
-      };
-    });
+    const nuevosPorMes = Array.from(porMes.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([key, cantidad]) => {
+        const anio = Number(key.slice(0, 4));
+        const mesNum = Number(key.slice(5, 7)) - 1;
+        return {
+          mes: key,
+          label: `${MESES_ES[mesNum].slice(0, 3)} ${anio}`,
+          cantidad,
+        };
+      });
 
     // 10. Distribución por nivel de gasto (4 buckets; clientes sin ventas van al bucket 0)
     const BUCKETS_GASTO = [
@@ -2205,12 +3072,316 @@ export async function getClientesDashboard(): Promise<ClientesDashboard> {
       top10,
       frecuencia,
       sinComprar90d,
-      clientesPorGasto,
       clientesCompleto,
     };
   } catch (error) {
     console.error("Error en getClientesDashboard:", error);
     return EMPTY_CLIENTES_DASHBOARD;
+  }
+}
+
+// ─── PROVEEDORES: DASHBOARD (Informes → Proveedores) ─────────────────────────────────────────────
+// NOTA: reemplaza al informe paginado anterior getProveedoresReport (marcado DEPRECATED más abajo).
+
+export type ProveedorFiltroEstado = "todos" | "activos" | "inactivos";
+
+export interface ProveedoresDashboardFilters {
+  estado: ProveedorFiltroEstado;
+  categoriaId: string; // "TODAS" = sin filtro de categoría
+  marcaId: string; // "TODAS" = sin filtro de marca
+  search?: string; // búsqueda por nombre de proveedor (server-side)
+}
+
+export interface ProveedorReposicionRow {
+  proveedorId: number;
+  proveedor: string;
+  categoria: string;
+  marca: string;
+  codigo: string;
+  producto: string;
+  stockActual: number;
+  stockMinimo: number;
+  deficit: number; // déficit real = max(0, stockMinimo - cantidad); sin heurísticas de reposición
+  estado: "Sin stock" | "Stock bajo";
+}
+
+export interface ProveedorProductoRow {
+  nombre: string;
+  codigo: string;
+  categoria: string;
+  marca: string;
+  cantidad: number;
+  stockMinimo: number;
+}
+
+export interface ProveedorTablaRow {
+  proveedorId: number;
+  nombre: string;
+  cuit: string;
+  telefono: string;
+  email: string;
+  direccion: string;
+  contactoResponsable: string;
+  activo: boolean;
+  totalProductos: number;
+  totalCompras: number;
+  totalGastado: number;
+  ultimaCompra: string | null; // ISO con hora, o null si nunca compró
+  acciones: string[];
+  productos: ProveedorProductoRow[]; // productos del proveedor (con filtros de producto activos)
+}
+
+export interface ProveedoresDashboard {
+  resumen: {
+    totalProveedores: number;
+    activos: number;
+    inactivos: number;
+    productosConProveedor: number;
+    proveedoresSinCompras: number;
+    proveedorPrincipal: { nombre: string; productos: number } | null;
+  };
+  productosPorProveedor: { proveedorId: number; nombre: string; cantidad: number }[];
+  participacion: { proveedorId: number; nombre: string; totalProductos: number; porcentaje: number }[];
+  valorCostoPorProveedor: { proveedorId: number; nombre: string; valor: number }[];
+  reposicionResumen: { proveedorId: number; proveedor: string; aReponer: number; sinStock: number; stockBajo: number }[];
+  reposicionDetalle: ProveedorReposicionRow[];
+  proveedores: ProveedorTablaRow[];
+  filtros: { categorias: { id: number; nombre: string }[]; marcas: { id: number; nombre: string }[] }; // opciones para los filtros
+}
+
+export async function getProveedoresDashboard(
+  filters: ProveedoresDashboardFilters = { estado: "todos", categoriaId: "TODAS", marcaId: "TODAS" }
+): Promise<ProveedoresDashboard> {
+  try {
+    await requirePermission("informes.proveedores");
+
+    // ── Filtros comunes de producto (categoría/marca) ──
+    const whereProductos = {
+      ...(filters.categoriaId !== "TODAS" ? { categoriaId: Number(filters.categoriaId) } : {}),
+      ...(filters.marcaId !== "TODAS" ? { marcaId: Number(filters.marcaId) } : {}),
+    };
+
+    // ── Obtener proveedores (con búsqueda por nombre) + conteo + compras ──
+    const [proveedores, productosConteo, compras] = await Promise.all([
+      prisma.proveedor.findMany({
+        where: filters.search ? { nombre: { contains: filters.search, mode: "insensitive" } } : {},
+        orderBy: { nombre: "asc" },
+      }),
+      prisma.producto.groupBy({
+        by: ["proveedorId"],
+        where: whereProductos,
+        _count: { id: true },
+      }),
+      prisma.compra.findMany({
+        select: { id: true, proveedorId: true, total: true, fecha: true },
+        orderBy: { fecha: "desc" },
+      }),
+    ]);
+
+    // ── KPIs ──
+    const activos = proveedores.filter((p) => p.activo).length;
+    const inactivos = proveedores.length - activos;
+    const productosConProveedor = productosConteo.reduce((acc, g) => acc + g._count.id, 0);
+    const proveedoresConCompra = new Set<number>();
+    for (const c of compras) {
+      proveedoresConCompra.add(c.proveedorId);
+    }
+    const proveedoresSinCompras = proveedores.filter((p) => !proveedoresConCompra.has(p.id)).length;
+
+    // Gasto total por proveedor (columna de la tabla general — NO el gráfico de valor a costo)
+    const gastoPorProveedor = new Map<number, number>();
+    for (const c of compras) {
+      gastoPorProveedor.set(c.proveedorId, (gastoPorProveedor.get(c.proveedorId) ?? 0) + Number(c.total));
+    }
+
+    // ── Productos por proveedor (e2: tras el filtro de producto se excluyen proveedores con 0) ──
+    const conteoPorProveedor = new Map<number, number>();
+    for (const g of productosConteo) {
+      conteoPorProveedor.set(g.proveedorId, g._count.id);
+    }
+    const productosPorProveedor = proveedores
+      .map((p) => ({ proveedorId: p.id, nombre: p.nombre, cantidad: conteoPorProveedor.get(p.id) ?? 0 }))
+      .filter((r) => r.cantidad > 0)
+      .sort((a, b) => b.cantidad - a.cantidad);
+
+    const totalProductos = productosPorProveedor.reduce((acc, r) => acc + r.cantidad, 0) || 1;
+    const participacion = productosPorProveedor
+      .map((r) => ({
+        proveedorId: r.proveedorId,
+        nombre: r.nombre,
+        totalProductos: r.cantidad,
+        porcentaje: Math.round((r.cantidad / totalProductos) * 100),
+      }))
+      .sort((a, b) => b.totalProductos - a.totalProductos);
+
+    // ── Productos (para reposición, valor a costo y detalle por proveedor) ──
+    const productos = await prisma.producto.findMany({
+      where: whereProductos,
+      select: {
+        id: true,
+        nombre: true,
+        codigo: true,
+        cantidad: true,
+        stockMinimo: true,
+        proveedorId: true,
+        precioCompra: true,
+        marca: true,
+        categoria: { select: { nombre: true } },
+        marcaRelacionada: { select: { nombre: true } },
+      },
+      orderBy: [{ proveedor: { nombre: "asc" } }, { nombre: "asc" }],
+    });
+    const proveedorNombre = new Map(proveedores.map((p) => [p.id, p.nombre]));
+    const proveedoresVisibles = new Set(proveedores.map((p) => p.id));
+
+    // Proveedor principal: el que suministra la mayor cantidad de productos; empate → primero alfabético
+    let proveedorPrincipal: { nombre: string; productos: number } | null = null;
+    let maxProductos = 0;
+    for (const p of proveedores) {
+      const cantidad = conteoPorProveedor.get(p.id) ?? 0;
+      if (cantidad > maxProductos) {
+        maxProductos = cantidad;
+        proveedorPrincipal = { nombre: p.nombre, productos: cantidad };
+      }
+    }
+
+    // ── Valor de inventario a costo: Σ(precioCompra × cantidad) por proveedor ──
+    const valorCostoPorProveedor = proveedores
+      .map((p) => ({
+        proveedorId: p.id,
+        nombre: p.nombre,
+        valor: Math.round(
+          productos
+            .filter((prod) => prod.proveedorId === p.id)
+            .reduce((acc, prod) => acc + prod.precioCompra * prod.cantidad, 0)
+        ),
+      }))
+      .filter((r) => r.valor > 0)
+      .sort((a, b) => b.valor - a.valor);
+
+    // ── Reposición por proveedor (usa `productos` de arriba) ──
+    const productosPorProveedorId = new Map<number, ProveedorProductoRow[]>();
+    const reposicionDetalle: ProveedorReposicionRow[] = [];
+    for (const prod of productos) {
+      if (!proveedoresVisibles.has(prod.proveedorId)) continue;
+
+      // Detalle de productos del proveedor (sección expandida de la tabla)
+      const detalleArr = productosPorProveedorId.get(prod.proveedorId) ?? [];
+      detalleArr.push({
+        nombre: prod.nombre,
+        codigo: prod.codigo ?? "—",
+        categoria: prod.categoria?.nombre ?? "—",
+        marca: prod.marcaRelacionada?.nombre ?? prod.marca ?? "—",
+        cantidad: prod.cantidad,
+        stockMinimo: prod.stockMinimo ?? 0,
+      });
+      productosPorProveedorId.set(prod.proveedorId, detalleArr);
+
+      // Reposición: sin stock (cantidad 0) o stock bajo (0 < cantidad <= mínimo)
+      const sinStock = prod.cantidad === 0;
+      const stockBajo = prod.cantidad > 0 && prod.cantidad <= (prod.stockMinimo ?? 0);
+      if (!sinStock && !stockBajo) continue;
+      reposicionDetalle.push({
+        proveedorId: prod.proveedorId,
+        proveedor: proveedorNombre.get(prod.proveedorId) ?? "—",
+        categoria: prod.categoria?.nombre ?? "—",
+        marca: prod.marcaRelacionada?.nombre ?? prod.marca ?? "—",
+        codigo: prod.codigo ?? "—",
+        producto: prod.nombre,
+        stockActual: prod.cantidad,
+        stockMinimo: prod.stockMinimo ?? 0,
+        deficit: Math.max(0, (prod.stockMinimo ?? 0) - prod.cantidad),
+        estado: sinStock ? "Sin stock" : "Stock bajo",
+      });
+    }
+    const reposicionPorProveedor = new Map<number, { proveedorId: number; proveedor: string; aReponer: number; sinStock: number; stockBajo: number }>();
+    for (const row of reposicionDetalle) {
+      const actual =
+        reposicionPorProveedor.get(row.proveedorId) ??
+        { proveedorId: row.proveedorId, proveedor: row.proveedor, aReponer: 0, sinStock: 0, stockBajo: 0 };
+      actual.aReponer += 1;
+      if (row.estado === "Sin stock") actual.sinStock += 1;
+      else actual.stockBajo += 1;
+      reposicionPorProveedor.set(row.proveedorId, actual);
+    }
+    const reposicionResumen = Array.from(reposicionPorProveedor.values()).sort(
+      (a, b) => b.aReponer - a.aReponer
+    );
+
+    // ── Tabla de proveedores ──
+    const comprasPorProveedor = new Map<number, { total: number; ultima: Date | null; cantidad: number }>();
+    for (const c of compras) {
+      const actual = comprasPorProveedor.get(c.proveedorId) ?? { total: 0, ultima: null, cantidad: 0 };
+      actual.total += Number(c.total);
+      actual.cantidad += 1;
+      if (!actual.ultima || c.fecha > actual.ultima) actual.ultima = c.fecha;
+      comprasPorProveedor.set(c.proveedorId, actual);
+    }
+
+    let proveedoresTabla: ProveedorTablaRow[] = proveedores.map((p) => {
+      const comprasP = comprasPorProveedor.get(p.id);
+      const acciones: string[] = [];
+      if (!comprasP) acciones.push("Proveedor sin compras registradas");
+      const pendiente = reposicionPorProveedor.get(p.id);
+      if (pendiente) acciones.push(`${pendiente.aReponer} producto(s) requieren reposición`);
+      if (!p.activo) acciones.push("Proveedor inactivo");
+      return {
+        proveedorId: p.id,
+        nombre: p.nombre,
+        cuit: p.cuit ?? "—",
+        telefono: p.telefono ?? "—",
+        email: p.email ?? "—",
+        direccion: p.direccion ?? "—",
+        contactoResponsable: p.contactoResponsable ?? "—",
+        activo: p.activo,
+        totalProductos: conteoPorProveedor.get(p.id) ?? 0,
+        totalCompras: comprasP?.cantidad ?? 0,
+        totalGastado: Math.round(comprasP?.total ?? 0),
+        ultimaCompra: comprasP?.ultima ? comprasP.ultima.toISOString() : null,
+        acciones,
+        productos: productosPorProveedorId.get(p.id) ?? [],
+      };
+    });
+
+    // ── Filtros del lado servidor ──
+    if (filters.estado === "activos") proveedoresTabla = proveedoresTabla.filter((r) => r.activo);
+    if (filters.estado === "inactivos") proveedoresTabla = proveedoresTabla.filter((r) => !r.activo);
+
+    // Opciones disponibles para los filtros (categorías y marcas de productos con proveedor)
+    const categorias = await prisma.categoria.findMany({
+      where: { productos: { some: {} } },
+      select: { id: true, nombre: true },
+      orderBy: { nombre: "asc" },
+    });
+    const marcas = await prisma.marca.findMany({
+      where: { activo: true },
+      select: { id: true, nombre: true },
+      orderBy: { nombre: "asc" },
+    });
+
+    return {
+      resumen: {
+        totalProveedores: proveedores.length,
+        activos,
+        inactivos,
+        productosConProveedor,
+        proveedoresSinCompras,
+        proveedorPrincipal,
+      },
+      productosPorProveedor,
+      participacion,
+      valorCostoPorProveedor,
+      reposicionResumen,
+      reposicionDetalle,
+      proveedores: proveedoresTabla,
+      filtros: {
+        categorias: categorias.map((c) => ({ id: c.id, nombre: c.nombre })),
+        marcas: marcas.map((m) => ({ id: m.id, nombre: m.nombre })),
+      },
+    };
+  } catch (error) {
+    console.error("Error en getProveedoresDashboard:", error);
+    return EMPTY_PROVEEDORES_DASHBOARD;
   }
 }
 
