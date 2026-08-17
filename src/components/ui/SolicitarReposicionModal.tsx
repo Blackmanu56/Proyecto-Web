@@ -12,8 +12,8 @@ import { FormField } from "@/components/ui/form-field";
 import { Button } from "@/components/ui/button";
 import { PaymentDistribution, PaymentMethod } from "@/components/ui/PaymentDistribution";
 import { PackagePlus, AlertTriangle, CheckCircle } from "lucide-react";
-import { solicitarReposicion } from "@/actions/reposiciones";
-import { isProductPaymentDistributionIncomplete, getProductPurchaseCost } from "@/lib/product-purchase-payments";
+import { solicitarReposicion, reponerStockDirecto } from "@/actions/reposiciones";
+import { isProductPaymentDistributionIncomplete } from "@/lib/product-purchase-payments";
 
 /* ────────────────────── Types ────────────────────── */
 
@@ -30,6 +30,7 @@ interface SolicitarReposicionModalProps {
   cajaBalance: number;
   cajaAbierta: boolean;
   onSuccess: () => void;
+  mode?: "solicitar" | "reponer_directo";
 }
 
 /* ────────────────────── Component ────────────────────── */
@@ -41,6 +42,7 @@ export default function SolicitarReposicionModal({
   cajaBalance,
   cajaAbierta,
   onSuccess,
+  mode = "solicitar",
 }: SolicitarReposicionModalProps) {
   const [cantidad, setCantidad] = useState<number | "">("");
   const [motivo, setMotivo] = useState("");
@@ -67,7 +69,8 @@ export default function SolicitarReposicionModal({
 
       const validPayments = payments.filter(p => p.monto > 0);
 
-      const res = await solicitarReposicion(producto.id, {
+      const action = mode === "reponer_directo" ? reponerStockDirecto : solicitarReposicion;
+      const res = await action(producto.id, {
         cantidad: cantidadNum,
         proveedorId: producto.proveedorId,
         origenPago: validPayments.length > 0
@@ -121,10 +124,13 @@ export default function SolicitarReposicionModal({
             <div className="p-2 rounded-[var(--radius-md)] bg-[#047857]/10 text-[#059669]">
               <PackagePlus size={18} />
             </div>
-            Solicitar reposición
+            {mode === "reponer_directo" ? "Reponer stock" : "Solicitar reposición"}
           </DialogTitle>
           <DialogDescription>
-            Crear una solicitud de reposición para <strong>{producto.nombre}</strong>.
+            {mode === "reponer_directo"
+              ? <>Reponer stock directamente para <strong>{producto.nombre}</strong>.</>
+              : <>Crear una solicitud de reposición para <strong>{producto.nombre}</strong>.</>
+            }
           </DialogDescription>
         </DialogHeader>
 
@@ -132,10 +138,10 @@ export default function SolicitarReposicionModal({
           <div className="p-4 bg-[var(--success-light)] border border-[var(--success)]/20 rounded-[var(--radius-md)] text-center">
             <CheckCircle size={32} className="mx-auto text-[var(--success)] mb-2" />
             <p className="text-sm font-semibold text-[var(--success)]">
-              Solicitud creada exitosamente.
+              {mode === "reponer_directo" ? "Stock repuesto exitosamente." : "Solicitud creada exitosamente."}
             </p>
             <p className="text-xs text-[var(--text-secondary)] mt-1">
-              Esperando aprobación del administrador.
+              {mode === "reponer_directo" ? "El stock se actualizó inmediatamente." : "Esperando aprobación del administrador."}
             </p>
           </div>
         ) : (
@@ -224,7 +230,7 @@ export default function SolicitarReposicionModal({
                 disabled={!isValid || loading}
                 className="bg-[#047857] hover:bg-[#065F46] text-white"
               >
-                {loading ? "Enviando..." : "Enviar solicitud"}
+                {loading ? "Enviando..." : mode === "reponer_directo" ? "Reponer stock" : "Enviar solicitud"}
               </Button>
             </div>
           </>

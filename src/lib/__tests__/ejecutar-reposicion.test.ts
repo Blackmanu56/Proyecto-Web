@@ -174,7 +174,7 @@ describe("ejecutarReposicion", () => {
 
       await expect(
         ejecutarReposicion(tx, params({ cantidad: 1, costoUnitario: 100_000, pagos }))
-      ).rejects.toThrow("No hay una caja abierta");
+      ).rejects.toThrow("No hay una Caja abierta disponible para registrar el pago en efectivo");
       expectNoWrites();
     });
 
@@ -367,7 +367,7 @@ describe("ejecutarReposicion", () => {
 
       await expect(
         ejecutarReposicion(tx, params({ cantidad: 1, costoUnitario: 100_000, pagos }))
-      ).rejects.toThrow("No hay una caja abierta");
+      ).rejects.toThrow("No hay una Caja abierta disponible para registrar el pago en efectivo");
       expectNoWrites();
     });
 

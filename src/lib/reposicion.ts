@@ -98,7 +98,7 @@ function assertCajaSupportsCash(
   if (efectivoCaja <= 0) return;
   if (!cajaAbierta) {
     failBusiness(
-      "No hay una caja abierta. Para utilizar Efectivo de Caja primero debe abrir una caja o seleccionar otro medio de pago."
+      "No hay una Caja abierta disponible para registrar el pago en efectivo."
     );
   }
 

@@ -447,12 +447,17 @@ export default function ProductosTable({
   useEffect(() => {
     if (isModalOpen) {
       getMarcasActivas().then(setActiveMarcas);
-      // Fetch caja balance for payment distribution
+    }
+  }, [isModalOpen]);
+
+  // Fetch caja balance whenever a modal that needs it opens
+  useEffect(() => {
+    if (isModalOpen || solicitarReposicionModal.open) {
+      let cancelled = false;
       getCajaActiva().then(caja => {
+        if (cancelled) return;
         if (caja) {
-          const balance = calcularEfectivoFisico(
-            caja.movimientos
-          ).efectivoEsperado;
+          const balance = calcularEfectivoFisico(caja.movimientos).efectivoEsperado;
           setCajaBalance(balance);
           setCajaAbierta(true);
         } else {
@@ -460,8 +465,9 @@ export default function ProductosTable({
           setCajaAbierta(false);
         }
       });
+      return () => { cancelled = true; };
     }
-  }, [isModalOpen]);
+  }, [isModalOpen, solicitarReposicionModal.open]);
 
   /* Column visibility: close on outside click or Escape */
   useEffect(() => {
@@ -1326,7 +1332,7 @@ export default function ProductosTable({
                     className="flex h-9 w-full items-center justify-center gap-2 rounded-xl border border-[#059669]/40 bg-[#047857] px-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#065F46] focus-visible:outline-2 focus-visible:outline-[#059669]"
                   >
                     <PackagePlus size={15} />
-                    Solicitar reposición
+                    {userRole === "ADMINISTRADOR" ? "Reponer stock" : "Solicitar reposición"}
                   </button>
                 )}
                 <button
@@ -1681,6 +1687,7 @@ export default function ProductosTable({
           cajaBalance={cajaBalance}
           cajaAbierta={cajaAbierta}
           onSuccess={() => router.refresh()}
+          mode={userRole === "ADMINISTRADOR" ? "reponer_directo" : "solicitar"}
         />
       )}
     </div>

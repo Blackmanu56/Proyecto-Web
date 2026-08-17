@@ -254,7 +254,7 @@ describe("payment distribution in product purchases", () => {
 
     const result = await createProducto(productoForm({ cantidad: "2", pagos }));
 
-    expect(result.error).toContain("No hay una caja abierta");
+    expect(result.error).toContain("No hay una Caja abierta");
     expect(mocks.tx.producto.create).not.toHaveBeenCalled();
     expect(mocks.tx.compra.create).not.toHaveBeenCalled();
     expect(mocks.tx.pagoCompra.createMany).not.toHaveBeenCalled();

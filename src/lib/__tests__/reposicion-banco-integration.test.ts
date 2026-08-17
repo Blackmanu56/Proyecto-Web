@@ -184,7 +184,7 @@ describe("Parte 3 — Reposiciones con Banco", () => {
 
     const result = await createProducto(productoForm({ cantidad: "1", pagos }));
 
-    expect(result.error).toContain("No hay una caja abierta");
+    expect(result.error).toContain("No hay una Caja abierta");
     expect(mocks.tx.producto.create).not.toHaveBeenCalled();
     expect(mocks.tx.compra.create).not.toHaveBeenCalled();
     expectNoCajaImpact();
@@ -311,7 +311,7 @@ describe("Parte 3 — Reposiciones con Banco", () => {
 
     const result = await createProducto(productoForm({ cantidad: "1", pagos }));
 
-    expect(result.error).toContain("No hay una caja abierta");
+    expect(result.error).toContain("No hay una Caja abierta");
     expect(mocks.tx.producto.create).not.toHaveBeenCalled();
     expect(mocks.tx.compra.create).not.toHaveBeenCalled();
     expectNoCajaImpact();

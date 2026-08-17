@@ -113,6 +113,66 @@ export async function solicitarReposicion(
   }
 }
 
+// ─── reponerStockDirecto (ADMINISTRADOR only — no SolicitudReposicion) ─────
+
+export async function reponerStockDirecto(
+  productoId: number,
+  input: {
+    cantidad: number;
+    proveedorId: number;
+    origenPago?: OrigenPagoCompraValue;
+    pagos?: PagoValidado[];
+    motivo?: string;
+  }
+) {
+  try {
+    const session = await requireReposicionPermission("productos.reponer");
+
+    const validation = solicitarReposicionSchema.safeParse(input);
+    if (!validation.success) {
+      failBusiness(validation.error.errors[0].message);
+    }
+
+    const { cantidad, proveedorId, origenPago, pagos } = validation.data;
+
+    const resultado = await prisma.$transaction(async (tx) => {
+      const producto = await tx.producto.findUnique({ where: { id: productoId } });
+      if (!producto) failBusiness("Producto no encontrado");
+      if (!producto.activo) failBusiness("No se pueden reposicionar productos inactivos");
+
+      const txTyped = tx as unknown as ReposicionTx;
+      const resultado = await ejecutarReposicion(txTyped, {
+        productoId,
+        nombreProducto: producto.nombre,
+        cantidad,
+        costoUnitario: producto.precioCompra,
+        proveedorId,
+        origenPago: origenPago as OrigenPagoCompraValue,
+        pagos: pagos as PagoValidado[] | undefined,
+        usuarioId: session.userId,
+        descripcionPrefijo: `Reposición directa de '${producto.nombre}'`,
+      });
+
+      // Increment product stock
+      await tx.producto.update({
+        where: { id: productoId },
+        data: { cantidad: producto.cantidad + cantidad },
+      });
+
+      return resultado;
+    });
+
+    revalidatePath("/productos");
+    if (resultado.cajaMovimientoCreado || resultado.bancoMovimientoCreado) {
+      revalidatePath("/caja");
+    }
+    return { success: true };
+  } catch (error: unknown) {
+    console.error("Error en reponerStockDirecto:", error);
+    return { error: reposicionActionError(error) };
+  }
+}
+
 // ─── aprobarReposicion ────────────────────────────────────────────────────
 
 export async function aprobarReposicion(id: number) {

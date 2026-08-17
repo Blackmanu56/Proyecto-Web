@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockGetSession = vi.fn();
-const mockDelete = vi.fn();
+const mockCookiesDelete = vi.fn();
 
 vi.mock("next/headers", () => ({
   cookies: vi.fn(() => ({
-    delete: (...args: unknown[]) => mockDelete(...args),
+    delete: (...args: unknown[]) => mockCookiesDelete(...args),
   })),
 }));
 
@@ -21,24 +21,28 @@ describe("POST /api/logout", () => {
     vi.clearAllMocks();
   });
 
-  it("deletes cookie and returns { ok: true } when session exists", async () => {
+  it("deletes cookie on response and returns { ok: true } when session exists", async () => {
     mockGetSession.mockResolvedValue({ userId: 1, username: "admin", role: "ADMINISTRADOR" });
 
     const res = await POST();
     const body = await res.json();
 
     expect(body.ok).toBe(true);
-    expect(mockDelete).toHaveBeenCalledWith("session");
+    // The fix: cookie is deleted on the NextResponse object, not via cookies() API
+    const setCookieHeader = res.headers.get("set-cookie");
+    expect(setCookieHeader).toContain("session");
   });
 
-  it("returns { ok: true } without deleting when no session", async () => {
+  it("returns { ok: true } without deleting cookie when no session", async () => {
     mockGetSession.mockResolvedValue(null);
 
     const res = await POST();
     const body = await res.json();
 
     expect(body.ok).toBe(true);
-    expect(mockDelete).not.toHaveBeenCalled();
+    const setCookieHeader = res.headers.get("set-cookie");
+    // No Set-Cookie header when session is null
+    expect(setCookieHeader).toBeNull();
   });
 
   it("deletes cookie even when session throws (invalid/expired token)", async () => {
@@ -48,6 +52,7 @@ describe("POST /api/logout", () => {
     const body = await res.json();
 
     expect(body.ok).toBe(true);
-    expect(mockDelete).toHaveBeenCalledWith("session");
+    const setCookieHeader = res.headers.get("set-cookie");
+    expect(setCookieHeader).toContain("session");
   });
 });
