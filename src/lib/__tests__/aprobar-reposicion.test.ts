@@ -163,7 +163,7 @@ describe("aprobarReposicion", () => {
     expect(mocks.tx.producto.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: 10 },
-        data: expect.objectContaining({ cantidad: 15 }),
+        data: expect.objectContaining({ cantidad: { increment: 5 } }),
       })
     );
     // MovimientoCaja created (EFECTIVO_CAJA)
@@ -210,12 +210,43 @@ describe("aprobarReposicion", () => {
 
   it("rejects for users without permission", async () => {
     mocks.requirePermission.mockRejectedValueOnce(
-      new Error("No tiene permisos para realizar esta acci?n.")
+      new Error("No tiene permisos para realizar esta acción.")
     );
 
     const result = await aprobarReposicion(100);
 
-    expect(result.error).toBe("No tiene permisos para realizar esta acci?n.");
+    expect(result.error).toBe("No tiene permisos para realizar esta acción.");
     expect(mocks.tx.compra.create).not.toHaveBeenCalled();
+  });
+
+  it("uses atomic increment for stock update", async () => {
+    await aprobarReposicion(100);
+
+    expect(mocks.tx.producto.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 10 },
+        data: expect.objectContaining({ cantidad: { increment: 5 } }),
+      })
+    );
+  });
+
+  it("rejects approval when product is inactive", async () => {
+    setupMocks(
+      solicitudPendiente({
+        producto: {
+          id: 10,
+          nombre: "Kit transmisión",
+          precioCompra: 100,
+          cantidad: 10,
+          activo: false,
+        },
+      })
+    );
+
+    const result = await aprobarReposicion(100);
+
+    expect(result.error).toBe("Producto inactivo.");
+    expect(mocks.tx.compra.create).not.toHaveBeenCalled();
+    expect(mocks.tx.producto.update).not.toHaveBeenCalled();
   });
 });

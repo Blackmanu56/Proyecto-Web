@@ -108,7 +108,7 @@ describe("getSolicitudesReposicion", () => {
 
   it("rejects for users without any reposicion permission", async () => {
     mocks.requirePermission.mockRejectedValue(
-      new Error("No tiene permisos para realizar esta acci?n.")
+      new Error("No tiene permisos para realizar esta acción.")
     );
 
     const result = await getSolicitudesReposicion();
@@ -125,7 +125,7 @@ describe("getSolicitudesReposicion", () => {
     };
     mocks.getSession.mockResolvedValue(encargadoSession);
     mocks.requirePermission
-      .mockRejectedValueOnce(new Error("No tiene permisos para realizar esta acci?n."))
+      .mockRejectedValueOnce(new Error("No tiene permisos para realizar esta acción."))
       .mockResolvedValueOnce(encargadoSession);
     mocks.findMany.mockResolvedValue([{ id: 1, solicitanteId: 5 }]);
 

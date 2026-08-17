@@ -211,7 +211,7 @@ describe("solicitarReposicion", () => {
 
   it("returns error for users without productos.reponer", async () => {
     mocks.requirePermission.mockRejectedValueOnce(
-      new Error("No tiene permisos para realizar esta acci?n.")
+      new Error("No tiene permisos para realizar esta acción.")
     );
 
     const result = await solicitarReposicion(10, {
@@ -220,7 +220,7 @@ describe("solicitarReposicion", () => {
       origenPago: "EFECTIVO_CAJA",
     });
 
-    expect(result.error).toBe("No tiene permisos para realizar esta acci?n.");
+    expect(result.error).toBe("No tiene permisos para realizar esta acción.");
     expect(mocks.tx.solicitudReposicion.create).not.toHaveBeenCalled();
   });
 

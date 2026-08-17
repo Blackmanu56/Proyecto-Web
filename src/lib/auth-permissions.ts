@@ -57,7 +57,7 @@ export async function requirePermission(
 
   if (freshSession.role === "ADMINISTRADOR") return freshSession;
   if (!freshSession.permissions.includes(permission)) {
-    throw new Error("No tiene permisos para realizar esta acci?n.");
+    throw new Error("No tiene permisos para realizar esta acción.");
   }
 
   return freshSession;

@@ -55,7 +55,6 @@ const EXPECTED_PRODUCT_PERMISSION_ERRORS = new Set([
   "No autenticado.",
   "Usuario inactivo o no encontrado.",
   "Rol inactivo o sin permisos vigentes.",
-  "No tiene permisos para realizar esta acci?n.",
   "No tiene permisos para realizar esta acción.",
 ]);
 
@@ -87,6 +86,7 @@ export async function getProductos(
   categoriaId?: number,
   activo?: boolean
 ) {
+  await requirePermission("productos.ver", await getSession());
   try {
     const whereClause: Prisma.ProductoWhereInput = {};
 
@@ -414,6 +414,7 @@ export async function reactivarProducto(id: number, observacion?: string) {
  * Obtener historial de estados de un producto
  */
 export async function getHistorialEstado(productoId: number) {
+  await requirePermission("productos.historial", await getSession());
   try {
     const historial = await prisma.historialEstado.findMany({
       where: { productoId },
@@ -516,34 +517,42 @@ export async function restarStock(
 ) {
   const session = await requirePermission("productos.restar_stock", await getSession());
 
+  if (!Number.isInteger(productoId) || productoId <= 0) {
+    throw new Error("El ID del producto debe ser un número entero válido.");
+  }
+  if (!Number.isInteger(cantidad)) {
+    throw new Error("La cantidad debe ser un número entero válido.");
+  }
   if (cantidad <= 0) {
     throw new Error("La cantidad debe ser mayor a 0.");
   }
 
   try {
     const result = await prisma.$transaction(async (tx) => {
-      const producto = await tx.producto.findUnique({
-        where: { id: productoId },
+      // Atomic decrement — only succeeds when cantidad >= requested amount
+      const updateResult = await tx.producto.updateMany({
+        where: { id: productoId, cantidad: { gte: cantidad } },
+        data: { cantidad: { decrement: cantidad } },
       });
 
-      if (!producto) {
-        throw new Error("Producto no encontrado.");
-      }
-
-      if (producto.cantidad < cantidad) {
+      if (updateResult.count === 0) {
+        // Determine why: not found, inactive, or insufficient stock
+        const producto = await tx.producto.findUnique({ where: { id: productoId } });
+        if (!producto) {
+          throw new Error("Producto no encontrado.");
+        }
+        if (!producto.activo) {
+          throw new Error("Producto inactivo.");
+        }
         throw new Error(
           `Stock insuficiente. Stock actual: ${producto.cantidad} unidades.`
         );
       }
 
-      const stockAnterior = producto.cantidad;
-      const stockNuevo = stockAnterior - cantidad;
-
-      // Actualizar stock
-      await tx.producto.update({
-        where: { id: productoId },
-        data: { cantidad: stockNuevo },
-      });
+      // Re-read for historial values (safe inside single transaction)
+      const producto = await tx.producto.findUnique({ where: { id: productoId } });
+      const stockNuevo = producto!.cantidad;
+      const stockAnterior = stockNuevo + cantidad;
 
       // Registrar en historial de estados
       await tx.historialEstado.create({
@@ -557,7 +566,7 @@ export async function restarStock(
         },
       });
 
-      return { producto, stockAnterior, stockNuevo };
+      return { stockAnterior, stockNuevo };
     });
 
     revalidatePath("/productos");

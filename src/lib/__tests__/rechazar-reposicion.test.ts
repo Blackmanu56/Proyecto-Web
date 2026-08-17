@@ -127,12 +127,12 @@ describe("rechazarReposicion", () => {
 
   it("rejects for users without permission", async () => {
     mocks.requirePermission.mockRejectedValueOnce(
-      new Error("No tiene permisos para realizar esta acci?n.")
+      new Error("No tiene permisos para realizar esta acción.")
     );
 
     const result = await rechazarReposicion(100, "Motivo");
 
-    expect(result.error).toBe("No tiene permisos para realizar esta acci?n.");
+    expect(result.error).toBe("No tiene permisos para realizar esta acción.");
     expect(mocks.tx.solicitudReposicion.update).not.toHaveBeenCalled();
   });
 });

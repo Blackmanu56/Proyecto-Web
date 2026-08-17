@@ -233,11 +233,11 @@ describe("updateProducto", () => {
   });
 
   it("returns a visible error for users without product edit permission", async () => {
-    mocks.requirePermission.mockRejectedValueOnce(new Error("No tiene permisos para realizar esta acci?n."));
+    mocks.requirePermission.mockRejectedValueOnce(new Error("No tiene permisos para realizar esta acción."));
 
     const result = await updateProducto(10, productoForm());
 
-    expect(result.error).toBe("No tiene permisos para realizar esta acci?n.");
+    expect(result.error).toBe("No tiene permisos para realizar esta acción.");
     expect(mocks.transaction).not.toHaveBeenCalled();
   });
 

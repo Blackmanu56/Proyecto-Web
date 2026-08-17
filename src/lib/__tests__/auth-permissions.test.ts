@@ -115,7 +115,7 @@ describe("requirePermission", () => {
     }));
 
     await expect(requirePermission("ventas.crear", staleSession)).rejects.toThrow(
-      "No tiene permisos para realizar esta acci?n."
+      "No tiene permisos para realizar esta acción."
     );
   });
 

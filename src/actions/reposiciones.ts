@@ -25,7 +25,6 @@ const EXPECTED_REPOSICION_ERRORS = new Set([
   "No autenticado.",
   "Usuario inactivo o no encontrado.",
   "Rol inactivo o sin permisos vigentes.",
-  "No tiene permisos para realizar esta acci?n.",
   "No tiene permisos para realizar esta acción.",
 ]);
 
@@ -158,7 +157,7 @@ export async function reponerStockDirecto(
       // Increment product stock
       await tx.producto.update({
         where: { id: productoId },
-        data: { cantidad: producto.cantidad + cantidad },
+        data: { cantidad: { increment: cantidad } },
       });
 
       return resultado;
@@ -195,6 +194,9 @@ export async function aprobarReposicion(id: number) {
           `La solicitud está en estado "${solicitud.estado}". Solo se pueden aprobar solicitudes pendientes.`
         );
       }
+      if (!solicitud.producto.activo) {
+        failBusiness("Producto inactivo.");
+      }
 
       // Re-validate pagos snapshot with zod (D5)
       let validatedPagos: PagoValidado[] | undefined;
@@ -219,7 +221,7 @@ export async function aprobarReposicion(id: number) {
       // Increment product stock
       await tx.producto.update({
         where: { id: solicitud.productoId },
-        data: { cantidad: solicitud.producto.cantidad + solicitud.cantidad },
+        data: { cantidad: { increment: solicitud.cantidad } },
       });
 
       // Mark solicitud as APROBADA
@@ -354,7 +356,7 @@ export async function crearYaprobarReposicion(
       // Increment product stock
       await tx.producto.update({
         where: { id: productoId },
-        data: { cantidad: producto.cantidad + cantidad },
+        data: { cantidad: { increment: cantidad } },
       });
 
       // Mark solicitud as APROBADA
