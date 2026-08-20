@@ -18,6 +18,8 @@ import {
   PackageCheck,
   PackageX,
   AlertTriangle,
+  Truck,
+  ListFilter,
 } from "lucide-react";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import CrearPedidoModal from "@/components/ui/CrearPedidoModal";
@@ -206,6 +208,104 @@ function StockFilterSelect({
   );
 }
 
+/* ────────────────────── Proveedor Filter Select ────────────────────── */
+
+const PROVEEDOR_TONE = {
+  trigger: "border-[#3B82F6]/25 hover:border-[#3B82F6]/60 focus-visible:border-[#3B82F6] focus-visible:ring-[#3B82F6]/20 data-[state=open]:border-[#3B82F6]/70 data-[state=open]:ring-[#3B82F6]/20",
+  icon: "bg-[#3B82F6]/15 text-[#60A5FA] ring-[#3B82F6]/20",
+  content: "border-[#3B82F6]/30",
+  itemFocus: "focus:bg-[#3B82F6]/10",
+  selected: "data-[state=checked]:bg-[#3B82F6]/12 data-[state=checked]:text-[#93C5FD]",
+  check: "text-[#60A5FA]",
+  chevron: "text-[#60A5FA]",
+};
+
+function ProveedorFilterSelect({
+  value,
+  onValueChange,
+  options,
+}: {
+  value: string;
+  onValueChange: (v: string) => void;
+  options: { id: number; nombre: string }[];
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+        Proveedor
+      </label>
+      <SelectPrimitive.Root value={value} onValueChange={onValueChange}>
+        <SelectPrimitive.Trigger
+          className={cn(
+            "group flex h-10 min-w-[180px] items-center justify-between gap-2 rounded-xl border bg-[var(--bg)] py-2 pl-2 pr-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200 focus-visible:ring-2",
+            PROVEEDOR_TONE.trigger
+          )}
+          aria-label="Filtro de proveedor"
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <span className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ring-1", PROVEEDOR_TONE.icon)}>
+              <Truck size={14} />
+            </span>
+            <SelectPrimitive.Value />
+          </span>
+          <SelectPrimitive.Icon asChild>
+            <svg className={cn("h-3.5 w-3.5 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180", PROVEEDOR_TONE.chevron)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6" /></svg>
+          </SelectPrimitive.Icon>
+        </SelectPrimitive.Trigger>
+        <SelectPrimitive.Portal>
+          <SelectPrimitive.Content
+            position="popper"
+            sideOffset={6}
+            align="start"
+            className={cn(
+              "z-50 max-h-72 w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border bg-[var(--panel)] p-1.5 shadow-[var(--shadow-lg)] ring-1 ring-white/5 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+              PROVEEDOR_TONE.content
+            )}
+          >
+            <SelectPrimitive.Viewport className="max-h-64 overflow-y-auto pr-1 [scrollbar-width:thin] [scrollbar-color:var(--border)_transparent]">
+              <SelectPrimitive.Item
+                value="all"
+                className={cn(
+                  "relative flex h-9 w-full cursor-pointer select-none items-center gap-2 rounded-xl px-2.5 pr-8 text-sm text-[var(--text)] outline-none transition-colors duration-150 whitespace-nowrap data-[state=checked]:font-bold",
+                  PROVEEDOR_TONE.itemFocus,
+                  PROVEEDOR_TONE.selected
+                )}
+              >
+                <ListFilter size={14} className="shrink-0 opacity-85" />
+                <SelectPrimitive.ItemText>
+                  <span className="whitespace-nowrap">Todos los proveedores</span>
+                </SelectPrimitive.ItemText>
+                <SelectPrimitive.ItemIndicator className="absolute right-2 flex h-5 w-5 items-center justify-center">
+                  <svg className={cn("h-3.5 w-3.5", PROVEEDOR_TONE.check)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6"><path d="M20 6 9 17l-5-5" /></svg>
+                </SelectPrimitive.ItemIndicator>
+              </SelectPrimitive.Item>
+              {options.map((prov) => (
+                <SelectPrimitive.Item
+                  key={prov.id}
+                  value={String(prov.id)}
+                  className={cn(
+                    "relative flex h-9 w-full cursor-pointer select-none items-center gap-2 rounded-xl px-2.5 pr-8 text-sm text-[var(--text)] outline-none transition-colors duration-150 whitespace-nowrap data-[state=checked]:font-bold",
+                    PROVEEDOR_TONE.itemFocus,
+                    PROVEEDOR_TONE.selected
+                  )}
+                >
+                  <Truck size={14} className="shrink-0 opacity-85" />
+                  <SelectPrimitive.ItemText>
+                    <span className="whitespace-nowrap">{prov.nombre}</span>
+                  </SelectPrimitive.ItemText>
+                  <SelectPrimitive.ItemIndicator className="absolute right-2 flex h-5 w-5 items-center justify-center">
+                    <svg className={cn("h-3.5 w-3.5", PROVEEDOR_TONE.check)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6"><path d="M20 6 9 17l-5-5" /></svg>
+                  </SelectPrimitive.ItemIndicator>
+                </SelectPrimitive.Item>
+              ))}
+            </SelectPrimitive.Viewport>
+          </SelectPrimitive.Content>
+        </SelectPrimitive.Portal>
+      </SelectPrimitive.Root>
+    </div>
+  );
+}
+
 /* ────────────────────── Component ────────────────────── */
 
 export default function PedidosTable({
@@ -377,21 +477,11 @@ export default function PedidosTable({
       emptyIcon={<Package size={32} className="opacity-40" />}
       actions={
         <div className="flex flex-wrap items-end gap-3">
-          <div className="flex flex-col gap-1">
-            <label className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
-              Proveedor
-            </label>
-            <select
-              value={proveedorFilter}
-              onChange={(e) => setProveedorFilter(e.target.value)}
-              className="h-10 min-w-[180px] px-3 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] text-sm font-semibold focus:outline-none focus:border-[var(--brand)] transition-colors shadow-[var(--shadow-sm)]"
-            >
-              <option value="all">Todos los proveedores</option>
-              {proveedoresEnUso.map((p) => (
-                <option key={p.id} value={p.id}>{p.nombre}</option>
-              ))}
-            </select>
-          </div>
+          <ProveedorFilterSelect
+            value={proveedorFilter}
+            onValueChange={setProveedorFilter}
+            options={proveedoresEnUso}
+          />
           <StockFilterSelect
             value={stockFilter}
             onValueChange={(v) => setStockFilter(v as typeof stockFilter)}
