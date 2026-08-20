@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import Avatar from "@/components/ui/Avatar";
 import { EmployeePanel } from "@/components/ui/employee-panel";
+import NotificationBell from "@/components/layout/NotificationBell";
 import {
   LogOut,
   LayoutDashboard,
@@ -163,6 +164,9 @@ export default function Navbar({ user }: NavbarProps) {
 
             {/* Separator */}
             <div className="hidden xl:block w-px h-10 bg-gradient-to-b from-transparent via-white/18 to-transparent shadow-[0_0_8px_rgba(255,255,255,0.08)]" />
+
+            {/* Notification Bell */}
+            <NotificationBell />
 
             {/* User block */}
             {user && (

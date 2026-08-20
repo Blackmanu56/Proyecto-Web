@@ -14,6 +14,7 @@ import {
   pagoSchema,
   validarReposicion,
 } from "@/lib/reposicion";
+import { registrarMovimiento } from "@/lib/movimiento-producto";
 
 const productoSchema = z.object({
   nombre: z.string().min(2, "El nombre del producto debe tener al menos 2 caracteres"),
@@ -191,6 +192,7 @@ export async function createProducto(formData: FormData) {
       // 2. Si se inicializa con stock > 0, registrar compra contable y egreso de caja
       let cajaMovimientoCreado = false;
       let bancoMovimientoCreado = false;
+      let compraId: number | undefined;
       if (validation.data.cantidad > 0 && reposicionValidada) {
         const resultado = await ejecutarReposicionEscrituras(
           tx,
@@ -209,6 +211,20 @@ export async function createProducto(formData: FormData) {
         );
         cajaMovimientoCreado = resultado.cajaMovimientoCreado;
         bancoMovimientoCreado = resultado.bancoMovimientoCreado;
+        compraId = resultado.compraId;
+      }
+
+      // Audit: register stock creation movement
+      if (validation.data.cantidad > 0) {
+        await registrarMovimiento(tx, {
+          productoId: p.id,
+          tipo: "COMPRA",
+          cantidadAnterior: 0,
+          cantidadNueva: validation.data.cantidad,
+          compraId,
+          motivo: `Stock inicial de '${validation.data.nombre}'`,
+          usuarioId: session.userId,
+        });
       }
 
       return { producto: p, cajaMovimientoCreado, bancoMovimientoCreado };
@@ -231,7 +247,7 @@ export async function createProducto(formData: FormData) {
  */
 export async function updateProducto(id: number, formData: FormData) {
   try {
-    await requireProductoPermission("productos.editar");
+    const session = await requireProductoPermission("productos.editar");
 
     const rawData = {
       nombre: formData.get("nombre") as string,
@@ -272,7 +288,7 @@ export async function updateProducto(id: number, formData: FormData) {
       }
 
       // 1. Modificar producto en BD — el stock se mantiene (edit-only, D4)
-      return tx.producto.update({
+      const productoActualizado = await tx.producto.update({
         where: { id },
         data: {
           nombre: validation.data.nombre,
@@ -287,6 +303,29 @@ export async function updateProducto(id: number, formData: FormData) {
           stockMinimo: validation.data.stockMinimo,
         },
       });
+
+      // Audit: compute field changes and register edit movement
+      const cambios: Array<{ campo: string; anterior: unknown; nuevo: unknown }> = [];
+      for (const [key, value] of Object.entries(validation.data)) {
+        const prev = productoPrevio[key as keyof typeof productoPrevio];
+        if (prev !== value) {
+          cambios.push({ campo: key, anterior: prev, nuevo: value });
+        }
+      }
+
+      if (cambios.length > 0) {
+        await registrarMovimiento(tx, {
+          productoId: id,
+          tipo: "EDICION",
+          cantidadAnterior: productoPrevio.cantidad,
+          cantidadNueva: productoPrevio.cantidad,
+          motivo: "Edición de producto",
+          cambios,
+          usuarioId: session.userId,
+        });
+      }
+
+      return productoActualizado;
     });
 
     revalidatePath("/productos");
@@ -434,6 +473,28 @@ export async function getHistorialEstado(productoId: number) {
 }
 
 /**
+ * Obtener movimientos de stock de un producto
+ */
+export async function getMovimientosProducto(productoId: number) {
+  await requirePermission("productos.historial", await getSession());
+  try {
+    const movimientos = await prisma.movimientoProducto.findMany({
+      where: { productoId },
+      include: {
+        usuario: {
+          select: { id: true, username: true, nombreCompleto: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    return movimientos;
+  } catch (error) {
+    console.error("Error en getMovimientosProducto:", error);
+    return [];
+  }
+}
+
+/**
  * Asignar marcas automáticamente a productos existentes basándose en el nombre.
  * Crea marcas nuevas si no existen.
  */
@@ -564,6 +625,17 @@ export async function restarStock(
           observacion: `[RESTAR STOCK] Motivo: ${motivo}. Cantidad descontada: ${cantidad}. Stock anterior: ${stockAnterior}. Stock nuevo: ${stockNuevo}${observacion ? `. Observación: ${observacion}` : ""}`,
           usuarioId: session.userId,
         },
+      });
+
+      // Audit: register manual stock reduction
+      await registrarMovimiento(tx, {
+        productoId,
+        tipo: "RESTA_MANUAL",
+        cantidadAnterior: stockAnterior,
+        cantidadNueva: stockNuevo,
+        motivo,
+        observacion,
+        usuarioId: session.userId,
       });
 
       return { stockAnterior, stockNuevo };

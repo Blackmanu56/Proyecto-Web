@@ -40,6 +40,32 @@ enum TipoMovimientoFinanciero {
   EGRESO
 }
 
+enum TipoMovimientoProducto {
+  COMPRA
+  VENTA
+  RESTA_MANUAL
+  EDICION
+  REPOSICION_DIRECTA
+  REPOSICION_APROBADA
+}
+
+enum TipoSolicitudStock {
+  RESTA
+  REPOSICION
+}
+
+enum EstadoSolicitud {
+  PENDIENTE
+  APROBADA
+  RECHAZADA
+}
+
+enum TipoNotificacion {
+  SOLICITUD_CREADA
+  SOLICITUD_APROBADA
+  SOLICITUD_RECHAZADA
+}
+
 model PagoCompra {
   id          Int      @id @default(autoincrement())
   compraId    Int      @map("compra_id")
@@ -81,10 +107,14 @@ model Usuario {
   favoritos              ProductoFavorito[]
   historialEstados       HistorialEstado[]
   movimientosFinancieros MovimientoFinanciero[]
+  movimientosProducto    MovimientoProducto[]
   rol                    Rol                    @relation(fields: [rolId], references: [id])
   ventas                 Venta[]
-  solicitudesSolicitante SolicitudReposicion[]  @relation("solicitudesSolicitante")
-  solicitudesAprobador   SolicitudReposicion[]  @relation("solicitudesAprobador")
+  solicitudesSolicitante     SolicitudReposicion[]  @relation("solicitudesSolicitante")
+  solicitudesAprobador       SolicitudReposicion[]  @relation("solicitudesAprobador")
+  solicitudesStockCreadas    SolicitudStock[]       @relation("SolicitudStockSolicitante")
+  solicitudesStockResueltas  SolicitudStock[]       @relation("SolicitudStockResuelto")
+  notificaciones             Notificacion[]
 
   @@map("usuarios")
 }
@@ -163,7 +193,9 @@ model Producto {
   marcaRelacionada      Marca?                @relation(fields: [marcaId], references: [id])
   favoritos             ProductoFavorito[]
   historialEstados      HistorialEstado[]
+  movimientosProducto   MovimientoProducto[]
   solicitudesReposicion SolicitudReposicion[]
+  solicitudesStock      SolicitudStock[]
 
   @@map("productos")
 }
@@ -192,6 +224,7 @@ model Venta {
   detalles               DetalleVenta[]
   movimientos            MovimientoCaja[]
   movimientosFinancieros MovimientoFinanciero[]
+  movimientosProducto    MovimientoProducto[]
   cliente                Cliente                @relation(fields: [clienteId], references: [id])
   usuario                Usuario                @relation(fields: [usuarioId], references: [id])
 
@@ -259,6 +292,7 @@ model Compra {
   movimientos            MovimientoCaja[]
   pagos                  PagoCompra[]
   movimientosFinancieros MovimientoFinanciero[]
+  movimientosProducto    MovimientoProducto[]
   solicitudReposicion    SolicitudReposicion?
 
   @@map("compras")
@@ -303,6 +337,51 @@ model SolicitudReposicion {
   @@index([estado, createdAt])
   @@index([productoId])
   @@map("solicitudes_reposicion")
+}
+
+model SolicitudStock {
+  id                     Int                 @id @default(autoincrement())
+  productoId             Int
+  tipo                   TipoSolicitudStock
+  cantidad               Int
+  stockAnterior          Int
+  motivo                 String
+  estado                 EstadoSolicitud     @default(PENDIENTE)
+  solicitanteId          Int
+  resueltoPorId          Int?
+  observacionResolucion  String?
+  createdAt              DateTime            @default(now())
+  resolvedAt             DateTime?
+
+  producto               Producto            @relation(fields: [productoId], references: [id], onDelete: Restrict)
+  solicitante            Usuario             @relation("SolicitudStockSolicitante", fields: [solicitanteId], references: [id], onDelete: Restrict)
+  resueltoPor            Usuario?            @relation("SolicitudStockResuelto", fields: [resueltoPorId], references: [id], onDelete: SetNull)
+  notificaciones         Notificacion[]
+
+  @@index([productoId])
+  @@index([solicitanteId])
+  @@index([estado])
+  @@index([createdAt])
+  @@map("solicitudes_stock")
+}
+
+model Notificacion {
+  id                 Int                 @id @default(autoincrement())
+  usuarioId          Int
+  tipo               TipoNotificacion
+  titulo             String
+  mensaje            String
+  solicitudStockId   Int?
+  leida              Boolean             @default(false)
+  createdAt          DateTime            @default(now())
+  readAt             DateTime?
+
+  usuario            Usuario             @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  solicitudStock     SolicitudStock?     @relation(fields: [solicitudStockId], references: [id], onDelete: SetNull)
+
+  @@index([usuarioId, leida])
+  @@index([createdAt])
+  @@map("notificaciones")
 }
 
 model ProductoFavorito {
@@ -369,4 +448,29 @@ model MovimientoFinanciero {
   @@index([ventaId])
   @@index([compraId])
   @@map("movimientos_financieros")
+}
+
+model MovimientoProducto {
+  id               Int                    @id @default(autoincrement())
+  productoId       Int                    @map("producto_id")
+  usuarioId        Int                    @map("usuario_id")
+  tipo             TipoMovimientoProducto
+  cantidadAnterior Int                    @map("cantidad_anterior")
+  cantidadNueva    Int                    @map("cantidad_nueva")
+  compraId         Int?                   @map("compra_id")
+  ventaId          Int?                   @map("venta_id")
+  motivo           String
+  observacion      String?
+  cambios          Json?
+  createdAt        DateTime               @default(now()) @map("created_at")
+
+  producto         Producto               @relation(fields: [productoId], references: [id], onDelete: Restrict)
+  usuario          Usuario                @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  compra           Compra?                @relation(fields: [compraId], references: [id])
+  venta            Venta?                 @relation(fields: [ventaId], references: [id])
+
+  @@index([productoId, createdAt])
+  @@index([usuarioId])
+  @@index([tipo])
+  @@map("movimientos_producto")
 }

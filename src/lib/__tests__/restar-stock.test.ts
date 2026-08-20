@@ -9,6 +9,9 @@ const mocks = vi.hoisted(() => {
     historialEstado: {
       create: vi.fn(),
     },
+    movimientoProducto: {
+      create: vi.fn().mockResolvedValue({ id: 1 }),
+    },
   };
 
   return {

@@ -20,6 +20,8 @@ export const PERMISSIONS = {
       { key: "productos.categorias", label: "Administrar categorías" },
       { key: "productos.marcas", label: "Administrar marcas" },
       { key: "productos.historial", label: "Ver historial" },
+      { key: "productos.solicitar_stock", label: "Solicitar modificación de stock" },
+      { key: "productos.aprobar_solicitud_stock", label: "Aprobar solicitud de stock" },
     ],
   },
   ventas: {
@@ -107,7 +109,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   ],
   ENCARGADO_STOCK: [
     "dashboard.ver",
-    "productos.ver", "productos.crear", "productos.editar", "productos.estado", "productos.restar_stock", "productos.reponer", "productos.categorias", "productos.marcas", "productos.historial",
+    "productos.ver", "productos.crear", "productos.editar", "productos.estado", "productos.restar_stock", "productos.reponer", "productos.categorias", "productos.marcas", "productos.historial", "productos.solicitar_stock",
     "proveedores.ver", "proveedores.crear", "proveedores.editar", "proveedores.estado",
     "informes.ver", "informes.productos", "informes.proveedores",
   ],

@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import DarBajaModal from "@/components/ui/DarBajaModal";
 import { Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle } from "@/components/ui/dialog";
 import { FormField } from "@/components/ui/form-field";
-import HistorialModal from "@/components/ui/HistorialModal";
+import MovimientoProductoModal from "@/components/ui/MovimientoProductoModal";
 import { Input } from "@/components/ui/input";
 import { PaymentDistribution, PaymentMethod } from "@/components/ui/PaymentDistribution";
 import ReactivarModal from "@/components/ui/ReactivarModal";
@@ -1606,7 +1606,7 @@ export default function ProductosTable({
       )}
 
       {historialModal.product && (
-        <HistorialModal
+        <MovimientoProductoModal
           open={historialModal.open}
           onOpenChange={(open) => setHistorialModal({ open, product: open ? historialModal.product : null })}
           productoId={historialModal.product.id}

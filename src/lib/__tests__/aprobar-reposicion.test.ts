@@ -29,6 +29,9 @@ const mocks = vi.hoisted(() => {
     pagoCompra: {
       createMany: vi.fn(),
     },
+    movimientoProducto: {
+      create: vi.fn().mockResolvedValue({ id: 1 }),
+    },
   };
 
   return {

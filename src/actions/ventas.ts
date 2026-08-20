@@ -8,6 +8,7 @@ import { formatTipoComprobante } from "@/lib/movimiento-format";
 import { validateVentaPayload } from "@/lib/ventas-validation";
 import { resolverDestinoFinanciero } from "@/lib/cuenta-financiera";
 import type { DestinoFinanciero } from "@/lib/cuenta-financiera";
+import { registrarMovimiento } from "@/lib/movimiento-producto";
 
 interface VentaItem {
   productoId: number;
@@ -153,6 +154,11 @@ export async function createVenta(
 
       let totalVenta = 0.0;
       const detallesAGuardar = [];
+      const movimientosPendientes = [] as Array<{
+        productoId: number;
+        cantidadAnterior: number;
+        cantidadNueva: number;
+      }>;
 
       // 2. Validar existencias y calcular costos/precios desde la base
       for (const item of ventaInput.items) {
@@ -180,6 +186,13 @@ export async function createVenta(
         await tx.producto.update({
           where: { id: item.productoId },
           data: { cantidad: { decrement: item.cantidad } },
+        });
+
+        // Capture movement for batch registration after venta creation
+        movimientosPendientes.push({
+          productoId: item.productoId,
+          cantidadAnterior: prod.cantidad,
+          cantidadNueva: prod.cantidad - item.cantidad,
         });
 
         const subtotal = item.cantidad * precioVenta;
@@ -252,6 +265,19 @@ export async function createVenta(
           },
         },
       });
+
+      // Audit: register stock movement per item with ventaId
+      for (const mov of movimientosPendientes) {
+        await registrarMovimiento(tx, {
+          productoId: mov.productoId,
+          tipo: "VENTA",
+          cantidadAnterior: mov.cantidadAnterior,
+          cantidadNueva: mov.cantidadNueva,
+          ventaId: venta.id,
+          motivo: `Venta N° ${venta.id}`,
+          usuarioId: session.userId,
+        });
+      }
 
       // Solo el efectivo físico genera MovimientoCaja. Los demás medios siguen
       // siendo ventas económicas, sin cajaId artificial ni movimientos neutros.

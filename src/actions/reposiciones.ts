@@ -15,6 +15,7 @@ import {
   type ReposicionTx,
 } from "@/lib/reposicion";
 import type { OrigenPagoCompraValue } from "@/lib/caja-ajuste";
+import { registrarMovimiento } from "@/lib/movimiento-producto";
 
 // ─── Shared error handling ────────────────────────────────────────────────
 
@@ -160,6 +161,17 @@ export async function reponerStockDirecto(
         data: { cantidad: { increment: cantidad } },
       });
 
+      // Audit: register direct restock movement
+      await registrarMovimiento(tx, {
+        productoId,
+        tipo: "REPOSICION_DIRECTA",
+        cantidadAnterior: producto.cantidad,
+        cantidadNueva: producto.cantidad + cantidad,
+        compraId: resultado.compraId,
+        motivo: `Reposición directa de '${producto.nombre}'`,
+        usuarioId: session.userId,
+      });
+
       return resultado;
     });
 
@@ -222,6 +234,17 @@ export async function aprobarReposicion(id: number) {
       await tx.producto.update({
         where: { id: solicitud.productoId },
         data: { cantidad: { increment: solicitud.cantidad } },
+      });
+
+      // Audit: register approved restock movement
+      await registrarMovimiento(tx, {
+        productoId: solicitud.productoId,
+        tipo: "REPOSICION_APROBADA",
+        cantidadAnterior: solicitud.producto.cantidad,
+        cantidadNueva: solicitud.producto.cantidad + solicitud.cantidad,
+        compraId: resultado.compraId,
+        motivo: `Reposición aprobada — ${solicitud.producto.nombre}`,
+        usuarioId: session.userId,
       });
 
       // Mark solicitud as APROBADA
@@ -357,6 +380,17 @@ export async function crearYaprobarReposicion(
       await tx.producto.update({
         where: { id: productoId },
         data: { cantidad: { increment: cantidad } },
+      });
+
+      // Audit: register approved restock movement
+      await registrarMovimiento(tx, {
+        productoId,
+        tipo: "REPOSICION_APROBADA",
+        cantidadAnterior: producto.cantidad,
+        cantidadNueva: producto.cantidad + cantidad,
+        compraId: execResult.compraId,
+        motivo: `Reposición de '${producto.nombre}' (crear y aprobar)`,
+        usuarioId: session.userId,
       });
 
       // Mark solicitud as APROBADA

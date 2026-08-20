@@ -11,6 +11,9 @@ const mocks = vi.hoisted(() => {
     cuentaFinanciera: { findFirst: vi.fn() },
     movimientoCaja: { create: vi.fn() },
     movimientoFinanciero: { create: vi.fn() },
+    movimientoProducto: {
+      create: vi.fn().mockResolvedValue({ id: 1 }),
+    },
   };
 
   return {
