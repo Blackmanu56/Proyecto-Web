@@ -5,8 +5,21 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { TableShell } from "@/components/ui/table-shell";
 import { formatCurrency, cn } from "@/lib/utils";
-import { Search, Package, ShoppingCart, CheckCircle, XCircle, Clock } from "lucide-react";
+import {
+  Search,
+  Package,
+  ShoppingCart,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Boxes,
+  PackageCheck,
+  PackageX,
+  AlertTriangle,
+} from "lucide-react";
+import * as SelectPrimitive from "@radix-ui/react-select";
 import CrearPedidoModal from "@/components/ui/CrearPedidoModal";
 import AprobarPedidoModal from "@/components/ui/AprobarPedidoModal";
 import RechazarPedidoModal from "@/components/ui/RechazarPedidoModal";
@@ -87,6 +100,112 @@ const estadoBadge = (estado: string) => {
   }
 };
 
+/* ────────────────────── Stock Filter Select ────────────────────── */
+
+type StockFilterOption = {
+  value: string;
+  label: string;
+  icon?: React.ElementType;
+};
+
+type StockFilterTone = {
+  trigger: string;
+  icon: string;
+  content: string;
+  itemFocus: string;
+  selected: string;
+  check: string;
+  chevron: string;
+};
+
+const STOCK_TONE: StockFilterTone = {
+  trigger: "border-[#F59E0B]/25 hover:border-[#F59E0B]/60 focus-visible:border-[#F59E0B] focus-visible:ring-[#F59E0B]/20 data-[state=open]:border-[#F59E0B]/70 data-[state=open]:ring-[#F59E0B]/20",
+  icon: "bg-[#F59E0B]/15 text-[#FBBF24] ring-[#F59E0B]/20",
+  content: "border-[#F59E0B]/30",
+  itemFocus: "focus:bg-[#F59E0B]/10",
+  selected: "data-[state=checked]:bg-[#F59E0B]/12 data-[state=checked]:text-[#FDE68A]",
+  check: "text-[#FBBF24]",
+  chevron: "text-[#FBBF24]",
+};
+
+const STOCK_OPTIONS: StockFilterOption[] = [
+  { value: "todos", label: "Todos", icon: Boxes },
+  { value: "normal", label: "Con stock", icon: PackageCheck },
+  { value: "poco", label: "Poco stock", icon: AlertTriangle },
+  { value: "sin", label: "Sin stock", icon: PackageX },
+];
+
+function StockFilterSelect({
+  value,
+  onValueChange,
+}: {
+  value: string;
+  onValueChange: (v: string) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+        Stock
+      </label>
+      <SelectPrimitive.Root value={value} onValueChange={onValueChange}>
+        <SelectPrimitive.Trigger
+          className={cn(
+            "group flex h-10 min-w-[168px] items-center justify-between gap-2 rounded-xl border bg-[var(--bg)] py-2 pl-2 pr-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200 focus-visible:ring-2",
+            STOCK_TONE.trigger
+          )}
+          aria-label="Filtro de stock"
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <span className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ring-1", STOCK_TONE.icon)}>
+              <Package size={14} />
+            </span>
+            <SelectPrimitive.Value />
+          </span>
+          <SelectPrimitive.Icon asChild>
+            <svg className={cn("h-3.5 w-3.5 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180", STOCK_TONE.chevron)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6" /></svg>
+          </SelectPrimitive.Icon>
+        </SelectPrimitive.Trigger>
+        <SelectPrimitive.Portal>
+          <SelectPrimitive.Content
+            position="popper"
+            sideOffset={6}
+            align="start"
+            className={cn(
+              "z-50 max-h-72 w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border bg-[var(--panel)] p-1.5 shadow-[var(--shadow-lg)] ring-1 ring-white/5 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+              STOCK_TONE.content
+            )}
+          >
+            <SelectPrimitive.Viewport className="max-h-64 overflow-y-auto pr-1 [scrollbar-width:thin] [scrollbar-color:var(--border)_transparent]">
+              {STOCK_OPTIONS.map((option) => {
+                const OptIcon = option.icon;
+                return (
+                  <SelectPrimitive.Item
+                    key={option.value}
+                    value={option.value}
+                    className={cn(
+                      "relative flex h-9 w-full cursor-pointer select-none items-center gap-2 rounded-xl px-2.5 pr-8 text-sm text-[var(--text)] outline-none transition-colors duration-150 whitespace-nowrap data-[state=checked]:font-bold data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+                      STOCK_TONE.itemFocus,
+                      STOCK_TONE.selected
+                    )}
+                  >
+                    {OptIcon && <OptIcon size={14} className="shrink-0 opacity-85" />}
+                    <SelectPrimitive.ItemText>
+                      <span className="whitespace-nowrap">{option.label}</span>
+                    </SelectPrimitive.ItemText>
+                    <SelectPrimitive.ItemIndicator className="absolute right-2 flex h-5 w-5 items-center justify-center">
+                      <svg className={cn("h-3.5 w-3.5", STOCK_TONE.check)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6"><path d="M20 6 9 17l-5-5" /></svg>
+                    </SelectPrimitive.ItemIndicator>
+                  </SelectPrimitive.Item>
+                );
+              })}
+            </SelectPrimitive.Viewport>
+          </SelectPrimitive.Content>
+        </SelectPrimitive.Portal>
+      </SelectPrimitive.Root>
+    </div>
+  );
+}
+
 /* ────────────────────── Component ────────────────────── */
 
 export default function PedidosTable({
@@ -102,6 +221,7 @@ export default function PedidosTable({
   /* ── Filtros (crear pedido tab) ── */
   const [search, setSearch] = useState("");
   const [proveedorFilter, setProveedorFilter] = useState("all");
+  const [stockFilter, setStockFilter] = useState<"todos" | "normal" | "poco" | "sin">("todos");
 
   /* ── Tab navigation ── */
   const [activeTab, setActiveTab] = useState<PedidosTab>("CREAR_PEDIDO");
@@ -161,7 +281,6 @@ export default function PedidosTable({
         { id: "TODAS", label: "Todas", count: solicitudes.length }
       );
     } else {
-      // ENCARGADO: only own solicitudes with count > 0
       if (solicitudCounts.PENDIENTE > 0) t.push({ id: "PENDIENTE", label: "Pendientes", count: solicitudCounts.PENDIENTE });
       if (solicitudCounts.APROBADA > 0) t.push({ id: "APROBADA", label: "Aprobadas", count: solicitudCounts.APROBADA });
       if (solicitudCounts.RECHAZADA > 0) t.push({ id: "RECHAZADA", label: "Rechazadas", count: solicitudCounts.RECHAZADA });
@@ -185,9 +304,14 @@ export default function PedidosTable({
       if (proveedorFilter !== "all" && String(p.proveedor.id) !== proveedorFilter) {
         return false;
       }
+      if (stockFilter !== "todos") {
+        if (stockFilter === "normal" && p.cantidad <= p.stockMinimo) return false;
+        if (stockFilter === "poco" && !(p.cantidad > 0 && p.cantidad <= p.stockMinimo)) return false;
+        if (stockFilter === "sin" && p.cantidad !== 0) return false;
+      }
       return true;
     });
-  }, [initialProducts, search, proveedorFilter]);
+  }, [initialProducts, search, proveedorFilter, stockFilter]);
 
   /* ── Derivar proveedores únicos ── */
   const proveedoresEnUso = useMemo(() => {
@@ -235,124 +359,116 @@ export default function PedidosTable({
     router.refresh();
   }, [router]);
 
+  /* ── Thead styles (matching ProductosTable) ── */
+  const thBase = "sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)]";
+
   /* ── Render: Crear Pedido tab ── */
   const renderCrearPedido = () => (
-    <>
-      {/* Toolbar */}
-      <div className="shrink-0 flex flex-wrap items-center gap-2 px-2 lg:px-3 mb-3">
-        <div className="relative flex-1 min-w-[200px] max-w-md">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" />
-          <input
-            type="text"
-            placeholder="Buscar por nombre, categoría, código o marca..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full h-9 pl-9 pr-3 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] text-sm focus:outline-none focus:border-[var(--brand)] transition-colors placeholder:text-[var(--text-secondary)]"
-          />
-        </div>
-        <select
-          value={proveedorFilter}
-          onChange={(e) => setProveedorFilter(e.target.value)}
-          className="h-9 px-3 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] text-sm focus:outline-none focus:border-[var(--brand)] transition-colors"
-        >
-          <option value="all">Todos los proveedores</option>
-          {proveedoresEnUso.map((p) => (
-            <option key={p.id} value={p.id}>{p.nombre}</option>
-          ))}
-        </select>
-        <span className="text-xs text-[var(--text-secondary)] ml-auto">
-          {products.length} producto{products.length !== 1 && "s"}
-        </span>
-      </div>
-
-      {/* Table */}
-      <div className="flex-1 min-h-0 overflow-auto rounded-2xl border border-[var(--border)] bg-[var(--card)]">
-        {products.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-[var(--text-secondary)]">
-            <Package size={40} className="mb-3 opacity-40" />
-            <p className="text-sm">No hay productos activos que coincidan con los filtros.</p>
-          </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[var(--border)]">
-                <th className="text-left py-3 px-4 text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Producto</th>
-                <th className="text-center py-3 px-4 text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Stock</th>
-                <th className="text-left py-3 px-4 text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Proveedor</th>
-                <th className="text-right py-3 px-4 text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Precio compra</th>
-                <th className="text-center py-3 px-4 text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {products.map((product) => (
-                <tr key={product.id} className="border-b border-[var(--border)]/50 hover:bg-white/[0.02] transition-colors">
-                  <td className="py-3 px-4">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="relative h-9 w-9 shrink-0 rounded-lg border border-[var(--border)] bg-[var(--panel)] flex items-center justify-center overflow-hidden">
-                        {product.imagen ? (
-                          <Image src={product.imagen} alt={product.nombre} fill sizes="36px" className="object-contain p-1" />
-                        ) : (
-                          <Package size={16} className="text-[var(--text-secondary)] opacity-40" />
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-semibold text-[var(--text)] truncate">{product.nombre}</p>
-                        <p className="text-xs text-[var(--text-secondary)] truncate">
-                          {product.categoria.nombre}
-                          {product.marca && ` · ${product.marca}`}
-                        </p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-3 px-4 text-center">
-                    {stockBadge(product.cantidad, product.stockMinimo)}
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className="text-[var(--text-secondary)]">{product.proveedor.nombre}</span>
-                  </td>
-                  <td className="py-3 px-4 text-right font-mono text-[var(--text)]">
-                    {formatCurrency(product.precioCompra)}
-                  </td>
-                  <td className="py-3 px-4 text-center">
-                    <button
-                      type="button"
-                      onClick={() => handleCrearPedido(product)}
-                      className={cn(
-                        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors",
-                        "border border-[#059669]/40 bg-[#047857] text-white",
-                        "hover:bg-[#065F46] focus-visible:outline-2 focus-visible:outline-[#059669]"
-                      )}
-                    >
-                      <ShoppingCart size={13} />
-                      Crear pedido
-                    </button>
-                  </td>
-                </tr>
+    <TableShell
+      title="Crear pedido"
+      hideHeaderTitle
+      searchLabel="Busqueda de producto"
+      searchPlaceholder="Buscar por nombre, categoría, código o marca..."
+      searchValue={search}
+      onSearchChange={setSearch}
+      centeredHeaderControls
+      isEmpty={products.length === 0}
+      emptyMessage="No hay productos activos que coincidan con los filtros."
+      emptyIcon={<Package size={32} className="opacity-40" />}
+      actions={
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+              Proveedor
+            </label>
+            <select
+              value={proveedorFilter}
+              onChange={(e) => setProveedorFilter(e.target.value)}
+              className="h-10 min-w-[180px] px-3 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] text-sm font-semibold focus:outline-none focus:border-[var(--brand)] transition-colors shadow-[var(--shadow-sm)]"
+            >
+              <option value="all">Todos los proveedores</option>
+              {proveedoresEnUso.map((p) => (
+                <option key={p.id} value={p.id}>{p.nombre}</option>
               ))}
-            </tbody>
-          </table>
-        )}
+            </select>
+          </div>
+          <StockFilterSelect
+            value={stockFilter}
+            onValueChange={(v) => setStockFilter(v as typeof stockFilter)}
+          />
+          <span className="text-xs text-[var(--text-secondary)] ml-auto self-end mb-1">
+            {products.length} producto{products.length !== 1 && "s"}
+          </span>
+        </div>
+      }
+    >
+      <div className="min-w-full">
+        <table className="w-full table-fixed border-separate border-spacing-0 text-left">
+          <thead className="bg-[#17191f]">
+            <tr className="bg-[#17191f] text-[11px] uppercase tracking-[0.08em] font-extrabold text-[#9DB2D6]">
+              <th className={`${thBase} w-[36%]`}>Producto</th>
+              <th className={`${thBase} w-[6%] text-center`}>Stock</th>
+              <th className={`${thBase} w-[14%]`}>Proveedor</th>
+              <th className={`${thBase} w-[10%] text-right`}>Precio compra</th>
+              <th className={`${thBase} w-[10%] text-center`}>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {products.map((product) => (
+              <tr
+                key={product.id}
+                className={cn(
+                  "border-b border-[var(--border)]/50 transition-colors",
+                  "hover:bg-white/[0.02]"
+                )}
+              >
+                <td className="py-3 px-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="relative h-9 w-9 shrink-0 rounded-lg border border-[var(--border)] bg-[var(--panel)] flex items-center justify-center overflow-hidden">
+                      {product.imagen ? (
+                        <Image src={product.imagen} alt={product.nombre} fill sizes="36px" className="object-contain p-1" />
+                      ) : (
+                        <Package size={16} className="text-[var(--text-secondary)] opacity-40" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-[var(--text)] truncate">{product.nombre}</p>
+                      <p className="text-xs text-[var(--text-secondary)] truncate">
+                        {product.categoria.nombre}
+                        {product.marca && ` · ${product.marca}`}
+                      </p>
+                    </div>
+                  </div>
+                </td>
+                <td className="py-3 px-4 text-center">
+                  {stockBadge(product.cantidad, product.stockMinimo)}
+                </td>
+                <td className="py-3 px-4">
+                  <span className="text-[var(--text-secondary)]">{product.proveedor.nombre}</span>
+                </td>
+                <td className="py-3 px-4 text-right font-mono text-[var(--text)]">
+                  {formatCurrency(product.precioCompra)}
+                </td>
+                <td className="py-3 px-4 text-center">
+                  <button
+                    type="button"
+                    onClick={() => handleCrearPedido(product)}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors",
+                      "border border-[#059669]/40 bg-[#047857] text-white",
+                      "hover:bg-[#065F46] focus-visible:outline-2 focus-visible:outline-[#059669]"
+                    )}
+                  >
+                    <ShoppingCart size={13} />
+                    Crear pedido
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-
-      {/* Modal crear pedido */}
-      {selectedProduct && (
-        <CrearPedidoModal
-          open={modalOpen}
-          onOpenChange={setModalOpen}
-          producto={{
-            id: selectedProduct.id,
-            nombre: selectedProduct.nombre,
-            imagen: selectedProduct.imagen,
-            cantidad: selectedProduct.cantidad,
-            precioCompra: selectedProduct.precioCompra,
-            proveedorId: selectedProduct.proveedor.id,
-            proveedorNombre: selectedProduct.proveedor.nombre,
-          }}
-          onSuccess={handleModalSuccess}
-          canApprove={canApprove}
-        />
-      )}
-    </>
+    </TableShell>
   );
 
   /* ── Render: Solicitudes tab ── */
@@ -535,6 +651,25 @@ export default function PedidosTable({
       <div className="flex-1 min-h-0">
         {activeTab === "CREAR_PEDIDO" ? renderCrearPedido() : renderSolicitudes()}
       </div>
+
+      {/* Modals outside tabs */}
+      {selectedProduct && (
+        <CrearPedidoModal
+          open={modalOpen}
+          onOpenChange={setModalOpen}
+          producto={{
+            id: selectedProduct.id,
+            nombre: selectedProduct.nombre,
+            imagen: selectedProduct.imagen,
+            cantidad: selectedProduct.cantidad,
+            precioCompra: selectedProduct.precioCompra,
+            proveedorId: selectedProduct.proveedor.id,
+            proveedorNombre: selectedProduct.proveedor.nombre,
+          }}
+          onSuccess={handleModalSuccess}
+          canApprove={canApprove}
+        />
+      )}
     </div>
   );
 }
