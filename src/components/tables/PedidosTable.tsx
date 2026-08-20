@@ -618,7 +618,7 @@ export default function PedidosTable({
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Tab bar */}
-      <div className="shrink-0 flex gap-2 flex-wrap px-2 lg:px-3 mb-3">
+      <div className="shrink-0 flex gap-2 flex-wrap items-center px-3 py-2 mb-3 rounded-xl border border-[var(--border)] bg-[var(--card)]">
         {tabs.map((tab) => (
           <button
             key={tab.id}
