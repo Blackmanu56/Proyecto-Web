@@ -22,6 +22,8 @@ const mocks = vi.hoisted(() => {
     requirePermission: vi.fn(),
     transaction: vi.fn(),
     revalidatePath: vi.fn(),
+    usuarioFindMany: vi.fn(),
+    notificacionCreateMany: vi.fn(),
   };
 });
 
@@ -41,6 +43,12 @@ vi.mock("@/lib/prisma", () => ({
     },
     solicitudReposicion: {
       create: mocks.tx.solicitudReposicion.create,
+    },
+    usuario: {
+      findMany: mocks.usuarioFindMany,
+    },
+    notificacion: {
+      createMany: mocks.notificacionCreateMany,
     },
   },
 }));
@@ -85,6 +93,8 @@ function setupMocks(producto: Record<string, unknown> | null = productoActivo())
   });
   mocks.tx.caja.findFirst.mockResolvedValue(null);
   mocks.tx.movimientoCaja.create.mockResolvedValue({ id: 70 });
+  mocks.usuarioFindMany.mockResolvedValue([{ id: 2 }, { id: 3 }]);
+  mocks.notificacionCreateMany.mockResolvedValue({ count: 2 });
 }
 
 beforeEach(() => {

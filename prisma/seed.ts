@@ -354,7 +354,7 @@ export const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
     initialQuantity: 8,
     stockMinimo: 4,
     codigo: "TRN-HON-CG150",
-    imagen: "/uploads/1783993604453-tsvgox.webp",
+    imagen: "/uploads/1787257247068-n6du8v.webp",
   },
   {
     key: "pastillas-ns200",
@@ -367,7 +367,7 @@ export const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
     initialQuantity: 6,
     stockMinimo: 5,
     codigo: "FRN-BAJ-NS200",
-    imagen: "/uploads/1783994134261-b6u1ge.webp",
+    imagen: "/uploads/1787257275289-zfrhdi.webp",
   },
   {
     key: "bateria-fz16",
@@ -380,7 +380,7 @@ export const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
     initialQuantity: 3,
     stockMinimo: 3,
     codigo: "ELE-YAM-FZ16",
-    imagen: "/uploads/1783994182309-5ufx79.webp",
+    imagen: "/uploads/1787256884615-ec2s6q.webp",
   },
   {
     key: "cubierta-pirelli-130-70-17",
@@ -393,7 +393,7 @@ export const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
     initialQuantity: 5,
     stockMinimo: 2,
     codigo: "NEU-PIR-13070",
-    imagen: "/uploads/1783994252200-n6hxrg.webp",
+    imagen: "/uploads/1787257109231-xgu3vc.webp",
   },
   {
     key: "aceite-motul-5100",
@@ -406,7 +406,7 @@ export const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
     initialQuantity: 10,
     stockMinimo: 6,
     codigo: "LUB-MOT-5100",
-    imagen: "/uploads/1783994280256-7znat5.jpg",
+    imagen: "/uploads/1787256814727-9ankcz.webp",
   },
   {
     key: "amortiguador-fz16",
@@ -419,7 +419,7 @@ export const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
     initialQuantity: 2,
     stockMinimo: 2,
     codigo: "SUS-YAM-FZ16",
-    imagen: "/uploads/1783994311392-49olr2.webp",
+    imagen: "/uploads/1787256838982-qcmmog.webp",
   },
   {
     key: "cadena-428h-cg",
@@ -432,7 +432,7 @@ export const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
     initialQuantity: 4,
     stockMinimo: 2,
     codigo: "TRN-HON-CG428",
-    imagen: "/uploads/1783994346515-fs2lv6.webp",
+    imagen: "/uploads/1787256978094-sidqz3.webp",
   },
   {
     key: "bujia-ngk-cr8e",
@@ -445,7 +445,7 @@ export const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
     initialQuantity: 20,
     stockMinimo: 10,
     codigo: "ENC-NGK-CR8E",
-    imagen: "/uploads/1783994375572-g7dxdl.webp",
+    imagen: "/uploads/1787256924603-yyphhb.webp",
   },
   {
     key: "faro-led-universal",
@@ -458,7 +458,7 @@ export const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
     initialQuantity: 1,
     stockMinimo: 1,
     codigo: "ILU-LED-UNI",
-    imagen: "/uploads/1783994411401-rdyb53.webp",
+    imagen: "/uploads/1787257172217-pralxv.webp",
   },
   {
     key: "filtro-aceite-cg150",
@@ -471,7 +471,7 @@ export const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
     initialQuantity: 7,
     stockMinimo: 3,
     codigo: "MOT-HON-FILT150",
-    imagen: "/uploads/1783994431874-0ubpzf.webp",
+    imagen: "/uploads/1787257208766-dhiz8x.webp",
   },
   {
     key: "cubierta-delantera-mrf",
@@ -484,7 +484,7 @@ export const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
     initialQuantity: 4,
     stockMinimo: 4,
     codigo: "NEU-MRF-9090",
-    imagen: "/uploads/1783994476358-4rezkj.webp",
+    imagen: "/uploads/1787257027628-2si0tm.webp",
   },
   {
     key: "espejo-universal-par",
@@ -497,7 +497,7 @@ export const PRODUCT_DEMOS: readonly DemoProductSeed[] = [
     initialQuantity: 6,
     stockMinimo: 3,
     codigo: "ACC-ESP-UNI",
-    imagen: "/uploads/1784678530331-jx8ogw.webp",
+    imagen: "/uploads/1787257138942-7grty1.webp",
   },
   {
     key: "carenado-lateral-usado",
@@ -745,7 +745,7 @@ export function buildRoleSeedData(): DemoRoleSeed[] {
   }));
 }
 
-const SEED_PRODUCT_IMAGE_BASE_PATH = "/uploads";
+const SEED_PRODUCT_IMAGE_BASE_PATHS = ["/uploads", "/seed/productos"];
 
 export function getSeedInvariantErrors(): string[] {
   const errors: string[] = [];
@@ -811,8 +811,8 @@ export function getSeedInvariantErrors(): string[] {
       continue;
     }
 
-    if (!product.imagen.startsWith(`${SEED_PRODUCT_IMAGE_BASE_PATH}/`)) {
-      errors.push(`El producto ${product.key} debe usar assets demo bajo ${SEED_PRODUCT_IMAGE_BASE_PATH}.`);
+    if (!SEED_PRODUCT_IMAGE_BASE_PATHS.some((base) => product.imagen!.startsWith(`${base}/`))) {
+      errors.push(`El producto ${product.key} debe usar assets demo bajo ${SEED_PRODUCT_IMAGE_BASE_PATHS.join(" o ")}.`);
       continue;
     }
 
@@ -1527,6 +1527,81 @@ async function printSummary(prisma: PrismaClient) {
   console.log("Comando único oficial: npx prisma db seed");
 }
 
+async function seedSolicitudesDemo(prisma: PrismaClient, refs: SeedReferences) {
+  const existing = await prisma.solicitudReposicion.count();
+  if (existing > 0) {
+    console.log(`ℹ️ Ya existen ${existing} solicitudes de reposición. Se omite seed.`);
+    return;
+  }
+
+  console.log("📋 Sembrando solicitudes de reposición demo...");
+  const stockUser = refs.users.get("stock");
+  const adminUser = refs.users.get("admin");
+  const kitProduct = refs.products.get("kit-transmision-cg150");
+  const pastillasProduct = refs.products.get("pastillas-ns200");
+  const bateriaProduct = refs.products.get("bateria-fz16");
+  const supplier1 = refs.suppliers.get("30111111118");
+  const supplier2 = refs.suppliers.get("30222222228");
+  const supplier3 = refs.suppliers.get("30333333338");
+
+  if (!stockUser || !adminUser || !kitProduct || !pastillasProduct || !bateriaProduct || !supplier1 || !supplier2 || !supplier3) {
+    console.log("⚠️ Faltan referencias para solicitudes demo. Se omite.");
+    return;
+  }
+
+  // PENDIENTE — awaiting approval
+  await prisma.solicitudReposicion.create({
+    data: {
+      productoId: kitProduct.id,
+      cantidad: 5,
+      costoUnitario: kitProduct.precioCompra,
+      total: 5 * kitProduct.precioCompra,
+      proveedorId: supplier1.id,
+      origenPago: "EFECTIVO_CAJA",
+      motivo: "Stock bajo por ventas",
+      estado: "PENDIENTE",
+      solicitanteId: stockUser.id,
+    },
+  });
+
+  // APROBADA — already resolved
+  await prisma.solicitudReposicion.create({
+    data: {
+      productoId: pastillasProduct.id,
+      cantidad: 3,
+      costoUnitario: pastillasProduct.precioCompra,
+      total: 3 * pastillasProduct.precioCompra,
+      proveedorId: supplier2.id,
+      origenPago: "TRANSFERENCIA_BANCARIA",
+      motivo: "Reposición urgente",
+      estado: "APROBADA",
+      solicitanteId: stockUser.id,
+      aprobadorId: adminUser.id,
+      resueltoEn: new Date("2026-08-18T10:00:00Z"),
+    },
+  });
+
+  // RECHAZADA — rejected
+  await prisma.solicitudReposicion.create({
+    data: {
+      productoId: bateriaProduct.id,
+      cantidad: 2,
+      costoUnitario: bateriaProduct.precioCompra,
+      total: 2 * bateriaProduct.precioCompra,
+      proveedorId: supplier3.id,
+      origenPago: "EFECTIVO_CAJA",
+      motivo: "Pedido de cliente",
+      estado: "RECHAZADA",
+      respuesta: "Fondos insuficientes en caja este mes",
+      solicitanteId: stockUser.id,
+      aprobadorId: adminUser.id,
+      resueltoEn: new Date("2026-08-17T14:30:00Z"),
+    },
+  });
+
+  console.log("  ✅ 3 solicitudes demo creadas (1 PENDIENTE, 1 APROBADA, 1 RECHAZADA)");
+}
+
 export async function runSeed(databaseUrl = process.env.DATABASE_URL) {
   assertSeedInvariants();
   const prisma = buildPrismaClient(databaseUrl);
@@ -1548,6 +1623,9 @@ export async function runSeed(databaseUrl = process.env.DATABASE_URL) {
     } else {
       console.log("ℹ️ La base ya tiene datos operativos. Se integraron roles/permisos y catálogos, pero se omitió el dataset transaccional demo para no contaminar registros existentes.");
     }
+
+    // Always seed solicitudes if none exist
+    await seedSolicitudesDemo(prisma, refs);
 
     await printSummary(prisma);
   } finally {

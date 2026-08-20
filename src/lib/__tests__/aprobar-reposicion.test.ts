@@ -32,6 +32,9 @@ const mocks = vi.hoisted(() => {
     movimientoProducto: {
       create: vi.fn().mockResolvedValue({ id: 1 }),
     },
+    notificacion: {
+      create: vi.fn(),
+    },
   };
 
   return {
@@ -123,6 +126,7 @@ function setupMocks(solicitud: Record<string, unknown> | null = solicitudPendien
   mocks.tx.cuentaFinanciera.findFirst.mockResolvedValue(null);
   mocks.tx.movimientoCaja.create.mockResolvedValue({ id: 70 });
   mocks.tx.movimientoFinanciero.create.mockResolvedValue({ id: 80 });
+  mocks.tx.notificacion.create.mockResolvedValue({ id: 1 });
 }
 
 beforeEach(() => {
@@ -240,6 +244,32 @@ describe("aprobarReposicion", () => {
     // Only cantidad should be in the data, never proveedorId
     expect(updateCall.data).not.toHaveProperty("proveedorId");
     expect(updateCall.data).toEqual({ cantidad: { increment: 5 } });
+  });
+
+  it("uses TRANSFERENCIA_BANCARIA when admin selects it", async () => {
+    mocks.tx.cuentaFinanciera.findFirst.mockResolvedValue({
+      id: 20,
+      tipo: "BANCO",
+      esPrincipal: true,
+      activa: true,
+      saldoInicial: 100_000,
+      movimientos: [],
+    });
+
+    const result = await aprobarReposicion(100, "TRANSFERENCIA_BANCARIA");
+
+    expect(result.success).toBe(true);
+    // Should create MovimientoFinanciero, NOT MovimientoCaja
+    expect(mocks.tx.movimientoFinanciero.create).toHaveBeenCalledOnce();
+    expect(mocks.tx.movimientoCaja.create).not.toHaveBeenCalled();
+    // Compra should have TRANSFERENCIA_BANCARIA origin
+    expect(mocks.tx.compra.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          origenPago: "TRANSFERENCIA_BANCARIA",
+        }),
+      })
+    );
   });
 
   it("rejects approval when product is inactive", async () => {

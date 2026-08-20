@@ -6,6 +6,9 @@ const mocks = vi.hoisted(() => {
       findUnique: vi.fn(),
       update: vi.fn(),
     },
+    notificacion: {
+      create: vi.fn(),
+    },
   };
 
   return {
@@ -50,6 +53,11 @@ function solicitudPendiente(overrides: Record<string, unknown> = {}) {
     productoId: 10,
     cantidad: 5,
     estado: "PENDIENTE",
+    solicitanteId: 1,
+    producto: {
+      id: 10,
+      nombre: "Kit transmisión",
+    },
     ...overrides,
   };
 }
@@ -62,6 +70,7 @@ function setupMocks(solicitud: Record<string, unknown> | null = solicitudPendien
   );
   mocks.tx.solicitudReposicion.findUnique.mockResolvedValue(solicitud);
   mocks.tx.solicitudReposicion.update.mockResolvedValue({ id: 100 });
+  mocks.tx.notificacion.create.mockResolvedValue({ id: 1 });
 }
 
 beforeEach(() => {

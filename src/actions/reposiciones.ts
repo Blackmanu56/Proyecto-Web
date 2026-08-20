@@ -106,6 +106,22 @@ export async function solicitarReposicion(
       },
     });
 
+    // Notify all active admins about the new solicitud
+    const admins = await prisma.usuario.findMany({
+      where: { rol: { nombre: "ADMINISTRADOR" }, activo: true },
+      select: { id: true },
+    });
+    if (admins.length > 0) {
+      await prisma.notificacion.createMany({
+        data: admins.map((admin) => ({
+          usuarioId: admin.id,
+          tipo: "SOLICITUD_CREADA",
+          titulo: "Nuevo pedido de reposición",
+          mensaje: `${session.username} solicita reposición de ${cantidad} unidades de '${producto.nombre}'`,
+        })),
+      });
+    }
+
     revalidatePath("/solicitudes");
     revalidatePath("/pedidos");
     return { success: true };
@@ -188,7 +204,10 @@ export async function reponerStockDirecto(
 
 // ─── aprobarReposicion ────────────────────────────────────────────────────
 
-export async function aprobarReposicion(id: number) {
+export async function aprobarReposicion(
+  id: number,
+  medioPago?: "EFECTIVO_CAJA" | "TRANSFERENCIA_BANCARIA"
+) {
   try {
     const session = await requireReposicionPermission("productos.aprobar_reposicion");
 
@@ -210,13 +229,15 @@ export async function aprobarReposicion(id: number) {
         failBusiness("Producto inactivo.");
       }
 
-      // Re-validate pagos snapshot with zod (D5)
-      let validatedPagos: PagoValidado[] | undefined;
-      if (solicitud.pagos && Array.isArray(solicitud.pagos)) {
-        validatedPagos = z.array(pagoSchema).parse(solicitud.pagos);
-      }
+      // Admin chooses payment method at approval time (defaults to EFECTIVO_CAJA)
+      const origenPagoFinal = medioPago ?? "EFECTIVO_CAJA";
+      const totalCosto = solicitud.cantidad * solicitud.costoUnitario;
+      const pagosFinales: PagoValidado[] = [
+        { medio: origenPagoFinal, monto: totalCosto },
+      ];
 
       // Execute via helper (validates funds + writes compra/movimientos)
+      // Use solicitanteId so caja/banco records reflect who ACTUALLY restocked
       const txTyped = tx as unknown as ReposicionTx;
       const resultado = await ejecutarReposicion(txTyped, {
         productoId: solicitud.productoId,
@@ -224,9 +245,9 @@ export async function aprobarReposicion(id: number) {
         cantidad: solicitud.cantidad,
         costoUnitario: solicitud.costoUnitario,
         proveedorId: solicitud.proveedorId,
-        origenPago: solicitud.origenPago as OrigenPagoCompraValue,
-        pagos: validatedPagos,
-        usuarioId: session.userId,
+        origenPago: origenPagoFinal,
+        pagos: pagosFinales,
+        usuarioId: solicitud.solicitanteId,
         descripcionPrefijo: `Reposición de '${solicitud.producto.nombre}'`,
       });
 
@@ -236,7 +257,7 @@ export async function aprobarReposicion(id: number) {
         data: { cantidad: { increment: solicitud.cantidad } },
       });
 
-      // Audit: register approved restock movement
+      // Audit: register approved restock movement (solicitante = who restocked)
       await registrarMovimiento(tx, {
         productoId: solicitud.productoId,
         tipo: "REPOSICION_APROBADA",
@@ -244,7 +265,7 @@ export async function aprobarReposicion(id: number) {
         cantidadNueva: solicitud.producto.cantidad + solicitud.cantidad,
         compraId: resultado.compraId,
         motivo: `Reposición aprobada — ${solicitud.producto.nombre}`,
-        usuarioId: session.userId,
+        usuarioId: solicitud.solicitanteId,
       });
 
       // Mark solicitud as APROBADA
@@ -255,6 +276,16 @@ export async function aprobarReposicion(id: number) {
           aprobadorId: session.userId,
           compraId: resultado.compraId,
           resueltoEn: new Date(),
+        },
+      });
+
+      // Notify the employee that their solicitud was approved
+      await tx.notificacion.create({
+        data: {
+          usuarioId: solicitud.solicitanteId,
+          tipo: "SOLICITUD_APROBADA",
+          titulo: "Pedido aprobado",
+          mensaje: `Tu reposición de ${solicitud.cantidad} unidades de '${solicitud.producto.nombre}' fue aprobada. Stock: ${solicitud.producto.cantidad} → ${solicitud.producto.cantidad + solicitud.cantidad}.`,
         },
       });
 
@@ -281,7 +312,10 @@ export async function rechazarReposicion(id: number, respuesta: string) {
     await requireReposicionPermission("productos.aprobar_reposicion");
 
     await prisma.$transaction(async (tx) => {
-      const solicitud = await tx.solicitudReposicion.findUnique({ where: { id } });
+      const solicitud = await tx.solicitudReposicion.findUnique({
+        where: { id },
+        include: { producto: true },
+      });
 
       if (!solicitud) {
         failBusiness("Solicitud no encontrada");
@@ -298,6 +332,16 @@ export async function rechazarReposicion(id: number, respuesta: string) {
           estado: "RECHAZADA",
           respuesta,
           resueltoEn: new Date(),
+        },
+      });
+
+      // Notify the employee that their solicitud was rejected
+      await tx.notificacion.create({
+        data: {
+          usuarioId: solicitud.solicitanteId,
+          tipo: "SOLICITUD_RECHAZADA",
+          titulo: "Pedido rechazado",
+          mensaje: `Tu reposición de ${solicitud.cantidad} unidades de '${solicitud.producto.nombre}' fue rechazada. Motivo: ${respuesta}`,
         },
       });
     });

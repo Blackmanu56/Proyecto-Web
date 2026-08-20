@@ -43,7 +43,7 @@ describe("seed única oficial", () => {
     expect(productsWithoutImage).toHaveLength(1);
 
     productsWithImage.forEach((product) => {
-      expect(product.imagen).toMatch(/^\/uploads\/.+\.(jpg|jpeg|png|webp|gif)$/);
+      expect(product.imagen).toMatch(/^\/(uploads|seed\/productos)\/.+\.(jpg|jpeg|png|webp|gif)$/);
 
       const assetPath = path.join(process.cwd(), "public", product.imagen!.replace(/^\//, ""));
       expect(existsSync(assetPath), `${product.key} should reference an existing demo asset`).toBe(true);

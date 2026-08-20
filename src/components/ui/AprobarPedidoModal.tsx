@@ -39,11 +39,12 @@ export default function AprobarPedidoModal({
 }: AprobarPedidoModalProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [medioPago, setMedioPago] = useState<"EFECTIVO_CAJA" | "TRANSFERENCIA_BANCARIA">("EFECTIVO_CAJA");
 
   const handleApprove = () => {
     setError(null);
     startTransition(async () => {
-      const res = await aprobarReposicion(solicitud.id);
+      const res = await aprobarReposicion(solicitud.id, medioPago);
       if (res.success) {
         onOpenChange(false);
         onSuccess();
@@ -91,6 +92,35 @@ export default function AprobarPedidoModal({
               </span>
             </div>
           ))}
+        </div>
+
+        {/* Payment method selector */}
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-[var(--text)]">Medio de pago</p>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setMedioPago("EFECTIVO_CAJA")}
+              className={`flex-1 p-3 rounded-xl border text-sm font-medium transition-colors ${
+                medioPago === "EFECTIVO_CAJA"
+                  ? "border-[var(--brand)] bg-[var(--brand-light)]/10 text-[var(--brand)]"
+                  : "border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)] hover:border-[var(--brand)]/30"
+              }`}
+            >
+              💵 Efectivo
+            </button>
+            <button
+              type="button"
+              onClick={() => setMedioPago("TRANSFERENCIA_BANCARIA")}
+              className={`flex-1 p-3 rounded-xl border text-sm font-medium transition-colors ${
+                medioPago === "TRANSFERENCIA_BANCARIA"
+                  ? "border-[var(--brand)] bg-[var(--brand-light)]/10 text-[var(--brand)]"
+                  : "border-[var(--border)] bg-[var(--bg)] text-[var(--text-secondary)] hover:border-[var(--brand)]/30"
+              }`}
+            >
+              🏦 Transferencia
+            </button>
+          </div>
         </div>
 
         {/* Warning */}
