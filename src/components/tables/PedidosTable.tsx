@@ -237,7 +237,7 @@ function ProveedorFilterSelect({
       <SelectPrimitive.Root value={value} onValueChange={onValueChange}>
         <SelectPrimitive.Trigger
           className={cn(
-            "group flex h-10 min-w-[220px] items-center justify-between gap-2 rounded-xl border bg-[var(--bg)] py-2 pl-2 pr-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200 focus-visible:ring-2",
+            "group flex h-10 min-w-[260px] items-center justify-between gap-2 rounded-xl border bg-[var(--bg)] py-2 pl-2 pr-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200 focus-visible:ring-2",
             PROVEEDOR_TONE.trigger
           )}
           aria-label="Filtro de proveedor"
@@ -258,7 +258,7 @@ function ProveedorFilterSelect({
             sideOffset={6}
             align="start"
             className={cn(
-              "z-50 max-h-72 w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border bg-[var(--panel)] p-1.5 shadow-[var(--shadow-lg)] ring-1 ring-white/5 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+              "z-50 max-h-72 min-w-[240px] overflow-hidden rounded-2xl border bg-[var(--panel)] p-1.5 shadow-[var(--shadow-lg)] ring-1 ring-white/5 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
               PROVEEDOR_TONE.content
             )}
           >
