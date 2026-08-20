@@ -237,7 +237,7 @@ function ProveedorFilterSelect({
       <SelectPrimitive.Root value={value} onValueChange={onValueChange}>
         <SelectPrimitive.Trigger
           className={cn(
-            "group flex h-10 min-w-[180px] items-center justify-between gap-2 rounded-xl border bg-[var(--bg)] py-2 pl-2 pr-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200 focus-visible:ring-2",
+            "group flex h-10 min-w-[220px] items-center justify-between gap-2 rounded-xl border bg-[var(--bg)] py-2 pl-2 pr-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200 focus-visible:ring-2",
             PROVEEDOR_TONE.trigger
           )}
           aria-label="Filtro de proveedor"
@@ -486,9 +486,6 @@ export default function PedidosTable({
             value={stockFilter}
             onValueChange={(v) => setStockFilter(v as typeof stockFilter)}
           />
-          <span className="text-xs text-[var(--text-secondary)] ml-auto self-end mb-1">
-            {products.length} producto{products.length !== 1 && "s"}
-          </span>
         </div>
       }
     >
