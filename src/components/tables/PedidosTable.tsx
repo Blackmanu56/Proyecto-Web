@@ -1,35 +1,27 @@
 "use client";
 
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { TableShell } from "@/components/ui/table-shell";
 import { formatCurrency, cn } from "@/lib/utils";
 import {
-  Search,
   Package,
   ShoppingCart,
-  CheckCircle,
-  XCircle,
-  Clock,
   Boxes,
   PackageCheck,
   PackageX,
   AlertTriangle,
   Truck,
   ListFilter,
+  Search,
 } from "lucide-react";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import CrearPedidoModal from "@/components/ui/CrearPedidoModal";
-import AprobarPedidoModal from "@/components/ui/AprobarPedidoModal";
-import RechazarPedidoModal from "@/components/ui/RechazarPedidoModal";
 import SolicitudesStockTable from "@/components/tables/SolicitudesStockTable";
 import type { SolicitudRow } from "@/components/tables/SolicitudesStockTable";
-import {
-  getSolicitudesStock,
-} from "@/actions/solicitudes-stock";
+import { getSolicitudesStock } from "@/actions/solicitudes-stock";
 import type { SolicitudItem } from "@/types/solicitud";
 
 /* ────────────────────── Types ────────────────────── */
@@ -49,64 +41,18 @@ interface Product {
   proveedor: { id: number; nombre: string };
 }
 
-type PedidosTab = "CREAR_PEDIDO" | "PENDIENTE" | "APROBADA" | "RECHAZADA" | "TODAS" | "SOLICITUDES_STOCK";
+type PedidosMainTab = "CREAR_PEDIDO" | "SOLICITUDES_STOCK";
 
 interface PedidosTableProps {
   initialProducts: Product[];
   proveedores: { id: number; cuit: string; nombre: string }[];
   userRole: string;
-  solicitudes: SolicitudItem[];
+  solicitudes?: SolicitudItem[];
+  initialSolicitudesStock?: SolicitudRow[];
   userId: number;
   canApprove?: boolean;
-  initialTab?: PedidosTab | string;
+  initialTab?: string;
 }
-
-/* ────────────────────── Helpers ────────────────────── */
-
-const formatCurrencyLocal = (n: number) =>
-  new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "ARS",
-    minimumFractionDigits: 2,
-  }).format(n);
-
-const formatDate = (d: string | Date) =>
-  new Date(d).toLocaleDateString("es-AR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
-const estadoBadge = (estado: string) => {
-  switch (estado) {
-    case "PENDIENTE":
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-[#F59E0B]/15 text-[#F59E0B]">
-          <Clock size={11} /> Pendiente
-        </span>
-      );
-    case "APROBADA":
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-[var(--success)]/15 text-[var(--success)]">
-          <CheckCircle size={11} /> Aprobada
-        </span>
-      );
-    case "RECHAZADA":
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-[var(--danger)]/15 text-[var(--danger)]">
-          <XCircle size={11} /> Rechazada
-        </span>
-      );
-    default:
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-[var(--bg)] text-[var(--text-secondary)]">
-          {estado}
-        </span>
-      );
-  }
-};
 
 /* ────────────────────── Stock Filter Select ────────────────────── */
 
@@ -319,94 +265,53 @@ export default function PedidosTable({
   proveedores,
   userRole,
   userId,
-  solicitudes,
+  initialSolicitudesStock = [],
   canApprove,
   initialTab,
 }: PedidosTableProps) {
   const router = useRouter();
-  const isAdmin = userRole === "ADMINISTRADOR";
+
+  /* ── Tab navigation ── */
+  const [activeTab, setActiveTab] = useState<PedidosMainTab>(() => {
+    if (initialTab === "solicitudes-stock" || initialTab === "SOLICITUDES_STOCK") {
+      return "SOLICITUDES_STOCK";
+    }
+    return "CREAR_PEDIDO";
+  });
 
   /* ── Filtros (crear pedido tab) ── */
   const [search, setSearch] = useState("");
   const [proveedorFilter, setProveedorFilter] = useState("all");
   const [stockFilter, setStockFilter] = useState<"todos" | "normal" | "poco" | "sin">("todos");
 
-  /* ── Tab navigation ── */
-  const validTabs: PedidosTab[] = ["CREAR_PEDIDO", "PENDIENTE", "APROBADA", "RECHAZADA", "TODAS", "SOLICITUDES_STOCK"];
-  const [activeTab, setActiveTab] = useState<PedidosTab>(() => {
-    if (!initialTab) return "CREAR_PEDIDO";
-    if (initialTab === "solicitudes-stock") return "SOLICITUDES_STOCK";
-    return validTabs.includes(initialTab as PedidosTab)
-      ? (initialTab as PedidosTab)
-      : "CREAR_PEDIDO";
-  });
-
   /* ── Modal crear pedido ── */
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
-  /* ── Modal aprobar ── */
-  const [aprobarModal, setAprobarModal] = useState<{
-    open: boolean;
-    solicitud: {
-      id: number;
-      producto: string;
-      proveedor: string;
-      cantidad: number;
-      costoUnitario: number;
-      total: number;
-      origenPago: string;
-      motivo?: string | null;
-    } | null;
-  }>({ open: false, solicitud: null });
-
-  /* ── Modal rechazar ── */
-  const [rechazarModal, setRechazarModal] = useState<{
-    open: boolean;
-    solicitudId: number;
-    solicitudNombre: string;
-  }>({ open: false, solicitudId: 0, solicitudNombre: "" });
-
   /* ── Solicitudes de stock state ── */
-  const [solicitudesStock, setSolicitudesStock] = useState<SolicitudRow[]>([]);
-  const [loadingSolicitudesStock, setLoadingSolicitudesStock] = useState(false);
+  const [solicitudesStock, setSolicitudesStock] = useState<SolicitudRow[]>(initialSolicitudesStock);
 
-  /* ── Derived solicitudes ── */
-  const solicitudCounts = useMemo(
-    () => ({
-      PENDIENTE: solicitudes.filter((s) => s.estado === "PENDIENTE").length,
-      APROBADA: solicitudes.filter((s) => s.estado === "APROBADA").length,
-      RECHAZADA: solicitudes.filter((s) => s.estado === "RECHAZADA").length,
-    }),
-    [solicitudes]
-  );
-
-  const solicitudesByTab = useMemo(() => {
-    if (activeTab === "CREAR_PEDIDO") return [];
-    if (activeTab === "TODAS") return solicitudes;
-    return solicitudes.filter((s) => s.estado === activeTab);
-  }, [solicitudes, activeTab]);
-
-  /* ── Tabs ── */
-  const tabs: { id: PedidosTab; label: string; count: number }[] = useMemo(() => {
-    const t: { id: PedidosTab; label: string; count: number }[] = [
-      { id: "CREAR_PEDIDO", label: "Crear pedido", count: 0 },
-    ];
-    if (isAdmin) {
-      t.push(
-        { id: "PENDIENTE", label: "Pendientes", count: solicitudCounts.PENDIENTE },
-        { id: "APROBADA", label: "Aprobadas", count: solicitudCounts.APROBADA },
-        { id: "RECHAZADA", label: "Rechazadas", count: solicitudCounts.RECHAZADA },
-        { id: "TODAS", label: "Todas", count: solicitudes.length }
-      );
-    } else {
-      if (solicitudCounts.PENDIENTE > 0) t.push({ id: "PENDIENTE", label: "Pendientes", count: solicitudCounts.PENDIENTE });
-      if (solicitudCounts.APROBADA > 0) t.push({ id: "APROBADA", label: "Aprobadas", count: solicitudCounts.APROBADA });
-      if (solicitudCounts.RECHAZADA > 0) t.push({ id: "RECHAZADA", label: "Rechazadas", count: solicitudCounts.RECHAZADA });
-      if (solicitudes.length > 0) t.push({ id: "TODAS", label: "Todas", count: solicitudes.length });
+  /* ── Fetch solicitudes de stock ── */
+  const fetchSolicitudesStock = useCallback(async () => {
+    try {
+      const result = await getSolicitudesStock({ pageSize: 50 });
+      if ("data" in result) {
+        setSolicitudesStock(result.data as SolicitudRow[]);
+      }
+    } catch (err) {
+      console.error("Error fetching solicitudes de stock:", err);
     }
-    return t;
-  }, [isAdmin, solicitudCounts, solicitudes.length]);
+  }, []);
+
+  /* ── Pending count for badge ── */
+  const pendingCount = useMemo(() => {
+    return solicitudesStock.filter((s) => s.estado === "PENDIENTE").length;
+  }, [solicitudesStock]);
+
+  /* ── Fetch on mount if empty or when switching ── */
+  useEffect(() => {
+    fetchSolicitudesStock();
+  }, [fetchSolicitudesStock]);
 
   /* ── Productos filtrados (solo activos) ── */
   const products = useMemo(() => {
@@ -450,74 +355,48 @@ export default function PedidosTable({
     setModalOpen(true);
   }, []);
 
-  const handleOpenAprobar = useCallback((s: SolicitudItem) => {
-    setAprobarModal({
-      open: true,
-      solicitud: {
-        id: s.id,
-        producto: s.producto.nombre,
-        proveedor: s.proveedor.nombre,
-        cantidad: s.cantidad,
-        costoUnitario: s.costoUnitario,
-        total: s.total,
-        origenPago: s.origenPago,
-        motivo: s.motivo,
-      },
-    });
-  }, []);
-
-  const handleOpenRechazar = useCallback((s: SolicitudItem) => {
-    setRechazarModal({
-      open: true,
-      solicitudId: s.id,
-      solicitudNombre: s.producto.nombre,
-    });
-  }, []);
-
   const handleModalSuccess = useCallback(() => {
     router.refresh();
-  }, [router]);
+    fetchSolicitudesStock();
+  }, [router, fetchSolicitudesStock]);
 
-  /* ── Fetch solicitudes de stock ── */
-  const fetchSolicitudesStock = useCallback(async () => {
-    setLoadingSolicitudesStock(true);
-    try {
-      const result = await getSolicitudesStock();
-      if ("data" in result) {
-        setSolicitudesStock(result.data as SolicitudRow[]);
-      }
-    } catch (err) {
-      console.error("Error fetching solicitudes de stock:", err);
-    } finally {
-      setLoadingSolicitudesStock(false);
-    }
-  }, []);
-
-  /* ── Fetch solicitudes stock when tab is active ── */
-  React.useEffect(() => {
-    if (activeTab === "SOLICITUDES_STOCK") {
-      fetchSolicitudesStock();
-    }
-  }, [activeTab, fetchSolicitudesStock]);
-
-  /* ── Thead styles (matching ProductosTable) ── */
-  const thBase = "sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)]";
+  /* ── Thead styles ── */
+  const thBase = "sticky top-0 z-10 bg-[#17191f] py-3.5 px-4 border-b border-[var(--border)] text-[11px] uppercase tracking-wider font-bold text-[var(--text-muted)]";
 
   /* ── Render: Crear Pedido tab ── */
   const renderCrearPedido = () => (
-    <TableShell
-      title="Crear pedido"
-      hideHeaderTitle
-      searchLabel="Busqueda de producto"
-      searchPlaceholder="Buscar por nombre, categoría, código o marca..."
-      searchValue={search}
-      onSearchChange={setSearch}
-      centeredHeaderControls
-      isEmpty={products.length === 0}
-      emptyMessage="No hay productos activos que coincidan con los filtros."
-      emptyIcon={<Package size={32} className="opacity-40" />}
-      actions={
-        <div className="flex flex-wrap items-end gap-3">
+    <div className="space-y-3.5 flex flex-col h-full min-h-0">
+      {/* Top Bar: Search + Filters Centrado y Perfectamente Alineado */}
+      <div className="shrink-0 flex items-center justify-center gap-3 bg-[var(--card)] p-3 rounded-2xl border border-[var(--border)] flex-wrap shadow-sm">
+        {/* Search input with label */}
+        <div className="flex flex-col gap-1 w-full sm:w-[340px] lg:w-[400px]">
+          <label className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+            Búsqueda de producto
+          </label>
+          <div className="relative">
+            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+            <input
+              type="text"
+              placeholder="Buscar por nombre, categoría, código o marca..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full h-10 pl-9 pr-8 bg-[var(--bg)] border border-[var(--border)] rounded-xl text-sm font-medium text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[#047857] transition-colors"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text)] p-1 rounded-md"
+                title="Limpiar búsqueda"
+              >
+                <PackageX size={14} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="flex items-end gap-3 flex-wrap">
           <ProveedorFilterSelect
             value={proveedorFilter}
             onValueChange={setProveedorFilter}
@@ -528,286 +407,131 @@ export default function PedidosTable({
             onValueChange={(v) => setStockFilter(v as typeof stockFilter)}
           />
         </div>
-      }
-    >
-      <div className="min-w-full">
-        <table className="w-full table-fixed border-separate border-spacing-0 text-left">
-          <thead className="bg-[#17191f]">
-            <tr className="bg-[#17191f] text-[11px] uppercase tracking-[0.08em] font-extrabold text-[#9DB2D6]">
-              <th className={`${thBase} w-[36%]`}>Producto</th>
-              <th className={`${thBase} w-[6%] text-center`}>Stock</th>
-              <th className={`${thBase} w-[14%]`}>Proveedor</th>
-              <th className={`${thBase} w-[10%] text-right`}>Precio compra</th>
-              <th className={`${thBase} w-[10%] text-center`}>Acciones</th>
+      </div>
+
+      {/* Table */}
+      <div className="flex-1 min-h-0 overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--card)]">
+        <table className="w-full text-sm border-collapse min-w-[760px] table-auto">
+          <thead>
+            <tr>
+              <th className={`${thBase} w-[36%] text-left`}>PRODUCTO</th>
+              <th className={`${thBase} w-[12%] text-center`}>STOCK ACTUAL</th>
+              <th className={`${thBase} w-[22%] text-left`}>PROVEEDOR</th>
+              <th className={`${thBase} w-[15%] text-right`}>PRECIO DE COMPRA</th>
+              <th className={`${thBase} w-[15%] text-center`}>ACCIÓN</th>
             </tr>
           </thead>
           <tbody>
-            {products.map((product) => (
-              <tr
-                key={product.id}
-                className={cn(
-                  "border-b border-[var(--border)]/50 transition-colors",
-                  "hover:bg-white/[0.02]"
-                )}
-              >
-                <td className="py-3 px-4">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="relative h-9 w-9 shrink-0 rounded-lg border border-[var(--border)] bg-[var(--panel)] flex items-center justify-center overflow-hidden">
-                      {product.imagen ? (
-                        <Image src={product.imagen} alt={product.nombre} fill sizes="36px" className="object-contain p-1" />
-                      ) : (
-                        <Package size={16} className="text-[var(--text-secondary)] opacity-40" />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-semibold text-[var(--text)] truncate">{product.nombre}</p>
-                      <p className="text-xs text-[var(--text-secondary)] truncate">
-                        {product.categoria.nombre}
-                        {product.marca && ` · ${product.marca}`}
-                      </p>
-                    </div>
-                  </div>
-                </td>
-                <td className="py-3 px-4 text-center">
-                  {stockBadge(product.cantidad, product.stockMinimo)}
-                </td>
-                <td className="py-3 px-4">
-                  <span className="text-[var(--text-secondary)]">{product.proveedor.nombre}</span>
-                </td>
-                <td className="py-3 px-4 text-right font-mono text-[var(--text)]">
-                  {formatCurrency(product.precioCompra)}
-                </td>
-                <td className="py-3 px-4 text-center">
-                  <button
-                    type="button"
-                    onClick={() => handleCrearPedido(product)}
-                    className={cn(
-                      "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors",
-                      "border border-[#059669]/40 bg-[#047857] text-white",
-                      "hover:bg-[#065F46] focus-visible:outline-2 focus-visible:outline-[#059669]"
-                    )}
-                  >
-                    <ShoppingCart size={13} />
-                    Crear pedido
-                  </button>
+            {products.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-4 py-20 text-center text-[var(--text-muted)] text-sm">
+                  No hay productos activos que coincidan con los filtros.
                 </td>
               </tr>
-            ))}
+            ) : (
+              products.map((product) => (
+                <tr
+                  key={product.id}
+                  className="border-b border-[var(--border)]/40 hover:bg-white/[0.02] transition-colors"
+                >
+                  <td className="py-3 px-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="relative h-9 w-9 shrink-0 rounded-lg border border-[var(--border)] bg-[var(--panel)] flex items-center justify-center overflow-hidden">
+                        {product.imagen ? (
+                          <Image src={product.imagen} alt={product.nombre} fill sizes="36px" className="object-contain p-1" />
+                        ) : (
+                          <Package size={16} className="text-[var(--text-secondary)] opacity-40" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-[var(--text)] truncate">{product.nombre}</p>
+                        <p className="text-xs text-[var(--text-secondary)] truncate">
+                          {product.categoria.nombre}
+                          {product.marca && ` · ${product.marca}`}
+                        </p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="py-3 px-4 text-center">
+                    {stockBadge(product.cantidad, product.stockMinimo)}
+                  </td>
+                  <td className="py-3 px-4">
+                    <span className="text-[var(--text-secondary)] truncate block">{product.proveedor.nombre}</span>
+                  </td>
+                  <td className="py-3 px-4 text-right font-mono text-[var(--text)]">
+                    {formatCurrency(product.precioCompra)}
+                  </td>
+                  <td className="py-3 px-4 text-center">
+                    <button
+                      type="button"
+                      onClick={() => handleCrearPedido(product)}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-colors shadow-sm",
+                        "bg-[#047857] hover:bg-[#065F46] text-white"
+                      )}
+                    >
+                      <ShoppingCart size={13} />
+                      Crear pedido
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
-    </TableShell>
-  );
-
-  /* ── Render: Solicitudes tab ── */
-  const renderSolicitudes = () => (
-    <div className="h-full min-h-0 overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3">
-      {solicitudesByTab.length === 0 ? (
-        <div className="text-center py-16 text-[var(--text-secondary)]">
-          <Clock size={40} className="mx-auto mb-3 opacity-40" />
-          <p className="text-sm">
-            No hay solicitudes {activeTab !== "TODAS" ? `con estado "${activeTab.toLowerCase()}"` : ""}.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {solicitudesByTab.map((s) => (
-            <div
-              key={s.id}
-              className="p-4 bg-[var(--bg-secondary)] border border-[var(--border)] rounded-2xl space-y-3"
-            >
-              {/* Header */}
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-start gap-3">
-                  <div className="relative h-9 w-9 shrink-0 rounded-lg border border-[var(--border)] bg-[var(--panel)] flex items-center justify-center overflow-hidden">
-                    {"imagen" in s.producto && s.producto.imagen ? (
-                      <Image src={s.producto.imagen} alt={s.producto.nombre} fill sizes="36px" className="object-contain p-1" />
-                    ) : (
-                      <Package size={16} className="text-[var(--text-secondary)] opacity-40" />
-                    )}
-                  </div>
-                  <div>
-                    <p className="font-bold text-[var(--text)]">{s.producto.nombre}</p>
-                    <p className="text-xs text-[var(--text-secondary)]">
-                      Proveedor: {s.proveedor.nombre} · Solicitante: {s.solicitante.username}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {estadoBadge(s.estado)}
-                  <span className="text-xs text-[var(--text-secondary)]">#{s.id}</span>
-                </div>
-              </div>
-
-              {/* Snapshot */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                <div>
-                  <p className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">Cantidad</p>
-                  <p className="font-mono font-semibold">{s.cantidad}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">Costo Unit.</p>
-                  <p className="font-mono font-semibold">{formatCurrencyLocal(s.costoUnitario)}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">Total</p>
-                  <p className="font-mono font-bold text-[var(--brand)]">{formatCurrencyLocal(s.total)}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">Origen Pago</p>
-                  <p className="font-semibold">{s.origenPago.replace(/_/g, " ")}</p>
-                </div>
-              </div>
-
-              {/* Payment distribution */}
-              {Array.isArray(s.pagos) && s.pagos.length > 0 && (
-                <div className="p-2 bg-[var(--bg)] rounded-xl border border-[var(--border)]">
-                  <p className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)] mb-1">Distribución de pago</p>
-                  <div className="flex flex-wrap gap-2">
-                    {(s.pagos as Array<{ medio: string; monto: number; observacion?: string }>).map((p, i) => (
-                      <span key={i} className="px-2 py-0.5 bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg text-xs font-mono">
-                        {p.medio.replace(/_/g, " ")}: {formatCurrencyLocal(p.monto)}
-                        {p.observacion && <span className="text-[var(--text-secondary)] ml-1">({p.observacion})</span>}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Motivo / Respuesta */}
-              {s.motivo && (
-                <p className="text-xs text-[var(--text-secondary)]">
-                  <strong>Motivo:</strong> {s.motivo}
-                </p>
-              )}
-              {s.respuesta && (
-                <p className="text-xs text-[var(--danger)]">
-                  <strong>Respuesta:</strong> {s.respuesta}
-                </p>
-              )}
-
-              {/* Footer */}
-              <div className="flex items-center justify-between pt-2 border-t border-[var(--border)]">
-                <p className="text-[10px] text-[var(--text-secondary)]">
-                  Creada: {formatDate(s.createdAt)}
-                  {s.resueltoEn && ` · Resuelta: ${formatDate(s.resueltoEn)}`}
-                  {s.aprobador && ` · Aprobada por: ${s.aprobador.username}`}
-                </p>
-
-                {/* Admin actions on PENDIENTE */}
-                {isAdmin && s.estado === "PENDIENTE" && (
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      onClick={() => handleOpenAprobar(s)}
-                      className="bg-[#047857] hover:bg-[#065F46] text-white text-xs px-3 py-1.5 h-auto"
-                    >
-                      <CheckCircle size={13} className="mr-1" />
-                      Aprobar
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={() => handleOpenRechazar(s)}
-                      className="text-xs px-3 py-1.5 h-auto border-[var(--danger)]/40 text-[var(--danger)]"
-                    >
-                      <XCircle size={13} className="mr-1" />
-                      Rechazar
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Aprobar modal */}
-      {aprobarModal.solicitud && (
-        <AprobarPedidoModal
-          open={aprobarModal.open}
-          onOpenChange={(open) => setAprobarModal((prev) => ({ ...prev, open }))}
-          solicitud={aprobarModal.solicitud}
-          onSuccess={handleModalSuccess}
-        />
-      )}
-
-      {/* Rechazar modal */}
-      <RechazarPedidoModal
-        open={rechazarModal.open}
-        onOpenChange={(open) => setRechazarModal((prev) => ({ ...prev, open }))}
-        solicitudId={rechazarModal.solicitudId}
-        solicitudNombre={rechazarModal.solicitudNombre}
-        onSuccess={handleModalSuccess}
-      />
     </div>
   );
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* Tab bar */}
-      <div className="shrink-0 flex gap-2 flex-wrap items-center px-3 py-2 mb-3 rounded-xl border border-[var(--border)] bg-[var(--card)]">
-        {tabs.map((tab) => (
+      {/* Selector Principal de Vistas Centrado */}
+      <div className="shrink-0 flex justify-center mb-3">
+        <div className="flex gap-2 items-center p-1.5 rounded-2xl border border-[var(--border)] bg-[var(--card)] w-full max-w-3xl shadow-sm">
           <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            type="button"
+            onClick={() => setActiveTab("CREAR_PEDIDO")}
             className={cn(
-              "px-4 py-2 rounded-xl text-sm font-semibold transition-colors",
-              activeTab === tab.id
-                ? "bg-[#047857] text-white"
-                : "bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:text-[var(--text)]"
+              "flex-1 py-2.5 px-6 rounded-xl text-sm font-bold transition-all duration-150 flex items-center justify-center gap-2",
+              activeTab === "CREAR_PEDIDO"
+                ? "bg-[#047857] text-white shadow-sm"
+                : "bg-transparent text-[var(--text-secondary)] hover:text-white hover:bg-white/[0.04]"
             )}
           >
-            {tab.label}
-            {tab.count > 0 && (
-              <span
-                className={cn(
-                  "ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold",
-                  activeTab === tab.id
-                    ? "bg-white/20 text-white"
-                    : "bg-[var(--border)] text-[var(--text-secondary)]"
-                )}
-              >
-                {tab.count}
-              </span>
-            )}
+            <ShoppingCart size={16} />
+            <span>Crear pedido</span>
           </button>
-        ))}
-        {/* Separator */}
-        <div className="w-px h-6 bg-[var(--border)] mx-1" />
-        <button
-          onClick={() => setActiveTab("SOLICITUDES_STOCK")}
-          className={cn(
-            "px-4 py-2 rounded-xl text-sm font-semibold transition-colors",
-            activeTab === "SOLICITUDES_STOCK"
-              ? "bg-[#7C3AED] text-white"
-              : "bg-[#7C3AED]/10 text-[#A78BFA] hover:bg-[#7C3AED]/20"
-          )}
-        >
-          Solicitudes de stock
-          {loadingSolicitudesStock && (
-            <span className="ml-1.5 inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-          )}
-        </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("SOLICITUDES_STOCK")}
+            className={cn(
+              "flex-1 py-2.5 px-6 rounded-xl text-sm font-bold transition-all duration-150 flex items-center justify-center gap-2",
+              activeTab === "SOLICITUDES_STOCK"
+                ? "bg-[#047857] text-white shadow-sm"
+                : "bg-transparent text-[var(--text-secondary)] hover:text-white hover:bg-white/[0.04]"
+            )}
+          >
+            <Boxes size={16} />
+            <span>Solicitudes de stock</span>
+          </button>
+        </div>
       </div>
 
       {/* Content */}
       <div className="flex-1 min-h-0">
         {activeTab === "CREAR_PEDIDO" && renderCrearPedido()}
-        {activeTab !== "CREAR_PEDIDO" && activeTab !== "SOLICITUDES_STOCK" && renderSolicitudes()}
         {activeTab === "SOLICITUDES_STOCK" && (
-          <div className="h-full min-h-0 overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3">
-            <SolicitudesStockTable
-              solicitudes={solicitudesStock}
-              onRefresh={fetchSolicitudesStock}
-              currentUserId={userId}
-              userRole={userRole}
-            />
-          </div>
+          <SolicitudesStockTable
+            solicitudes={solicitudesStock}
+            onRefresh={fetchSolicitudesStock}
+            currentUserId={userId}
+            userRole={userRole}
+          />
         )}
       </div>
 
-      {/* Modals outside tabs */}
+      {/* Modal Crear Pedido */}
       {selectedProduct && (
         <CrearPedidoModal
           open={modalOpen}
@@ -828,3 +552,4 @@ export default function PedidosTable({
     </div>
   );
 }
+

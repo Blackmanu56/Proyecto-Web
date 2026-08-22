@@ -328,6 +328,7 @@ export default function SolicitudStockDetail({
 
             {!showRejectInput && !showCancelConfirm && (
               <div className="flex justify-end gap-3">
+                {/* Empleado: "Cancelar solicitud" si es su solicitud y está pendiente */}
                 {!isAdmin && isOwnSolicitud && (
                   <Button
                     type="button"
@@ -339,6 +340,7 @@ export default function SolicitudStockDetail({
                     Cancelar solicitud
                   </Button>
                 )}
+                {/* Admin: Botones de Aprobar y Rechazar si la solicitud está pendiente */}
                 {isAdmin && (
                   <>
                     <Button

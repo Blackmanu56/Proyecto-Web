@@ -443,7 +443,15 @@ export async function getSolicitudesStock(filters: GetSolicitudesStockFilters = 
       prisma.solicitudStock.findMany({
         where,
         include: {
-          producto: { select: { id: true, nombre: true, cantidad: true, imagen: true } },
+          producto: {
+            select: {
+              id: true,
+              nombre: true,
+              cantidad: true,
+              imagen: true,
+              proveedor: { select: { id: true, nombre: true } },
+            },
+          },
           solicitante: { select: { id: true, nombreCompleto: true } },
           resueltoPor: { select: { id: true, nombreCompleto: true } },
         },
