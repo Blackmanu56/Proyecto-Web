@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import {
   aprobarSolicitudStock,
   rechazarSolicitudStock,
+  cancelarSolicitudStock,
 } from "@/actions/solicitudes-stock";
 import {
   AlertTriangle,
@@ -48,6 +49,8 @@ interface SolicitudStockDetailProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   solicitud: SolicitudData;
+  currentUserId?: number;
+  userRole?: string;
   onSuccess: () => void;
 }
 
@@ -57,16 +60,21 @@ export default function SolicitudStockDetail({
   open,
   onOpenChange,
   solicitud,
+  currentUserId,
+  userRole,
   onSuccess,
 }: SolicitudStockDetailProps) {
   const [rejectMotivo, setRejectMotivo] = useState("");
   const [showRejectInput, setShowRejectInput] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [isTransitionPending, startTransition] = useTransition();
 
   const isResta = solicitud.tipo === "RESTA";
   const isPendiente = solicitud.estado === "PENDIENTE";
+  const isAdmin = userRole === "ADMINISTRADOR";
+  const isOwnSolicitud = currentUserId !== undefined && solicitud.solicitante.id === currentUserId;
 
   const handleApprove = () => {
     setError("");
@@ -110,6 +118,27 @@ export default function SolicitudStockDetail({
         }, 1200);
       } catch {
         setError("Error inesperado al rechazar.");
+      }
+    });
+  };
+
+  const handleCancel = () => {
+    setError("");
+    startTransition(async () => {
+      try {
+        const res = await cancelarSolicitudStock(solicitud.id);
+        if ("error" in res) {
+          setError(res.error ?? "Error al cancelar");
+          return;
+        }
+        setSuccess(true);
+        toast.success("Solicitud cancelada");
+        setTimeout(() => {
+          handleClose();
+          onSuccess();
+        }, 1200);
+      } catch {
+        setError("Error inesperado al cancelar.");
       }
     });
   };
@@ -269,56 +298,99 @@ export default function SolicitudStockDetail({
               </div>
             )}
 
-            <div className="flex justify-end gap-3">
-              {!showRejectInput ? (
-                <>
-                  <Button
-                    type="button"
-                    variant="danger"
-                    onClick={() => setShowRejectInput(true)}
-                    disabled={isTransitionPending}
-                    leftIcon={<XCircle size={14} />}
-                  >
-                    Rechazar
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="success"
-                    onClick={handleApprove}
-                    disabled={isTransitionPending}
-                    loading={isTransitionPending}
-                    leftIcon={<CheckCircle size={14} />}
-                  >
-                    Aprobar
-                  </Button>
-                </>
-              ) : (
-                <>
+            {showCancelConfirm && (
+              <div className="p-3 bg-[var(--danger-light)] border border-[var(--danger)]/20 rounded-[var(--radius-md)]">
+                <p className="text-xs text-[var(--danger)] font-semibold mb-2">
+                  ¿Seguro que querés cancelar esta solicitud?
+                </p>
+                <div className="flex gap-2">
                   <Button
                     type="button"
                     variant="secondary"
-                    onClick={() => {
-                      setShowRejectInput(false);
-                      setRejectMotivo("");
-                      setError("");
-                    }}
+                    onClick={() => setShowCancelConfirm(false)}
                     disabled={isTransitionPending}
                   >
-                    Cancelar
+                    No, volver
                   </Button>
                   <Button
                     type="button"
                     variant="danger"
-                    onClick={handleReject}
-                    disabled={isTransitionPending || !rejectMotivo.trim()}
+                    onClick={handleCancel}
+                    disabled={isTransitionPending}
                     loading={isTransitionPending}
                     leftIcon={<XCircle size={14} />}
                   >
-                    Confirmar rechazo
+                    Sí, cancelar
                   </Button>
-                </>
-              )}
-            </div>
+                </div>
+              </div>
+            )}
+
+            {!showRejectInput && !showCancelConfirm && (
+              <div className="flex justify-end gap-3">
+                {!isAdmin && isOwnSolicitud && (
+                  <Button
+                    type="button"
+                    variant="danger"
+                    onClick={() => setShowCancelConfirm(true)}
+                    disabled={isTransitionPending}
+                    leftIcon={<XCircle size={14} />}
+                  >
+                    Cancelar solicitud
+                  </Button>
+                )}
+                {isAdmin && (
+                  <>
+                    <Button
+                      type="button"
+                      variant="danger"
+                      onClick={() => setShowRejectInput(true)}
+                      disabled={isTransitionPending}
+                      leftIcon={<XCircle size={14} />}
+                    >
+                      Rechazar
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="success"
+                      onClick={handleApprove}
+                      disabled={isTransitionPending}
+                      loading={isTransitionPending}
+                      leftIcon={<CheckCircle size={14} />}
+                    >
+                      Aprobar
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
+
+            {showRejectInput && (
+              <div className="flex justify-end gap-3">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    setShowRejectInput(false);
+                    setRejectMotivo("");
+                    setError("");
+                  }}
+                  disabled={isTransitionPending}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  variant="danger"
+                  onClick={handleReject}
+                  disabled={isTransitionPending || !rejectMotivo.trim()}
+                  loading={isTransitionPending}
+                  leftIcon={<XCircle size={14} />}
+                >
+                  Confirmar rechazo
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </DialogContent>

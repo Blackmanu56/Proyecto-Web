@@ -25,6 +25,11 @@ import * as SelectPrimitive from "@radix-ui/react-select";
 import CrearPedidoModal from "@/components/ui/CrearPedidoModal";
 import AprobarPedidoModal from "@/components/ui/AprobarPedidoModal";
 import RechazarPedidoModal from "@/components/ui/RechazarPedidoModal";
+import SolicitudesStockTable from "@/components/tables/SolicitudesStockTable";
+import type { SolicitudRow } from "@/components/tables/SolicitudesStockTable";
+import {
+  getSolicitudesStock,
+} from "@/actions/solicitudes-stock";
 import type { SolicitudItem } from "@/types/solicitud";
 
 /* ────────────────────── Types ────────────────────── */
@@ -44,7 +49,7 @@ interface Product {
   proveedor: { id: number; nombre: string };
 }
 
-type PedidosTab = "CREAR_PEDIDO" | "PENDIENTE" | "APROBADA" | "RECHAZADA" | "TODAS";
+type PedidosTab = "CREAR_PEDIDO" | "PENDIENTE" | "APROBADA" | "RECHAZADA" | "TODAS" | "SOLICITUDES_STOCK";
 
 interface PedidosTableProps {
   initialProducts: Product[];
@@ -53,6 +58,7 @@ interface PedidosTableProps {
   solicitudes: SolicitudItem[];
   userId: number;
   canApprove?: boolean;
+  initialTab?: PedidosTab | string;
 }
 
 /* ────────────────────── Helpers ────────────────────── */
@@ -312,8 +318,10 @@ export default function PedidosTable({
   initialProducts,
   proveedores,
   userRole,
+  userId,
   solicitudes,
   canApprove,
+  initialTab,
 }: PedidosTableProps) {
   const router = useRouter();
   const isAdmin = userRole === "ADMINISTRADOR";
@@ -324,7 +332,14 @@ export default function PedidosTable({
   const [stockFilter, setStockFilter] = useState<"todos" | "normal" | "poco" | "sin">("todos");
 
   /* ── Tab navigation ── */
-  const [activeTab, setActiveTab] = useState<PedidosTab>("CREAR_PEDIDO");
+  const validTabs: PedidosTab[] = ["CREAR_PEDIDO", "PENDIENTE", "APROBADA", "RECHAZADA", "TODAS", "SOLICITUDES_STOCK"];
+  const [activeTab, setActiveTab] = useState<PedidosTab>(() => {
+    if (!initialTab) return "CREAR_PEDIDO";
+    if (initialTab === "solicitudes-stock") return "SOLICITUDES_STOCK";
+    return validTabs.includes(initialTab as PedidosTab)
+      ? (initialTab as PedidosTab)
+      : "CREAR_PEDIDO";
+  });
 
   /* ── Modal crear pedido ── */
   const [modalOpen, setModalOpen] = useState(false);
@@ -351,6 +366,10 @@ export default function PedidosTable({
     solicitudId: number;
     solicitudNombre: string;
   }>({ open: false, solicitudId: 0, solicitudNombre: "" });
+
+  /* ── Solicitudes de stock state ── */
+  const [solicitudesStock, setSolicitudesStock] = useState<SolicitudRow[]>([]);
+  const [loadingSolicitudesStock, setLoadingSolicitudesStock] = useState(false);
 
   /* ── Derived solicitudes ── */
   const solicitudCounts = useMemo(
@@ -459,6 +478,28 @@ export default function PedidosTable({
     router.refresh();
   }, [router]);
 
+  /* ── Fetch solicitudes de stock ── */
+  const fetchSolicitudesStock = useCallback(async () => {
+    setLoadingSolicitudesStock(true);
+    try {
+      const result = await getSolicitudesStock();
+      if ("data" in result) {
+        setSolicitudesStock(result.data as SolicitudRow[]);
+      }
+    } catch (err) {
+      console.error("Error fetching solicitudes de stock:", err);
+    } finally {
+      setLoadingSolicitudesStock(false);
+    }
+  }, []);
+
+  /* ── Fetch solicitudes stock when tab is active ── */
+  React.useEffect(() => {
+    if (activeTab === "SOLICITUDES_STOCK") {
+      fetchSolicitudesStock();
+    }
+  }, [activeTab, fetchSolicitudesStock]);
+
   /* ── Thead styles (matching ProductosTable) ── */
   const thBase = "sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)]";
 
@@ -560,7 +601,7 @@ export default function PedidosTable({
 
   /* ── Render: Solicitudes tab ── */
   const renderSolicitudes = () => (
-    <div className="flex-1 min-h-0 overflow-auto rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3">
+    <div className="h-full min-h-0 overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3">
       {solicitudesByTab.length === 0 ? (
         <div className="text-center py-16 text-[var(--text-secondary)]">
           <Clock size={40} className="mx-auto mb-3 opacity-40" />
@@ -732,11 +773,38 @@ export default function PedidosTable({
             )}
           </button>
         ))}
+        {/* Separator */}
+        <div className="w-px h-6 bg-[var(--border)] mx-1" />
+        <button
+          onClick={() => setActiveTab("SOLICITUDES_STOCK")}
+          className={cn(
+            "px-4 py-2 rounded-xl text-sm font-semibold transition-colors",
+            activeTab === "SOLICITUDES_STOCK"
+              ? "bg-[#7C3AED] text-white"
+              : "bg-[#7C3AED]/10 text-[#A78BFA] hover:bg-[#7C3AED]/20"
+          )}
+        >
+          Solicitudes de stock
+          {loadingSolicitudesStock && (
+            <span className="ml-1.5 inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+          )}
+        </button>
       </div>
 
       {/* Content */}
       <div className="flex-1 min-h-0">
-        {activeTab === "CREAR_PEDIDO" ? renderCrearPedido() : renderSolicitudes()}
+        {activeTab === "CREAR_PEDIDO" && renderCrearPedido()}
+        {activeTab !== "CREAR_PEDIDO" && activeTab !== "SOLICITUDES_STOCK" && renderSolicitudes()}
+        {activeTab === "SOLICITUDES_STOCK" && (
+          <div className="h-full min-h-0 overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3">
+            <SolicitudesStockTable
+              solicitudes={solicitudesStock}
+              onRefresh={fetchSolicitudesStock}
+              currentUserId={userId}
+              userRole={userRole}
+            />
+          </div>
+        )}
       </div>
 
       {/* Modals outside tabs */}

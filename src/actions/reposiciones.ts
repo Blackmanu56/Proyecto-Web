@@ -16,6 +16,7 @@ import {
 } from "@/lib/reposicion";
 import type { OrigenPagoCompraValue } from "@/lib/caja-ajuste";
 import { registrarMovimiento } from "@/lib/movimiento-producto";
+import { evaluarYNotificarStock } from "@/lib/stock-notifications";
 
 // ─── Shared error handling ────────────────────────────────────────────────
 
@@ -91,7 +92,7 @@ export async function solicitarReposicion(
       failBusiness("No se pueden solicitar reposiciones para productos inactivos");
     }
 
-    await prisma.solicitudReposicion.create({
+    const solicitud = await prisma.solicitudReposicion.create({
       data: {
         productoId,
         cantidad,
@@ -106,20 +107,36 @@ export async function solicitarReposicion(
       },
     });
 
-    // Notify all active admins about the new solicitud
-    const admins = await prisma.usuario.findMany({
-      where: { rol: { nombre: "ADMINISTRADOR" }, activo: true },
-      select: { id: true },
-    });
+    // Notify all active admins about the new solicitud (respetando preferencias)
+    const roles = await prisma.rol.findMany({ select: { id: true, nombre: true } });
+    const rolAdmin = roles.find((r) => r.nombre === "ADMINISTRADOR");
+    const admins = rolAdmin
+      ? await prisma.usuario.findMany({
+          where: { rolId: rolAdmin.id, activo: true },
+          select: { id: true },
+        })
+      : [];
     if (admins.length > 0) {
-      await prisma.notificacion.createMany({
-        data: admins.map((admin) => ({
-          usuarioId: admin.id,
-          tipo: "SOLICITUD_CREADA",
-          titulo: "Nuevo pedido de reposición",
-          mensaje: `${session.username} solicita reposición de ${cantidad} unidades de '${producto.nombre}'`,
-        })),
+      const adminIds = admins.map((a) => a.id);
+      const prefs = await prisma.preferenciaNotificacion.findMany({
+        where: { usuarioId: { in: adminIds }, tipo: "SOLICITUD_CREADA", habilitada: false },
+        select: { usuarioId: true },
       });
+      const deshabilitados = new Set(prefs.map((p) => p.usuarioId));
+      const adminsFiltrados = admins.filter((a) => !deshabilitados.has(a.id));
+
+      if (adminsFiltrados.length > 0) {
+        await prisma.notificacion.createMany({
+          data: adminsFiltrados.map((admin) => ({
+            usuarioId: admin.id,
+            tipo: "SOLICITUD_CREADA",
+            titulo: "Nuevo pedido de reposición",
+            mensaje: `${session.username} solicita reposición de ${cantidad} unidades de '${producto.nombre}'`,
+            solicitudReposicionId: solicitud.id,
+            entidad: "reposicion",
+          })),
+        });
+      }
     }
 
     revalidatePath("/solicitudes");
@@ -158,6 +175,8 @@ export async function reponerStockDirecto(
       if (!producto) failBusiness("Producto no encontrado");
       if (!producto.activo) failBusiness("No se pueden reposicionar productos inactivos");
 
+      const stockAnterior = producto.cantidad;
+
       const txTyped = tx as unknown as ReposicionTx;
       const resultado = await ejecutarReposicion(txTyped, {
         productoId,
@@ -181,20 +200,32 @@ export async function reponerStockDirecto(
       await registrarMovimiento(tx, {
         productoId,
         tipo: "REPOSICION_DIRECTA",
-        cantidadAnterior: producto.cantidad,
-        cantidadNueva: producto.cantidad + cantidad,
+        cantidadAnterior: stockAnterior,
+        cantidadNueva: stockAnterior + cantidad,
         compraId: resultado.compraId,
         motivo: `Reposición directa de '${producto.nombre}'`,
         usuarioId: session.userId,
       });
 
-      return resultado;
+      return { ...resultado, stockAnterior, nombreProducto: producto.nombre };
     });
 
     revalidatePath("/productos");
     if (resultado.cajaMovimientoCreado || resultado.bancoMovimientoCreado) {
       revalidatePath("/caja");
     }
+
+    // Evaluar stock y crear notificaciones
+    await evaluarYNotificarStock({
+      productoId,
+      cantidadAnterior: resultado.stockAnterior,
+      cantidadNueva: resultado.stockAnterior + cantidad,
+      usuarioId: session.userId,
+      usuarioNombre: session.username,
+      tipoMovimiento: "REPOSICION_DIRECTA",
+      motivo: `Reposición directa de '${resultado.nombreProducto}'`,
+    });
+
     return { success: true };
   } catch (error: unknown) {
     console.error("Error en reponerStockDirecto:", error);
@@ -214,7 +245,7 @@ export async function aprobarReposicion(
     const resultado = await prisma.$transaction(async (tx) => {
       const solicitud = await tx.solicitudReposicion.findUnique({
         where: { id },
-        include: { producto: true },
+        include: { producto: true, solicitante: { select: { username: true } } },
       });
 
       if (!solicitud) {
@@ -279,17 +310,32 @@ export async function aprobarReposicion(
         },
       });
 
-      // Notify the employee that their solicitud was approved
-      await tx.notificacion.create({
-        data: {
-          usuarioId: solicitud.solicitanteId,
-          tipo: "SOLICITUD_APROBADA",
-          titulo: "Pedido aprobado",
-          mensaje: `Tu reposición de ${solicitud.cantidad} unidades de '${solicitud.producto.nombre}' fue aprobada. Stock: ${solicitud.producto.cantidad} → ${solicitud.producto.cantidad + solicitud.cantidad}.`,
-        },
+      // Notify the employee that their solicitud was approved (respetando preferencias)
+      const prefAprobada = await prisma.preferenciaNotificacion.findUnique({
+        where: { usuarioId_tipo: { usuarioId: solicitud.solicitanteId, tipo: "SOLICITUD_APROBADA" } },
       });
+      if (prefAprobada?.habilitada !== false) {
+        await tx.notificacion.create({
+          data: {
+            usuarioId: solicitud.solicitanteId,
+            tipo: "SOLICITUD_APROBADA",
+            titulo: "Pedido aprobado",
+            mensaje: `Tu reposición de ${solicitud.cantidad} unidades de '${solicitud.producto.nombre}' fue aprobada. Stock: ${solicitud.producto.cantidad} → ${solicitud.producto.cantidad + solicitud.cantidad}.`,
+            solicitudReposicionId: solicitud.id,
+            entidad: "reposicion",
+          },
+        });
+      }
 
-      return resultado;
+      return {
+        ...resultado,
+        stockAnterior: solicitud.producto.cantidad,
+        stockNuevo: solicitud.producto.cantidad + solicitud.cantidad,
+        productoId: solicitud.productoId,
+        productoNombre: solicitud.producto.nombre,
+        solicitanteId: solicitud.solicitanteId,
+        solicitanteNombre: solicitud.solicitante?.username ?? "admin",
+      };
     });
 
     revalidatePath("/solicitudes");
@@ -298,6 +344,18 @@ export async function aprobarReposicion(
     if (resultado.cajaMovimientoCreado || resultado.bancoMovimientoCreado) {
       revalidatePath("/caja");
     }
+
+    // Evaluar stock y crear notificaciones
+    await evaluarYNotificarStock({
+      productoId: resultado.productoId,
+      cantidadAnterior: resultado.stockAnterior,
+      cantidadNueva: resultado.stockNuevo,
+      usuarioId: resultado.solicitanteId,
+      usuarioNombre: resultado.solicitanteNombre,
+      tipoMovimiento: "REPOSICION_APROBADA",
+      motivo: `Reposición aprobada — ${resultado.productoNombre}`,
+    });
+
     return { success: true };
   } catch (error: unknown) {
     console.error("Error en aprobarReposicion:", error);
@@ -335,15 +393,22 @@ export async function rechazarReposicion(id: number, respuesta: string) {
         },
       });
 
-      // Notify the employee that their solicitud was rejected
-      await tx.notificacion.create({
-        data: {
-          usuarioId: solicitud.solicitanteId,
-          tipo: "SOLICITUD_RECHAZADA",
-          titulo: "Pedido rechazado",
-          mensaje: `Tu reposición de ${solicitud.cantidad} unidades de '${solicitud.producto.nombre}' fue rechazada. Motivo: ${respuesta}`,
-        },
+      // Notify the employee that their solicitud was rejected (respetando preferencias)
+      const prefRechazada = await prisma.preferenciaNotificacion.findUnique({
+        where: { usuarioId_tipo: { usuarioId: solicitud.solicitanteId, tipo: "SOLICITUD_RECHAZADA" } },
       });
+      if (prefRechazada?.habilitada !== false) {
+        await tx.notificacion.create({
+          data: {
+            usuarioId: solicitud.solicitanteId,
+            tipo: "SOLICITUD_RECHAZADA",
+            titulo: "Pedido rechazado",
+            mensaje: `Tu reposición de ${solicitud.cantidad} unidades de '${solicitud.producto.nombre}' fue rechazada. Motivo: ${respuesta}`,
+            solicitudReposicionId: solicitud.id,
+            entidad: "reposicion",
+          },
+        });
+      }
     });
 
     revalidatePath("/solicitudes");
@@ -448,7 +513,12 @@ export async function crearYaprobarReposicion(
         },
       });
 
-      return execResult;
+      return {
+        ...execResult,
+        stockAnterior: producto.cantidad,
+        stockNuevo: producto.cantidad + cantidad,
+        nombreProducto: producto.nombre,
+      };
     });
 
     revalidatePath("/solicitudes");
@@ -457,6 +527,18 @@ export async function crearYaprobarReposicion(
     if (resultado.cajaMovimientoCreado || resultado.bancoMovimientoCreado) {
       revalidatePath("/caja");
     }
+
+    // Evaluar stock y crear notificaciones
+    await evaluarYNotificarStock({
+      productoId,
+      cantidadAnterior: resultado.stockAnterior,
+      cantidadNueva: resultado.stockNuevo,
+      usuarioId: session.userId,
+      usuarioNombre: session.username,
+      tipoMovimiento: "REPOSICION_APROBADA",
+      motivo: `Reposición de '${resultado.nombreProducto}' (crear y aprobar)`,
+    });
+
     return { success: true };
   } catch (error: unknown) {
     console.error("Error en crearYaprobarReposicion:", error);

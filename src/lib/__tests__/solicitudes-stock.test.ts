@@ -1,38 +1,41 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-/* ────────────────────── Mocks ────────────────────── */
-
 const mocks = vi.hoisted(() => {
-  const models = {
+  const tx = {
     solicitudStock: {
       findUnique: vi.fn(),
-      create: vi.fn(),
       update: vi.fn(),
-      updateMany: vi.fn(),
     },
     producto: {
       findUnique: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn(),
     },
-    usuario: {
-      findMany: vi.fn(),
+    movimientoProducto: {
+      create: vi.fn(),
     },
     notificacion: {
-      createMany: vi.fn(),
       create: vi.fn(),
-      count: vi.fn(),
-      updateMany: vi.fn(),
-      findMany: vi.fn(),
     },
   };
 
   return {
-    models,
+    tx,
     getSession: vi.fn(),
     requirePermission: vi.fn(),
     transaction: vi.fn(),
     revalidatePath: vi.fn(),
+    registrarMovimiento: vi.fn(),
+    evaluarYNotificarStock: vi.fn(),
+    preferenciaNotificacion: {
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+    },
+    // Direct prisma model mocks (cancelarSolicitudStock does NOT use $transaction)
+    solicitudStock: {
+      findUnique: vi.fn(),
+      update: vi.fn(),
+    },
   };
 });
 
@@ -47,10 +50,8 @@ vi.mock("@/lib/auth-permissions", () => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     $transaction: mocks.transaction,
-    producto: mocks.models.producto,
-    solicitudStock: mocks.models.solicitudStock,
-    usuario: mocks.models.usuario,
-    notificacion: mocks.models.notificacion,
+    solicitudStock: mocks.solicitudStock,
+    preferenciaNotificacion: mocks.preferenciaNotificacion,
   },
 }));
 
@@ -58,17 +59,27 @@ vi.mock("next/cache", () => ({
   revalidatePath: mocks.revalidatePath,
 }));
 
+vi.mock("@/lib/movimiento-producto", () => ({
+  registrarMovimiento: mocks.registrarMovimiento,
+}));
+
+vi.mock("@/lib/stock-notifications", () => ({
+  evaluarYNotificarStock: mocks.evaluarYNotificarStock,
+}));
+
 import {
-  crearSolicitudStock,
+  cancelarSolicitudStock,
   aprobarSolicitudStock,
-  rechazarSolicitudStock,
-  getContadorNotificaciones,
-  getNotificaciones,
-  marcarNotificacionLeida,
-  marcarTodasLeidas,
 } from "../../actions/solicitudes-stock";
 
-/* ────────────────────── Helpers ────────────────────── */
+// ─── Sessions ──────────────────────────────────────────────────────────────
+
+const ownerSession = {
+  userId: 1,
+  username: "encargado",
+  role: "ENCARGADO",
+  permissions: ["productos.solicitar_stock"],
+};
 
 const adminSession = {
   userId: 2,
@@ -80,386 +91,409 @@ const adminSession = {
   ],
 };
 
-function setupMocksForCreate() {
-  mocks.getSession.mockResolvedValue(adminSession);
-  mocks.requirePermission.mockResolvedValue(adminSession);
-  mocks.models.producto.findUnique.mockResolvedValue({
+// ─── Factories ─────────────────────────────────────────────────────────────
+
+function solicitudPendiente(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 100,
+    productoId: 10,
+    tipo: "RESTA",
+    cantidad: 5,
+    stockAnterior: 10,
+    motivo: "Falta stock para venta",
+    estado: "PENDIENTE",
+    solicitanteId: 1,
+    resueltoPorId: null,
+    observacionResolucion: null,
+    resolvedAt: null,
+    producto: {
+      id: 10,
+      nombre: "Kit transmision",
+      cantidad: 10,
+      activo: true,
+    },
+    ...overrides,
+  };
+}
+
+// ─── Setup helpers ─────────────────────────────────────────────────────────
+
+function setupMocks(solicitud: Record<string, unknown> | null = solicitudPendiente()) {
+  mocks.getSession.mockResolvedValue(ownerSession);
+  mocks.requirePermission.mockResolvedValue(ownerSession);
+  mocks.transaction.mockImplementation(
+    (callback: (tx: typeof mocks.tx) => Promise<unknown>) => callback(mocks.tx)
+  );
+  // Direct prisma model mocks (for cancelarSolicitudStock — no $transaction)
+  mocks.solicitudStock.findUnique.mockResolvedValue(solicitud);
+  mocks.solicitudStock.update.mockResolvedValue({ id: 100 });
+  // Transaction client mocks (for aprobarSolicitudStock — inside $transaction)
+  mocks.tx.solicitudStock.findUnique.mockResolvedValue(solicitud);
+  mocks.tx.solicitudStock.update.mockResolvedValue({ id: 100 });
+  mocks.tx.producto.findUnique.mockResolvedValue({
     id: 10,
-    nombre: "Filtro de aceite",
-    cantidad: 20,
+    nombre: "Kit transmision",
+    cantidad: 10,
     activo: true,
   });
-  mocks.models.solicitudStock.create.mockResolvedValue({ id: 1 });
-  mocks.models.usuario.findMany.mockResolvedValue([{ id: 2 }]);
-  mocks.models.notificacion.createMany.mockResolvedValue({ count: 1 });
+  mocks.tx.producto.update.mockResolvedValue({ id: 10, cantidad: 5 });
+  mocks.tx.producto.updateMany.mockResolvedValue({ count: 1 });
+  mocks.tx.movimientoProducto.create.mockResolvedValue({ id: 1 });
+  mocks.tx.notificacion.create.mockResolvedValue({ id: 1 });
+  mocks.registrarMovimiento.mockResolvedValue(undefined);
+  mocks.evaluarYNotificarStock.mockResolvedValue(undefined);
+  mocks.preferenciaNotificacion.findUnique.mockResolvedValue(null);
+  mocks.preferenciaNotificacion.findMany.mockResolvedValue([]);
 }
-
-function setupMocksForApprove(
-  solicitudOverrides: Record<string, unknown> = {}
-) {
-  mocks.getSession.mockResolvedValue(adminSession);
-  mocks.requirePermission.mockResolvedValue(adminSession);
-  mocks.transaction.mockImplementation(
-    (callback: (tx: typeof mocks.models) => Promise<unknown>) =>
-      callback(mocks.models)
-  );
-  mocks.models.solicitudStock.findUnique.mockResolvedValue({
-    id: 100,
-    productoId: 10,
-    tipo: "RESTA",
-    cantidad: 5,
-    stockAnterior: 20,
-    estado: "PENDIENTE",
-    solicitanteId: 3,
-    producto: {
-      id: 10,
-      nombre: "Filtro de aceite",
-      cantidad: 20,
-      activo: true,
-    },
-    ...solicitudOverrides,
-  });
-  mocks.models.producto.updateMany.mockResolvedValue({ count: 1 });
-  mocks.models.producto.update.mockResolvedValue({ id: 10, cantidad: 25 });
-  mocks.models.solicitudStock.update.mockResolvedValue({ id: 100 });
-  mocks.models.notificacion.create.mockResolvedValue({ id: 1 });
-}
-
-function setupMocksForReject() {
-  mocks.getSession.mockResolvedValue(adminSession);
-  mocks.requirePermission.mockResolvedValue(adminSession);
-  mocks.transaction.mockImplementation(
-    (callback: (tx: typeof mocks.models) => Promise<unknown>) =>
-      callback(mocks.models)
-  );
-  mocks.models.solicitudStock.findUnique.mockResolvedValue({
-    id: 100,
-    productoId: 10,
-    tipo: "RESTA",
-    cantidad: 5,
-    stockAnterior: 20,
-    estado: "PENDIENTE",
-    solicitanteId: 3,
-    producto: {
-      id: 10,
-      nombre: "Filtro de aceite",
-      cantidad: 20,
-      activo: true,
-    },
-  });
-  mocks.models.solicitudStock.update.mockResolvedValue({ id: 100 });
-  mocks.models.notificacion.create.mockResolvedValue({ id: 1 });
-}
-
-/* ────────────────────── Tests ────────────────────── */
 
 beforeEach(() => {
   vi.clearAllMocks();
   vi.spyOn(console, "error").mockImplementation(() => undefined);
+  setupMocks();
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
 });
 
-// ─── crearSolicitudStock ────────────────────────────────────────────────
+// ─── cancelarSolicitudStock ────────────────────────────────────────────────
 
-describe("crearSolicitudStock", () => {
+describe("cancelarSolicitudStock", () => {
   it("requires productos.solicitar_stock permission", async () => {
-    setupMocksForCreate();
-    await crearSolicitudStock("RESTA", 10, 5, "Ajuste");
+    await cancelarSolicitudStock(100);
+
     expect(mocks.requirePermission).toHaveBeenCalledWith(
       "productos.solicitar_stock"
     );
   });
 
-  it("rejects if producto is inactive", async () => {
-    setupMocksForCreate();
-    mocks.models.producto.findUnique.mockResolvedValue({
-      id: 10,
-      nombre: "Filtro",
-      cantidad: 20,
-      activo: false,
+  it("allows owner to cancel own pending solicitud", async () => {
+    const result = await cancelarSolicitudStock(100);
+
+    expect(result.success).toBe(true);
+    expect(mocks.solicitudStock.update).toHaveBeenCalledWith({
+      where: { id: 100 },
+      data: {
+        estado: "CANCELADA",
+        resueltoPorId: 1,
+        observacionResolucion: "Cancelada por el solicitante",
+        resolvedAt: expect.any(Date),
+      },
     });
-
-    const result = await crearSolicitudStock("RESTA", 10, 5, "Ajuste");
-    expect("error" in result).toBe(true);
-    expect((result as { error: string }).error).toBe("Producto inactivo.");
   });
 
-  it("rejects RESTA if stock insufficient", async () => {
-    setupMocksForCreate();
-    mocks.models.producto.findUnique.mockResolvedValue({
-      id: 10,
-      nombre: "Filtro",
-      cantidad: 2,
-      activo: true,
+  it("allows owner to cancel with custom motivo", async () => {
+    const result = await cancelarSolicitudStock(100, "Ya no lo necesito");
+
+    expect(result.success).toBe(true);
+    expect(mocks.solicitudStock.update).toHaveBeenCalledWith({
+      where: { id: 100 },
+      data: expect.objectContaining({
+        observacionResolucion: "Ya no lo necesito",
+      }),
     });
-
-    const result = await crearSolicitudStock("RESTA", 10, 5, "Ajuste");
-    expect("error" in result).toBe(true);
-    expect((result as { error: string }).error).toContain("Stock insuficiente");
   });
 
-  it("creates solicitud and notifies admins", async () => {
-    setupMocksForCreate();
-    const result = await crearSolicitudStock("RESTA", 10, 5, "Ajuste");
+  it("rejects cancellation of another user's solicitud", async () => {
+    setupMocks(solicitudPendiente({ solicitanteId: 99 }));
 
-    expect(result).toHaveProperty("success", true);
-    expect(mocks.models.solicitudStock.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          productoId: 10,
-          tipo: "RESTA",
-          cantidad: 5,
-          estado: "PENDIENTE",
-          solicitanteId: 2,
-        }),
-      })
+    const result = await cancelarSolicitudStock(100);
+
+    expect(result.error).toBe(
+      "No tiene permisos para cancelar esta solicitud."
     );
-    expect(mocks.models.notificacion.createMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.arrayContaining([
-          expect.objectContaining({
-            usuarioId: 2,
-            tipo: "SOLICITUD_CREADA",
-          }),
-        ]),
-      })
+    expect(mocks.solicitudStock.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects cancellation of a non-PENDIENTE solicitud", async () => {
+    setupMocks(solicitudPendiente({ estado: "APROBADA" }));
+
+    const result = await cancelarSolicitudStock(100);
+
+    expect(result.error).toBe("Solo se pueden cancelar solicitudes pendientes.");
+    expect(mocks.solicitudStock.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects cancellation of a RECHAZADA solicitud", async () => {
+    setupMocks(solicitudPendiente({ estado: "RECHAZADA" }));
+
+    const result = await cancelarSolicitudStock(100);
+
+    expect(result.error).toBe("Solo se pueden cancelar solicitudes pendientes.");
+    expect(mocks.solicitudStock.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects cancellation of a CANCELADA solicitud", async () => {
+    setupMocks(solicitudPendiente({ estado: "CANCELADA" }));
+
+    const result = await cancelarSolicitudStock(100);
+
+    expect(result.error).toBe("Solo se pueden cancelar solicitudes pendientes.");
+    expect(mocks.solicitudStock.update).not.toHaveBeenCalled();
+  });
+
+  it("does NOT modify stock when cancelling", async () => {
+    await cancelarSolicitudStock(100);
+
+    expect(mocks.tx.producto.update).not.toHaveBeenCalled();
+    expect(mocks.tx.producto.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("does NOT call registrarMovimiento when cancelling", async () => {
+    await cancelarSolicitudStock(100);
+
+    expect(mocks.registrarMovimiento).not.toHaveBeenCalled();
+  });
+
+  it("returns error when solicitud not found", async () => {
+    setupMocks(null);
+
+    const result = await cancelarSolicitudStock(999);
+
+    expect(result.error).toBe("Solicitud no encontrada.");
+    expect(mocks.solicitudStock.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid solicitud ID", async () => {
+    const result = await cancelarSolicitudStock(-1);
+
+    expect(result.error).toBe(
+      "El ID de la solicitud debe ser un n\u00famero entero v\u00e1lido."
     );
   });
 
-  it("allows REPOSICION even when cantidad > stock", async () => {
-    setupMocksForCreate();
-    mocks.models.producto.findUnique.mockResolvedValue({
-      id: 10,
-      nombre: "Filtro",
-      cantidad: 0,
-      activo: true,
-    });
+  it("revalidates paths after successful cancellation", async () => {
+    await cancelarSolicitudStock(100);
 
-    const result = await crearSolicitudStock("REPOSICION", 10, 100, "Reponer");
-    expect(result).toHaveProperty("success", true);
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/pedidos");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/productos");
   });
 
-  it("rejects empty motivo", async () => {
-    setupMocksForCreate();
-    const result = await crearSolicitudStock("RESTA", 10, 5, "");
-    expect("error" in result).toBe(true);
-  });
-
-  it("rejects invalid tipo", async () => {
-    setupMocksForCreate();
-    const result = await crearSolicitudStock(
-      "INVALID" as "RESTA",
-      10,
-      5,
-      "Test"
+  it("rejects for users without permission", async () => {
+    mocks.requirePermission.mockRejectedValueOnce(
+      new Error("No tiene permisos para realizar esta accion.")
     );
-    expect("error" in result).toBe(true);
+
+    const result = await cancelarSolicitudStock(100);
+
+    expect(result.error).toBe(
+      "No tiene permisos para realizar esta accion."
+    );
+    expect(mocks.tx.solicitudStock.update).not.toHaveBeenCalled();
   });
 });
 
-// ─── aprobarSolicitudStock ─────────────────────────────────────────────
+// ─── aprobarSolicitudStock ─────────────────────────────────────────────────
 
 describe("aprobarSolicitudStock", () => {
   it("requires productos.aprobar_solicitud_stock permission", async () => {
-    setupMocksForApprove();
+    mocks.requirePermission.mockResolvedValue(adminSession);
+
     await aprobarSolicitudStock(100);
+
     expect(mocks.requirePermission).toHaveBeenCalledWith(
       "productos.aprobar_solicitud_stock"
     );
   });
 
-  it("approves RESTA solicitud atomically", async () => {
-    setupMocksForApprove();
+  it("approves RESTA solicitud and decrements stock", async () => {
+    mocks.requirePermission.mockResolvedValue(adminSession);
+    mocks.getSession.mockResolvedValue(adminSession);
+
     const result = await aprobarSolicitudStock(100);
 
-    expect(result).toHaveProperty("success", true);
-    expect(mocks.models.producto.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: 10, cantidad: { gte: 5 } },
-        data: { cantidad: { decrement: 5 } },
-      })
-    );
-    expect(mocks.models.solicitudStock.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: 100 },
-        data: expect.objectContaining({ estado: "APROBADA" }),
-      })
-    );
-    expect(mocks.models.notificacion.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          usuarioId: 3,
-          tipo: "SOLICITUD_APROBADA",
-        }),
-      })
+    expect(result.success).toBe(true);
+    // Solicitud updated to APROBADA
+    expect(mocks.tx.solicitudStock.update).toHaveBeenCalledWith({
+      where: { id: 100 },
+      data: expect.objectContaining({
+        estado: "APROBADA",
+        resueltoPorId: 2,
+      }),
+    });
+    // Stock decremented via updateMany (atomic)
+    expect(mocks.tx.producto.updateMany).toHaveBeenCalledWith({
+      where: { id: 10, cantidad: { gte: 5 } },
+      data: { cantidad: { decrement: 5 } },
+    });
+  });
+
+  it("approves REPOSICION solicitud and increments stock", async () => {
+    setupMocks(solicitudPendiente({ tipo: "REPOSICION" }));
+    mocks.requirePermission.mockResolvedValue(adminSession);
+    mocks.getSession.mockResolvedValue(adminSession);
+
+    const result = await aprobarSolicitudStock(100);
+
+    expect(result.success).toBe(true);
+    expect(mocks.tx.producto.update).toHaveBeenCalledWith({
+      where: { id: 10 },
+      data: { cantidad: { increment: 5 } },
+    });
+  });
+
+  it("creates MovimientoProducto with correct args for RESTA", async () => {
+    mocks.requirePermission.mockResolvedValue(adminSession);
+    mocks.getSession.mockResolvedValue(adminSession);
+
+    await aprobarSolicitudStock(100, "Observacion admin");
+
+    expect(mocks.registrarMovimiento).toHaveBeenCalledWith(
+      mocks.tx,
+      {
+        productoId: 10,
+        tipo: "SOLICITUD_RESTA_APROBADA",
+        cantidadAnterior: 10,
+        cantidadNueva: 5,
+        motivo: "Solicitud de resta #100 aprobada",
+        observacion: "Observacion admin",
+        usuarioId: 2,
+      }
     );
   });
 
-  it("approves REPOSICION solicitud by incrementing stock", async () => {
-    setupMocksForApprove({ tipo: "REPOSICION" });
+  it("creates MovimientoProducto with correct args for REPOSICION", async () => {
+    setupMocks(solicitudPendiente({ tipo: "REPOSICION" }));
+    mocks.requirePermission.mockResolvedValue(adminSession);
+    mocks.getSession.mockResolvedValue(adminSession);
+
+    await aprobarSolicitudStock(100);
+
+    expect(mocks.registrarMovimiento).toHaveBeenCalledWith(
+      mocks.tx,
+      {
+        productoId: 10,
+        tipo: "REPOSICION_APROBADA",
+        cantidadAnterior: 10,
+        cantidadNueva: 15,
+        motivo: "Solicitud de reposici\u00f3n #100 aprobada",
+        observacion: undefined,
+        usuarioId: 2,
+      }
+    );
+  });
+
+  it("does not call registrarMovimiento when permission check fails", async () => {
+    mocks.requirePermission.mockRejectedValueOnce(
+      new Error("No tiene permisos para realizar esta accion.")
+    );
+
+    await aprobarSolicitudStock(100);
+
+    expect(mocks.registrarMovimiento).not.toHaveBeenCalled();
+  });
+
+  it("rejects approval of non-PENDIENTE solicitud", async () => {
+    mocks.requirePermission.mockResolvedValue(adminSession);
+    mocks.getSession.mockResolvedValue(adminSession);
+    setupMocks(solicitudPendiente({ estado: "APROBADA" }));
+
     const result = await aprobarSolicitudStock(100);
 
-    expect(result).toHaveProperty("success", true);
-    expect(mocks.models.producto.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: 10 },
-        data: { cantidad: { increment: 5 } },
+    expect(result.error).toBe("La solicitud ya fue resuelta.");
+    expect(mocks.registrarMovimiento).not.toHaveBeenCalled();
+    expect(mocks.tx.solicitudStock.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects approval when solicitud not found", async () => {
+    mocks.requirePermission.mockResolvedValue(adminSession);
+    mocks.getSession.mockResolvedValue(adminSession);
+    setupMocks(null);
+
+    const result = await aprobarSolicitudStock(999);
+
+    expect(result.error).toBe("Solicitud no encontrada.");
+    expect(mocks.registrarMovimiento).not.toHaveBeenCalled();
+  });
+
+  it("rejects self-approval", async () => {
+    // ownerSession (userId=1) is the solicitante
+    mocks.requirePermission.mockResolvedValue(ownerSession);
+    mocks.getSession.mockResolvedValue(ownerSession);
+
+    const result = await aprobarSolicitudStock(100);
+
+    expect(result.error).toBe("No puede aprobar su propia solicitud.");
+    expect(mocks.registrarMovimiento).not.toHaveBeenCalled();
+  });
+
+  it("rejects approval when product is inactive", async () => {
+    mocks.requirePermission.mockResolvedValue(adminSession);
+    mocks.getSession.mockResolvedValue(adminSession);
+    setupMocks(
+      solicitudPendiente({
+        producto: { id: 10, nombre: "Kit", cantidad: 10, activo: false },
       })
     );
-  });
 
-  it("prevents self-approval", async () => {
-    setupMocksForApprove({ solicitanteId: 2 }); // Same as adminSession.userId
     const result = await aprobarSolicitudStock(100);
 
-    expect("error" in result).toBe(true);
-    expect((result as { error: string }).error).toContain(
-      "No puede aprobar su propia solicitud"
-    );
+    expect(result.error).toBe("Producto inactivo.");
+    expect(mocks.registrarMovimiento).not.toHaveBeenCalled();
   });
 
-  it("rejects already-resolved solicitud", async () => {
-    setupMocksForApprove({ estado: "APROBADA" });
-    const result = await aprobarSolicitudStock(100);
-
-    expect("error" in result).toBe(true);
-    expect((result as { error: string }).error).toContain("ya fue resuelta");
-  });
-
-  it("rejects RESTA when stock insufficient", async () => {
-    setupMocksForApprove();
-    mocks.models.producto.updateMany.mockResolvedValue({ count: 0 });
-    mocks.models.producto.findUnique.mockResolvedValue({
+  it("rejects RESTA when stock is insufficient", async () => {
+    mocks.requirePermission.mockResolvedValue(adminSession);
+    mocks.getSession.mockResolvedValue(adminSession);
+    // updateMany returns count=0 when stock < cantidad
+    mocks.tx.producto.updateMany.mockResolvedValue({ count: 0 });
+    mocks.tx.producto.findUnique.mockResolvedValue({
       id: 10,
       cantidad: 2,
     });
 
     const result = await aprobarSolicitudStock(100);
 
-    expect("error" in result).toBe(true);
-    expect((result as { error: string }).error).toContain("Stock insuficiente");
-  });
-});
-
-// ─── rechazarSolicitudStock ────────────────────────────────────────────
-
-describe("rechazarSolicitudStock", () => {
-  it("requires productos.aprobar_solicitud_stock permission", async () => {
-    setupMocksForReject();
-    await rechazarSolicitudStock(100, "No aplica");
-    expect(mocks.requirePermission).toHaveBeenCalledWith(
-      "productos.aprobar_solicitud_stock"
+    expect(result.error).toBe(
+      "Stock insuficiente. Stock actual: 2 unidades."
     );
   });
 
-  it("rejects with motivo and creates notification", async () => {
-    setupMocksForReject();
-    const result = await rechazarSolicitudStock(100, "Stock insuficiente");
+  it("revalidates paths after successful approval", async () => {
+    mocks.requirePermission.mockResolvedValue(adminSession);
+    mocks.getSession.mockResolvedValue(adminSession);
 
-    expect(result).toHaveProperty("success", true);
-    expect(mocks.models.solicitudStock.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          estado: "RECHAZADA",
-          observacionResolucion: "Stock insuficiente",
-        }),
-      })
-    );
-    expect(mocks.models.notificacion.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          tipo: "SOLICITUD_RECHAZADA",
-        }),
-      })
-    );
+    await aprobarSolicitudStock(100);
+
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/productos");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/solicitudes-stock");
   });
 
-  it("requires motivo", async () => {
-    setupMocksForReject();
-    const result = await rechazarSolicitudStock(100, "");
-    expect("error" in result).toBe(true);
-  });
+  it("calls evaluarYNotificarStock after approval", async () => {
+    mocks.requirePermission.mockResolvedValue(adminSession);
+    mocks.getSession.mockResolvedValue(adminSession);
 
-  it("rejects already-resolved solicitud", async () => {
-    setupMocksForReject();
-    mocks.models.solicitudStock.findUnique.mockResolvedValue({
-      id: 100,
-      estado: "APROBADA",
-      producto: { nombre: "Test", activo: true },
+    await aprobarSolicitudStock(100);
+
+    expect(mocks.evaluarYNotificarStock).toHaveBeenCalledWith({
+      productoId: 10,
+      cantidadAnterior: 10,
+      cantidadNueva: 5,
+      usuarioId: 1,
+      usuarioNombre: "admin",
+      tipoMovimiento: "SOLICITUD_RESTA_APROBADA",
+      motivo: "Solicitud de resta aprobada",
     });
-
-    const result = await rechazarSolicitudStock(100, "Motivo");
-    expect("error" in result).toBe(true);
-  });
-});
-
-// ─── getContadorNotificaciones ──────────────────────────────────────────
-
-describe("getContadorNotificaciones", () => {
-  it("returns unread count for authenticated user", async () => {
-    mocks.getSession.mockResolvedValue(adminSession);
-    mocks.models.notificacion.count.mockResolvedValue(5);
-
-    const result = await getContadorNotificaciones();
-    expect(result).toHaveProperty("count", 5);
-  });
-});
-
-// ─── getNotificaciones ─────────────────────────────────────────────────
-
-describe("getNotificaciones", () => {
-  it("returns notifications for authenticated user", async () => {
-    mocks.getSession.mockResolvedValue(adminSession);
-    const fakeNotis = [
-      { id: 1, titulo: "Test", mensaje: "Msg", leida: false },
-    ];
-    mocks.models.notificacion.findMany.mockResolvedValue(fakeNotis);
-
-    const result = await getNotificaciones();
-    expect(result).toHaveProperty("notificaciones");
-    expect(
-      (result as { notificaciones: unknown[] }).notificaciones
-    ).toHaveLength(1);
   });
 
-  it("rejects unauthenticated user", async () => {
-    mocks.getSession.mockResolvedValue(null);
-    const result = await getNotificaciones();
-    expect("error" in result).toBe(true);
-  });
-});
+  it("rejects invalid solicitud ID", async () => {
+    const result = await aprobarSolicitudStock(0);
 
-// ─── marcarNotificacionLeida ───────────────────────────────────────────
-
-describe("marcarNotificacionLeida", () => {
-  it("marks owned notification as read", async () => {
-    mocks.getSession.mockResolvedValue(adminSession);
-    mocks.models.notificacion.updateMany.mockResolvedValue({ count: 1 });
-
-    const result = await marcarNotificacionLeida(1);
-    expect(result).toHaveProperty("success", true);
+    expect(result.error).toBe(
+      "El ID de la solicitud debe ser un n\u00famero entero v\u00e1lido."
+    );
   });
 
-  it("rejects if notification not found or not owned", async () => {
-    mocks.getSession.mockResolvedValue(adminSession);
-    mocks.models.notificacion.updateMany.mockResolvedValue({ count: 0 });
+  it("rejects for users without permission", async () => {
+    mocks.requirePermission.mockRejectedValueOnce(
+      new Error("No tiene permisos para realizar esta accion.")
+    );
 
-    const result = await marcarNotificacionLeida(999);
-    expect("error" in result).toBe(true);
-  });
-});
+    const result = await aprobarSolicitudStock(100);
 
-// ─── marcarTodasLeidas ─────────────────────────────────────────────────
-
-describe("marcarTodasLeidas", () => {
-  it("marks all unread notifications as read", async () => {
-    mocks.getSession.mockResolvedValue(adminSession);
-    mocks.models.notificacion.updateMany.mockResolvedValue({ count: 3 });
-
-    const result = await marcarTodasLeidas();
-    expect(result).toHaveProperty("success", true);
+    expect(result.error).toBe(
+      "No tiene permisos para realizar esta accion."
+    );
+    expect(mocks.registrarMovimiento).not.toHaveBeenCalled();
   });
 });

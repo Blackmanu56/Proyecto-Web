@@ -6,9 +6,15 @@ import { getSolicitudesReposicion } from "@/actions/reposiciones";
 import PedidosTable from "@/components/tables/PedidosTable";
 import { ClipboardList } from "lucide-react";
 
-export default async function PedidosPage() {
-  const session = await getSession();
+interface PageProps {
+  searchParams: Promise<{
+    tab?: string;
+  }>;
+}
 
+export default async function PedidosPage({ searchParams }: PageProps) {
+  const session = await getSession();
+  const params = await searchParams;
   const userRole = session?.role || "ENCARGADO_STOCK";
 
   const allowedRoles = ["ADMINISTRADOR", "ENCARGADO_STOCK"];
@@ -67,6 +73,7 @@ export default async function PedidosPage() {
             solicitudes={solicitudes as React.ComponentProps<typeof PedidosTable>["solicitudes"]}
             userId={session?.userId ?? 0}
             canApprove={userRole === "ADMINISTRADOR"}
+            initialTab={params.tab as React.ComponentProps<typeof PedidosTable>["initialTab"]}
           />
         </div>
       </div>

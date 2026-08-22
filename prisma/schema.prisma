@@ -47,6 +47,7 @@ enum TipoMovimientoProducto {
   EDICION
   REPOSICION_DIRECTA
   REPOSICION_APROBADA
+  SOLICITUD_RESTA_APROBADA
 }
 
 enum TipoSolicitudStock {
@@ -58,12 +59,19 @@ enum EstadoSolicitud {
   PENDIENTE
   APROBADA
   RECHAZADA
+  CANCELADA
 }
 
 enum TipoNotificacion {
   SOLICITUD_CREADA
   SOLICITUD_APROBADA
   SOLICITUD_RECHAZADA
+  SOLICITUD_CANCELADA
+  STOCK_CRITICO
+  STOCK_AGOTADO
+  STOCK_RESTADO
+  STOCK_RECARGADO
+  VENTA_CREADA
 }
 
 model PagoCompra {
@@ -115,6 +123,7 @@ model Usuario {
   solicitudesStockCreadas    SolicitudStock[]       @relation("SolicitudStockSolicitante")
   solicitudesStockResueltas  SolicitudStock[]       @relation("SolicitudStockResuelto")
   notificaciones             Notificacion[]
+  preferenciasNotificacion   PreferenciaNotificacion[]
 
   @@map("usuarios")
 }
@@ -196,6 +205,7 @@ model Producto {
   movimientosProducto   MovimientoProducto[]
   solicitudesReposicion SolicitudReposicion[]
   solicitudesStock      SolicitudStock[]
+  notificaciones        Notificacion[]
 
   @@map("productos")
 }
@@ -333,6 +343,7 @@ model SolicitudReposicion {
   solicitante   Usuario          @relation("solicitudesSolicitante", fields: [solicitanteId], references: [id])
   aprobador     Usuario?         @relation("solicitudesAprobador", fields: [aprobadorId], references: [id])
   compra        Compra?          @relation(fields: [compraId], references: [id])
+  notificaciones Notificacion[]
 
   @@index([estado, createdAt])
   @@index([productoId])
@@ -366,22 +377,39 @@ model SolicitudStock {
 }
 
 model Notificacion {
-  id                 Int                 @id @default(autoincrement())
-  usuarioId          Int
-  tipo               TipoNotificacion
-  titulo             String
-  mensaje            String
-  solicitudStockId   Int?
-  leida              Boolean             @default(false)
-  createdAt          DateTime            @default(now())
-  readAt             DateTime?
+  id                      Int                 @id @default(autoincrement())
+  usuarioId               Int
+  tipo                    TipoNotificacion
+  titulo                  String
+  mensaje                 String
+  solicitudStockId        Int?
+  solicitudReposicionId   Int?
+  productoId              Int?
+  entidad                 String?             // "solicitud_stock" | "reposicion" | "stock" | "venta"
+  leida                   Boolean             @default(false)
+  createdAt               DateTime            @default(now())
+  readAt                  DateTime?
 
-  usuario            Usuario             @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  solicitudStock     SolicitudStock?     @relation(fields: [solicitudStockId], references: [id], onDelete: SetNull)
+  usuario                 Usuario             @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  solicitudStock          SolicitudStock?     @relation(fields: [solicitudStockId], references: [id], onDelete: SetNull)
+  solicitudReposicion     SolicitudReposicion? @relation(fields: [solicitudReposicionId], references: [id], onDelete: SetNull)
+  producto                Producto?           @relation(fields: [productoId], references: [id], onDelete: SetNull)
 
   @@index([usuarioId, leida])
   @@index([createdAt])
   @@map("notificaciones")
+}
+
+model PreferenciaNotificacion {
+  id            Int      @id @default(autoincrement())
+  usuarioId     Int
+  tipo          TipoNotificacion
+  habilitada    Boolean  @default(true)
+
+  usuario       Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, tipo])
+  @@map("preferencias_notificacion")
 }
 
 model ProductoFavorito {

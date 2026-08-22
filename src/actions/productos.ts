@@ -15,6 +15,7 @@ import {
   validarReposicion,
 } from "@/lib/reposicion";
 import { registrarMovimiento } from "@/lib/movimiento-producto";
+import { evaluarYNotificarStock } from "@/lib/stock-notifications";
 
 const productoSchema = z.object({
   nombre: z.string().min(2, "El nombre del producto debe tener al menos 2 caracteres"),
@@ -642,6 +643,18 @@ export async function restarStock(
     });
 
     revalidatePath("/productos");
+
+    // Evaluar stock y crear notificaciones (fuera de la transacción)
+    await evaluarYNotificarStock({
+      productoId,
+      cantidadAnterior: result.stockAnterior,
+      cantidadNueva: result.stockNuevo,
+      usuarioId: session.userId,
+      usuarioNombre: session.username,
+      tipoMovimiento: "RESTA_MANUAL",
+      motivo,
+    });
+
     return {
       success: true,
       stockAnterior: result.stockAnterior,

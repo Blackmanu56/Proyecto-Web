@@ -6,7 +6,8 @@ export type TipoMovimientoProducto =
   | "RESTA_MANUAL"
   | "EDICION"
   | "REPOSICION_DIRECTA"
-  | "REPOSICION_APROBADA";
+  | "REPOSICION_APROBADA"
+  | "SOLICITUD_RESTA_APROBADA";
 
 export interface RegistrarMovimientoParams {
   productoId: number;

@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
+import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import SolicitudStockDetail from "@/components/ui/SolicitudStockDetail";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Eye, Minus, Plus } from "lucide-react";
+import { Minus, Package, Plus } from "lucide-react";
 
 /* ────────────────────── Types ────────────────────── */
 
@@ -19,7 +20,7 @@ export interface SolicitudRow {
   observacionResolucion?: string | null;
   createdAt: Date | string;
   resolvedAt?: Date | string | null;
-  producto: { id: number; nombre: string; cantidad: number };
+  producto: { id: number; nombre: string; cantidad: number; imagen?: string | null };
   solicitante: { id: number; nombreCompleto: string };
   resueltoPor?: { id: number; nombreCompleto: string } | null;
 }
@@ -27,15 +28,18 @@ export interface SolicitudRow {
 interface SolicitudesStockTableProps {
   solicitudes: SolicitudRow[];
   onRefresh: () => void;
+  currentUserId?: number;
+  userRole?: string;
 }
 
-type EstadoFilter = "TODAS" | "PENDIENTE" | "APROBADA" | "RECHAZADA";
+type EstadoFilter = "TODAS" | "PENDIENTE" | "APROBADA" | "RECHAZADA" | "CANCELADA";
 
 const FILTER_TABS: { key: EstadoFilter; label: string }[] = [
   { key: "TODAS", label: "Todas" },
   { key: "PENDIENTE", label: "Pendientes" },
   { key: "APROBADA", label: "Aprobadas" },
   { key: "RECHAZADA", label: "Rechazadas" },
+  { key: "CANCELADA", label: "Canceladas" },
 ];
 
 function estadoBadge(estado: string) {
@@ -46,6 +50,8 @@ function estadoBadge(estado: string) {
       return <Badge variant="success" size="sm">Aprobada</Badge>;
     case "RECHAZADA":
       return <Badge variant="danger" size="sm">Rechazada</Badge>;
+    case "CANCELADA":
+      return <Badge variant="default" size="sm">Cancelada</Badge>;
     default:
       return <Badge variant="default" size="sm">{estado}</Badge>;
   }
@@ -56,6 +62,8 @@ function estadoBadge(estado: string) {
 export default function SolicitudesStockTable({
   solicitudes,
   onRefresh,
+  currentUserId,
+  userRole,
 }: SolicitudesStockTableProps) {
   const [filter, setFilter] = useState<EstadoFilter>("TODAS");
   const [selectedSolicitud, setSelectedSolicitud] = useState<SolicitudRow | null>(null);
@@ -111,13 +119,12 @@ export default function SolicitudesStockTable({
               <th className="px-4 py-3 text-left">Solicitante</th>
               <th className="px-4 py-3 text-left">Fecha</th>
               <th className="px-4 py-3 text-center">Estado</th>
-              <th className="px-4 py-3 text-center">Acción</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-12 text-center text-[var(--text-muted)] text-sm">
+                <td colSpan={7} className="px-4 py-12 text-center text-[var(--text-muted)] text-sm">
                   No hay solicitudes para mostrar.
                 </td>
               </tr>
@@ -125,7 +132,8 @@ export default function SolicitudesStockTable({
               filtered.map((sol) => (
                 <tr
                   key={sol.id}
-                  className="border-b border-[var(--border)]/20 hover:bg-[var(--card)]/30 transition-colors"
+                  onClick={() => setSelectedSolicitud(sol)}
+                  className="border-b border-[var(--border)]/20 hover:bg-[var(--card)]/30 transition-colors cursor-pointer"
                 >
                   <td className="px-4 py-3 font-mono text-xs text-[var(--text-muted)]">
                     #{sol.id}
@@ -161,15 +169,6 @@ export default function SolicitudesStockTable({
                   <td className="px-4 py-3 text-center">
                     {estadoBadge(sol.estado)}
                   </td>
-                  <td className="px-4 py-3 text-center">
-                    <button
-                      onClick={() => setSelectedSolicitud(sol)}
-                      className="p-1.5 rounded-[var(--radius-sm)] text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--card)]/60 transition-colors"
-                      title="Ver detalle"
-                    >
-                      <Eye size={14} />
-                    </button>
-                  </td>
                 </tr>
               ))
             )}
@@ -185,6 +184,8 @@ export default function SolicitudesStockTable({
             if (!open) setSelectedSolicitud(null);
           }}
           solicitud={selectedSolicitud}
+          currentUserId={currentUserId}
+          userRole={userRole}
           onSuccess={() => {
             setSelectedSolicitud(null);
             onRefresh();

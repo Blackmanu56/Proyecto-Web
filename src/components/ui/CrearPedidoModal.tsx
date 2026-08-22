@@ -223,26 +223,21 @@ export default function CrearPedidoModal({
 
             {/* ── Cantidad ── */}
             <FormField label="Cantidad a solicitar" required>
-              <div className="relative">
-                <input
-                  type="number"
-                  min="1"
-                  step="1"
-                  value={cantidad}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value);
-                    setCantidad(isNaN(val) ? "" : Math.max(1, val));
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "-" || e.key === ".") e.preventDefault();
-                  }}
-                  placeholder="Cantidad"
-                  className="w-full h-10 px-3 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-sm text-[var(--text)] font-mono focus:outline-none focus:border-[var(--brand)] transition-colors"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--text-secondary)]">
-                  unidades
-                </span>
-              </div>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={cantidad}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value);
+                  setCantidad(isNaN(val) ? "" : Math.max(1, val));
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === ".") e.preventDefault();
+                }}
+                placeholder="Cantidad"
+                className="w-full h-10 px-3 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-sm text-[var(--text)] font-mono focus:outline-none focus:border-[var(--brand)] transition-colors"
+              />
             </FormField>
 
             {/* ── Motivo ── */}

@@ -46,6 +46,7 @@ const TIPO_BADGE: Record<TipoMovimientoProducto, { label: string; className: str
   EDICION:             { label: "Edición",             className: "bg-amber-500/15 text-amber-400 ring-amber-500/30" },
   REPOSICION_DIRECTA:  { label: "Reposición directa",  className: "bg-emerald-500/15 text-emerald-400 ring-emerald-500/30" },
   REPOSICION_APROBADA: { label: "Reposición aprobada", className: "bg-emerald-500/15 text-emerald-400 ring-emerald-500/30" },
+  SOLICITUD_RESTA_APROBADA: { label: "Resta aprobada (solicitud)", className: "bg-orange-500/15 text-orange-400 ring-orange-500/30" },
 };
 
 export default function MovimientoProductoModal({

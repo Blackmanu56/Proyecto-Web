@@ -29,6 +29,14 @@ interface RestarStockModalProps {
     motivo: string,
     observacion?: string
   ) => Promise<{ success?: boolean; error?: string; stockNuevo?: number }>;
+  crearSolicitudAction?: (
+    tipo: "RESTA" | "REPOSICION",
+    productoId: number,
+    cantidad: number,
+    motivo: string,
+    observacion?: string
+  ) => Promise<{ success?: boolean; error?: string }>;
+  esSolicitud?: boolean;
 }
 
 const MOTIVOS = [
@@ -48,6 +56,8 @@ export default function RestarStockModal({
   producto,
   onSuccess,
   restarStockAction,
+  crearSolicitudAction,
+  esSolicitud = false,
 }: RestarStockModalProps) {
   const [cantidad, setCantidad] = useState<number | "">("");
   const [motivo, setMotivo] = useState("");
@@ -66,12 +76,24 @@ export default function RestarStockModal({
     setError("");
 
     try {
-      const res = await restarStockAction(
-        producto.id,
-        cantidadNum,
-        motivo,
-        motivo === "Otro" ? observacion : undefined
-      );
+      let res: { success?: boolean; error?: string; stockNuevo?: number };
+
+      if (esSolicitud && crearSolicitudAction) {
+        res = await crearSolicitudAction(
+          "RESTA",
+          producto.id,
+          cantidadNum,
+          motivo,
+          motivo === "Otro" ? observacion : undefined
+        );
+      } else {
+        res = await restarStockAction(
+          producto.id,
+          cantidadNum,
+          motivo,
+          motivo === "Otro" ? observacion : undefined
+        );
+      }
 
       if (res.success) {
         setSuccess(true);
@@ -114,10 +136,12 @@ export default function RestarStockModal({
             <div className="p-2 rounded-[var(--radius-md)] bg-[var(--danger-light)] text-[var(--danger)]">
               <Package size={18} />
             </div>
-            Restar stock
+            {esSolicitud ? "Solicitar resta de stock" : "Restar stock"}
           </DialogTitle>
           <DialogDescription>
-            Descontar unidades del producto sin realizar una venta.
+            {esSolicitud
+              ? "Enviar solicitud de resta al administrador para su aprobación."
+              : "Descontar unidades del producto sin realizar una venta."}
           </DialogDescription>
         </DialogHeader>
 
@@ -125,7 +149,7 @@ export default function RestarStockModal({
           <div className="p-4 bg-[var(--success-light)] border border-[var(--success)]/20 rounded-[var(--radius-md)] text-center">
             <CheckCircle size={32} className="mx-auto text-[var(--success)] mb-2" />
             <p className="text-sm font-semibold text-[var(--success)]">
-              Stock actualizado exitosamente.
+              {esSolicitud ? "Solicitud enviada exitosamente." : "Stock actualizado exitosamente."}
             </p>
             {stockResult !== null && (
               <p className="text-xs text-[var(--text-secondary)] mt-1">

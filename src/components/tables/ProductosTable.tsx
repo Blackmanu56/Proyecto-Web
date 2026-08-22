@@ -8,6 +8,7 @@ createProducto,
 restarStock,
 updateProducto,
 } from "@/actions/productos";
+import { crearSolicitudStock } from "@/actions/solicitudes-stock";
 import AdminEntityModal from "@/components/ui/AdminEntityModal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -1659,6 +1660,8 @@ export default function ProductosTable({
           }}
           onSuccess={() => router.refresh()}
           restarStockAction={restarStock}
+          crearSolicitudAction={crearSolicitudStock}
+          esSolicitud={userRole !== "ADMINISTRADOR"}
         />
       )}
 

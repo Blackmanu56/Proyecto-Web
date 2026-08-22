@@ -9,6 +9,7 @@ import { validateVentaPayload } from "@/lib/ventas-validation";
 import { resolverDestinoFinanciero } from "@/lib/cuenta-financiera";
 import type { DestinoFinanciero } from "@/lib/cuenta-financiera";
 import { registrarMovimiento } from "@/lib/movimiento-producto";
+import { evaluarYNotificarStock } from "@/lib/stock-notifications";
 
 interface VentaItem {
   productoId: number;
@@ -314,17 +315,64 @@ export async function createVenta(
         });
       }
 
-      return venta;
+      return { venta, movimientosPendientes };
     });
 
     revalidatePath("/productos");
     revalidatePath("/ventas");
     revalidatePath("/caja");
 
+    // Evaluar stock y crear notificaciones para cada producto vendido
+    for (const mov of result.movimientosPendientes) {
+      await evaluarYNotificarStock({
+        productoId: mov.productoId,
+        cantidadAnterior: mov.cantidadAnterior,
+        cantidadNueva: mov.cantidadNueva,
+        usuarioId: session.userId,
+        usuarioNombre: session.username,
+        tipoMovimiento: "VENTA",
+        motivo: `Venta N° ${result.venta.id}`,
+      });
+    }
+
+    // Notificar a todos los ADMINISTRADOR que se creó una venta
+    const roles = await prisma.rol.findMany({ select: { id: true, nombre: true } });
+    const rolAdmin = roles.find((r) => r.nombre === "ADMINISTRADOR");
+
+    if (rolAdmin) {
+      const admins = await prisma.usuario.findMany({
+        where: { activo: true, rolId: rolAdmin.id },
+        select: { id: true },
+      });
+
+      const prefers = await prisma.preferenciaNotificacion.findMany({
+        where: { tipo: "VENTA_CREADA", usuarioId: { in: admins.map((a) => a.id) } },
+      });
+      const disabledIds = new Set(prefers.filter((p) => !p.habilitada).map((p) => p.usuarioId));
+      const eligibleAdmins = admins.filter((a) => !disabledIds.has(a.id));
+
+      if (eligibleAdmins.length > 0) {
+        const totalItems = result.movimientosPendientes.length;
+        const totalMonto = Number(result.venta.total);
+        const montoFmt = totalMonto.toLocaleString();
+        const plural = totalItems > 1 ? "s" : "";
+        const msg = `Venta N${"\u00b0"} ${result.venta.id} por ${montoFmt} pesos (${totalItems} producto${plural}). Vendedor: ${session.username}.`;
+        await prisma.notificacion.createMany({
+          data: eligibleAdmins.map((a) => ({
+            usuarioId: a.id,
+            tipo: "VENTA_CREADA",
+            titulo: "Nueva venta registrada",
+            mensaje: msg,
+            entidad: "venta",
+          })),
+        });
+      }
+    }
+
     return {
       success: true,
-      ventaId: result.id,
-      total: Number(result.total),
+      ventaId: result.venta.id,
+      total: Number(result.venta.total),
     };
   } catch (error: unknown) {
     console.error("Error en createVenta:", error);
