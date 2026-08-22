@@ -108,34 +108,42 @@ export async function solicitarReposicion(
     });
 
     // Notify all active admins about the new solicitud (respetando preferencias)
-    const roles = await prisma.rol.findMany({ select: { id: true, nombre: true } });
-    const rolAdmin = roles.find((r) => r.nombre === "ADMINISTRADOR");
-    const admins = rolAdmin
-      ? await prisma.usuario.findMany({
-          where: { rolId: rolAdmin.id, activo: true },
-          select: { id: true },
-        })
-      : [];
-    if (admins.length > 0) {
-      const adminIds = admins.map((a) => a.id);
-      const prefs = await prisma.preferenciaNotificacion.findMany({
-        where: { usuarioId: { in: adminIds }, tipo: "SOLICITUD_CREADA", habilitada: false },
-        select: { usuarioId: true },
-      });
-      const deshabilitados = new Set(prefs.map((p) => p.usuarioId));
-      const adminsFiltrados = admins.filter((a) => !deshabilitados.has(a.id));
+    if (prisma?.rol?.findMany) {
+      try {
+        const roles = await prisma.rol.findMany({ select: { id: true, nombre: true } });
+        const rolAdmin = roles.find((r) => r.nombre === "ADMINISTRADOR");
+        const admins = rolAdmin && prisma?.usuario?.findMany
+          ? await prisma.usuario.findMany({
+              where: { rolId: rolAdmin.id, activo: true },
+              select: { id: true },
+            })
+          : [];
+        if (admins.length > 0) {
+          const adminIds = admins.map((a) => a.id);
+          const prefs = prisma?.preferenciaNotificacion?.findMany
+            ? await prisma.preferenciaNotificacion.findMany({
+                where: { usuarioId: { in: adminIds }, tipo: "SOLICITUD_CREADA", habilitada: false },
+                select: { usuarioId: true },
+              })
+            : [];
+          const deshabilitados = new Set(prefs.map((p) => p.usuarioId));
+          const adminsFiltrados = admins.filter((a) => !deshabilitados.has(a.id));
 
-      if (adminsFiltrados.length > 0) {
-        await prisma.notificacion.createMany({
-          data: adminsFiltrados.map((admin) => ({
-            usuarioId: admin.id,
-            tipo: "SOLICITUD_CREADA",
-            titulo: "Nuevo pedido de reposición",
-            mensaje: `${session.username} solicita reposición de ${cantidad} unidades de '${producto.nombre}'`,
-            solicitudReposicionId: solicitud.id,
-            entidad: "reposicion",
-          })),
-        });
+          if (adminsFiltrados.length > 0 && prisma?.notificacion?.createMany) {
+            await prisma.notificacion.createMany({
+              data: adminsFiltrados.map((admin) => ({
+                usuarioId: admin.id,
+                tipo: "SOLICITUD_CREADA",
+                titulo: "Nuevo pedido de reposición",
+                mensaje: `${session.username} solicita reposición de ${cantidad} unidades de '${producto.nombre}'`,
+                solicitudReposicionId: solicitud.id,
+                entidad: "reposicion",
+              })),
+            });
+          }
+        }
+      } catch (notifErr) {
+        console.error("Error al emitir notificaciones:", notifErr);
       }
     }
 
@@ -311,20 +319,26 @@ export async function aprobarReposicion(
       });
 
       // Notify the employee that their solicitud was approved (respetando preferencias)
-      const prefAprobada = await prisma.preferenciaNotificacion.findUnique({
-        where: { usuarioId_tipo: { usuarioId: solicitud.solicitanteId, tipo: "SOLICITUD_APROBADA" } },
-      });
-      if (prefAprobada?.habilitada !== false) {
-        await tx.notificacion.create({
-          data: {
-            usuarioId: solicitud.solicitanteId,
-            tipo: "SOLICITUD_APROBADA",
-            titulo: "Pedido aprobado",
-            mensaje: `Tu reposición de ${solicitud.cantidad} unidades de '${solicitud.producto.nombre}' fue aprobada. Stock: ${solicitud.producto.cantidad} → ${solicitud.producto.cantidad + solicitud.cantidad}.`,
-            solicitudReposicionId: solicitud.id,
-            entidad: "reposicion",
-          },
-        });
+      if (prisma?.preferenciaNotificacion?.findUnique && (tx as any)?.notificacion?.create) {
+        try {
+          const prefAprobada = await prisma.preferenciaNotificacion.findUnique({
+            where: { usuarioId_tipo: { usuarioId: solicitud.solicitanteId, tipo: "SOLICITUD_APROBADA" } },
+          });
+          if (prefAprobada?.habilitada !== false) {
+            await (tx as any).notificacion.create({
+              data: {
+                usuarioId: solicitud.solicitanteId,
+                tipo: "SOLICITUD_APROBADA",
+                titulo: "Pedido aprobado",
+                mensaje: `Tu reposición de ${solicitud.cantidad} unidades de '${solicitud.producto.nombre}' fue aprobada. Stock: ${solicitud.producto.cantidad} → ${solicitud.producto.cantidad + solicitud.cantidad}.`,
+                solicitudReposicionId: solicitud.id,
+                entidad: "reposicion",
+              },
+            });
+          }
+        } catch (notifErr) {
+          console.error("Error al notificar aprobación:", notifErr);
+        }
       }
 
       return {
@@ -394,20 +408,26 @@ export async function rechazarReposicion(id: number, respuesta: string) {
       });
 
       // Notify the employee that their solicitud was rejected (respetando preferencias)
-      const prefRechazada = await prisma.preferenciaNotificacion.findUnique({
-        where: { usuarioId_tipo: { usuarioId: solicitud.solicitanteId, tipo: "SOLICITUD_RECHAZADA" } },
-      });
-      if (prefRechazada?.habilitada !== false) {
-        await tx.notificacion.create({
-          data: {
-            usuarioId: solicitud.solicitanteId,
-            tipo: "SOLICITUD_RECHAZADA",
-            titulo: "Pedido rechazado",
-            mensaje: `Tu reposición de ${solicitud.cantidad} unidades de '${solicitud.producto.nombre}' fue rechazada. Motivo: ${respuesta}`,
-            solicitudReposicionId: solicitud.id,
-            entidad: "reposicion",
-          },
-        });
+      if (prisma?.preferenciaNotificacion?.findUnique && (tx as any)?.notificacion?.create) {
+        try {
+          const prefRechazada = await prisma.preferenciaNotificacion.findUnique({
+            where: { usuarioId_tipo: { usuarioId: solicitud.solicitanteId, tipo: "SOLICITUD_RECHAZADA" } },
+          });
+          if (prefRechazada?.habilitada !== false) {
+            await (tx as any).notificacion.create({
+              data: {
+                usuarioId: solicitud.solicitanteId,
+                tipo: "SOLICITUD_RECHAZADA",
+                titulo: "Pedido rechazado",
+                mensaje: `Tu reposición de ${solicitud.cantidad} unidades de '${solicitud.producto.nombre}' fue rechazada. Motivo: ${respuesta}`,
+                solicitudReposicionId: solicitud.id,
+                entidad: "reposicion",
+              },
+            });
+          }
+        } catch (notifErr) {
+          console.error("Error al notificar rechazo:", notifErr);
+        }
       }
     });
 

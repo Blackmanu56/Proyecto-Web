@@ -336,36 +336,44 @@ export async function createVenta(
     }
 
     // Notificar a todos los ADMINISTRADOR que se creó una venta
-    const roles = await prisma.rol.findMany({ select: { id: true, nombre: true } });
-    const rolAdmin = roles.find((r) => r.nombre === "ADMINISTRADOR");
+    if (prisma?.rol?.findMany) {
+      try {
+        const roles = await prisma.rol.findMany({ select: { id: true, nombre: true } });
+        const rolAdmin = roles.find((r) => r.nombre === "ADMINISTRADOR");
 
-    if (rolAdmin) {
-      const admins = await prisma.usuario.findMany({
-        where: { activo: true, rolId: rolAdmin.id },
-        select: { id: true },
-      });
+        if (rolAdmin && prisma?.usuario?.findMany) {
+          const admins = await prisma.usuario.findMany({
+            where: { activo: true, rolId: rolAdmin.id },
+            select: { id: true },
+          });
 
-      const prefers = await prisma.preferenciaNotificacion.findMany({
-        where: { tipo: "VENTA_CREADA", usuarioId: { in: admins.map((a) => a.id) } },
-      });
-      const disabledIds = new Set(prefers.filter((p) => !p.habilitada).map((p) => p.usuarioId));
-      const eligibleAdmins = admins.filter((a) => !disabledIds.has(a.id));
+          const prefers = prisma?.preferenciaNotificacion?.findMany
+            ? await prisma.preferenciaNotificacion.findMany({
+                where: { tipo: "VENTA_CREADA", usuarioId: { in: admins.map((a) => a.id) } },
+              })
+            : [];
+          const disabledIds = new Set(prefers.filter((p) => !p.habilitada).map((p) => p.usuarioId));
+          const eligibleAdmins = admins.filter((a) => !disabledIds.has(a.id));
 
-      if (eligibleAdmins.length > 0) {
-        const totalItems = result.movimientosPendientes.length;
-        const totalMonto = Number(result.venta.total);
-        const montoFmt = totalMonto.toLocaleString();
-        const plural = totalItems > 1 ? "s" : "";
-        const msg = `Venta N${"\u00b0"} ${result.venta.id} por ${montoFmt} pesos (${totalItems} producto${plural}). Vendedor: ${session.username}.`;
-        await prisma.notificacion.createMany({
-          data: eligibleAdmins.map((a) => ({
-            usuarioId: a.id,
-            tipo: "VENTA_CREADA",
-            titulo: "Nueva venta registrada",
-            mensaje: msg,
-            entidad: "venta",
-          })),
-        });
+          if (eligibleAdmins.length > 0 && prisma?.notificacion?.createMany) {
+            const totalItems = result.movimientosPendientes.length;
+            const totalMonto = Number(result.venta.total);
+            const montoFmt = totalMonto.toLocaleString();
+            const plural = totalItems > 1 ? "s" : "";
+            const msg = `Venta N${"\u00b0"} ${result.venta.id} por ${montoFmt} pesos (${totalItems} producto${plural}). Vendedor: ${session.username}.`;
+            await prisma.notificacion.createMany({
+              data: eligibleAdmins.map((a) => ({
+                usuarioId: a.id,
+                tipo: "VENTA_CREADA",
+                titulo: "Nueva venta registrada",
+                mensaje: msg,
+                entidad: "venta",
+              })),
+            });
+          }
+        }
+      } catch (notifErr) {
+        console.error("Error al notificar venta:", notifErr);
       }
     }
 

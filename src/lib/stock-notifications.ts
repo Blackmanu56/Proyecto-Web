@@ -17,21 +17,22 @@ export async function evaluarYNotificarStock(params: {
   tipoMovimiento: string;
   motivo: string;
 }) {
-  const { productoId, cantidadAnterior, cantidadNueva, usuarioId, usuarioNombre, tipoMovimiento, motivo } = params;
+  try {
+    const { productoId, cantidadAnterior, cantidadNueva, usuarioId, usuarioNombre, tipoMovimiento, motivo } = params;
 
-  console.log(`[stock-notifications] Called: productoId=${productoId}, anterior=${cantidadAnterior}, nueva=${cantidadNueva}, user=${usuarioNombre}, tipo=${tipoMovimiento}`);
+    // Skip if stock didn't actually change
+    if (cantidadAnterior === cantidadNueva) {
+      return;
+    }
 
-  // Skip if stock didn't actually change
-  if (cantidadAnterior === cantidadNueva) {
-    console.log("[stock-notifications] Skip: stock unchanged");
-    return;
-  }
+    if (!prisma?.producto?.findUnique) {
+      return;
+    }
 
-  const producto = await prisma.producto.findUnique({ where: { id: productoId } });
-  if (!producto || !producto.activo) {
-    console.log(`[stock-notifications] Skip: product not found or inactive. producto=${!!producto}, activo=${producto?.activo}`);
-    return;
-  }
+    const producto = await prisma.producto.findUnique({ where: { id: productoId } });
+    if (!producto || !producto.activo) {
+      return;
+    }
 
   const stockMinimo = producto.stockMinimo;
   console.log(`[stock-notifications] Product: ${producto.nombre}, stockMinimo=${stockMinimo}, activo=${producto.activo}`);
@@ -195,6 +196,9 @@ export async function evaluarYNotificarStock(params: {
     }
   } else {
     console.log("[stock-notifications] No notifications to create (all filtered by preferences or no critical recipients)");
+  }
+  } catch (err) {
+    console.error("[stock-notifications] Error in evaluarYNotificarStock:", err);
   }
 }
 

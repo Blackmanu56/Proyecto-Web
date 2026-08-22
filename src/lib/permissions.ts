@@ -109,7 +109,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   ],
   ENCARGADO_STOCK: [
     "dashboard.ver",
-    "productos.ver", "productos.crear", "productos.editar", "productos.estado", "productos.categorias", "productos.marcas", "productos.historial", "productos.solicitar_stock",
+    "productos.ver", "productos.crear", "productos.editar", "productos.estado", "productos.reponer", "productos.categorias", "productos.marcas", "productos.historial", "productos.solicitar_stock",
     "proveedores.ver", "proveedores.crear", "proveedores.editar", "proveedores.estado",
     "informes.ver", "informes.productos", "informes.proveedores",
   ],
