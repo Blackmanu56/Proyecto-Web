@@ -213,9 +213,10 @@ describe("Role-based access matrix", () => {
 });
 
 describe("DEFAULT_ROLE_PERMISSIONS — reposición de stock (D7)", () => {
-  it("ENCARGADO_STOCK puede solicitar reposición pero no aprobarla", () => {
+  it("ENCARGADO_STOCK solicita modificación de stock pero no repone ni aprueba reposiciones", () => {
     const stockPerms = DEFAULT_ROLE_PERMISSIONS["ENCARGADO_STOCK"];
-    expect(stockPerms).toContain("productos.reponer");
+    expect(stockPerms).toContain("productos.solicitar_stock");
+    expect(stockPerms).not.toContain("productos.reponer");
     expect(stockPerms).not.toContain("productos.aprobar_reposicion");
   });
 

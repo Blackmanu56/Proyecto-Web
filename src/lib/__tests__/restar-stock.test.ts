@@ -37,6 +37,11 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+vi.mock("@/lib/stock-notifications", () => ({
+  evaluarYNotificarStock: vi.fn().mockResolvedValue(undefined),
+  verificarStockActual: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock("next/cache", () => ({
   revalidatePath: mocks.revalidatePath,
 }));

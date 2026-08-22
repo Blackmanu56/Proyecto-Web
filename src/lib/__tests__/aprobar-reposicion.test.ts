@@ -57,7 +57,16 @@ vi.mock("@/lib/auth-permissions", () => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     $transaction: mocks.transaction,
+    preferenciaNotificacion: {
+      findMany: vi.fn().mockResolvedValue([]),
+      findUnique: vi.fn().mockResolvedValue(null),
+    },
   },
+}));
+
+vi.mock("@/lib/stock-notifications", () => ({
+  evaluarYNotificarStock: vi.fn().mockResolvedValue(undefined),
+  verificarStockActual: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("next/cache", () => ({

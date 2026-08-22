@@ -50,7 +50,19 @@ vi.mock("@/lib/prisma", () => ({
     notificacion: {
       createMany: mocks.notificacionCreateMany,
     },
+    rol: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
+    preferenciaNotificacion: {
+      findMany: vi.fn().mockResolvedValue([]),
+      findUnique: vi.fn().mockResolvedValue(null),
+    },
   },
+}));
+
+vi.mock("@/lib/stock-notifications", () => ({
+  evaluarYNotificarStock: vi.fn().mockResolvedValue(undefined),
+  verificarStockActual: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("next/cache", () => ({

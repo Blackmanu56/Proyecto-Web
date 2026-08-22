@@ -26,7 +26,20 @@ const mocks = vi.hoisted(() => {
 vi.mock("@/lib/auth.server", () => ({ getSession: mocks.getSession }));
 vi.mock("@/lib/auth-permissions", () => ({ requirePermission: mocks.requirePermission }));
 vi.mock("@/lib/prisma", () => ({
-  prisma: { $transaction: mocks.transaction },
+  prisma: {
+    $transaction: mocks.transaction,
+    rol: { findMany: vi.fn().mockResolvedValue([]) },
+    usuario: { findMany: vi.fn().mockResolvedValue([]) },
+    preferenciaNotificacion: {
+      findMany: vi.fn().mockResolvedValue([]),
+      findUnique: vi.fn().mockResolvedValue(null),
+    },
+    notificacion: { createMany: vi.fn().mockResolvedValue({ count: 0 }) },
+  },
+}));
+vi.mock("@/lib/stock-notifications", () => ({
+  evaluarYNotificarStock: vi.fn().mockResolvedValue(undefined),
+  verificarStockActual: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 
