@@ -124,6 +124,7 @@ model Usuario {
   solicitudesStockResueltas  SolicitudStock[]       @relation("SolicitudStockResuelto")
   notificaciones             Notificacion[]
   preferenciasNotificacion   PreferenciaNotificacion[]
+  ajustesPrecio              AjustePrecio[]
 
   @@map("usuarios")
 }
@@ -206,6 +207,7 @@ model Producto {
   solicitudesReposicion SolicitudReposicion[]
   solicitudesStock      SolicitudStock[]
   notificaciones        Notificacion[]
+  ajustesPrecioDetalle  AjustePrecioDetalle[]
 
   @@map("productos")
 }
@@ -501,4 +503,42 @@ model MovimientoProducto {
   @@index([usuarioId])
   @@index([tipo])
   @@map("movimientos_producto")
+}
+
+model AjustePrecio {
+  id                Int                   @id @default(autoincrement())
+  tipoAjuste        String                @map("tipo_ajuste") // PORCENTAJE | MONTO_FIJO | VALOR_DIRECTO
+  valor             Float?
+  preciosAfectados  String                @map("precios_afectados") // SOLO_VENTA | SOLO_COMPRA | AMBOS
+  filtros           Json?
+  redondeo          String                @default("SIN_REDONDEO")
+  motivo            String
+  usuarioId         Int                   @map("usuario_id")
+  cantidadProductos Int                   @default(1) @map("cantidad_productos")
+  esMasivo          Boolean               @default(false) @map("es_masivo")
+  createdAt         DateTime              @default(now()) @map("created_at")
+
+  usuario           Usuario               @relation(fields: [usuarioId], references: [id])
+  detalles          AjustePrecioDetalle[]
+
+  @@index([usuarioId])
+  @@index([createdAt])
+  @@map("ajustes_precio")
+}
+
+model AjustePrecioDetalle {
+  id                   Int          @id @default(autoincrement())
+  ajustePrecioId       Int          @map("ajuste_precio_id")
+  productoId           Int          @map("producto_id")
+  precioCompraAnterior Float        @map("precio_compra_anterior")
+  precioCompraNuevo    Float        @map("precio_compra_nuevo")
+  precioVentaAnterior  Float        @map("precio_venta_anterior")
+  precioVentaNuevo     Float        @map("precio_venta_nuevo")
+
+  ajustePrecio         AjustePrecio @relation(fields: [ajustePrecioId], references: [id], onDelete: Cascade)
+  producto             Producto     @relation(fields: [productoId], references: [id])
+
+  @@index([ajustePrecioId])
+  @@index([productoId])
+  @@map("ajuste_precio_detalles")
 }

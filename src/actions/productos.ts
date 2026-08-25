@@ -16,6 +16,13 @@ import {
 } from "@/lib/reposicion";
 import { registrarMovimiento } from "@/lib/movimiento-producto";
 import { evaluarYNotificarStock } from "@/lib/stock-notifications";
+import {
+  ajusteIndividualSchema,
+  ajusteMasivoSchema,
+  calcularNuevoPrecio,
+  calcularComparacionProducto,
+  type CalculoPrecioItem,
+} from "@/lib/ajuste-precios";
 
 const productoSchema = z.object({
   nombre: z.string().min(2, "El nombre del producto debe tener al menos 2 caracteres"),
@@ -298,8 +305,8 @@ export async function updateProducto(id: number, formData: FormData) {
           imagen: validation.data.imagen,
           categoriaId: validation.data.categoriaId,
           proveedorId: validation.data.proveedorId,
-          precioCompra: validation.data.precioCompra,
-          precioVenta: validation.data.precioVenta,
+          precioCompra: validation.data.precioCompra ?? productoPrevio.precioCompra,
+          precioVenta: validation.data.precioVenta ?? productoPrevio.precioVenta,
           cantidad: productoPrevio.cantidad,
           stockMinimo: validation.data.stockMinimo,
         },
@@ -663,5 +670,392 @@ export async function restarStock(
   } catch (error: unknown) {
     console.error("Error en restarStock:", error);
     return { error: error instanceof Error ? error.message : "Error al restar stock" };
+  }
+}
+
+/* ────────────────────── Ajuste de Precios ────────────────────── */
+
+/**
+ * Ajuste individual de precios de un producto (compra, venta o ambos)
+ */
+export async function ajustarPrecioIndividual(inputData: unknown) {
+  const session = await requirePermission("productos.editar", await getSession());
+
+  const validation = ajusteIndividualSchema.safeParse(inputData);
+  if (!validation.success) {
+    return { error: validation.error.errors[0].message };
+  }
+
+  const {
+    productoId,
+    ajustarCompra,
+    ajustarVenta,
+    metodoCompra,
+    valorCompra,
+    metodoVenta,
+    valorVenta,
+    redondeo,
+    motivo,
+  } = validation.data;
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const producto = await tx.producto.findUnique({
+        where: { id: productoId },
+      });
+
+      if (!producto) {
+        throw new Error("Producto no encontrado.");
+      }
+
+      const nuevoPrecioCompra = ajustarCompra && metodoCompra && valorCompra !== undefined
+        ? calcularNuevoPrecio(producto.precioCompra, metodoCompra, valorCompra, redondeo)
+        : producto.precioCompra;
+
+      const nuevoPrecioVenta = ajustarVenta && metodoVenta && valorVenta !== undefined
+        ? calcularNuevoPrecio(producto.precioVenta, metodoVenta, valorVenta, redondeo)
+        : producto.precioVenta;
+
+      if (nuevoPrecioCompra <= 0) {
+        throw new Error("El nuevo precio de compra debe ser mayor a 0.");
+      }
+      if (nuevoPrecioVenta <= 0) {
+        throw new Error("El nuevo precio de venta debe ser mayor a 0.");
+      }
+
+      const preciosAfectados = ajustarCompra && ajustarVenta
+        ? "AMBOS"
+        : ajustarCompra
+        ? "SOLO_COMPRA"
+        : "SOLO_VENTA";
+
+      // 1. Actualizar producto
+      const productoActualizado = await tx.producto.update({
+        where: { id: productoId },
+        data: {
+          precioCompra: nuevoPrecioCompra,
+          precioVenta: nuevoPrecioVenta,
+        },
+      });
+
+      // 2. Registrar operación de ajuste
+      const ajuste = await tx.ajustePrecio.create({
+        data: {
+          tipoAjuste: metodoVenta || metodoCompra || "VALOR_DIRECTO",
+          valor: valorVenta ?? valorCompra ?? null,
+          preciosAfectados,
+          redondeo,
+          motivo,
+          usuarioId: session.userId,
+          cantidadProductos: 1,
+          esMasivo: false,
+          detalles: {
+            create: [
+              {
+                productoId,
+                precioCompraAnterior: producto.precioCompra,
+                precioCompraNuevo: nuevoPrecioCompra,
+                precioVentaAnterior: producto.precioVenta,
+                precioVentaNuevo: nuevoPrecioVenta,
+              },
+            ],
+          },
+        },
+      });
+
+      // 3. Registrar auditoría en MovimientoProducto
+      const cambios: Array<{ campo: string; anterior: unknown; nuevo: unknown }> = [];
+      if (producto.precioCompra !== nuevoPrecioCompra) {
+        cambios.push({
+          campo: "precioCompra",
+          anterior: producto.precioCompra,
+          nuevo: nuevoPrecioCompra,
+        });
+      }
+      if (producto.precioVenta !== nuevoPrecioVenta) {
+        cambios.push({
+          campo: "precioVenta",
+          anterior: producto.precioVenta,
+          nuevo: nuevoPrecioVenta,
+        });
+      }
+
+      if (cambios.length > 0) {
+        await registrarMovimiento(tx, {
+          productoId,
+          tipo: "EDICION",
+          cantidadAnterior: producto.cantidad,
+          cantidadNueva: producto.cantidad,
+          motivo: `Ajuste de precio: ${motivo}`,
+          cambios,
+          usuarioId: session.userId,
+        });
+      }
+
+      return { producto: productoActualizado, ajusteId: ajuste.id };
+    });
+
+    revalidatePath("/productos");
+    return { success: true, producto: result.producto, ajusteId: result.ajusteId };
+  } catch (error: unknown) {
+    console.error("Error en ajustarPrecioIndividual:", error);
+    return { error: error instanceof Error ? error.message : "Error al ajustar el precio" };
+  }
+}
+
+/**
+ * Previsualización en tiempo real para ajuste masivo de precios (No modifica BD)
+ */
+export async function previewAjustePreciosMasivo(inputData: unknown) {
+  await requirePermission("productos.ver", await getSession());
+
+  const validation = ajusteMasivoSchema.safeParse(inputData);
+  if (!validation.success) {
+    return { error: validation.error.errors[0].message };
+  }
+
+  const { tipoAjuste, valorAjuste, preciosAfectados, filtros, redondeo } = validation.data;
+
+  try {
+    const whereClause: Prisma.ProductoWhereInput = {};
+
+    if (filtros.estado === "activos") {
+      whereClause.activo = true;
+    } else if (filtros.estado === "inactivos") {
+      whereClause.activo = false;
+    }
+
+    if (filtros.categoriaId && filtros.categoriaId !== "all") {
+      whereClause.categoriaId = filtros.categoriaId;
+    }
+
+    if (filtros.proveedorId && filtros.proveedorId !== "all") {
+      whereClause.proveedorId = filtros.proveedorId;
+    }
+
+    if (filtros.marca && filtros.marca !== "all") {
+      whereClause.marca = { equals: filtros.marca, mode: "insensitive" };
+    }
+
+    if (filtros.productoIds && filtros.productoIds.length > 0) {
+      whereClause.id = { in: filtros.productoIds };
+    }
+
+    const productos = await prisma.producto.findMany({
+      where: whereClause,
+      include: {
+        categoria: true,
+        proveedor: true,
+      },
+      orderBy: { nombre: "asc" },
+    });
+
+    const items: CalculoPrecioItem[] = [];
+    let erroresCalculo = 0;
+
+    for (const p of productos) {
+      let nuevoPrecioCompra = p.precioCompra;
+      let nuevoPrecioVenta = p.precioVenta;
+
+      if (preciosAfectados === "SOLO_COMPRA" || preciosAfectados === "AMBOS") {
+        nuevoPrecioCompra = calcularNuevoPrecio(p.precioCompra, tipoAjuste, valorAjuste, redondeo);
+      }
+
+      if (preciosAfectados === "SOLO_VENTA" || preciosAfectados === "AMBOS") {
+        nuevoPrecioVenta = calcularNuevoPrecio(p.precioVenta, tipoAjuste, valorAjuste, redondeo);
+      }
+
+      if (nuevoPrecioCompra <= 0 || nuevoPrecioVenta <= 0) {
+        erroresCalculo++;
+      }
+
+      items.push(
+        calcularComparacionProducto({
+          productoId: p.id,
+          nombre: p.nombre,
+          codigo: p.codigo,
+          marca: p.marca,
+          categoria: p.categoria?.nombre,
+          proveedor: p.proveedor?.nombre,
+          precioCompraActual: p.precioCompra,
+          precioVentaActual: p.precioVenta,
+          nuevoPrecioCompra,
+          nuevoPrecioVenta,
+        })
+      );
+    }
+
+    return {
+      success: true,
+      items,
+      totalProductos: items.length,
+      hayErroresCalculo: erroresCalculo > 0,
+      mensajeErrorCalculo: erroresCalculo > 0
+        ? `${erroresCalculo} producto(s) resultarán con precio menor o igual a $0.`
+        : undefined,
+    };
+  } catch (error: unknown) {
+    console.error("Error en previewAjustePreciosMasivo:", error);
+    return { error: error instanceof Error ? error.message : "Error al previsualizar ajuste masivo" };
+  }
+}
+
+/**
+ * Ejecución del ajuste masivo de precios (Atómico y transaccional)
+ */
+export async function ajustarPreciosMasivo(inputData: unknown) {
+  const session = await requirePermission("productos.editar", await getSession());
+
+  const validation = ajusteMasivoSchema.safeParse(inputData);
+  if (!validation.success) {
+    return { error: validation.error.errors[0].message };
+  }
+
+  const { tipoAjuste, valorAjuste, preciosAfectados, filtros, redondeo, motivo } = validation.data;
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const whereClause: Prisma.ProductoWhereInput = {};
+
+      if (filtros.estado === "activos") {
+        whereClause.activo = true;
+      } else if (filtros.estado === "inactivos") {
+        whereClause.activo = false;
+      }
+
+      if (filtros.categoriaId && filtros.categoriaId !== "all") {
+        whereClause.categoriaId = filtros.categoriaId;
+      }
+
+      if (filtros.proveedorId && filtros.proveedorId !== "all") {
+        whereClause.proveedorId = filtros.proveedorId;
+      }
+
+      if (filtros.marca && filtros.marca !== "all") {
+        whereClause.marca = { equals: filtros.marca, mode: "insensitive" };
+      }
+
+      if (filtros.productoIds && filtros.productoIds.length > 0) {
+        whereClause.id = { in: filtros.productoIds };
+      }
+
+      // 1. Obtener productos frescos desde la base de datos
+      const productos = await tx.producto.findMany({
+        where: whereClause,
+      });
+
+      if (productos.length === 0) {
+        throw new Error("No se encontraron productos que coincidan con los filtros seleccionados.");
+      }
+
+      // 2. Validar y calcular precios para todos los productos
+      const detallesAjuste: Array<{
+        productoId: number;
+        precioCompraAnterior: number;
+        precioCompraNuevo: number;
+        precioVentaAnterior: number;
+        precioVentaNuevo: number;
+      }> = [];
+
+      for (const p of productos) {
+        let nuevoPrecioCompra = p.precioCompra;
+        let nuevoPrecioVenta = p.precioVenta;
+
+        if (preciosAfectados === "SOLO_COMPRA" || preciosAfectados === "AMBOS") {
+          nuevoPrecioCompra = calcularNuevoPrecio(p.precioCompra, tipoAjuste, valorAjuste, redondeo);
+        }
+
+        if (preciosAfectados === "SOLO_VENTA" || preciosAfectados === "AMBOS") {
+          nuevoPrecioVenta = calcularNuevoPrecio(p.precioVenta, tipoAjuste, valorAjuste, redondeo);
+        }
+
+        if (nuevoPrecioCompra <= 0) {
+          throw new Error(
+            `El ajuste genera un precio de compra inválido ($${nuevoPrecioCompra}) para '${p.nombre}' (ID: ${p.id}).`
+          );
+        }
+        if (nuevoPrecioVenta <= 0) {
+          throw new Error(
+            `El ajuste genera un precio de venta inválido ($${nuevoPrecioVenta}) para '${p.nombre}' (ID: ${p.id}).`
+          );
+        }
+
+        detallesAjuste.push({
+          productoId: p.id,
+          precioCompraAnterior: p.precioCompra,
+          precioCompraNuevo: nuevoPrecioCompra,
+          precioVentaAnterior: p.precioVenta,
+          precioVentaNuevo: nuevoPrecioVenta,
+        });
+      }
+
+      // 3. Crear cabecera de AjustePrecio
+      const ajuste = await tx.ajustePrecio.create({
+        data: {
+          tipoAjuste,
+          valor: valorAjuste,
+          preciosAfectados,
+          filtros: filtros as unknown as Prisma.InputJsonValue,
+          redondeo,
+          motivo,
+          usuarioId: session.userId,
+          cantidadProductos: productos.length,
+          esMasivo: true,
+          detalles: {
+            create: detallesAjuste,
+          },
+        },
+      });
+
+      // 4. Actualizar productos y registrar movimientos individuales
+      for (const d of detallesAjuste) {
+        await tx.producto.update({
+          where: { id: d.productoId },
+          data: {
+            precioCompra: d.precioCompraNuevo,
+            precioVenta: d.precioVentaNuevo,
+          },
+        });
+
+        const cambios: Array<{ campo: string; anterior: unknown; nuevo: unknown }> = [];
+        if (d.precioCompraAnterior !== d.precioCompraNuevo) {
+          cambios.push({
+            campo: "precioCompra",
+            anterior: d.precioCompraAnterior,
+            nuevo: d.precioCompraNuevo,
+          });
+        }
+        if (d.precioVentaAnterior !== d.precioVentaNuevo) {
+          cambios.push({
+            campo: "precioVenta",
+            anterior: d.precioVentaAnterior,
+            nuevo: d.precioVentaNuevo,
+          });
+        }
+
+        const prod = productos.find((p) => p.id === d.productoId);
+        await registrarMovimiento(tx, {
+          productoId: d.productoId,
+          tipo: "EDICION",
+          cantidadAnterior: prod?.cantidad ?? 0,
+          cantidadNueva: prod?.cantidad ?? 0,
+          motivo: `Ajuste masivo #${ajuste.id}: ${motivo}`,
+          cambios,
+          usuarioId: session.userId,
+        });
+      }
+
+      return { totalModificados: productos.length, ajusteId: ajuste.id };
+    });
+
+    revalidatePath("/productos");
+    return {
+      success: true,
+      totalModificados: result.totalModificados,
+      ajusteId: result.ajusteId,
+    };
+  } catch (error: unknown) {
+    console.error("Error en ajustarPreciosMasivo:", error);
+    return { error: error instanceof Error ? error.message : "Error al aplicar ajuste masivo" };
   }
 }

@@ -20,6 +20,8 @@ import { Input } from "@/components/ui/input";
 import { PaymentDistribution, PaymentMethod } from "@/components/ui/PaymentDistribution";
 import ReactivarModal from "@/components/ui/ReactivarModal";
 import RestarStockModal from "@/components/ui/RestarStockModal";
+import AjustarPrecioIndividualModal from "@/components/ui/AjustarPrecioIndividualModal";
+import AjustePreciosMasivoModal from "@/components/ui/AjustePreciosMasivoModal";
 import { TableShell } from "@/components/ui/table-shell";
 import {
   getProductPurchaseCost,
@@ -54,6 +56,7 @@ import {
   ShieldCheck,
   Tag,
   TrendingDown,
+  TrendingUp,
   Truck,
   X
 } from "lucide-react";
@@ -429,6 +432,8 @@ export default function ProductosTable({
   const [reactivarModal, setReactivarModal] = useState<{ open: boolean; product: Product | null }>({ open: false, product: null });
   const [historialModal, setHistorialModal] = useState<{ open: boolean; product: Product | null }>({ open: false, product: null });
   const [restarStockModal, setRestarStockModal] = useState<{ open: boolean; product: Product | null }>({ open: false, product: null });
+  const [ajusteIndividualModal, setAjusteIndividualModal] = useState<{ open: boolean; product: Product | null }>({ open: false, product: null });
+  const [ajusteMasivoModalOpen, setAjusteMasivoModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [adminCatsOpen, setAdminCatsOpen] = useState(false);
   const [adminMarcasOpen, setAdminMarcasOpen] = useState(false);
@@ -1050,6 +1055,17 @@ export default function ProductosTable({
                       </span>
                       <span className="font-semibold">Administrar marcas</span>
                     </button>
+                    <div className="my-1 border-t border-[var(--border)]/60" />
+                    <button
+                      type="button"
+                      onClick={() => { setAddMenuOpen(false); setAjusteMasivoModalOpen(true); }}
+                      className="group/item flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm text-[var(--text)] outline-none transition-colors hover:bg-[#047857]/10"
+                    >
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#047857]/12 text-[#34D399] ring-1 ring-[#047857]/15 transition-colors group-hover/item:bg-[#047857]/20">
+                        <TrendingUp size={15} />
+                      </span>
+                      <span className="font-semibold">Ajuste masivo de precios</span>
+                    </button>
                   </div>
                 )}
               </div>
@@ -1314,6 +1330,21 @@ export default function ProductosTable({
                     Editar producto
                   </button>
                 )}
+                {canManageProducts && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      runDrawerAction(
+                        (p) => setAjusteIndividualModal({ open: true, product: p }),
+                        selectedProduct
+                      )
+                    }
+                    className="flex h-9 w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/40 bg-[#047857] px-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#065F46] focus-visible:outline-2 focus-visible:outline-emerald-500"
+                  >
+                    <TrendingUp size={15} />
+                    Ajustar precio
+                  </button>
+                )}
                 {canManageProducts && selectedProduct.activo && (
                   <button
                     type="button"
@@ -1509,22 +1540,41 @@ export default function ProductosTable({
               <div className="flex flex-col gap-2.5">
                 <div className="flex items-center gap-1.5 mb-1">
                   <DollarSign size={12} className="text-[var(--brand)]" />
-                  <span className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">Comercial</span>
+                  <span className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+                    {editingProduct ? "Configuración" : "Comercial"}
+                  </span>
                 </div>
-                <FormField label="Precio Compra" required className="mb-0">
-                  <Input name="precioCompra" type="number" step="0.01" defaultValue={editingProduct?.precioCompra || ""} required placeholder="0.00" className="font-mono py-2" />
-                </FormField>
-                <FormField label="Precio Venta" required className="mb-0">
-                  <Input name="precioVenta" type="number" step="0.01" defaultValue={editingProduct?.precioVenta || ""} required placeholder="0.00" className="font-mono py-2" />
-                </FormField>
                 {editingProduct ? (
-                  <FormField label="Stock Mínimo" required className="mb-0">
-                    <Input name="stockMinimo" type="number" defaultValue={editingProduct.stockMinimo ?? ""} required placeholder="0" className="font-mono py-2" />
-                  </FormField>
+                  <>
+                    <div className="p-2.5 rounded-[var(--radius-md)] bg-[var(--bg)]/70 border border-[var(--border)] space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-[var(--text-secondary)] font-medium">Precio Compra:</span>
+                        <span className="font-mono font-bold text-blue-400">{formatCurrency(editingProduct.precioCompra)}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-[var(--text-secondary)] font-medium">Precio Venta:</span>
+                        <span className="font-mono font-bold text-[#34D399]">{formatCurrency(editingProduct.precioVenta)}</span>
+                      </div>
+                      <p className="text-[10px] text-[var(--text-muted)] pt-1 border-t border-[var(--border)]/50 italic">
+                        Los precios se modifican desde la acción "Ajustar precio".
+                      </p>
+                    </div>
+                    <FormField label="Stock Mínimo" required className="mb-0">
+                      <Input name="stockMinimo" type="number" defaultValue={editingProduct.stockMinimo ?? ""} required placeholder="0" className="font-mono py-2" />
+                    </FormField>
+                  </>
                 ) : (
-                  <FormField label="Stock de Seguridad Mínimo" required className="mb-0">
-                    <Input name="stockMinimo" type="number" required placeholder="0" className="font-mono py-2" />
-                  </FormField>
+                  <>
+                    <FormField label="Precio Compra" required className="mb-0">
+                      <Input name="precioCompra" type="number" step="0.01" required placeholder="0.00" className="font-mono py-2" />
+                    </FormField>
+                    <FormField label="Precio Venta" required className="mb-0">
+                      <Input name="precioVenta" type="number" step="0.01" required placeholder="0.00" className="font-mono py-2" />
+                    </FormField>
+                    <FormField label="Stock de Seguridad Mínimo" required className="mb-0">
+                      <Input name="stockMinimo" type="number" required placeholder="0" className="font-mono py-2" />
+                    </FormField>
+                  </>
                 )}
               </div>
 
@@ -1665,6 +1715,25 @@ export default function ProductosTable({
         />
       )}
 
+      {ajusteIndividualModal.product && (
+        <AjustarPrecioIndividualModal
+          open={ajusteIndividualModal.open}
+          onOpenChange={(open) =>
+            setAjusteIndividualModal({ open, product: open ? ajusteIndividualModal.product : null })
+          }
+          producto={ajusteIndividualModal.product}
+          onSuccess={() => router.refresh()}
+        />
+      )}
+
+      <AjustePreciosMasivoModal
+        open={ajusteMasivoModalOpen}
+        onOpenChange={setAjusteMasivoModalOpen}
+        categorias={categorias}
+        marcas={activeMarcas}
+        proveedores={proveedores}
+        onSuccess={() => router.refresh()}
+      />
 
     </div>
   );

@@ -4,7 +4,6 @@ import React, { useState, useMemo, useCallback, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { TableShell } from "@/components/ui/table-shell";
 import { formatCurrency, cn } from "@/lib/utils";
 import {
   Package,
@@ -22,7 +21,6 @@ import CrearPedidoModal from "@/components/ui/CrearPedidoModal";
 import SolicitudesStockTable from "@/components/tables/SolicitudesStockTable";
 import type { SolicitudRow } from "@/components/tables/SolicitudesStockTable";
 import { getSolicitudesStock } from "@/actions/solicitudes-stock";
-import type { SolicitudItem } from "@/types/solicitud";
 
 /* ────────────────────── Types ────────────────────── */
 
@@ -47,7 +45,6 @@ interface PedidosTableProps {
   initialProducts: Product[];
   proveedores: { id: number; cuit: string; nombre: string }[];
   userRole: string;
-  solicitudes?: SolicitudItem[];
   initialSolicitudesStock?: SolicitudRow[];
   userId: number;
   canApprove?: boolean;
@@ -514,6 +511,11 @@ export default function PedidosTable({
           >
             <Boxes size={16} />
             <span>Solicitudes de stock</span>
+            {pendingCount > 0 && (
+              <span className="inline-flex items-center justify-center px-2 py-0.5 text-[11px] font-extrabold rounded-full bg-[#D97706] text-white shadow-sm ml-1">
+                {pendingCount}
+              </span>
+            )}
           </button>
         </div>
       </div>

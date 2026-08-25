@@ -13,7 +13,8 @@ import { FormField } from "@/components/ui/form-field";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ShoppingCart, AlertTriangle, CheckCircle, Package } from "lucide-react";
-import { solicitarReposicion, crearYaprobarReposicion } from "@/actions/reposiciones";
+import { crearSolicitudStock } from "@/actions/solicitudes-stock";
+import { crearYaprobarReposicion } from "@/actions/reposiciones";
 import { formatCurrency } from "@/lib/utils";
 
 /* ────────────────────── Types ────────────────────── */
@@ -105,7 +106,7 @@ export default function CrearPedidoModal({
     setError("");
 
     try {
-      let res;
+      let res: { success?: boolean; error?: string };
 
       if (aprobarYExec && canApprove) {
         res = await crearYaprobarReposicion(producto.id, {
@@ -114,11 +115,18 @@ export default function CrearPedidoModal({
           motivo: buildMotivoString(),
         });
       } else {
-        res = await solicitarReposicion(producto.id, {
-          cantidad: cantidadNum,
-          proveedorId: producto.proveedorId,
-          motivo: buildMotivoString(),
-        });
+        const obs = observacion.trim() ? observacion.trim() : undefined;
+        const stockRes = await crearSolicitudStock(
+          "REPOSICION",
+          producto.id,
+          cantidadNum,
+          motivoFinal,
+          obs
+        );
+        res = {
+          success: !("error" in stockRes) && Boolean(stockRes.success),
+          error: "error" in stockRes ? stockRes.error : undefined,
+        };
       }
 
       if (res.success) {

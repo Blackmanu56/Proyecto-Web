@@ -2,7 +2,6 @@ import React from "react";
 import { getSession } from "@/lib/auth.server";
 import { getProductos } from "@/actions/productos";
 import { getProveedores } from "@/actions/auxiliares";
-import { getSolicitudesReposicion } from "@/actions/reposiciones";
 import { getSolicitudesStock } from "@/actions/solicitudes-stock";
 import PedidosTable from "@/components/tables/PedidosTable";
 import { ClipboardList } from "lucide-react";
@@ -32,21 +31,11 @@ export default async function PedidosPage({ searchParams }: PageProps) {
     );
   }
 
-  const [productos, proveedores, solicitudesResult, solicitudesStockResult] = await Promise.all([
+  const [productos, proveedores, solicitudesStockResult] = await Promise.all([
     getProductos(),
     getProveedores(),
-    getSolicitudesReposicion(
-      userRole !== "ADMINISTRADOR" && session?.userId
-        ? { solicitanteId: session.userId }
-        : {}
-    ),
     getSolicitudesStock({ pageSize: 50 }),
   ]);
-
-  const solicitudes =
-    solicitudesResult.success && "solicitudes" in solicitudesResult
-      ? (solicitudesResult as { success: true; solicitudes: React.ComponentProps<typeof PedidosTable>["solicitudes"] }).solicitudes
-      : [];
 
   const initialSolicitudesStock =
     solicitudesStockResult && "data" in solicitudesStockResult
@@ -77,7 +66,6 @@ export default async function PedidosPage({ searchParams }: PageProps) {
             initialProducts={productos as React.ComponentProps<typeof PedidosTable>["initialProducts"]}
             proveedores={proveedores as React.ComponentProps<typeof PedidosTable>["proveedores"]}
             userRole={userRole}
-            solicitudes={solicitudes as React.ComponentProps<typeof PedidosTable>["solicitudes"]}
             initialSolicitudesStock={initialSolicitudesStock}
             userId={session?.userId ?? 0}
             canApprove={userRole === "ADMINISTRADOR"}
