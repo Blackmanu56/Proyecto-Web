@@ -62,12 +62,14 @@ export default async function ProductosPage({ searchParams }: PageProps) {
 
         {/* Tabla Interactiva */}
         <div className="flex-1 min-h-0">
-          <ProductosTable
-            initialProducts={productos as React.ComponentProps<typeof ProductosTable>["initialProducts"]}
-            categorias={categorias}
-            proveedores={proveedores as React.ComponentProps<typeof ProductosTable>["proveedores"]}
-            userRole={userRole}
-          />
+          <React.Suspense fallback={null}>
+            <ProductosTable
+              initialProducts={productos as React.ComponentProps<typeof ProductosTable>["initialProducts"]}
+              categorias={categorias}
+              proveedores={proveedores as React.ComponentProps<typeof ProductosTable>["proveedores"]}
+              userRole={userRole}
+            />
+          </React.Suspense>
         </div>
       </div>
     </div>

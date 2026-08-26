@@ -170,7 +170,7 @@ export default function CrearPedidoModal({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md w-full overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <div className="p-2 rounded-[var(--radius-md)] bg-[#047857]/10 text-[#059669]">
@@ -178,9 +178,9 @@ export default function CrearPedidoModal({
             </div>
             Crear pedido
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-sm text-text-muted whitespace-normal break-words [overflow-wrap:anywhere] leading-relaxed">
             Crear una solicitud de reposición para{" "}
-            <strong>{producto.nombre}</strong>.
+            <strong className="text-[var(--text)] font-semibold">{producto.nombre}</strong>.
           </DialogDescription>
         </DialogHeader>
 
@@ -194,7 +194,7 @@ export default function CrearPedidoModal({
         ) : (
           <>
             {/* ── Resumen del producto ── */}
-            <div className="flex items-center gap-3 p-3 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)]">
+            <div className="flex items-start gap-3 p-3 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] min-w-0 w-full overflow-hidden">
               <div className="relative h-12 w-12 shrink-0 rounded-lg border border-[var(--border)] bg-[var(--panel)] flex items-center justify-center overflow-hidden">
                 {producto.imagen ? (
                   <Image
@@ -208,15 +208,18 @@ export default function CrearPedidoModal({
                   <Package size={20} className="text-[var(--text-secondary)] opacity-40" />
                 )}
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-[var(--text)] truncate">
+              <div className="min-w-0 flex-1 overflow-hidden">
+                <p
+                  className="text-sm font-semibold text-[var(--text)] leading-snug whitespace-normal break-words [overflow-wrap:anywhere]"
+                  title={producto.nombre}
+                >
                   {producto.nombre}
                 </p>
-                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
                   <span className="text-xs text-[var(--text-secondary)]">Stock:</span>
                   {stockBadge(producto.cantidad)}
                 </div>
-                <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                <p className="text-xs text-[var(--text-secondary)] mt-1 whitespace-normal break-words">
                   Proveedor:{" "}
                   <strong className="text-[var(--text)]">{producto.proveedorNombre}</strong>
                 </p>

@@ -160,8 +160,8 @@ export default function RestarStockModal({
         ) : (
           <>
             {/* Info del producto */}
-            <div className="p-3 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)]">
-              <p className="text-sm font-medium text-[var(--text)]">{producto.nombre}</p>
+            <div className="p-3 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] min-w-0 overflow-hidden">
+              <p className="text-sm font-medium text-[var(--text)] whitespace-normal break-words [overflow-wrap:anywhere]">{producto.nombre}</p>
               <p className="text-xs text-[var(--text-secondary)] mt-1">
                 Stock actual:{" "}
                 <strong className={`font-mono ${producto.cantidad <= 5 ? "text-[var(--danger)]" : "text-[var(--text)]"}`}>

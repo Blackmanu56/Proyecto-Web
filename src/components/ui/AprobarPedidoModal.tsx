@@ -83,11 +83,11 @@ export default function AprobarPedidoModal({
         </DialogHeader>
 
         {/* Summary */}
-        <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] p-4">
+        <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] p-4 min-w-0">
           {summaryRows.map((row) => (
-            <div key={row.label} className="flex items-center justify-between text-sm">
-              <span className="text-[var(--text-secondary)]">{row.label}</span>
-              <span className={row.bold ? "font-bold text-[var(--brand)]" : "font-medium text-[var(--text)]"}>
+            <div key={row.label} className="flex items-start justify-between gap-3 text-sm min-w-0">
+              <span className="text-[var(--text-secondary)] shrink-0">{row.label}</span>
+              <span className={`text-right break-words [overflow-wrap:anywhere] ${row.bold ? "font-bold text-[var(--brand)]" : "font-medium text-[var(--text)]"}`}>
                 {row.value}
               </span>
             </div>

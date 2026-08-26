@@ -60,8 +60,8 @@ import {
   Truck,
   X
 } from "lucide-react";
-import { useRouter } from "next/navigation";
-import React,{ useCallback,useEffect,useRef,useState,useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import React, { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import type { FilterStatus } from "./StatusFilter";
 
 /* ────────────────────── Types ────────────────────── */
@@ -382,6 +382,7 @@ export default function ProductosTable({
   userRole,
 }: ProductosTableProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
   /* ── Filtros ── */
@@ -390,6 +391,42 @@ export default function ProductosTable({
   const [marcaFilter, setMarcaFilter] = useState("all");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("activos");
   const [stockFilter, setStockFilter] = useState<"todos" | "normal" | "poco" | "sin">("todos");
+  const [highlightedProductId, setHighlightedProductId] = useState<number | null>(null);
+
+  /* ── Sync filtros desde Query Params (Notificaciones / Links directos) ── */
+  useEffect(() => {
+    const stockParam = searchParams.get("stock");
+    const highlightParam = searchParams.get("productoId") || searchParams.get("highlight");
+
+    if (stockParam) {
+      if (stockParam === "critico" || stockParam === "poco" || stockParam === "stock_critico") {
+        setStockFilter("poco");
+      } else if (
+        stockParam === "sin_stock" ||
+        stockParam === "sin" ||
+        stockParam === "agotado" ||
+        stockParam === "stock_agotado"
+      ) {
+        setStockFilter("sin");
+      } else if (stockParam === "normal" || stockParam === "con_stock") {
+        setStockFilter("normal");
+      } else if (stockParam === "todos") {
+        setStockFilter("todos");
+      }
+      // Los demás filtros deben quedar en su valor por defecto
+      setCatFilter("all");
+      setMarcaFilter("all");
+      setFilterStatus("activos");
+      setSearch("");
+    }
+
+    if (highlightParam) {
+      const pid = Number(highlightParam);
+      if (!Number.isNaN(pid) && pid > 0) {
+        setHighlightedProductId(pid);
+      }
+    }
+  }, [searchParams]);
 
   /* ── Sorting ── */
   const [sortField, setSortField] = useState<SortField | null>(null);
@@ -722,6 +759,19 @@ export default function ProductosTable({
     return sortDir === "asc" ? cmp : -cmp;
   });
 
+  /* ── Auto-scroll al producto resaltado ── */
+  useEffect(() => {
+    if (highlightedProductId) {
+      const timer = setTimeout(() => {
+        const el = document.getElementById(`producto-row-${highlightedProductId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightedProductId, sortedProducts]);
+
   /* ── Stat counts ── */
   const totalProductos = initialProducts.filter(p => p.activo).length;
   const stockCritico = initialProducts.filter(p => p.activo && p.cantidad <= p.stockMinimo).length;
@@ -928,7 +978,7 @@ export default function ProductosTable({
               options={[
                 { value: "todos", label: "Todos", icon: Boxes },
                 { value: "normal", label: "Con stock", icon: PackageCheck },
-                { value: "poco", label: "Poco stock", icon: AlertTriangle },
+                { value: "poco", label: "Stock crítico", icon: AlertTriangle },
                 { value: "sin", label: "Sin stock", icon: PackageX },
               ]}
             />
@@ -1097,24 +1147,40 @@ export default function ProductosTable({
             </thead>
             <tbody className="divide-y divide-[var(--border)]/60 text-[13px] text-[var(--text-muted)]">
               {sortedProducts.map((p, index) => {
-                const isLowStock = p.activo && p.cantidad <= p.stockMinimo;
-                const stockStatus = p.cantidad === 0 ? "danger" : isLowStock ? "warning" : "success";
+                const isSinStock = p.cantidad === 0;
+                const isStockBajo = p.activo && p.cantidad > 0 && p.cantidad <= p.stockMinimo;
+                const isLowStock = isSinStock || isStockBajo;
+                const stockStatus = isSinStock ? "danger" : isStockBajo ? "warning" : "success";
+                const isHighlighted = highlightedProductId === p.id;
+                const nombreColor = isSinStock ? "text-red-400" : isStockBajo ? "text-amber-400" : "text-[var(--text)]";
+
                 return (
                   <tr
                     key={p.id}
-                    onClick={(e) => handleProductRowClick(e, p)}
-                    className={`cursor-pointer transition-colors duration-150 ${
-                      selectedProduct?.id === p.id
-                        ? "bg-[#3B82F6]/10 ring-1 ring-inset ring-[#3B82F6]/20"
-                        : isLowStock
-                          ? "bg-[var(--warning-light)]/5 hover:bg-[var(--warning-light)]/10"
-                          : index % 2 === 0
-                            ? "bg-[#1E2129]/45 hover:bg-white/[0.045]"
-                            : "bg-[#20242E]/45 hover:bg-white/[0.045]"
+                    id={`producto-row-${p.id}`}
+                    onClick={(e) => {
+                      if (isHighlighted) {
+                        setHighlightedProductId(null);
+                      }
+                      handleProductRowClick(e, p);
+                    }}
+                    className={`cursor-pointer transition-colors duration-200 ${
+                      isHighlighted
+                        ? "bg-amber-500/[0.08] hover:bg-amber-500/[0.13]"
+                        : selectedProduct?.id === p.id
+                          ? "bg-[#3B82F6]/10 ring-1 ring-inset ring-[#3B82F6]/20"
+                          : isLowStock
+                            ? "bg-[var(--warning-light)]/5 hover:bg-[var(--warning-light)]/10"
+                            : index % 2 === 0
+                              ? "bg-[#1E2129]/45 hover:bg-white/[0.045]"
+                              : "bg-[#20242E]/45 hover:bg-white/[0.045]"
                     }`}
                   >
                     {vis("nombre") && (
-                      <td className="py-3 px-4 align-middle">
+                      <td className="relative py-3 px-4 align-middle">
+                        {isHighlighted && (
+                          <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.6)]" />
+                        )}
                         <div className="flex items-start gap-3">
                           <div className="relative w-9 h-9 flex-shrink-0 rounded-lg overflow-hidden bg-[var(--border)] flex items-center justify-center">
                             {p.imagen ? (
@@ -1130,7 +1196,7 @@ export default function ProductosTable({
                             )}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="font-semibold text-[var(--text)] text-sm leading-snug whitespace-normal break-words [overflow-wrap:anywhere]" title={p.nombre}>{p.nombre}</p>
+                            <p className={`font-semibold ${nombreColor} text-sm leading-snug whitespace-normal break-words [overflow-wrap:anywhere]`} title={p.nombre}>{p.nombre}</p>
                             {p.marca && <p className="text-[11px] text-[var(--text-secondary)] truncate">{p.marca}</p>}
                           </div>
                         </div>
@@ -1158,17 +1224,17 @@ export default function ProductosTable({
                     )}
                     {vis("stock") && (
                       <td className="py-3 px-4 text-center">
-                        <div className="flex flex-col items-center justify-center">
-                          <Badge variant={stockStatus} size="sm" className="font-mono text-[11px]">
-                            {p.cantidad} u
-                          </Badge>
-                          {isLowStock && (
-                            <span className="text-[10px] text-[var(--warning)] font-bold uppercase mt-0.5 flex items-center space-x-0.5 animate-pulse">
-                              <AlertTriangle size={8} />
-                              <span>Bajo!</span>
-                            </span>
+                        <Badge
+                          variant={stockStatus}
+                          size="sm"
+                          className={cn(
+                            "font-mono text-[11px]",
+                            isSinStock && "text-red-400 border-red-500/20 bg-red-500/10",
+                            isStockBajo && "text-amber-400 border-amber-500/20 bg-amber-500/10"
                           )}
-                        </div>
+                        >
+                          {p.cantidad} u
+                        </Badge>
                       </td>
                     )}
                     {vis("stockMinimo") && (
@@ -1278,7 +1344,18 @@ export default function ProductosTable({
               </div>
 
               <div className="mt-2.5 grid grid-cols-2 gap-2.5">
-                <InfoCard className="h-[84px]" label="Stock actual" value={`${selectedProduct.cantidad} unidades`} valueClassName="text-[var(--success)]" />
+                <InfoCard
+                  className="h-[84px]"
+                  label="Stock actual"
+                  value={`${selectedProduct.cantidad} unidades`}
+                  valueClassName={
+                    selectedProduct.cantidad === 0
+                      ? "text-red-400"
+                      : selectedProduct.activo && selectedProduct.cantidad <= selectedProduct.stockMinimo
+                        ? "text-amber-400"
+                        : "text-[var(--success)]"
+                  }
+                />
                 <InfoCard className="h-[84px]" label="Stock minimo" value={`${selectedProduct.stockMinimo} unidades`} valueClassName="text-slate-300" />
               </div>
 

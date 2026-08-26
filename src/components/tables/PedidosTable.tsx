@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, cn } from "@/lib/utils";
 import {
@@ -43,10 +43,10 @@ type PedidosMainTab = "CREAR_PEDIDO" | "SOLICITUDES_STOCK";
 
 interface PedidosTableProps {
   initialProducts: Product[];
-  proveedores: { id: number; cuit: string; nombre: string }[];
+  proveedores: { id: number; nombre: string }[];
   userRole: string;
-  initialSolicitudesStock?: SolicitudRow[];
   userId: number;
+  initialSolicitudesStock?: SolicitudRow[];
   canApprove?: boolean;
   initialTab?: string;
 }
@@ -101,32 +101,38 @@ function StockFilterSelect({
       <SelectPrimitive.Root value={value} onValueChange={onValueChange}>
         <SelectPrimitive.Trigger
           className={cn(
-            "group flex h-10 min-w-[168px] items-center justify-between gap-2 rounded-xl border bg-[var(--bg)] py-2 pl-2 pr-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200 focus-visible:ring-2",
+            "group flex h-10 min-w-[160px] items-center justify-between gap-2 rounded-xl border bg-[var(--bg)] px-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200",
             STOCK_TONE.trigger
           )}
-          aria-label="Filtro de stock"
         >
-          <span className="flex min-w-0 items-center gap-2">
-            <span className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ring-1", STOCK_TONE.icon)}>
-              <Package size={14} />
+          <span className="flex items-center gap-2">
+            <span className={cn("flex h-6 w-6 items-center justify-center rounded-lg ring-1", STOCK_TONE.icon)}>
+              <Boxes size={13} />
             </span>
             <SelectPrimitive.Value />
           </span>
           <SelectPrimitive.Icon asChild>
-            <svg className={cn("h-3.5 w-3.5 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180", STOCK_TONE.chevron)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6" /></svg>
+            <svg
+              className={cn("h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180", STOCK_TONE.chevron)}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
           </SelectPrimitive.Icon>
         </SelectPrimitive.Trigger>
         <SelectPrimitive.Portal>
           <SelectPrimitive.Content
             position="popper"
             sideOffset={6}
-            align="start"
             className={cn(
-              "z-50 max-h-72 w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl border bg-[var(--panel)] p-1.5 shadow-[var(--shadow-lg)] ring-1 ring-white/5 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+              "z-50 min-w-[160px] overflow-hidden rounded-xl border bg-[var(--card)] p-1.5 shadow-[var(--shadow-md)] animate-in fade-in-80",
               STOCK_TONE.content
             )}
           >
-            <SelectPrimitive.Viewport className="max-h-64 overflow-y-auto pr-1 [scrollbar-width:thin] [scrollbar-color:var(--border)_transparent]">
+            <SelectPrimitive.Viewport className="space-y-1">
               {STOCK_OPTIONS.map((option) => {
                 const OptIcon = option.icon;
                 return (
@@ -186,43 +192,49 @@ function ProveedorFilterSelect({
       <SelectPrimitive.Root value={value} onValueChange={onValueChange}>
         <SelectPrimitive.Trigger
           className={cn(
-            "group flex h-10 min-w-[260px] items-center justify-between gap-2 rounded-xl border bg-[var(--bg)] py-2 pl-2 pr-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200 focus-visible:ring-2",
+            "group flex h-10 min-w-[170px] items-center justify-between gap-2 rounded-xl border bg-[var(--bg)] px-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200",
             PROVEEDOR_TONE.trigger
           )}
-          aria-label="Filtro de proveedor"
         >
-          <span className="flex min-w-0 items-center gap-2">
-            <span className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ring-1", PROVEEDOR_TONE.icon)}>
-              <Truck size={14} />
+          <span className="flex items-center gap-2">
+            <span className={cn("flex h-6 w-6 items-center justify-center rounded-lg ring-1", PROVEEDOR_TONE.icon)}>
+              <Truck size={13} />
             </span>
             <SelectPrimitive.Value />
           </span>
           <SelectPrimitive.Icon asChild>
-            <svg className={cn("h-3.5 w-3.5 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180", PROVEEDOR_TONE.chevron)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6" /></svg>
+            <svg
+              className={cn("h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180", PROVEEDOR_TONE.chevron)}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
           </SelectPrimitive.Icon>
         </SelectPrimitive.Trigger>
         <SelectPrimitive.Portal>
           <SelectPrimitive.Content
             position="popper"
             sideOffset={6}
-            align="start"
             className={cn(
-              "z-50 max-h-72 min-w-[240px] overflow-hidden rounded-2xl border bg-[var(--panel)] p-1.5 shadow-[var(--shadow-lg)] ring-1 ring-white/5 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+              "z-50 min-w-[170px] overflow-hidden rounded-xl border bg-[var(--card)] p-1.5 shadow-[var(--shadow-md)] animate-in fade-in-80",
               PROVEEDOR_TONE.content
             )}
           >
-            <SelectPrimitive.Viewport className="max-h-64 overflow-y-auto pr-1 [scrollbar-width:thin] [scrollbar-color:var(--border)_transparent]">
+            <SelectPrimitive.Viewport className="space-y-1">
               <SelectPrimitive.Item
                 value="all"
                 className={cn(
-                  "relative flex h-9 w-full cursor-pointer select-none items-center gap-2 rounded-xl px-2.5 pr-8 text-sm text-[var(--text)] outline-none transition-colors duration-150 whitespace-nowrap data-[state=checked]:font-bold",
+                  "relative flex h-9 w-full cursor-pointer select-none items-center gap-2 rounded-xl px-2.5 pr-8 text-sm text-[var(--text)] outline-none transition-colors duration-150 whitespace-nowrap data-[state=checked]:font-bold data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
                   PROVEEDOR_TONE.itemFocus,
                   PROVEEDOR_TONE.selected
                 )}
               >
                 <ListFilter size={14} className="shrink-0 opacity-85" />
                 <SelectPrimitive.ItemText>
-                  <span className="whitespace-nowrap">Todos los proveedores</span>
+                  <span className="whitespace-nowrap">Todos</span>
                 </SelectPrimitive.ItemText>
                 <SelectPrimitive.ItemIndicator className="absolute right-2 flex h-5 w-5 items-center justify-center">
                   <svg className={cn("h-3.5 w-3.5", PROVEEDOR_TONE.check)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6"><path d="M20 6 9 17l-5-5" /></svg>
@@ -233,7 +245,7 @@ function ProveedorFilterSelect({
                   key={prov.id}
                   value={String(prov.id)}
                   className={cn(
-                    "relative flex h-9 w-full cursor-pointer select-none items-center gap-2 rounded-xl px-2.5 pr-8 text-sm text-[var(--text)] outline-none transition-colors duration-150 whitespace-nowrap data-[state=checked]:font-bold",
+                    "relative flex h-9 w-full cursor-pointer select-none items-center gap-2 rounded-xl px-2.5 pr-8 text-sm text-[var(--text)] outline-none transition-colors duration-150 whitespace-nowrap data-[state=checked]:font-bold data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
                     PROVEEDOR_TONE.itemFocus,
                     PROVEEDOR_TONE.selected
                   )}
@@ -267,6 +279,7 @@ export default function PedidosTable({
   initialTab,
 }: PedidosTableProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   /* ── Tab navigation ── */
   const [activeTab, setActiveTab] = useState<PedidosMainTab>(() => {
@@ -275,6 +288,15 @@ export default function PedidosTable({
     }
     return "CREAR_PEDIDO";
   });
+
+  useEffect(() => {
+    const tab = searchParams.get("tab") || initialTab;
+    if (tab === "solicitudes-stock" || tab === "SOLICITUDES_STOCK") {
+      setActiveTab("SOLICITUDES_STOCK");
+    } else if (tab === "crear-pedido" || tab === "CREAR_PEDIDO") {
+      setActiveTab("CREAR_PEDIDO");
+    }
+  }, [searchParams, initialTab]);
 
   /* ── Filtros (crear pedido tab) ── */
   const [search, setSearch] = useState("");

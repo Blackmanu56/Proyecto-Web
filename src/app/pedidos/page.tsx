@@ -62,15 +62,17 @@ export default async function PedidosPage({ searchParams }: PageProps) {
 
         {/* Tabla */}
         <div className="flex-1 min-h-0">
-          <PedidosTable
-            initialProducts={productos as React.ComponentProps<typeof PedidosTable>["initialProducts"]}
-            proveedores={proveedores as React.ComponentProps<typeof PedidosTable>["proveedores"]}
-            userRole={userRole}
-            initialSolicitudesStock={initialSolicitudesStock}
-            userId={session?.userId ?? 0}
-            canApprove={userRole === "ADMINISTRADOR"}
-            initialTab={params.tab as React.ComponentProps<typeof PedidosTable>["initialTab"]}
-          />
+          <React.Suspense fallback={null}>
+            <PedidosTable
+              initialProducts={productos as React.ComponentProps<typeof PedidosTable>["initialProducts"]}
+              proveedores={proveedores as React.ComponentProps<typeof PedidosTable>["proveedores"]}
+              userRole={userRole}
+              initialSolicitudesStock={initialSolicitudesStock}
+              userId={session?.userId ?? 0}
+              canApprove={userRole === "ADMINISTRADOR"}
+              initialTab={params.tab as React.ComponentProps<typeof PedidosTable>["initialTab"]}
+            />
+          </React.Suspense>
         </div>
       </div>
     </div>

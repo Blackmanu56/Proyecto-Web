@@ -46,6 +46,7 @@ interface Notificacion {
   entidad?: string | null;
   solicitudStockId?: number | null;
   solicitudReposicionId?: number | null;
+  productoId?: number | null;
   solicitudStock?: {
     id: number;
     tipo: string;
@@ -155,11 +156,33 @@ function buildHref(noti: Notificacion): string | null {
     case "SOLICITUD_CANCELADA":
       return "/pedidos?tab=solicitudes-stock";
     case "STOCK_CRITICO":
+      return noti.productoId
+        ? `/productos?stock=critico&productoId=${noti.productoId}`
+        : "/productos?stock=critico";
     case "STOCK_AGOTADO":
+      return noti.productoId
+        ? `/productos?stock=sin_stock&productoId=${noti.productoId}`
+        : "/productos?stock=sin_stock";
     case "STOCK_RESTADO":
     case "STOCK_RECARGADO":
-      return "/productos";
+      return noti.productoId ? `/productos?highlight=${noti.productoId}` : "/productos";
+    case "VENTA_CREADA":
+      return "/ventas";
     default:
+      if (
+        noti.solicitudStockId ||
+        noti.solicitudReposicionId ||
+        noti.entidad === "solicitud_stock" ||
+        noti.entidad === "reposicion"
+      ) {
+        return "/pedidos?tab=solicitudes-stock";
+      }
+      if (noti.productoId || noti.entidad === "stock") {
+        return noti.productoId ? `/productos?highlight=${noti.productoId}` : "/productos";
+      }
+      if (noti.entidad === "venta") {
+        return "/ventas";
+      }
       return null;
   }
 }
@@ -432,14 +455,14 @@ export default function NotificacionesPage() {
           ) : (
             <div className="overflow-y-auto h-full min-h-0">
               {/* Select all header */}
-              <div className="flex items-center gap-3 px-4 py-2.5 border-b border-[var(--border)]/40 bg-[var(--bg)]/50 sticky top-0 z-10">
+              <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--border)] bg-[#17191f] sticky top-0 z-20 shadow-[0_2px_10px_rgba(0,0,0,0.3)]">
                 <input
                   type="checkbox"
                   checked={selectedIds.size === notificaciones.length && notificaciones.length > 0}
                   onChange={toggleSelectAll}
                   className="w-4 h-4 rounded border-[var(--border)] text-[var(--brand)] focus:ring-[var(--brand)]/40 cursor-pointer"
                 />
-                <span className="text-xs font-medium text-[var(--text-muted)]">
+                <span className="text-xs font-semibold text-[var(--text-muted)]">
                   {selectedIds.size > 0
                     ? `${selectedIds.size} seleccionada${selectedIds.size !== 1 ? "s" : ""}`
                     : `${total} notificación${total !== 1 ? "es" : ""}`}
@@ -449,51 +472,65 @@ export default function NotificacionesPage() {
               {/* Rows */}
               {notificaciones.map((noti) => {
                 const href = buildHref(noti);
+                const isUnread = !noti.leida;
                 return (
                   <div
                     key={noti.id}
-                    className={`group flex items-start gap-3 px-4 py-3 border-b border-[var(--border)]/20 transition-colors hover:bg-[var(--bg)]/50 ${
-                      noti.leida ? "opacity-60" : ""
+                    onClick={(e) => {
+                      const target = e.target as HTMLElement;
+                      if (target.closest("input, button")) return;
+                      handleNavigate(noti);
+                    }}
+                    className={`group relative flex items-start gap-3.5 px-5 py-4 border-b border-[var(--border)]/25 transition-all duration-150 ${
+                      href ? "cursor-pointer" : ""
+                    } ${
+                      isUnread
+                        ? "bg-[#1E2129]/60 hover:bg-white/[0.04]"
+                        : "opacity-60 hover:opacity-85 hover:bg-white/[0.02]"
                     }`}
                   >
+                    {/* Unread indicator bar */}
+                    {isUnread && (
+                      <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-r-full bg-[var(--brand)] shadow-[0_0_8px_rgba(214,40,40,0.5)]" />
+                    )}
+
                     <input
                       type="checkbox"
                       checked={selectedIds.has(noti.id)}
                       onChange={() => toggleSelect(noti.id)}
-                      className="w-4 h-4 mt-1 rounded border-[var(--border)] text-[var(--brand)] focus:ring-[var(--brand)]/40 cursor-pointer"
+                      className="w-4 h-4 mt-1 rounded border-[var(--border)] text-[var(--brand)] focus:ring-[var(--brand)]/40 cursor-pointer shrink-0"
                     />
-                    <div className="mt-0.5 shrink-0">{tipoIcon(noti.tipo)}</div>
-                    <div className="flex-1 min-w-0">
+                    <div className="mt-0.5 shrink-0 w-8 h-8 rounded-lg bg-[var(--panel)] border border-[var(--border)]/60 flex items-center justify-center">
+                      {tipoIcon(noti.tipo)}
+                    </div>
+                    <div className="flex-1 min-w-0 pr-2">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-semibold text-[var(--text)]">
-                          {noti.titulo}
-                        </p>
-                        {!noti.leida && (
-                          <span className="shrink-0 w-2 h-2 rounded-full bg-[var(--brand)]" />
-                        )}
                         <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${tipoBadgeColor(
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${tipoBadgeColor(
                             noti.tipo
                           )}`}
                         >
                           {tipoLabel(noti.tipo)}
                         </span>
+                        {isUnread && (
+                          <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--brand)] shadow-[0_0_6px_rgba(214,40,40,0.8)]" />
+                        )}
+                        <span
+                          className="text-[11px] text-[var(--text-muted)] ml-auto"
+                          title={absoluteDate(noti.createdAt)}
+                        >
+                          {timeAgo(noti.createdAt)}
+                        </span>
                       </div>
-                      <p className="text-xs text-[var(--text-secondary)] mt-1 line-clamp-2">
+                      <p className={`text-sm mt-1.5 leading-relaxed ${isUnread ? "text-[var(--text)] font-medium" : "text-[var(--text-secondary)]"}`}>
                         {noti.mensaje}
                       </p>
-                      <p
-                        className="text-[11px] text-[var(--text-muted)] mt-1"
-                        title={absoluteDate(noti.createdAt)}
-                      >
-                        {timeAgo(noti.createdAt)}
-                      </p>
                     </div>
-                    <div className="shrink-0 flex items-center gap-1.5 mt-1">
-                      {!noti.leida && (
+                    <div className="shrink-0 flex items-center gap-2 mt-0.5">
+                      {isUnread && (
                         <button
                           onClick={() => handleMarkRead(noti.id)}
-                          className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-[var(--text-muted)] hover:text-[var(--success)] hover:bg-[var(--success)]/10 transition-all"
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--success)] hover:bg-[var(--success)]/10 border border-[var(--border)]/60 hover:border-[var(--success)]/30 transition-all"
                           title="Marcar como leída"
                         >
                           <CheckCircle size={13} />
@@ -503,8 +540,8 @@ export default function NotificacionesPage() {
                       {href && (
                         <button
                           onClick={() => handleNavigate(noti)}
-                          className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-[var(--brand)] hover:bg-[var(--brand)]/10 transition-all"
-                          title="Ver"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-[var(--brand)] hover:bg-[var(--brand-hover)] shadow-[0_2px_8px_rgba(214,40,40,0.25)] hover:shadow-[0_2px_12px_rgba(214,40,40,0.4)] active:scale-95 transition-all"
+                          title="Ver en inventario"
                         >
                           <ExternalLink size={13} />
                           Ver

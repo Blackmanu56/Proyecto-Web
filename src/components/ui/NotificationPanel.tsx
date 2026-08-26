@@ -168,13 +168,33 @@ function buildHref(noti: Notificacion): string | null {
     case "SOLICITUD_CANCELADA":
       return "/pedidos?tab=solicitudes-stock";
     case "STOCK_CRITICO":
+      return noti.productoId
+        ? `/productos?stock=critico&productoId=${noti.productoId}`
+        : "/productos?stock=critico";
     case "STOCK_AGOTADO":
+      return noti.productoId
+        ? `/productos?stock=sin_stock&productoId=${noti.productoId}`
+        : "/productos?stock=sin_stock";
     case "STOCK_RESTADO":
     case "STOCK_RECARGADO":
       return noti.productoId ? `/productos?highlight=${noti.productoId}` : "/productos";
     case "VENTA_CREADA":
       return "/ventas";
     default:
+      if (
+        noti.solicitudStockId ||
+        noti.solicitudReposicionId ||
+        noti.entidad === "solicitud_stock" ||
+        noti.entidad === "reposicion"
+      ) {
+        return "/pedidos?tab=solicitudes-stock";
+      }
+      if (noti.productoId || noti.entidad === "stock") {
+        return noti.productoId ? `/productos?highlight=${noti.productoId}` : "/productos";
+      }
+      if (noti.entidad === "venta") {
+        return "/ventas";
+      }
       return null;
   }
 }
@@ -271,11 +291,10 @@ export default function NotificationPanel({
   };
 
   const handleNavigate = (noti: Notificacion) => {
-    // Mark as read on click if unread
+    const href = buildHref(noti);
     if (!noti.leida) {
       handleMarkRead(noti.id);
     }
-    const href = buildHref(noti);
     if (href) {
       onClose();
       router.push(href);
@@ -299,7 +318,7 @@ export default function NotificationPanel({
       >
         {/* Unread indicator */}
         {!noti.leida && (
-          <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-r-full bg-[var(--brand)]" />
+          <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-r-full bg-[var(--brand)] shadow-[0_0_8px_rgba(214,40,40,0.5)]" />
         )}
 
         {/* Icon */}
@@ -355,9 +374,9 @@ export default function NotificationPanel({
                 e.stopPropagation();
                 handleNavigate(noti);
               }}
-              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-[var(--brand)] hover:bg-[var(--brand)]/10 transition-all duration-150"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-white bg-[var(--brand)] hover:bg-[var(--brand-hover)] shadow-[0_2px_6px_rgba(214,40,40,0.3)] transition-all duration-150 active:scale-95"
             >
-              <ExternalLink size={13} />
+              <ExternalLink size={12} />
               Ver
             </button>
           )}
