@@ -328,6 +328,12 @@ const CATEGORY_DEMOS: readonly DemoCategorySeed[] = [
   { nombre: "Iluminación" },
   { nombre: "Suspensión" },
   { nombre: "Accesorios" },
+  { nombre: "Filtros" },
+  { nombre: "Escape" },
+  { nombre: "Refrigeración" },
+  { nombre: "Carrocería" },
+  { nombre: "Indumentaria y Cascos" },
+  { nombre: "Herramientas" },
 ] as const;
 
 const BRAND_DEMOS: readonly DemoBrandSeed[] = [
@@ -337,8 +343,14 @@ const BRAND_DEMOS: readonly DemoBrandSeed[] = [
   { nombre: "Suzuki" },
   { nombre: "Kawasaki" },
   { nombre: "Motul" },
+  { nombre: "Castrol" },
   { nombre: "Pirelli" },
   { nombre: "MRF" },
+  { nombre: "Zanella" },
+  { nombre: "Corven" },
+  { nombre: "Gilera" },
+  { nombre: "Mondial" },
+  { nombre: "NGK" },
   { nombre: "Genérico" },
 ] as const;
 
