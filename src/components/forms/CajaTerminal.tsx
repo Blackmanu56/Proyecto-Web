@@ -1,14 +1,19 @@
 "use client";
 
 import {
-abrirCaja,
-cerrarCaja,
-registrarAjusteBanco,
-registrarGastoCaja
+  abrirCaja,
+  aprobarSolicitudCaja,
+  cerrarCaja,
+  rechazarSolicitudCaja,
+  registrarAjusteBanco,
+  registrarAjusteEfectivo,
+  registrarGastoCaja
 } from "@/actions/caja";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import AjustarBancoModal, { type AjusteBancoPayload } from "@/components/ui/AjustarBancoModal";
+import AjustarEfectivoModal, { type AjusteEfectivoPayload } from "@/components/ui/AjustarEfectivoModal";
 import ConfirmarCierreModal from "@/components/ui/ConfirmarCierreModal";
 import {
   Dialog,
@@ -41,7 +46,7 @@ import {
   crearModeloImpresionLibroDiario,
   type MovimientoFinancieroImpresion,
 } from "@/lib/caja-print";
-import { formatCurrency, formatDate, formatDateShort, formatTime24 } from "@/lib/utils";
+import { cn, formatCurrency, formatDate, formatDateShort, formatTime24 } from "@/lib/utils";
 import { formatMovimientoDescripcion,formatReposicionFila,formatTipoComprobante } from "@/lib/movimiento-format";
 import { isSameDay } from "date-fns";
 import {
@@ -50,7 +55,9 @@ import {
   AlertTriangle,
   ArrowDownLeft,
   ArrowUpRight,
+  Banknote,
   Calendar,
+  CheckCircle2,
   Clock,
   Download,
   Filter,
@@ -64,6 +71,7 @@ import {
   Printer,
   Receipt,
   RotateCcw,
+  Scale,
   Search,
   ShoppingCart,
   Tags,
@@ -71,9 +79,10 @@ import {
   User,
   UserRound,
   Waves,
-  X
+  X,
+  XCircle
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import React, { useEffect, useMemo, useState, useTransition } from "react";
 
 function labelMetodoPago(metodo: string): string {
@@ -246,28 +255,63 @@ interface CajaTerminalProps {
     saldo: number;
   };
   movimientosBanco?: MovimientoFinancieroImpresion[];
+  cajaPendiente?: {
+    id: number;
+    montoInicial: number;
+    montoInicialBanco: number;
+    fechaApertura: Date;
+    estado: string;
+    usuario: { username: string; nombreCompleto?: string };
+  } | null;
+  solicitudesPendientes?: Array<{
+    id: number;
+    tipo: string;
+    estado: string;
+    monto?: number | null;
+    motivo?: string | null;
+    fechaSolicitud: Date;
+    datosExtra?: unknown;
+    solicitante: { id: number; username: string; nombreCompleto: string };
+  }>;
+  solicitudesUsuario?: Array<{
+    id: number;
+    tipo: string;
+    estado: string;
+    monto?: number | null;
+    motivoRechazo?: string | null;
+    fechaSolicitud: Date;
+    fechaResolucion?: Date | null;
+  }>;
 }
 
 export default function CajaTerminal({
   cajaActiva,
+  historialCajas,
   userRole,
   user,
   saldosFinancieros,
   resumenBancoPeriodo,
   movimientosBanco = [],
+  cajaPendiente = null,
+  solicitudesPendientes = [],
+  solicitudesUsuario = [],
 }: CajaTerminalProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
   const [montoApertura, setMontoApertura] = useState("");
+  const [montoAperturaBanco, setMontoAperturaBanco] = useState("");
   const [gastoDesc, setGastoDesc] = useState("");
   const [gastoMonto, setGastoMonto] = useState("");
+  const [gastoMetodoPago, setGastoMetodoPago] = useState<"EFECTIVO" | "BANCO">("EFECTIVO");
   const [aperturaCompletada, setAperturaCompletada] = useState(false);
 
   const [showCerrarModal, setShowCerrarModal] = useState(false);
   const [showAjustarBancoModal, setShowAjustarBancoModal] = useState(false);
+  const [showAjustarEfectivoModal, setShowAjustarEfectivoModal] = useState(false);
   const [showGastoModal, setShowGastoModal] = useState(false);
   const [ajusteBancoErrorMsg, setAjusteBancoErrorMsg] = useState("");
+  const [ajusteEfectivoErrorMsg, setAjusteEfectivoErrorMsg] = useState("");
   const [showDetalleModal, setShowDetalleModal] = useState(false);
   const [movimientoSeleccionado, setMovimientoSeleccionado] = useState<MovimientoEnriched | null>(null);
 
@@ -279,6 +323,38 @@ export default function CajaTerminal({
   const [filtroUsuario, setFiltroUsuario] = useState("");
   const [filtroBusqueda, setFiltroBusqueda] = useState("");
 
+  const searchParams = useSearchParams();
+  const ventaIdParam = searchParams?.get("ventaId");
+  const movIdParam = searchParams?.get("movimientoId");
+  const [highlightedVentaId, setHighlightedVentaId] = useState<number | null>(null);
+  const [highlightedMovId, setHighlightedMovId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (ventaIdParam) {
+      const vId = Number(ventaIdParam);
+      if (!Number.isNaN(vId)) {
+        startTransition(() => {
+          setHighlightedVentaId(vId);
+          setFiltroNaturaleza("");
+          setFiltroConcepto("");
+          setFiltroUsuario("");
+          setFiltroBusqueda("");
+        });
+      }
+    } else if (movIdParam) {
+      const mId = Number(movIdParam);
+      if (!Number.isNaN(mId)) {
+        startTransition(() => {
+          setHighlightedMovId(mId);
+          setFiltroNaturaleza("");
+          setFiltroConcepto("");
+          setFiltroUsuario("");
+          setFiltroBusqueda("");
+        });
+      }
+    }
+  }, [ventaIdParam, movIdParam]);
+
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
@@ -286,6 +362,21 @@ export default function CajaTerminal({
     const interval = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(interval);
   }, [cajaActiva]);
+
+  // Auto-fill bank balance from last closed caja's montoInicialBanco
+  useEffect(() => {
+    if (!cajaActiva && !aperturaCompletada) {
+      const lastClosed = historialCajas.find((c) => c.estado === "CERRADA" && "montoInicialBanco" in c);
+      if (lastClosed && "montoInicialBanco" in lastClosed) {
+        const montoBanco = (lastClosed as { montoInicialBanco?: number }).montoInicialBanco;
+        if (montoBanco != null && montoBanco >= 0) {
+          startTransition(() => {
+            setMontoAperturaBanco(String(montoBanco));
+          });
+        }
+      }
+    }
+  }, [cajaActiva, aperturaCompletada, historialCajas]);
 
   const dayChanged = useMemo(() => {
     if (!cajaActiva) return false;
@@ -296,22 +387,39 @@ export default function CajaTerminal({
   const duracionMins = fechaApertura ? Math.max(0, Math.floor((now.getTime() - fechaApertura.getTime()) / 60000)) : 0;
   const duracionHoras = Math.floor(duracionMins / 60);
   const duracionMinutos = duracionMins % 60;
-  const duracionStr = `${String(duracionHoras).padStart(2, "0")}h ${String(duracionMinutos).padStart(2, "0")}m`;
+  const duracionDias = Math.floor(duracionHoras / 24);
+  const duracionStr = duracionDias > 0
+    ? `${duracionDias} día${duracionDias > 1 ? "s" : ""}`
+    : `${String(duracionHoras).padStart(2, "0")}h ${String(duracionMinutos).padStart(2, "0")}m`;
+  const aperturaDesdeStr = fechaApertura
+    ? `Abierta desde el ${formatDateShort(fechaApertura)} a las ${formatTime24(fechaApertura)}`
+    : "";
 
   const handleAbrir = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
     setAperturaCompletada(false);
     const monto = Number(montoApertura);
+    const montoBanco = Number(montoAperturaBanco);
     if (isNaN(monto) || monto < 0) {
-      setErrorMsg("Ingrese un monto inicial válido.");
+      setErrorMsg("Ingrese un monto inicial de efectivo válido.");
+      return;
+    }
+    if (isNaN(montoBanco) || montoBanco < 0) {
+      setErrorMsg("Ingrese un saldo bancario válido.");
       return;
     }
     startTransition(async () => {
-      const res = await abrirCaja(monto);
+      const res = await abrirCaja(monto, montoBanco);
       if (res.success) {
         setMontoApertura("");
-        setAperturaCompletada(true);
+        setMontoAperturaBanco("");
+        if (res.needsApproval) {
+          setErrorMsg("");
+          setAperturaCompletada(false);
+        } else {
+          setAperturaCompletada(true);
+        }
         router.refresh();
       } else {
         setAperturaCompletada(false);
@@ -332,10 +440,53 @@ export default function CajaTerminal({
       const res = await registrarAjusteBanco(payload);
       if (res.success) {
         setShowAjustarBancoModal(false);
+        toast.success(
+          userRole === "ADMINISTRADOR"
+            ? "Ajuste de Banco registrado correctamente."
+            : "Solicitud de ajuste de Banco enviada al administrador."
+        );
         router.refresh();
         return;
       }
       setAjusteBancoErrorMsg(res.error || "Error al registrar el ajuste del Banco.");
+    });
+  };
+
+  const handleAjusteEfectivo = (payload: AjusteEfectivoPayload) => {
+    setAjusteEfectivoErrorMsg("");
+    startTransition(async () => {
+      const res = await registrarAjusteEfectivo(payload);
+      if (res.success) {
+        setShowAjustarEfectivoModal(false);
+        toast.success(
+          userRole === "ADMINISTRADOR"
+            ? "Ajuste de Efectivo registrado correctamente."
+            : "Solicitud de ajuste de Efectivo enviada al administrador."
+        );
+        router.refresh();
+        return;
+      }
+      setAjusteEfectivoErrorMsg(res.error || "Error al registrar el ajuste de Efectivo.");
+    });
+  };
+
+  const handleAprobarApertura = async (cajaId: number) => {
+    startTransition(async () => {
+      const res = await aprobarSolicitudCaja(cajaId);
+      if (res.error) {
+        setErrorMsg(res.error);
+      }
+      router.refresh();
+    });
+  };
+
+  const handleRechazarApertura = async (cajaId: number) => {
+    startTransition(async () => {
+      const res = await rechazarSolicitudCaja(cajaId);
+      if (res.error) {
+        setErrorMsg(res.error);
+      }
+      router.refresh();
     });
   };
 
@@ -366,8 +517,19 @@ export default function CajaTerminal({
     const formData = new FormData(e.currentTarget);
     startTransition(async () => {
       const res = await registrarGastoCaja(formData);
-      if (res.success) { setGastoDesc(""); setGastoMonto(""); setShowGastoModal(false); router.refresh(); }
-      else { setErrorMsg(res.error || "Error al registrar el gasto."); }
+      if (res.success) {
+        setGastoDesc("");
+        setGastoMonto("");
+        setShowGastoModal(false);
+        toast.success(
+          userRole === "ADMINISTRADOR"
+            ? "Gasto registrado correctamente."
+            : "Solicitud de egreso enviada al administrador."
+        );
+        router.refresh();
+      } else {
+        setErrorMsg(res.error || "Error al registrar el gasto.");
+      }
     });
   };
 
@@ -377,6 +539,7 @@ export default function CajaTerminal({
     setErrorMsg("");
     setGastoDesc("");
     setGastoMonto("");
+    setGastoMetodoPago("EFECTIVO");
   };
 
   // Proyectar ventas no efectivas como MovimientoInput para mezclar en el Libro Diario
@@ -665,7 +828,24 @@ export default function CajaTerminal({
     URL.revokeObjectURL(url);
   };
 
+  useEffect(() => {
+    if (highlightedVentaId || highlightedMovId) {
+      const targetId = highlightedVentaId
+        ? `caja-row-venta-${highlightedVentaId}`
+        : `caja-row-mov-${highlightedMovId}`;
+      const timer = setTimeout(() => {
+        const element = document.getElementById(targetId);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightedVentaId, highlightedMovId, movimientosLibroDiarioFiltrados]);
+
   const openDetalle = (mov: MovimientoEnriched) => {
+    setHighlightedVentaId(null);
+    setHighlightedMovId(null);
     setMovimientoSeleccionado(mov);
     setShowDetalleModal(true);
   };
@@ -689,6 +869,82 @@ export default function CajaTerminal({
                 Actualmente no hay ninguna caja operativa abierta. Debe abrir la caja con un saldo inicial en efectivo para poder registrar cobros y reposiciones.
               </p>
             </div>
+
+            {/* Approval banner for admins — from SolicitudCaja model */}
+            {solicitudesPendientes.length > 0 && userRole === "ADMINISTRADOR" && (
+              <div className="max-w-lg mx-auto rounded-xl border border-[var(--warning)]/30 bg-[var(--warning-light)] p-4 text-left space-y-3">
+                <div className="flex items-center gap-2">
+                  <AlertCircle size={18} className="text-[var(--warning)]" />
+                  <p className="text-sm font-bold text-[var(--warning)]">
+                    {solicitudesPendientes.length} solicitud{solicitudesPendientes.length > 1 ? "es" : ""} de caja pendiente{solicitudesPendientes.length > 1 ? "s" : ""}
+                  </p>
+                </div>
+                {solicitudesPendientes.map((sol) => {
+                  const datos = sol.datosExtra as Record<string, unknown> | null;
+                  const tipoLabel = sol.tipo === "APERTURA" ? "apertura"
+                    : sol.tipo === "CIERRE" ? "cierre"
+                    : sol.tipo === "AJUSTE_EFECTIVO" ? "ajuste de efectivo"
+                    : "ajuste de Banco";
+                  const montoInfo = sol.tipo === "APERTURA"
+                    ? `efectivo $${Number(datos?.montoInicialEfectivo ?? sol.monto ?? 0).toLocaleString("es-AR")} y banco $${Number(datos?.saldoBanco ?? 0).toLocaleString("es-AR")}`
+                    : sol.monto != null ? `$${sol.monto.toLocaleString("es-AR")}` : "";
+                  return (
+                    <div key={sol.id} className="flex items-center justify-between gap-2 text-xs">
+                      <p className="text-[var(--text-secondary)]">
+                        <strong>{sol.solicitante.nombreCompleto || sol.solicitante.username}</strong> pidió {tipoLabel} {montoInfo && <strong>{montoInfo}</strong>}
+                      </p>
+                      <div className="flex gap-1.5 shrink-0">
+                        <Button
+                          variant="success"
+                          size="sm"
+                          onClick={() => handleAprobarApertura(sol.id)}
+                          disabled={isPending}
+                          leftIcon={<CheckCircle2 size={12} />}
+                        >
+                          Aprobar
+                        </Button>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => handleRechazarApertura(sol.id)}
+                          disabled={isPending}
+                          leftIcon={<XCircle size={12} />}
+                        >
+                          Rechazar
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Pending status for non-admin who submitted requests */}
+            {solicitudesUsuario.length > 0 && userRole !== "ADMINISTRADOR" && (
+              <div className="max-w-md mx-auto rounded-xl border border-[var(--warning)]/30 bg-[var(--warning-light)] p-4 text-center space-y-2">
+                <div className="flex items-center justify-center gap-2">
+                  <Clock size={18} className="text-[var(--warning)]" />
+                  <p className="text-sm font-bold text-[var(--warning)]">
+                    {solicitudesUsuario.length} solicitud{solicitudesUsuario.length > 1 ? "es" : ""} pendiente{solicitudesUsuario.length > 1 ? "s" : ""}
+                  </p>
+                </div>
+                {solicitudesUsuario.map((sol) => {
+                  const tipoLabel = sol.tipo === "APERTURA" ? "apertura"
+                    : sol.tipo === "CIERRE" ? "cierre"
+                    : sol.tipo === "AJUSTE_EFECTIVO" ? "ajuste de efectivo"
+                    : "ajuste de Banco";
+                  return (
+                    <div key={sol.id} className="text-xs text-[var(--text-secondary)]">
+                      <p>Tu solicitud de <strong>{tipoLabel}</strong> está esperando aprobación.</p>
+                      {sol.motivoRechazo && (
+                        <p className="text-[var(--danger)] mt-1">Rechazada: {sol.motivoRechazo}</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             {aperturaCompletada ? (
               <div className="space-y-3 max-w-xs mx-auto" aria-live="polite">
                 <div className="p-3 bg-[var(--success-light)] border border-[var(--success)]/20 text-[var(--success)] text-xs font-semibold rounded-[var(--radius-md)] flex items-center justify-center space-x-2">
@@ -711,6 +967,22 @@ export default function CajaTerminal({
                   required
                   disabled={isPending || aperturaCompletada}
                 />
+              </div>
+              <div className="space-y-1.5 text-left">
+                <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider block text-center">
+                  Saldo Bancario Disponible
+                </label>
+                <input
+                  type="number"
+                  placeholder="0.00"
+                  value={montoAperturaBanco}
+                  readOnly
+                  className="w-full text-center px-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] text-[var(--text-secondary)] text-lg font-mono font-bold transition-colors cursor-not-allowed opacity-70"
+                  tabIndex={-1}
+                />
+                <p className="text-[10px] text-[var(--text-muted)] text-center mt-0.5">
+                  Se auto-completa del último saldo bancario. Para corregir, use &quot;Ajustar Banco&quot;.
+                </p>
               </div>
               {errorMsg && (
                 <div className="p-3 bg-[var(--danger-light)] border border-[var(--danger)]/20 text-[var(--danger)] text-xs font-semibold rounded-[var(--radius-md)] flex items-center justify-center space-x-2">
@@ -754,16 +1026,16 @@ export default function CajaTerminal({
                 </span>
                 <span className="flex items-center gap-1.5 text-[var(--text-muted)]">
                   <User size={14} className="text-[var(--info)]" />
-                  <span className="font-medium">Sesión: <strong className="text-[var(--text)]">{user?.nombreCompleto || user?.username || cajaActiva.usuario.nombreCompleto || cajaActiva.usuario.username}</strong></span>
+                  <span className="font-medium">Caja abierta por <strong className="text-[var(--text)]">{cajaActiva.usuario.nombreCompleto || cajaActiva.usuario.username}</strong></span>
                 </span>
                 <span className="flex items-center gap-1.5 text-[var(--text-muted)]">
                   <Clock size={14} className="text-[var(--warning)]" />
-                  <span className="font-medium">Abierta hace <span className="font-mono">{duracionStr}</span></span>
+                  <span className="font-medium">{aperturaDesdeStr} <span className="text-[var(--text-secondary)]">({duracionStr})</span></span>
                 </span>
                 <Badge variant="success" size="sm" className="uppercase font-black tracking-wider">Abierta</Badge>
               </div>
-              <div className="flex items-center gap-1.5">
-                {userRole === "ADMINISTRADOR" && saldosFinancieros && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {saldosFinancieros && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -777,7 +1049,7 @@ export default function CajaTerminal({
                     Registrar Gasto
                   </Button>
                 )}
-                {userRole === "ADMINISTRADOR" && saldosFinancieros && (
+                {saldosFinancieros && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -788,6 +1060,19 @@ export default function CajaTerminal({
                     leftIcon={<Landmark size={14} />}
                   >
                     Ajustar Banco
+                  </Button>
+                )}
+                {saldosFinancieros && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setAjusteEfectivoErrorMsg("");
+                      setShowAjustarEfectivoModal(true);
+                    }}
+                    leftIcon={<Banknote size={14} />}
+                  >
+                    Ajustar Efectivo
                   </Button>
                 )}
                 <Button variant="outline" size="sm" onClick={handlePrint} leftIcon={<Printer size={14} />}>Imprimir</Button>
@@ -978,9 +1263,28 @@ export default function CajaTerminal({
                             <span className="text-[var(--text-secondary)] opacity-50">{"\u2014"}</span>
                           );
 
+                        const isHighlighted =
+                          (highlightedVentaId != null && mov.ventaId === highlightedVentaId) ||
+                          (highlightedMovId != null && mov.id === highlightedMovId);
+
                         return (
-                          <tr key={mov.id} onClick={() => openDetalle(mov)} className="cursor-pointer transition-colors hover:bg-[var(--brand)]/[0.03]">
-                            <td className="px-3 py-3.5 text-center font-semibold whitespace-nowrap text-[var(--text-secondary)]">{mov.itemNumber}</td>
+                          <tr
+                            key={mov.id}
+                            id={mov.ventaId ? `caja-row-venta-${mov.ventaId}` : `caja-row-mov-${mov.id}`}
+                            onClick={() => openDetalle(mov)}
+                            className={cn(
+                              "cursor-pointer transition-colors relative",
+                              isHighlighted
+                                ? "bg-emerald-500/[0.14] ring-2 ring-inset ring-emerald-500/50 hover:bg-emerald-500/[0.20]"
+                                : "hover:bg-[var(--brand)]/[0.03]"
+                            )}
+                          >
+                            <td className="px-3 py-3.5 text-center font-semibold whitespace-nowrap text-[var(--text-secondary)] relative">
+                              {isHighlighted && (
+                                <span className="absolute left-0 top-0 bottom-0 w-[4px] bg-emerald-400 rounded-r-full shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                              )}
+                              {mov.itemNumber}
+                            </td>
                             <td className="px-3 py-3.5 whitespace-nowrap text-[var(--text-muted)]">{fechaStr}</td>
                             <td className="px-3 py-3.5 whitespace-nowrap text-[var(--text-secondary)]">{horaStr}</td>
                             <td className="px-3 py-3.5 pr-2 font-sans leading-tight text-[var(--text)]" title={descTitle}>
@@ -1193,6 +1497,21 @@ export default function CajaTerminal({
       />
     )}
 
+    {saldosFinancieros && (
+      <AjustarEfectivoModal
+        open={showAjustarEfectivoModal}
+        onClose={() => {
+          if (isPending) return;
+          setShowAjustarEfectivoModal(false);
+          setAjusteEfectivoErrorMsg("");
+        }}
+        onConfirm={handleAjusteEfectivo}
+        isPending={isPending}
+        saldoActual={saldosFinancieros.efectivoFisico}
+        errorMessage={ajusteEfectivoErrorMsg}
+      />
+    )}
+
     <Dialog open={showGastoModal} onOpenChange={(open) => !open && cerrarModalGasto()}>
       <DialogContent className="max-w-[28rem] border-[var(--border)] bg-[var(--card)] p-5 sm:p-6">
         <DialogHeader>
@@ -1226,6 +1545,44 @@ export default function CajaTerminal({
             </div>
             <div className="space-y-1.5">
               <label className="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#9FB1CC]">
+                Método de Pago
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setGastoMetodoPago("EFECTIVO")}
+                  className={`rounded-xl border px-3 py-2 text-sm font-bold transition ${
+                    gastoMetodoPago === "EFECTIVO"
+                      ? "border-[#22c55e]/40 bg-[#22c55e]/10 text-[#4ade80]"
+                      : "border-[var(--border)] bg-[var(--panel)] text-[var(--text-secondary)]"
+                  }`}
+                  disabled={isPending}
+                >
+                  <span className="flex items-center justify-center gap-2">
+                    <Banknote size={14} />
+                    Efectivo
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGastoMetodoPago("BANCO")}
+                  className={`rounded-xl border px-3 py-2 text-sm font-bold transition ${
+                    gastoMetodoPago === "BANCO"
+                      ? "border-[#38bdf8]/40 bg-[#38bdf8]/10 text-[#38bdf8]"
+                      : "border-[var(--border)] bg-[var(--panel)] text-[var(--text-secondary)]"
+                  }`}
+                  disabled={isPending}
+                >
+                  <span className="flex items-center justify-center gap-2">
+                    <Landmark size={14} />
+                    Transferencia / Banco
+                  </span>
+                </button>
+              </div>
+              <input type="hidden" name="metodoPago" value={gastoMetodoPago} />
+            </div>
+            <div className="space-y-1.5">
+              <label className="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#9FB1CC]">
                 Monto ($)
               </label>
               <div className="relative">
@@ -1251,8 +1608,12 @@ export default function CajaTerminal({
               </div>
               <div className="mt-2 space-y-2 text-sm">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-[var(--text-secondary)]">Saldo Caja actual</span>
-                  <span className="font-mono font-bold text-[var(--text)]">{formatCurrency(saldoCajaActual)}</span>
+                  <span className="text-[var(--text-secondary)]">
+                    {gastoMetodoPago === "EFECTIVO" ? "Saldo Caja actual" : "Saldo Banco actual"}
+                  </span>
+                  <span className="font-mono font-bold text-[var(--text)]">
+                    {formatCurrency(gastoMetodoPago === "EFECTIVO" ? saldoCajaActual : (saldosFinancieros?.banco ?? 0))}
+                  </span>
                 </div>
                 {gastoMontoNumero !== null && (
                   <>
@@ -1264,8 +1625,15 @@ export default function CajaTerminal({
                     </div>
                     <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] pt-2">
                       <span className="text-[var(--text-secondary)]">Saldo resultante</span>
-                      <span className={`font-mono text-base font-black ${saldoCajaResultante >= 0 ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
-                        {formatCurrency(saldoCajaResultante)}
+                      <span className={`font-mono text-base font-black ${
+                        (gastoMetodoPago === "EFECTIVO" ? saldoCajaResultante : ((saldosFinancieros?.banco ?? 0) - gastoMontoNumero)) >= 0
+                          ? "text-[var(--success)]" : "text-[var(--danger)]"
+                      }`}>
+                        {formatCurrency(
+                          gastoMetodoPago === "EFECTIVO"
+                            ? saldoCajaResultante
+                            : ((saldosFinancieros?.banco ?? 0) - gastoMontoNumero)
+                        )}
                       </span>
                     </div>
                   </>

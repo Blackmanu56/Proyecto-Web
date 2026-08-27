@@ -173,7 +173,7 @@ export default function CrearPedidoModal({
       <DialogContent className="max-w-md w-full overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <div className="p-2 rounded-[var(--radius-md)] bg-[#047857]/10 text-[#059669]">
+            <div className="p-2 rounded-[var(--radius-md)] bg-[var(--brand-light)] text-[var(--brand)] ring-1 ring-[var(--brand)]/20">
               <ShoppingCart size={18} />
             </div>
             Crear pedido
@@ -303,7 +303,7 @@ export default function CrearPedidoModal({
                   type="checkbox"
                   checked={aprobarYExec}
                   onChange={(e) => setAprobarYExec(e.target.checked)}
-                  className="h-4 w-4 rounded border-[var(--border)] text-[#047857] focus:ring-[#059669]"
+                  className="h-4 w-4 rounded border-[var(--border)] text-[var(--brand)] focus:ring-[var(--brand)] accent-[var(--brand)]"
                 />
                 <div>
                   <p className="text-sm font-semibold text-[var(--text)]">Aprobar y ejecutar inmediatamente</p>
@@ -334,7 +334,7 @@ export default function CrearPedidoModal({
                 type="button"
                 onClick={handleSubmit}
                 disabled={!isValid || loading}
-                className="bg-[#047857] hover:bg-[#065F46] text-white"
+                className="bg-[var(--brand)] hover:bg-[var(--brand)]/85 text-white shadow-sm font-bold active:scale-95"
               >
                 {loading ? "Creando pedido..." : aprobarYExec && canApprove ? "Crear y aprobar" : "Crear pedido"}
               </Button>

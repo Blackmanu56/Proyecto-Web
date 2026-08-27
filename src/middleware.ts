@@ -21,12 +21,13 @@ function getStringArrayClaim(payload: JWTPayload, claim: string): string[] {
 const protectedRoutes = [
   { path: "/dashboard", roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS", "ENCARGADO_STOCK"] },
   { path: "/productos", roles: ["ADMINISTRADOR", "ENCARGADO_STOCK"] },
+  { path: "/pedidos", roles: ["ADMINISTRADOR", "ENCARGADO_STOCK"] },
   { path: "/ventas", roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS"] },
   { path: "/caja", roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS"] },
   { path: "/clientes", roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS"] },
   { path: "/proveedores", roles: ["ADMINISTRADOR", "ENCARGADO_STOCK"] },
   { path: "/empleados", roles: ["ADMINISTRADOR"] },
-  { path: "/solicitudes", roles: ["ADMINISTRADOR"] },
+  { path: "/solicitudes", roles: ["ADMINISTRADOR", "ENCARGADO_STOCK", "ENCARGADO_VENTAS"] },
   { path: "/informes", roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS", "ENCARGADO_STOCK"] },
 ];
 

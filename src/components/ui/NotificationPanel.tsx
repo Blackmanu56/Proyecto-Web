@@ -36,6 +36,7 @@ interface Notificacion {
   entidad?: string | null;
   solicitudStockId?: number | null;
   solicitudReposicionId?: number | null;
+  solicitudCajaId?: number | null;
   productoId?: number | null;
   solicitudStock?: {
     id: number;
@@ -67,7 +68,7 @@ function tipoConfig(tipo: string) {
         color: "text-[var(--info)]",
         bg: "bg-[var(--info)]/10",
         ring: "ring-[var(--info)]/20",
-        dot: "bg-[var(--info)]",
+        label: "Solicitud",
       };
     case "SOLICITUD_APROBADA":
       return {
@@ -75,7 +76,7 @@ function tipoConfig(tipo: string) {
         color: "text-[var(--success)]",
         bg: "bg-[var(--success)]/10",
         ring: "ring-[var(--success)]/20",
-        dot: "bg-[var(--success)]",
+        label: "Aprobada",
       };
     case "SOLICITUD_RECHAZADA":
       return {
@@ -83,7 +84,7 @@ function tipoConfig(tipo: string) {
         color: "text-[var(--danger)]",
         bg: "bg-[var(--danger)]/10",
         ring: "ring-[var(--danger)]/20",
-        dot: "bg-[var(--danger)]",
+        label: "Rechazada",
       };
     case "SOLICITUD_CANCELADA":
       return {
@@ -91,23 +92,23 @@ function tipoConfig(tipo: string) {
         color: "text-[var(--text-muted)]",
         bg: "bg-[var(--text-muted)]/10",
         ring: "ring-[var(--text-muted)]/20",
-        dot: "bg-[var(--text-muted)]",
+        label: "Cancelada",
       };
     case "STOCK_CRITICO":
       return {
         icon: <AlertTriangle size={15} />,
-        color: "text-yellow-500",
-        bg: "bg-yellow-500/10",
-        ring: "ring-yellow-500/20",
-        dot: "bg-yellow-500",
+        color: "text-[#F59E0B]",
+        bg: "bg-[#F59E0B]/10",
+        ring: "ring-[#F59E0B]/20",
+        label: "Stock crítico",
       };
     case "STOCK_AGOTADO":
       return {
         icon: <PackageX size={15} />,
-        color: "text-[var(--danger)]",
-        bg: "bg-[var(--danger)]/10",
-        ring: "ring-[var(--danger)]/20",
-        dot: "bg-[var(--danger)]",
+        color: "text-[#EF4444]",
+        bg: "bg-[#EF4444]/10",
+        ring: "ring-[#EF4444]/20",
+        label: "Stock agotado",
       };
     case "STOCK_RESTADO":
       return {
@@ -115,7 +116,7 @@ function tipoConfig(tipo: string) {
         color: "text-orange-500",
         bg: "bg-orange-500/10",
         ring: "ring-orange-500/20",
-        dot: "bg-orange-500",
+        label: "Stock reducido",
       };
     case "STOCK_RECARGADO":
       return {
@@ -123,7 +124,7 @@ function tipoConfig(tipo: string) {
         color: "text-[var(--success)]",
         bg: "bg-[var(--success)]/10",
         ring: "ring-[var(--success)]/20",
-        dot: "bg-[var(--success)]",
+        label: "Stock recargado",
       };
     case "VENTA_CREADA":
       return {
@@ -131,7 +132,7 @@ function tipoConfig(tipo: string) {
         color: "text-blue-500",
         bg: "bg-blue-500/10",
         ring: "ring-blue-500/20",
-        dot: "bg-blue-500",
+        label: "Venta",
       };
     default:
       return {
@@ -139,7 +140,7 @@ function tipoConfig(tipo: string) {
         color: "text-[var(--text-muted)]",
         bg: "bg-[var(--text-muted)]/10",
         ring: "ring-[var(--text-muted)]/20",
-        dot: "bg-[var(--text-muted)]",
+        label: "Notificación",
       };
   }
 }
@@ -161,12 +162,25 @@ function absoluteDate(date: Date | string) {
 }
 
 function buildHref(noti: Notificacion): string | null {
+  const solicitudId = noti.solicitudStockId || noti.solicitudReposicionId || noti.solicitudCajaId;
+
   switch (noti.tipo) {
     case "SOLICITUD_CREADA":
+      return solicitudId
+        ? `/solicitudes?estado=PENDIENTE&solicitudId=${solicitudId}`
+        : "/solicitudes?estado=PENDIENTE";
     case "SOLICITUD_APROBADA":
+      return solicitudId
+        ? `/solicitudes?estado=APROBADA&solicitudId=${solicitudId}`
+        : "/solicitudes?estado=APROBADA";
     case "SOLICITUD_RECHAZADA":
+      return solicitudId
+        ? `/solicitudes?estado=RECHAZADA&solicitudId=${solicitudId}`
+        : "/solicitudes?estado=RECHAZADA";
     case "SOLICITUD_CANCELADA":
-      return "/pedidos?tab=solicitudes-stock";
+      return solicitudId
+        ? `/solicitudes?estado=CANCELADA&solicitudId=${solicitudId}`
+        : "/solicitudes?estado=CANCELADA";
     case "STOCK_CRITICO":
       return noti.productoId
         ? `/productos?stock=critico&productoId=${noti.productoId}`
@@ -178,16 +192,19 @@ function buildHref(noti: Notificacion): string | null {
     case "STOCK_RESTADO":
     case "STOCK_RECARGADO":
       return noti.productoId ? `/productos?highlight=${noti.productoId}` : "/productos";
-    case "VENTA_CREADA":
-      return "/ventas";
+    case "VENTA_CREADA": {
+      const match = noti.mensaje.match(/Venta\s+N[°º]?\s*(\d+)/i);
+      const ventaId = match ? match[1] : null;
+      return ventaId ? `/caja?ventaId=${ventaId}` : "/caja";
+    }
     default:
       if (
-        noti.solicitudStockId ||
-        noti.solicitudReposicionId ||
+        solicitudId ||
         noti.entidad === "solicitud_stock" ||
-        noti.entidad === "reposicion"
+        noti.entidad === "reposicion" ||
+        noti.entidad === "solicitud_caja"
       ) {
-        return "/pedidos?tab=solicitudes-stock";
+        return solicitudId ? `/solicitudes?solicitudId=${solicitudId}` : "/solicitudes";
       }
       if (noti.productoId || noti.entidad === "stock") {
         return noti.productoId ? `/productos?highlight=${noti.productoId}` : "/productos";
@@ -228,14 +245,12 @@ export default function NotificationPanel({
     return () => { cancelled = true; };
   }, []);
 
-  const { nuevas, leidas } = useMemo(() => {
+  const { nuevas } = useMemo(() => {
     const unread: Notificacion[] = [];
-    const read: Notificacion[] = [];
     for (const n of notificaciones) {
-      if (n.leida) read.push(n);
-      else unread.push(n);
+      if (!n.leida) unread.push(n);
     }
-    return { nuevas: unread, leidas: read };
+    return { nuevas: unread };
   }, [notificaciones]);
 
   // Panel only shows unread notifications — read ones are history in /notificaciones

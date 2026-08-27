@@ -10,10 +10,10 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import {
-  aprobarSolicitudStock,
-  rechazarSolicitudStock,
-  cancelarSolicitudStock,
-} from "@/actions/solicitudes-stock";
+  aprobarSolicitudUnificada,
+  rechazarSolicitudUnificada,
+  cancelarSolicitudUnificada,
+} from "@/actions/solicitudes";
 import {
   AlertTriangle,
   CheckCircle,
@@ -32,7 +32,7 @@ import { toast } from "sonner";
 
 interface SolicitudData {
   id: number;
-  tipo: "RESTA" | "REPOSICION";
+  tipo: "RESTA" | "REPOSICION" | string;
   cantidad: number;
   stockAnterior: number;
   motivo: string;
@@ -43,6 +43,7 @@ interface SolicitudData {
   producto: { id: number; nombre: string; cantidad: number };
   solicitante: { id: number; nombreCompleto: string };
   resueltoPor?: { id: number; nombreCompleto: string } | null;
+  origenTabla?: "solicitud_stock" | "solicitud_reposicion" | "solicitud_caja";
 }
 
 interface SolicitudStockDetailProps {
@@ -75,13 +76,14 @@ export default function SolicitudStockDetail({
   const isPendiente = solicitud.estado === "PENDIENTE";
   const isAdmin = userRole === "ADMINISTRADOR";
   const isOwnSolicitud = currentUserId !== undefined && solicitud.solicitante.id === currentUserId;
+  const origenTabla = solicitud.origenTabla ?? "solicitud_stock";
 
   const handleApprove = () => {
     setError("");
     startTransition(async () => {
       try {
-        const res = await aprobarSolicitudStock(solicitud.id);
-        if ("error" in res) {
+        const res = await aprobarSolicitudUnificada(solicitud.id, origenTabla);
+        if ("error" in res && res.error) {
           setError(res.error ?? "Error al aprobar");
           return;
         }
@@ -105,8 +107,8 @@ export default function SolicitudStockDetail({
     setError("");
     startTransition(async () => {
       try {
-        const res = await rechazarSolicitudStock(solicitud.id, rejectMotivo);
-        if ("error" in res) {
+        const res = await rechazarSolicitudUnificada(solicitud.id, origenTabla, rejectMotivo.trim());
+        if ("error" in res && res.error) {
           setError(res.error ?? "Error al rechazar");
           return;
         }
@@ -126,8 +128,8 @@ export default function SolicitudStockDetail({
     setError("");
     startTransition(async () => {
       try {
-        const res = await cancelarSolicitudStock(solicitud.id);
-        if ("error" in res) {
+        const res = await cancelarSolicitudUnificada(solicitud.id, origenTabla);
+        if ("error" in res && res.error) {
           setError(res.error ?? "Error al cancelar");
           return;
         }

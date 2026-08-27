@@ -2,19 +2,11 @@ import React from "react";
 import { getSession } from "@/lib/auth.server";
 import { getProductos } from "@/actions/productos";
 import { getProveedores } from "@/actions/auxiliares";
-import { getSolicitudesStock } from "@/actions/solicitudes-stock";
 import PedidosTable from "@/components/tables/PedidosTable";
 import { ClipboardList } from "lucide-react";
 
-interface PageProps {
-  searchParams: Promise<{
-    tab?: string;
-  }>;
-}
-
-export default async function PedidosPage({ searchParams }: PageProps) {
+export default async function PedidosPage() {
   const session = await getSession();
-  const params = await searchParams;
   const userRole = session?.role || "ENCARGADO_STOCK";
 
   const allowedRoles = ["ADMINISTRADOR", "ENCARGADO_STOCK"];
@@ -31,16 +23,10 @@ export default async function PedidosPage({ searchParams }: PageProps) {
     );
   }
 
-  const [productos, proveedores, solicitudesStockResult] = await Promise.all([
+  const [productos, proveedores] = await Promise.all([
     getProductos(),
     getProveedores(),
-    getSolicitudesStock({ pageSize: 50 }),
   ]);
-
-  const initialSolicitudesStock =
-    solicitudesStockResult && "data" in solicitudesStockResult
-      ? (solicitudesStockResult.data as React.ComponentProps<typeof PedidosTable>["initialSolicitudesStock"])
-      : [];
 
   return (
     <div className="fixed inset-0 top-[5.5rem] bg-[var(--bg)] flex flex-col overflow-hidden z-10">
@@ -67,10 +53,8 @@ export default async function PedidosPage({ searchParams }: PageProps) {
               initialProducts={productos as React.ComponentProps<typeof PedidosTable>["initialProducts"]}
               proveedores={proveedores as React.ComponentProps<typeof PedidosTable>["proveedores"]}
               userRole={userRole}
-              initialSolicitudesStock={initialSolicitudesStock}
               userId={session?.userId ?? 0}
               canApprove={userRole === "ADMINISTRADOR"}
-              initialTab={params.tab as React.ComponentProps<typeof PedidosTable>["initialTab"]}
             />
           </React.Suspense>
         </div>

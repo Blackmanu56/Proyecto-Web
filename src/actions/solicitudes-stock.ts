@@ -492,6 +492,7 @@ export async function getNotificaciones(limit: number = 20) {
         entidad: true,
         solicitudStockId: true,
         solicitudReposicionId: true,
+        solicitudCajaId: true,
         productoId: true,
         solicitudStock: {
           select: {
@@ -699,6 +700,7 @@ export async function getNotificacionesPaginadas(filters: NotificacionesFilters 
           entidad: true,
           solicitudStockId: true,
           solicitudReposicionId: true,
+          solicitudCajaId: true,
           productoId: true,
           solicitudStock: {
             select: {

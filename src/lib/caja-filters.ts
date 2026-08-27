@@ -146,6 +146,9 @@ export function getConcepto(mov: MovimientoInput): string {
   // Gasto manual
   if (desc.startsWith("gasto:")) return "GASTO";
 
+  // Ajuste de efectivo (nuevo concepto)
+  if (desc.startsWith("[ajuste_efectivo]")) return "AJUSTE";
+
   // Ajuste histórico (p. ej. reposiciones pagadas por banco) — antes que "reposici"
   if (desc.includes("ajuste")) return "AJUSTE";
 
@@ -184,6 +187,8 @@ export function getTipoVisual(mov: MovimientoInput): ConceptoVisual {
     return { label: "CIERRE", variant: "default" };
   if (desc.startsWith("gasto:"))
     return { label: "EGRESO", variant: "danger" };
+  if (desc.startsWith("[ajuste_efectivo]"))
+    return { label: "AJUSTE", variant: "default" };
   if (desc.includes("ajuste"))
     return { label: "AJUSTE", variant: "default" };
   if (desc.includes("stock inicial") || desc.includes("reposici"))

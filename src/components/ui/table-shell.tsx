@@ -9,6 +9,8 @@ export interface TableShellProps {
   searchLabel?: string;
   searchValue?: string;
   onSearchChange?: (value: string) => void;
+  onClearSearch?: () => void;
+  showClearButton?: boolean;
   actions?: React.ReactNode;
   children: React.ReactNode;
   isEmpty?: boolean;
@@ -26,6 +28,8 @@ function TableShell({
   searchLabel,
   searchValue,
   onSearchChange,
+  onClearSearch,
+  showClearButton,
   actions,
   children,
   isEmpty = false,
@@ -37,8 +41,12 @@ function TableShell({
 }: TableShellProps) {
   const searchInputRef = React.useRef<HTMLInputElement>(null);
 
-  const handleClearSearch = () => {
-    onSearchChange?.("");
+  const handleClear = () => {
+    if (onClearSearch) {
+      onClearSearch();
+    } else {
+      onSearchChange?.("");
+    }
     searchInputRef.current?.focus();
   };
 
@@ -52,10 +60,10 @@ function TableShell({
         leftIcon={<Search size={14} />}
         className={centeredHeaderControls ? "py-1.5 pr-3 text-[11px]" : "py-1.5 pr-24 text-[11px]"}
       />
-      {!centeredHeaderControls && searchValue && searchValue.length > 0 && (
+      {!centeredHeaderControls && (showClearButton ?? (searchValue && searchValue.length > 0)) && (
         <button
           type="button"
-          onClick={handleClearSearch}
+          onClick={handleClear}
           className="absolute right-2 top-1/2 flex h-6 -translate-y-1/2 items-center gap-1.5 rounded-lg border border-border/70 bg-card/80 px-2.5 text-[10px] font-bold text-text-secondary shadow-sm transition-all duration-150 hover:border-border-hover hover:bg-border/60 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand active:scale-95"
           aria-label="Limpiar busqueda"
           title="Limpiar busqueda"
@@ -67,15 +75,15 @@ function TableShell({
     </div>
   );
 
-  const hasSearchValue = Boolean(searchValue && searchValue.length > 0);
+  const isClearVisible = showClearButton ?? Boolean(searchValue && searchValue.length > 0);
 
-  const clearSearchButton = centeredHeaderControls && hasSearchValue && (
+  const clearSearchButton = centeredHeaderControls && isClearVisible && (
     <button
       type="button"
-      onClick={handleClearSearch}
+      onClick={handleClear}
       className="group flex h-10 min-w-[132px] shrink-0 items-center justify-center gap-2 rounded-xl border border-[var(--brand)]/30 bg-[var(--bg)] py-2 pl-2 pr-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200 hover:border-[var(--brand)]/60 hover:bg-[var(--brand-light)]/10 hover:text-white focus-visible:border-[var(--brand)] focus-visible:outline-0 focus-visible:ring-2 focus-visible:ring-[var(--brand)]/20 active:scale-[0.98]"
-      aria-label="Limpiar busqueda"
-      title="Limpiar busqueda"
+      aria-label="Limpiar filtros"
+      title="Limpiar filtros"
     >
       <span className="flex min-w-0 items-center gap-2">
         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[var(--brand-light)] text-[var(--brand)] ring-1 ring-[var(--brand)]/20 transition-colors duration-200 group-hover:bg-[var(--brand-light)]/80 group-hover:text-[var(--brand)]">

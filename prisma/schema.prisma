@@ -72,6 +72,8 @@ enum TipoNotificacion {
   STOCK_RESTADO
   STOCK_RECARGADO
   VENTA_CREADA
+  CAJA_APERTURA_PENDIENTE
+  SOLICITUD_CAJA_CREADA
 }
 
 model PagoCompra {
@@ -96,35 +98,37 @@ model Rol {
 }
 
 model Usuario {
-  id                     Int                    @id @default(autoincrement())
-  username               String                 @unique
-  passwordHash           String                 @map("password_hash")
-  nombreCompleto         String                 @map("nombre_completo")
-  dni                    String                 @unique
-  correo                 String?
-  telefono               String?
-  activo                 Boolean                @default(true)
-  creadoEn               DateTime               @default(now()) @map("creado_en")
-  rolId                  Int                    @map("rol_id")
-  fotoActualizadaEn      DateTime?              @map("foto_actualizada_en")
-  fotoUrl                String?                @map("foto_url")
-  cajas                  Caja[]
-  compras                Compra[]
-  empleado               Empleado?
-  movimientos            MovimientoCaja[]
-  favoritos              ProductoFavorito[]
-  historialEstados       HistorialEstado[]
-  movimientosFinancieros MovimientoFinanciero[]
-  movimientosProducto    MovimientoProducto[]
-  rol                    Rol                    @relation(fields: [rolId], references: [id])
-  ventas                 Venta[]
-  solicitudesSolicitante     SolicitudReposicion[]  @relation("solicitudesSolicitante")
-  solicitudesAprobador       SolicitudReposicion[]  @relation("solicitudesAprobador")
-  solicitudesStockCreadas    SolicitudStock[]       @relation("SolicitudStockSolicitante")
-  solicitudesStockResueltas  SolicitudStock[]       @relation("SolicitudStockResuelto")
-  notificaciones             Notificacion[]
-  preferenciasNotificacion   PreferenciaNotificacion[]
-  ajustesPrecio              AjustePrecio[]
+  id                        Int                       @id @default(autoincrement())
+  username                  String                    @unique
+  passwordHash              String                    @map("password_hash")
+  nombreCompleto            String                    @map("nombre_completo")
+  dni                       String                    @unique
+  correo                    String?
+  telefono                  String?
+  activo                    Boolean                   @default(true)
+  creadoEn                  DateTime                  @default(now()) @map("creado_en")
+  rolId                     Int                       @map("rol_id")
+  fotoActualizadaEn         DateTime?                 @map("foto_actualizada_en")
+  fotoUrl                   String?                   @map("foto_url")
+  cajas                     Caja[]
+  compras                   Compra[]
+  empleado                  Empleado?
+  movimientos               MovimientoCaja[]
+  favoritos                 ProductoFavorito[]
+  historialEstados          HistorialEstado[]
+  movimientosFinancieros    MovimientoFinanciero[]
+  movimientosProducto       MovimientoProducto[]
+  rol                       Rol                       @relation(fields: [rolId], references: [id])
+  ventas                    Venta[]
+  solicitudesSolicitante    SolicitudReposicion[]     @relation("solicitudesSolicitante")
+  solicitudesAprobador      SolicitudReposicion[]     @relation("solicitudesAprobador")
+  solicitudesStockCreadas   SolicitudStock[]          @relation("SolicitudStockSolicitante")
+  solicitudesStockResueltas SolicitudStock[]          @relation("SolicitudStockResuelto")
+  solicitudesCajaCreadas    SolicitudCaja[]           @relation("solicitudesCajaSolicitante")
+  solicitudesCajaResueltas  SolicitudCaja[]           @relation("solicitudesCajaAprobador")
+  notificaciones            Notificacion[]
+  preferenciasNotificacion  PreferenciaNotificacion[]
+  ajustesPrecio             AjustePrecio[]
 
   @@map("usuarios")
 }
@@ -262,6 +266,7 @@ model Caja {
   fechaApertura     DateTime         @default(now()) @map("fecha_apertura")
   fechaCierre       DateTime?        @map("fecha_cierre")
   montoInicial      Float            @map("monto_inicial")
+  montoInicialBanco Float            @default(0.0) @map("monto_inicial_banco")
   totalVentas       Float            @default(0.0) @map("total_ventas")
   estado            String           @default("ABIERTA")
   gastosManuales    Float            @default(0.0) @map("gastos_manuales")
@@ -269,6 +274,7 @@ model Caja {
   observacionCierre String?          @map("observacion_cierre")
   usuario           Usuario          @relation(fields: [usuarioId], references: [id])
   movimientos       MovimientoCaja[]
+  notificaciones    Notificacion[]
 
   @@map("cajas")
 }
@@ -324,27 +330,27 @@ model DetalleCompra {
 }
 
 model SolicitudReposicion {
-  id            Int              @id @default(autoincrement())
-  productoId    Int              @map("producto_id")
-  cantidad      Int
-  costoUnitario Float            @map("costo_unitario")
-  total         Float
-  proveedorId   Int              @map("proveedor_id")
-  estado        String           @default("PENDIENTE") // PENDIENTE|APROBADA|RECHAZADA
-  origenPago    OrigenPagoCompra @default(EFECTIVO_CAJA) @map("origen_pago")
-  pagos         Json?
-  motivo        String?
-  respuesta     String?
-  solicitanteId Int              @map("solicitante_id")
-  aprobadorId   Int?             @map("aprobador_id")
-  compraId      Int?             @unique @map("compra_id")
-  createdAt     DateTime         @default(now()) @map("created_at")
-  resueltoEn    DateTime?        @map("resuelto_en")
-  producto      Producto         @relation(fields: [productoId], references: [id])
-  proveedor     Proveedor        @relation(fields: [proveedorId], references: [id])
-  solicitante   Usuario          @relation("solicitudesSolicitante", fields: [solicitanteId], references: [id])
-  aprobador     Usuario?         @relation("solicitudesAprobador", fields: [aprobadorId], references: [id])
-  compra        Compra?          @relation(fields: [compraId], references: [id])
+  id             Int              @id @default(autoincrement())
+  productoId     Int              @map("producto_id")
+  cantidad       Int
+  costoUnitario  Float            @map("costo_unitario")
+  total          Float
+  proveedorId    Int              @map("proveedor_id")
+  estado         String           @default("PENDIENTE") // PENDIENTE|APROBADA|RECHAZADA
+  origenPago     OrigenPagoCompra @default(EFECTIVO_CAJA) @map("origen_pago")
+  pagos          Json?
+  motivo         String?
+  respuesta      String?
+  solicitanteId  Int              @map("solicitante_id")
+  aprobadorId    Int?             @map("aprobador_id")
+  compraId       Int?             @unique @map("compra_id")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  resueltoEn     DateTime?        @map("resuelto_en")
+  producto       Producto         @relation(fields: [productoId], references: [id])
+  proveedor      Proveedor        @relation(fields: [proveedorId], references: [id])
+  solicitante    Usuario          @relation("solicitudesSolicitante", fields: [solicitanteId], references: [id])
+  aprobador      Usuario?         @relation("solicitudesAprobador", fields: [aprobadorId], references: [id])
+  compra         Compra?          @relation(fields: [compraId], references: [id])
   notificaciones Notificacion[]
 
   @@index([estado, createdAt])
@@ -353,23 +359,23 @@ model SolicitudReposicion {
 }
 
 model SolicitudStock {
-  id                     Int                 @id @default(autoincrement())
-  productoId             Int
-  tipo                   TipoSolicitudStock
-  cantidad               Int
-  stockAnterior          Int
-  motivo                 String
-  estado                 EstadoSolicitud     @default(PENDIENTE)
-  solicitanteId          Int
-  resueltoPorId          Int?
-  observacionResolucion  String?
-  createdAt              DateTime            @default(now())
-  resolvedAt             DateTime?
+  id                    Int                @id @default(autoincrement())
+  productoId            Int
+  tipo                  TipoSolicitudStock
+  cantidad              Int
+  stockAnterior         Int
+  motivo                String
+  estado                EstadoSolicitud    @default(PENDIENTE)
+  solicitanteId         Int
+  resueltoPorId         Int?
+  observacionResolucion String?
+  createdAt             DateTime           @default(now())
+  resolvedAt            DateTime?
 
-  producto               Producto            @relation(fields: [productoId], references: [id], onDelete: Restrict)
-  solicitante            Usuario             @relation("SolicitudStockSolicitante", fields: [solicitanteId], references: [id], onDelete: Restrict)
-  resueltoPor            Usuario?            @relation("SolicitudStockResuelto", fields: [resueltoPorId], references: [id], onDelete: SetNull)
-  notificaciones         Notificacion[]
+  producto       Producto       @relation(fields: [productoId], references: [id], onDelete: Restrict)
+  solicitante    Usuario        @relation("SolicitudStockSolicitante", fields: [solicitanteId], references: [id], onDelete: Restrict)
+  resueltoPor    Usuario?       @relation("SolicitudStockResuelto", fields: [resueltoPorId], references: [id], onDelete: SetNull)
+  notificaciones Notificacion[]
 
   @@index([productoId])
   @@index([solicitanteId])
@@ -378,24 +384,48 @@ model SolicitudStock {
   @@map("solicitudes_stock")
 }
 
-model Notificacion {
-  id                      Int                 @id @default(autoincrement())
-  usuarioId               Int
-  tipo                    TipoNotificacion
-  titulo                  String
-  mensaje                 String
-  solicitudStockId        Int?
-  solicitudReposicionId   Int?
-  productoId              Int?
-  entidad                 String?             // "solicitud_stock" | "reposicion" | "stock" | "venta"
-  leida                   Boolean             @default(false)
-  createdAt               DateTime            @default(now())
-  readAt                  DateTime?
+model SolicitudCaja {
+  id              Int       @id @default(autoincrement())
+  tipo            String // APERTURA | CIERRE | AJUSTE_EFECTIVO | AJUSTE_BANCO
+  estado          String    @default("PENDIENTE") // PENDIENTE | APROBADA | RECHAZADA
+  solicitanteId   Int       @map("solicitante_id")
+  aprobadorId     Int?      @map("aprobador_id")
+  monto           Float?
+  motivo          String?
+  motivoRechazo   String?   @map("motivo_rechazo")
+  fechaSolicitud  DateTime  @default(now()) @map("fecha_solicitud")
+  fechaResolucion DateTime? @map("fecha_resolucion")
+  datosExtra      Json?     @map("datos_extra")
 
-  usuario                 Usuario             @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  solicitudStock          SolicitudStock?     @relation(fields: [solicitudStockId], references: [id], onDelete: SetNull)
-  solicitudReposicion     SolicitudReposicion? @relation(fields: [solicitudReposicionId], references: [id], onDelete: SetNull)
-  producto                Producto?           @relation(fields: [productoId], references: [id], onDelete: SetNull)
+  solicitante    Usuario        @relation("solicitudesCajaSolicitante", fields: [solicitanteId], references: [id])
+  aprobador      Usuario?       @relation("solicitudesCajaAprobador", fields: [aprobadorId], references: [id])
+  notificaciones Notificacion[]
+
+  @@map("solicitudes_caja")
+}
+
+model Notificacion {
+  id                    Int              @id @default(autoincrement())
+  usuarioId             Int
+  tipo                  TipoNotificacion
+  titulo                String
+  mensaje               String
+  solicitudStockId      Int?
+  solicitudReposicionId Int?
+  solicitudCajaId       Int?             @map("solicitud_caja_id")
+  cajaId                Int?             @map("caja_id")
+  productoId            Int?
+  entidad               String? // "solicitud_stock" | "reposicion" | "stock" | "venta" | "caja" | "solicitud_caja"
+  leida                 Boolean          @default(false)
+  createdAt             DateTime         @default(now())
+  readAt                DateTime?
+
+  usuario             Usuario              @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  solicitudStock      SolicitudStock?      @relation(fields: [solicitudStockId], references: [id], onDelete: SetNull)
+  solicitudReposicion SolicitudReposicion? @relation(fields: [solicitudReposicionId], references: [id], onDelete: SetNull)
+  solicitudCaja       SolicitudCaja?       @relation(fields: [solicitudCajaId], references: [id], onDelete: SetNull)
+  caja                Caja?                @relation(fields: [cajaId], references: [id], onDelete: SetNull)
+  producto            Producto?            @relation(fields: [productoId], references: [id], onDelete: SetNull)
 
   @@index([usuarioId, leida])
   @@index([createdAt])
@@ -403,12 +433,12 @@ model Notificacion {
 }
 
 model PreferenciaNotificacion {
-  id            Int      @id @default(autoincrement())
-  usuarioId     Int
-  tipo          TipoNotificacion
-  habilitada    Boolean  @default(true)
+  id         Int              @id @default(autoincrement())
+  usuarioId  Int
+  tipo       TipoNotificacion
+  habilitada Boolean          @default(true)
 
-  usuario       Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 
   @@unique([usuarioId, tipo])
   @@map("preferencias_notificacion")
@@ -494,10 +524,10 @@ model MovimientoProducto {
   cambios          Json?
   createdAt        DateTime               @default(now()) @map("created_at")
 
-  producto         Producto               @relation(fields: [productoId], references: [id], onDelete: Restrict)
-  usuario          Usuario                @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
-  compra           Compra?                @relation(fields: [compraId], references: [id])
-  venta            Venta?                 @relation(fields: [ventaId], references: [id])
+  producto Producto @relation(fields: [productoId], references: [id], onDelete: Restrict)
+  usuario  Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  compra   Compra?  @relation(fields: [compraId], references: [id])
+  venta    Venta?   @relation(fields: [ventaId], references: [id])
 
   @@index([productoId, createdAt])
   @@index([usuarioId])
@@ -506,20 +536,20 @@ model MovimientoProducto {
 }
 
 model AjustePrecio {
-  id                Int                   @id @default(autoincrement())
-  tipoAjuste        String                @map("tipo_ajuste") // PORCENTAJE | MONTO_FIJO | VALOR_DIRECTO
+  id                Int      @id @default(autoincrement())
+  tipoAjuste        String   @map("tipo_ajuste") // PORCENTAJE | MONTO_FIJO | VALOR_DIRECTO
   valor             Float?
-  preciosAfectados  String                @map("precios_afectados") // SOLO_VENTA | SOLO_COMPRA | AMBOS
+  preciosAfectados  String   @map("precios_afectados") // SOLO_VENTA | SOLO_COMPRA | AMBOS
   filtros           Json?
-  redondeo          String                @default("SIN_REDONDEO")
+  redondeo          String   @default("SIN_REDONDEO")
   motivo            String
-  usuarioId         Int                   @map("usuario_id")
-  cantidadProductos Int                   @default(1) @map("cantidad_productos")
-  esMasivo          Boolean               @default(false) @map("es_masivo")
-  createdAt         DateTime              @default(now()) @map("created_at")
+  usuarioId         Int      @map("usuario_id")
+  cantidadProductos Int      @default(1) @map("cantidad_productos")
+  esMasivo          Boolean  @default(false) @map("es_masivo")
+  createdAt         DateTime @default(now()) @map("created_at")
 
-  usuario           Usuario               @relation(fields: [usuarioId], references: [id])
-  detalles          AjustePrecioDetalle[]
+  usuario  Usuario               @relation(fields: [usuarioId], references: [id])
+  detalles AjustePrecioDetalle[]
 
   @@index([usuarioId])
   @@index([createdAt])
@@ -527,16 +557,16 @@ model AjustePrecio {
 }
 
 model AjustePrecioDetalle {
-  id                   Int          @id @default(autoincrement())
-  ajustePrecioId       Int          @map("ajuste_precio_id")
-  productoId           Int          @map("producto_id")
-  precioCompraAnterior Float        @map("precio_compra_anterior")
-  precioCompraNuevo    Float        @map("precio_compra_nuevo")
-  precioVentaAnterior  Float        @map("precio_venta_anterior")
-  precioVentaNuevo     Float        @map("precio_venta_nuevo")
+  id                   Int   @id @default(autoincrement())
+  ajustePrecioId       Int   @map("ajuste_precio_id")
+  productoId           Int   @map("producto_id")
+  precioCompraAnterior Float @map("precio_compra_anterior")
+  precioCompraNuevo    Float @map("precio_compra_nuevo")
+  precioVentaAnterior  Float @map("precio_venta_anterior")
+  precioVentaNuevo     Float @map("precio_venta_nuevo")
 
-  ajustePrecio         AjustePrecio @relation(fields: [ajustePrecioId], references: [id], onDelete: Cascade)
-  producto             Producto     @relation(fields: [productoId], references: [id])
+  ajustePrecio AjustePrecio @relation(fields: [ajustePrecioId], references: [id], onDelete: Cascade)
+  producto     Producto     @relation(fields: [productoId], references: [id])
 
   @@index([ajustePrecioId])
   @@index([productoId])

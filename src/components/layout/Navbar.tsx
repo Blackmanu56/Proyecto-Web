@@ -20,6 +20,7 @@ import {
   Menu,
   X,
   ClipboardList,
+  FileCheck,
 } from "lucide-react";
 
 interface NavbarProps {
@@ -52,6 +53,7 @@ const navItems: NavItem[] = [
   { name: "Pedidos", path: "/pedidos", icon: ClipboardList, roles: ["ADMINISTRADOR", "ENCARGADO_STOCK"] },
   { name: "Ventas", path: "/ventas", icon: ShoppingCart, roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS"] },
   { name: "Caja", path: "/caja", icon: Coins, roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS"] },
+  { name: "Solicitudes", path: "/solicitudes", icon: FileCheck, roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS", "ENCARGADO_STOCK"] },
   { name: "Clientes", path: "/clientes", icon: Users, roles: ["ADMINISTRADOR", "ENCARGADO_VENTAS"] },
   { name: "Proveedores", path: "/proveedores", icon: Truck, roles: ["ADMINISTRADOR", "ENCARGADO_STOCK"] },
   { name: "Usuarios", path: "/empleados", icon: UserCheck, roles: ["ADMINISTRADOR"] },
@@ -74,7 +76,7 @@ export default function Navbar({ user }: NavbarProps) {
     ? navItems.filter((item) => item.roles.includes(user.role))
     : [];
 
-  const leftPaths = new Set(["/dashboard", "/productos", "/pedidos", "/ventas", "/caja"]);
+  const leftPaths = new Set(["/dashboard", "/productos", "/pedidos", "/ventas", "/caja", "/solicitudes"]);
   const leftItems = allowedItems.filter((item) => leftPaths.has(item.path));
   const rightItems = allowedItems.filter((item) => !leftPaths.has(item.path));
 

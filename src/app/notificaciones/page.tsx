@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useTransition, useCallback } from "react";
+import React, { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Bell,
@@ -46,6 +46,7 @@ interface Notificacion {
   entidad?: string | null;
   solicitudStockId?: number | null;
   solicitudReposicionId?: number | null;
+  solicitudCajaId?: number | null;
   productoId?: number | null;
   solicitudStock?: {
     id: number;
@@ -149,12 +150,25 @@ function absoluteDate(date: Date | string) {
 }
 
 function buildHref(noti: Notificacion): string | null {
+  const solicitudId = noti.solicitudStockId || noti.solicitudReposicionId || noti.solicitudCajaId;
+
   switch (noti.tipo) {
     case "SOLICITUD_CREADA":
+      return solicitudId
+        ? `/solicitudes?estado=PENDIENTE&solicitudId=${solicitudId}`
+        : "/solicitudes?estado=PENDIENTE";
     case "SOLICITUD_APROBADA":
+      return solicitudId
+        ? `/solicitudes?estado=APROBADA&solicitudId=${solicitudId}`
+        : "/solicitudes?estado=APROBADA";
     case "SOLICITUD_RECHAZADA":
+      return solicitudId
+        ? `/solicitudes?estado=RECHAZADA&solicitudId=${solicitudId}`
+        : "/solicitudes?estado=RECHAZADA";
     case "SOLICITUD_CANCELADA":
-      return "/pedidos?tab=solicitudes-stock";
+      return solicitudId
+        ? `/solicitudes?estado=CANCELADA&solicitudId=${solicitudId}`
+        : "/solicitudes?estado=CANCELADA";
     case "STOCK_CRITICO":
       return noti.productoId
         ? `/productos?stock=critico&productoId=${noti.productoId}`
@@ -166,16 +180,19 @@ function buildHref(noti: Notificacion): string | null {
     case "STOCK_RESTADO":
     case "STOCK_RECARGADO":
       return noti.productoId ? `/productos?highlight=${noti.productoId}` : "/productos";
-    case "VENTA_CREADA":
-      return "/ventas";
+    case "VENTA_CREADA": {
+      const match = noti.mensaje.match(/Venta\s+N[°º]?\s*(\d+)/i);
+      const ventaId = match ? match[1] : null;
+      return ventaId ? `/caja?ventaId=${ventaId}` : "/caja";
+    }
     default:
       if (
-        noti.solicitudStockId ||
-        noti.solicitudReposicionId ||
+        solicitudId ||
         noti.entidad === "solicitud_stock" ||
-        noti.entidad === "reposicion"
+        noti.entidad === "reposicion" ||
+        noti.entidad === "solicitud_caja"
       ) {
-        return "/pedidos?tab=solicitudes-stock";
+        return solicitudId ? `/solicitudes?solicitudId=${solicitudId}` : "/solicitudes";
       }
       if (noti.productoId || noti.entidad === "stock") {
         return noti.productoId ? `/productos?highlight=${noti.productoId}` : "/productos";
@@ -203,40 +220,36 @@ export default function NotificacionesPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [markingAll, startMarkAllTransition] = useTransition();
   const [markingSelected, startMarkSelectedTransition] = useTransition();
+  const [refreshKey, setRefreshKey] = useState(0);
   const [prefModalOpen, setPrefModalOpen] = useState(false);
 
-  const fetchNotificaciones = useCallback(async () => {
-    setLoading(true);
-    try {
-      // Ensure stock alerts exist for current stock levels
-      await verificarStockAlertas();
-      const res = await getNotificacionesPaginadas({
-        busqueda: busqueda || undefined,
-        tipo: tipoFilter || undefined,
-        soloNoLeidas,
-        page,
-        pageSize: 20,
-      });
-      if (!("error" in res)) {
-        setNotificaciones(res.data as Notificacion[]);
-        setTotal(res.total);
-        setNoLeidas(res.noLeidas);
-        setTotalPages(Math.max(1, Math.ceil(res.total / 20)));
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        await verificarStockAlertas();
+        const res = await getNotificacionesPaginadas({
+          busqueda: busqueda || undefined,
+          tipo: tipoFilter || undefined,
+          soloNoLeidas,
+          page,
+          pageSize: 20,
+        });
+        if (!cancelled && !("error" in res)) {
+          setNotificaciones(res.data as Notificacion[]);
+          setTotal(res.total);
+          setNoLeidas(res.noLeidas);
+          setTotalPages(Math.max(1, Math.ceil(res.total / 20)));
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    } finally {
-      setLoading(false);
-    }
-  }, [busqueda, tipoFilter, soloNoLeidas, page]);
-
-  useEffect(() => {
-    fetchNotificaciones();
-  }, [fetchNotificaciones]);
-
-  // Reset page when filters change
-  useEffect(() => {
-    setPage(1);
-    setSelectedIds(new Set());
-  }, [busqueda, tipoFilter, soloNoLeidas]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [busqueda, tipoFilter, soloNoLeidas, page, refreshKey]);
 
   const handleMarkRead = async (id: number) => {
     setNotificaciones((prev) =>
@@ -260,7 +273,7 @@ export default function NotificacionesPage() {
       setNoLeidas(0);
       const res = await marcarTodasLeidas();
       if ("error" in res) {
-        fetchNotificaciones();
+        setRefreshKey((k) => k + 1);
       }
     });
   };

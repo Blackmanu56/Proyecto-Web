@@ -1,6 +1,6 @@
 import React from "react";
 import { getSession } from "@/lib/auth.server";
-import { getCajaActiva, getHistorialCajas } from "@/actions/caja";
+import { getCajaActiva, getHistorialCajas, getSolicitudesCajaPendientes, getSolicitudesCajaUsuario } from "@/actions/caja";
 import CajaTerminal from "@/components/forms/CajaTerminal";
 import { Coins } from "lucide-react";
 import { prisma } from "@/lib/prisma";
@@ -28,9 +28,16 @@ export default async function CajaPage() {
     });
   }
 
-  const [cajaActiva, historialCajas] = await Promise.all([
+  const [cajaActiva, historialCajas, cajaPendiente, solicitudesPendientes, solicitudesUsuario] = await Promise.all([
     getCajaActiva(),
     getHistorialCajas(),
+    prisma.caja.findFirst({
+      where: { estado: "PENDIENTE" },
+      include: { usuario: true },
+      orderBy: { fechaApertura: "desc" },
+    }),
+    getSolicitudesCajaPendientes(),
+    getSolicitudesCajaUsuario(),
   ]);
 
   // Saldos financieros (Banco, Por acreditar, Total disponible)
@@ -147,15 +154,20 @@ export default async function CajaPage() {
 
         {/* Terminal Operativo de Caja (Client Component) */}
         <div className="flex-1 min-h-0">
-          <CajaTerminal
-            cajaActiva={cajaActiva as React.ComponentProps<typeof CajaTerminal>["cajaActiva"]}
-            historialCajas={historialCajas as React.ComponentProps<typeof CajaTerminal>["historialCajas"]}
-            userRole={userRole}
-            user={currentUser as React.ComponentProps<typeof CajaTerminal>["user"]}
-            saldosFinancieros={saldosFinancieros}
-            resumenBancoPeriodo={resumenBancoPeriodo}
-            movimientosBanco={movimientosBanco}
-          />
+          <React.Suspense fallback={<div className="p-8 text-center text-sm text-[var(--text-muted)]">Cargando caja...</div>}>
+            <CajaTerminal
+              cajaActiva={cajaActiva as React.ComponentProps<typeof CajaTerminal>["cajaActiva"]}
+              historialCajas={historialCajas as React.ComponentProps<typeof CajaTerminal>["historialCajas"]}
+              userRole={userRole}
+              user={currentUser as React.ComponentProps<typeof CajaTerminal>["user"]}
+              saldosFinancieros={saldosFinancieros}
+              resumenBancoPeriodo={resumenBancoPeriodo}
+              movimientosBanco={movimientosBanco}
+              cajaPendiente={cajaPendiente as React.ComponentProps<typeof CajaTerminal>["cajaPendiente"]}
+              solicitudesPendientes={solicitudesPendientes as React.ComponentProps<typeof CajaTerminal>["solicitudesPendientes"]}
+              solicitudesUsuario={solicitudesUsuario as React.ComponentProps<typeof CajaTerminal>["solicitudesUsuario"]}
+            />
+          </React.Suspense>
         </div>
       </div>
     </div>

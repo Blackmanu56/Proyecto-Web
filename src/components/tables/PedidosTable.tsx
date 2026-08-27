@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useMemo, useCallback, useEffect } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import Image from "next/image";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, cn } from "@/lib/utils";
 import {
@@ -15,12 +15,11 @@ import {
   Truck,
   ListFilter,
   Search,
+  Eraser,
+  X,
 } from "lucide-react";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import CrearPedidoModal from "@/components/ui/CrearPedidoModal";
-import SolicitudesStockTable from "@/components/tables/SolicitudesStockTable";
-import type { SolicitudRow } from "@/components/tables/SolicitudesStockTable";
-import { getSolicitudesStock } from "@/actions/solicitudes-stock";
 
 /* ────────────────────── Types ────────────────────── */
 
@@ -39,16 +38,12 @@ interface Product {
   proveedor: { id: number; nombre: string };
 }
 
-type PedidosMainTab = "CREAR_PEDIDO" | "SOLICITUDES_STOCK";
-
 interface PedidosTableProps {
   initialProducts: Product[];
   proveedores: { id: number; nombre: string }[];
   userRole: string;
   userId: number;
-  initialSolicitudesStock?: SolicitudRow[];
   canApprove?: boolean;
-  initialTab?: string;
 }
 
 /* ────────────────────── Stock Filter Select ────────────────────── */
@@ -134,23 +129,25 @@ function StockFilterSelect({
           >
             <SelectPrimitive.Viewport className="space-y-1">
               {STOCK_OPTIONS.map((option) => {
-                const OptIcon = option.icon;
+                const OptionIcon = option.icon ?? Boxes;
                 return (
                   <SelectPrimitive.Item
                     key={option.value}
                     value={option.value}
                     className={cn(
-                      "relative flex h-9 w-full cursor-pointer select-none items-center gap-2 rounded-xl px-2.5 pr-8 text-sm text-[var(--text)] outline-none transition-colors duration-150 whitespace-nowrap data-[state=checked]:font-bold data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+                      "relative flex cursor-pointer select-none items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold text-[var(--text)] outline-none transition-colors",
                       STOCK_TONE.itemFocus,
                       STOCK_TONE.selected
                     )}
                   >
-                    {OptIcon && <OptIcon size={14} className="shrink-0 opacity-85" />}
-                    <SelectPrimitive.ItemText>
-                      <span className="whitespace-nowrap">{option.label}</span>
-                    </SelectPrimitive.ItemText>
-                    <SelectPrimitive.ItemIndicator className="absolute right-2 flex h-5 w-5 items-center justify-center">
-                      <svg className={cn("h-3.5 w-3.5", STOCK_TONE.check)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6"><path d="M20 6 9 17l-5-5" /></svg>
+                    <span className="flex items-center gap-2">
+                      <span className={cn("flex h-5 w-5 items-center justify-center rounded-md ring-1", STOCK_TONE.icon)}>
+                        <OptionIcon size={12} />
+                      </span>
+                      <SelectPrimitive.ItemText>{option.label}</SelectPrimitive.ItemText>
+                    </span>
+                    <SelectPrimitive.ItemIndicator>
+                      <span className={cn("text-xs font-bold", STOCK_TONE.check)}>✓</span>
                     </SelectPrimitive.ItemIndicator>
                   </SelectPrimitive.Item>
                 );
@@ -165,14 +162,24 @@ function StockFilterSelect({
 
 /* ────────────────────── Proveedor Filter Select ────────────────────── */
 
-const PROVEEDOR_TONE = {
-  trigger: "border-[#3B82F6]/25 hover:border-[#3B82F6]/60 focus-visible:border-[#3B82F6] focus-visible:ring-[#3B82F6]/20 data-[state=open]:border-[#3B82F6]/70 data-[state=open]:ring-[#3B82F6]/20",
-  icon: "bg-[#3B82F6]/15 text-[#60A5FA] ring-[#3B82F6]/20",
-  content: "border-[#3B82F6]/30",
-  itemFocus: "focus:bg-[#3B82F6]/10",
-  selected: "data-[state=checked]:bg-[#3B82F6]/12 data-[state=checked]:text-[#93C5FD]",
-  check: "text-[#60A5FA]",
-  chevron: "text-[#60A5FA]",
+type ProveedorTone = {
+  trigger: string;
+  icon: string;
+  content: string;
+  itemFocus: string;
+  selected: string;
+  check: string;
+  chevron: string;
+};
+
+const PROVEEDOR_TONE: ProveedorTone = {
+  trigger: "border-[#0284C7]/25 hover:border-[#0284C7]/60 focus-visible:border-[#0284C7] focus-visible:ring-[#0284C7]/20 data-[state=open]:border-[#0284C7]/70 data-[state=open]:ring-[#0284C7]/20",
+  icon: "bg-[#0284C7]/15 text-[#38BDF8] ring-[#0284C7]/20",
+  content: "border-[#0284C7]/30",
+  itemFocus: "focus:bg-[#0284C7]/10",
+  selected: "data-[state=checked]:bg-[#0284C7]/12 data-[state=checked]:text-[#BAE6FD]",
+  check: "text-[#38BDF8]",
+  chevron: "text-[#38BDF8]",
 };
 
 function ProveedorFilterSelect({
@@ -184,6 +191,11 @@ function ProveedorFilterSelect({
   onValueChange: (v: string) => void;
   options: { id: number; nombre: string }[];
 }) {
+  const selectedLabel =
+    value === "all"
+      ? "Todos"
+      : options.find((p) => String(p.id) === value)?.nombre ?? "Todos";
+
   return (
     <div className="flex flex-col gap-1">
       <label className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
@@ -192,15 +204,15 @@ function ProveedorFilterSelect({
       <SelectPrimitive.Root value={value} onValueChange={onValueChange}>
         <SelectPrimitive.Trigger
           className={cn(
-            "group flex h-10 min-w-[170px] items-center justify-between gap-2 rounded-xl border bg-[var(--bg)] px-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200",
+            "group flex h-10 min-w-[180px] max-w-[240px] items-center justify-between gap-2 rounded-xl border bg-[var(--bg)] px-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200",
             PROVEEDOR_TONE.trigger
           )}
         >
-          <span className="flex items-center gap-2">
-            <span className={cn("flex h-6 w-6 items-center justify-center rounded-lg ring-1", PROVEEDOR_TONE.icon)}>
+          <span className="flex items-center gap-2 truncate">
+            <span className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ring-1", PROVEEDOR_TONE.icon)}>
               <Truck size={13} />
             </span>
-            <SelectPrimitive.Value />
+            <span className="truncate">{selectedLabel}</span>
           </span>
           <SelectPrimitive.Icon asChild>
             <svg
@@ -219,7 +231,7 @@ function ProveedorFilterSelect({
             position="popper"
             sideOffset={6}
             className={cn(
-              "z-50 min-w-[170px] overflow-hidden rounded-xl border bg-[var(--card)] p-1.5 shadow-[var(--shadow-md)] animate-in fade-in-80",
+              "z-50 max-h-60 min-w-[180px] overflow-y-auto rounded-xl border bg-[var(--card)] p-1.5 shadow-[var(--shadow-md)] animate-in fade-in-80",
               PROVEEDOR_TONE.content
             )}
           >
@@ -227,17 +239,19 @@ function ProveedorFilterSelect({
               <SelectPrimitive.Item
                 value="all"
                 className={cn(
-                  "relative flex h-9 w-full cursor-pointer select-none items-center gap-2 rounded-xl px-2.5 pr-8 text-sm text-[var(--text)] outline-none transition-colors duration-150 whitespace-nowrap data-[state=checked]:font-bold data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+                  "relative flex cursor-pointer select-none items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold text-[var(--text)] outline-none transition-colors",
                   PROVEEDOR_TONE.itemFocus,
                   PROVEEDOR_TONE.selected
                 )}
               >
-                <ListFilter size={14} className="shrink-0 opacity-85" />
-                <SelectPrimitive.ItemText>
-                  <span className="whitespace-nowrap">Todos</span>
-                </SelectPrimitive.ItemText>
-                <SelectPrimitive.ItemIndicator className="absolute right-2 flex h-5 w-5 items-center justify-center">
-                  <svg className={cn("h-3.5 w-3.5", PROVEEDOR_TONE.check)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6"><path d="M20 6 9 17l-5-5" /></svg>
+                <span className="flex items-center gap-2">
+                  <span className={cn("flex h-5 w-5 items-center justify-center rounded-md ring-1", PROVEEDOR_TONE.icon)}>
+                    <ListFilter size={12} />
+                  </span>
+                  <SelectPrimitive.ItemText>Todos los proveedores</SelectPrimitive.ItemText>
+                </span>
+                <SelectPrimitive.ItemIndicator>
+                  <span className={cn("text-xs font-bold", PROVEEDOR_TONE.check)}>✓</span>
                 </SelectPrimitive.ItemIndicator>
               </SelectPrimitive.Item>
               {options.map((prov) => (
@@ -245,17 +259,19 @@ function ProveedorFilterSelect({
                   key={prov.id}
                   value={String(prov.id)}
                   className={cn(
-                    "relative flex h-9 w-full cursor-pointer select-none items-center gap-2 rounded-xl px-2.5 pr-8 text-sm text-[var(--text)] outline-none transition-colors duration-150 whitespace-nowrap data-[state=checked]:font-bold data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+                    "relative flex cursor-pointer select-none items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold text-[var(--text)] outline-none transition-colors",
                     PROVEEDOR_TONE.itemFocus,
                     PROVEEDOR_TONE.selected
                   )}
                 >
-                  <Truck size={14} className="shrink-0 opacity-85" />
-                  <SelectPrimitive.ItemText>
-                    <span className="whitespace-nowrap">{prov.nombre}</span>
-                  </SelectPrimitive.ItemText>
-                  <SelectPrimitive.ItemIndicator className="absolute right-2 flex h-5 w-5 items-center justify-center">
-                    <svg className={cn("h-3.5 w-3.5", PROVEEDOR_TONE.check)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6"><path d="M20 6 9 17l-5-5" /></svg>
+                  <span className="flex items-center gap-2 truncate">
+                    <span className={cn("flex h-5 w-5 shrink-0 items-center justify-center rounded-md ring-1", PROVEEDOR_TONE.icon)}>
+                      <Truck size={12} />
+                    </span>
+                    <SelectPrimitive.ItemText className="truncate">{prov.nombre}</SelectPrimitive.ItemText>
+                  </span>
+                  <SelectPrimitive.ItemIndicator>
+                    <span className={cn("text-xs font-bold", PROVEEDOR_TONE.check)}>✓</span>
                   </SelectPrimitive.ItemIndicator>
                 </SelectPrimitive.Item>
               ))}
@@ -272,33 +288,11 @@ function ProveedorFilterSelect({
 export default function PedidosTable({
   initialProducts,
   proveedores,
-  userRole,
-  userId,
-  initialSolicitudesStock = [],
   canApprove,
-  initialTab,
 }: PedidosTableProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
-  /* ── Tab navigation ── */
-  const [activeTab, setActiveTab] = useState<PedidosMainTab>(() => {
-    if (initialTab === "solicitudes-stock" || initialTab === "SOLICITUDES_STOCK") {
-      return "SOLICITUDES_STOCK";
-    }
-    return "CREAR_PEDIDO";
-  });
-
-  useEffect(() => {
-    const tab = searchParams.get("tab") || initialTab;
-    if (tab === "solicitudes-stock" || tab === "SOLICITUDES_STOCK") {
-      setActiveTab("SOLICITUDES_STOCK");
-    } else if (tab === "crear-pedido" || tab === "CREAR_PEDIDO") {
-      setActiveTab("CREAR_PEDIDO");
-    }
-  }, [searchParams, initialTab]);
-
-  /* ── Filtros (crear pedido tab) ── */
+  /* ── Filtros ── */
   const [search, setSearch] = useState("");
   const [proveedorFilter, setProveedorFilter] = useState("all");
   const [stockFilter, setStockFilter] = useState<"todos" | "normal" | "poco" | "sin">("todos");
@@ -307,30 +301,13 @@ export default function PedidosTable({
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
-  /* ── Solicitudes de stock state ── */
-  const [solicitudesStock, setSolicitudesStock] = useState<SolicitudRow[]>(initialSolicitudesStock);
+  const hasActiveFilters = search !== "" || proveedorFilter !== "all" || stockFilter !== "todos";
 
-  /* ── Fetch solicitudes de stock ── */
-  const fetchSolicitudesStock = useCallback(async () => {
-    try {
-      const result = await getSolicitudesStock({ pageSize: 50 });
-      if ("data" in result) {
-        setSolicitudesStock(result.data as SolicitudRow[]);
-      }
-    } catch (err) {
-      console.error("Error fetching solicitudes de stock:", err);
-    }
+  const handleClearFilters = useCallback(() => {
+    setSearch("");
+    setProveedorFilter("all");
+    setStockFilter("todos");
   }, []);
-
-  /* ── Pending count for badge ── */
-  const pendingCount = useMemo(() => {
-    return solicitudesStock.filter((s) => s.estado === "PENDIENTE").length;
-  }, [solicitudesStock]);
-
-  /* ── Fetch on mount if empty or when switching ── */
-  useEffect(() => {
-    fetchSolicitudesStock();
-  }, [fetchSolicitudesStock]);
 
   /* ── Productos filtrados (solo activos) ── */
   const products = useMemo(() => {
@@ -376,19 +353,17 @@ export default function PedidosTable({
 
   const handleModalSuccess = useCallback(() => {
     router.refresh();
-    fetchSolicitudesStock();
-  }, [router, fetchSolicitudesStock]);
+  }, [router]);
 
   /* ── Thead styles ── */
-  const thBase = "sticky top-0 z-10 bg-[#17191f] py-3.5 px-4 border-b border-[var(--border)] text-[11px] uppercase tracking-wider font-bold text-[var(--text-muted)]";
+  const thBase = "sticky top-0 z-10 bg-[#17191f] py-3.5 px-4 border-b border-[var(--border)] text-[11px] uppercase tracking-[0.08em] font-extrabold text-[#9DB2D6]";
 
-  /* ── Render: Crear Pedido tab ── */
-  const renderCrearPedido = () => (
+  return (
     <div className="space-y-3.5 flex flex-col h-full min-h-0">
-      {/* Top Bar: Search + Filters Centrado y Perfectamente Alineado */}
-      <div className="shrink-0 flex items-center justify-center gap-3 bg-[var(--card)] p-3 rounded-2xl border border-[var(--border)] flex-wrap shadow-sm">
-        {/* Search input with label */}
-        <div className="flex flex-col gap-1 w-full sm:w-[340px] lg:w-[400px]">
+      {/* Top Bar: Centered Search + Filters */}
+      <div className="shrink-0 flex items-end justify-center gap-3.5 bg-[var(--card)] p-3 min-h-[76px] rounded-2xl border border-[var(--border)] flex-wrap shadow-sm">
+        {/* Search input */}
+        <div className="flex flex-col gap-1 w-full sm:w-[320px] lg:w-[360px]">
           <label className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
             Búsqueda de producto
           </label>
@@ -396,36 +371,50 @@ export default function PedidosTable({
             <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
             <input
               type="text"
-              placeholder="Buscar por nombre, categoría, código o marca..."
+              placeholder="Buscar por nombre, categoría, código..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full h-10 pl-9 pr-8 bg-[var(--bg)] border border-[var(--border)] rounded-xl text-sm font-medium text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[#047857] transition-colors"
+              className="w-full h-10 pl-9 pr-8 bg-[var(--bg)] border border-[var(--border)] rounded-xl text-sm font-medium text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--brand)] focus:ring-1 focus:ring-[var(--brand)]/30 hover:border-[var(--border-hover)] transition-all shadow-[var(--shadow-sm)]"
             />
             {search && (
               <button
                 type="button"
                 onClick={() => setSearch("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text)] p-1 rounded-md"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text)] p-1 rounded-md transition-colors"
                 title="Limpiar búsqueda"
               >
-                <PackageX size={14} />
+                <X size={14} />
               </button>
             )}
           </div>
         </div>
 
+        {/* Botón Limpiar (al lado de la búsqueda) */}
+        {hasActiveFilters && (
+          <div className="flex flex-col gap-1">
+            <span aria-hidden="true" className="h-[14px]" />
+            <button
+              type="button"
+              onClick={handleClearFilters}
+              className="group flex h-10 min-w-[110px] shrink-0 items-center justify-center gap-2 rounded-xl border border-[var(--brand)]/30 bg-[var(--bg)] py-2 px-3 text-xs font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200 hover:border-[var(--brand)]/60 hover:bg-[var(--brand)]/10 hover:text-white focus-visible:border-[var(--brand)] active:scale-[0.98]"
+              title="Limpiar filtros"
+            >
+              <Eraser size={13} className="text-[var(--brand)]" />
+              <span>Limpiar</span>
+            </button>
+          </div>
+        )}
+
         {/* Filters */}
-        <div className="flex items-end gap-3 flex-wrap">
-          <ProveedorFilterSelect
-            value={proveedorFilter}
-            onValueChange={setProveedorFilter}
-            options={proveedoresEnUso}
-          />
-          <StockFilterSelect
-            value={stockFilter}
-            onValueChange={(v) => setStockFilter(v as typeof stockFilter)}
-          />
-        </div>
+        <ProveedorFilterSelect
+          value={proveedorFilter}
+          onValueChange={setProveedorFilter}
+          options={proveedoresEnUso}
+        />
+        <StockFilterSelect
+          value={stockFilter}
+          onValueChange={(v) => setStockFilter(v as typeof stockFilter)}
+        />
       </div>
 
       {/* Table */}
@@ -485,8 +474,8 @@ export default function PedidosTable({
                       type="button"
                       onClick={() => handleCrearPedido(product)}
                       className={cn(
-                        "inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-colors shadow-sm",
-                        "bg-[#047857] hover:bg-[#065F46] text-white"
+                        "inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95",
+                        "bg-[var(--brand)] hover:bg-[var(--brand)]/85 text-white"
                       )}
                     >
                       <ShoppingCart size={13} />
@@ -498,61 +487,6 @@ export default function PedidosTable({
             )}
           </tbody>
         </table>
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="flex flex-col h-full min-h-0">
-      {/* Selector Principal de Vistas Centrado */}
-      <div className="shrink-0 flex justify-center mb-3">
-        <div className="flex gap-2 items-center p-1.5 rounded-2xl border border-[var(--border)] bg-[var(--card)] w-full max-w-3xl shadow-sm">
-          <button
-            type="button"
-            onClick={() => setActiveTab("CREAR_PEDIDO")}
-            className={cn(
-              "flex-1 py-2.5 px-6 rounded-xl text-sm font-bold transition-all duration-150 flex items-center justify-center gap-2",
-              activeTab === "CREAR_PEDIDO"
-                ? "bg-[#047857] text-white shadow-sm"
-                : "bg-transparent text-[var(--text-secondary)] hover:text-white hover:bg-white/[0.04]"
-            )}
-          >
-            <ShoppingCart size={16} />
-            <span>Crear pedido</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("SOLICITUDES_STOCK")}
-            className={cn(
-              "flex-1 py-2.5 px-6 rounded-xl text-sm font-bold transition-all duration-150 flex items-center justify-center gap-2",
-              activeTab === "SOLICITUDES_STOCK"
-                ? "bg-[#047857] text-white shadow-sm"
-                : "bg-transparent text-[var(--text-secondary)] hover:text-white hover:bg-white/[0.04]"
-            )}
-          >
-            <Boxes size={16} />
-            <span>Solicitudes de stock</span>
-            {pendingCount > 0 && (
-              <span className="inline-flex items-center justify-center px-2 py-0.5 text-[11px] font-extrabold rounded-full bg-[#D97706] text-white shadow-sm ml-1">
-                {pendingCount}
-              </span>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 min-h-0">
-        {activeTab === "CREAR_PEDIDO" && renderCrearPedido()}
-        {activeTab === "SOLICITUDES_STOCK" && (
-          <SolicitudesStockTable
-            solicitudes={solicitudesStock}
-            onRefresh={fetchSolicitudesStock}
-            currentUserId={userId}
-            userRole={userRole}
-          />
-        )}
       </div>
 
       {/* Modal Crear Pedido */}
@@ -576,4 +510,3 @@ export default function PedidosTable({
     </div>
   );
 }
-

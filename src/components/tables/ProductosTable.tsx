@@ -168,6 +168,9 @@ function ProductFilterSelect({
   tone,
   minWidth = "min-w-[140px]",
 }: ProductFilterSelectProps) {
+  const selectedOption = options.find(o => o.value === value) ?? options[0];
+  const IconComponent = selectedOption?.icon ?? TriggerIcon;
+
   return (
     <div className="flex flex-col gap-1">
       <label className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">{label}</label>
@@ -182,9 +185,9 @@ function ProductFilterSelect({
         >
           <span className="flex min-w-0 items-center gap-2">
             <span className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ring-1", tone.icon)}>
-              <TriggerIcon size={14} />
+              <IconComponent size={14} />
             </span>
-            <SelectPrimitive.Value />
+            <span className="truncate">{selectedOption?.label ?? value}</span>
           </span>
           <SelectPrimitive.Icon asChild>
             <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180", tone.chevron)} />
@@ -215,7 +218,7 @@ function ProductFilterSelect({
                     )}
                   >
                     {OptionIcon && <OptionIcon size={14} className="shrink-0 opacity-85" />}
-                    <SelectPrimitive.ItemText><span className="whitespace-nowrap">{option.label}</span></SelectPrimitive.ItemText>
+                    <SelectPrimitive.ItemText>{option.label}</SelectPrimitive.ItemText>
                     <SelectPrimitive.ItemIndicator className="absolute right-2 flex h-5 w-5 items-center justify-center">
                       <Check size={14} className={tone.check} strokeWidth={2.6} />
                     </SelectPrimitive.ItemIndicator>
@@ -390,15 +393,40 @@ export default function ProductosTable({
   const [catFilter, setCatFilter] = useState("all");
   const [marcaFilter, setMarcaFilter] = useState("all");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("activos");
-  const [stockFilter, setStockFilter] = useState<"todos" | "normal" | "poco" | "sin">("todos");
-  const [highlightedProductId, setHighlightedProductId] = useState<number | null>(null);
-
-  /* ── Sync filtros desde Query Params (Notificaciones / Links directos) ── */
-  useEffect(() => {
+  const [stockFilter, setStockFilter] = useState<"todos" | "normal" | "poco" | "sin">(() => {
     const stockParam = searchParams.get("stock");
+    if (stockParam === "critico" || stockParam === "poco" || stockParam === "stock_critico") {
+      return "poco";
+    }
+    if (
+      stockParam === "sin_stock" ||
+      stockParam === "sin" ||
+      stockParam === "agotado" ||
+      stockParam === "stock_agotado"
+    ) {
+      return "sin";
+    }
+    if (stockParam === "normal" || stockParam === "con_stock") {
+      return "normal";
+    }
+    return "todos";
+  });
+  const [highlightedProductId, setHighlightedProductId] = useState<number | null>(() => {
     const highlightParam = searchParams.get("productoId") || searchParams.get("highlight");
+    const pid = Number(highlightParam);
+    return !Number.isNaN(pid) && pid > 0 ? pid : null;
+  });
 
-    if (stockParam) {
+  const lastProcessedParamsRef = useRef<string | null>(null);
+
+  /* ── Sincronizar filtros cuando cambian los query params de la URL ── */
+  useEffect(() => {
+    const paramsStr = searchParams.toString();
+    if (lastProcessedParamsRef.current === paramsStr) return;
+    lastProcessedParamsRef.current = paramsStr;
+
+    startTransition(() => {
+      const stockParam = searchParams.get("stock");
       if (stockParam === "critico" || stockParam === "poco" || stockParam === "stock_critico") {
         setStockFilter("poco");
       } else if (
@@ -413,20 +441,41 @@ export default function ProductosTable({
       } else if (stockParam === "todos") {
         setStockFilter("todos");
       }
-      // Los demás filtros deben quedar en su valor por defecto
-      setCatFilter("all");
-      setMarcaFilter("all");
-      setFilterStatus("activos");
-      setSearch("");
-    }
 
-    if (highlightParam) {
+      const highlightParam = searchParams.get("productoId") || searchParams.get("highlight");
       const pid = Number(highlightParam);
       if (!Number.isNaN(pid) && pid > 0) {
         setHighlightedProductId(pid);
+        setCatFilter("all");
+        setMarcaFilter("all");
+        setFilterStatus("todos");
+        setSearch("");
+      } else if (!highlightParam) {
+        setHighlightedProductId(null);
       }
-    }
+    });
   }, [searchParams]);
+
+  const hasActiveFilters =
+    search.trim() !== "" ||
+    catFilter !== "all" ||
+    marcaFilter !== "all" ||
+    filterStatus !== "activos" ||
+    stockFilter !== "todos" ||
+    highlightedProductId !== null;
+
+  const handleClearFilters = useCallback(() => {
+    setSearch("");
+    setCatFilter("all");
+    setMarcaFilter("all");
+    setFilterStatus("activos");
+    setStockFilter("todos");
+    setHighlightedProductId(null);
+    lastProcessedParamsRef.current = "";
+    if (searchParams.toString()) {
+      router.replace("/productos");
+    }
+  }, [router, searchParams]);
 
   /* ── Sorting ── */
   const [sortField, setSortField] = useState<SortField | null>(null);
@@ -886,6 +935,8 @@ export default function ProductosTable({
         searchPlaceholder="Buscar producto por nombre, categoria o marca..."
         searchValue={search}
         onSearchChange={setSearch}
+        onClearSearch={handleClearFilters}
+        showClearButton={hasActiveFilters}
         centeredHeaderControls
         isEmpty={sortedProducts.length === 0}
         emptyMessage={
@@ -963,7 +1014,10 @@ export default function ProductosTable({
             <ProductFilterSelect
               label="Stock"
               value={stockFilter}
-              onValueChange={value => setStockFilter(value as typeof stockFilter)}
+              onValueChange={value => {
+                setStockFilter(value as typeof stockFilter);
+                if (highlightedProductId) setHighlightedProductId(null);
+              }}
               triggerIcon={Package}
               minWidth="min-w-[168px]"
               tone={{
@@ -1150,9 +1204,12 @@ export default function ProductosTable({
                 const isSinStock = p.cantidad === 0;
                 const isStockBajo = p.activo && p.cantidad > 0 && p.cantidad <= p.stockMinimo;
                 const isLowStock = isSinStock || isStockBajo;
-                const stockStatus = isSinStock ? "danger" : isStockBajo ? "warning" : "success";
                 const isHighlighted = highlightedProductId === p.id;
-                const nombreColor = isSinStock ? "text-red-400" : isStockBajo ? "text-amber-400" : "text-[var(--text)]";
+                const nombreColor = isSinStock
+                  ? "text-[#EF4444]"
+                  : isStockBajo
+                    ? "text-[#F59E0B]"
+                    : "text-[var(--text)]";
 
                 return (
                   <tr
@@ -1166,7 +1223,7 @@ export default function ProductosTable({
                     }}
                     className={`cursor-pointer transition-colors duration-200 ${
                       isHighlighted
-                        ? "bg-amber-500/[0.08] hover:bg-amber-500/[0.13]"
+                        ? "bg-amber-500/[0.12] ring-2 ring-inset ring-amber-500/50 hover:bg-amber-500/[0.18]"
                         : selectedProduct?.id === p.id
                           ? "bg-[#3B82F6]/10 ring-1 ring-inset ring-[#3B82F6]/20"
                           : isLowStock
@@ -1179,7 +1236,7 @@ export default function ProductosTable({
                     {vis("nombre") && (
                       <td className="relative py-3 px-4 align-middle">
                         {isHighlighted && (
-                          <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.6)]" />
+                          <span className="absolute left-0 top-1.5 bottom-1.5 w-[4px] rounded-r-full bg-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.8)]" />
                         )}
                         <div className="flex items-start gap-3">
                           <div className="relative w-9 h-9 flex-shrink-0 rounded-lg overflow-hidden bg-[var(--border)] flex items-center justify-center">
@@ -1196,7 +1253,7 @@ export default function ProductosTable({
                             )}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className={`font-semibold ${nombreColor} text-sm leading-snug whitespace-normal break-words [overflow-wrap:anywhere]`} title={p.nombre}>{p.nombre}</p>
+                            <p className={`font-bold ${nombreColor} text-sm leading-snug whitespace-normal break-words [overflow-wrap:anywhere] transition-colors`} title={p.nombre}>{p.nombre}</p>
                             {p.marca && <p className="text-[11px] text-[var(--text-secondary)] truncate">{p.marca}</p>}
                           </div>
                         </div>
@@ -1224,17 +1281,16 @@ export default function ProductosTable({
                     )}
                     {vis("stock") && (
                       <td className="py-3 px-4 text-center">
-                        <Badge
-                          variant={stockStatus}
-                          size="sm"
+                        <span
                           className={cn(
-                            "font-mono text-[11px]",
-                            isSinStock && "text-red-400 border-red-500/20 bg-red-500/10",
-                            isStockBajo && "text-amber-400 border-amber-500/20 bg-amber-500/10"
+                            "inline-flex items-center justify-center min-w-[52px] px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold border transition-colors shadow-sm",
+                            isSinStock && "bg-[#EF4444]/15 text-[#EF4444] border-[#EF4444]/30",
+                            isStockBajo && "bg-[#F59E0B]/15 text-[#F59E0B] border-[#F59E0B]/30",
+                            !isSinStock && !isStockBajo && "bg-[#22C55E]/15 text-[#22C55E] border-[#22C55E]/30"
                           )}
                         >
                           {p.cantidad} u
-                        </Badge>
+                        </span>
                       </td>
                     )}
                     {vis("stockMinimo") && (
@@ -1633,7 +1689,7 @@ export default function ProductosTable({
                         <span className="font-mono font-bold text-[#34D399]">{formatCurrency(editingProduct.precioVenta)}</span>
                       </div>
                       <p className="text-[10px] text-[var(--text-muted)] pt-1 border-t border-[var(--border)]/50 italic">
-                        Los precios se modifican desde la acción "Ajustar precio".
+                        Los precios se modifican desde la acción &quot;Ajustar precio&quot;.
                       </p>
                     </div>
                     <FormField label="Stock Mínimo" required className="mb-0">

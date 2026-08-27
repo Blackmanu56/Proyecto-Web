@@ -941,8 +941,14 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
 
       {/* ═══ MODAL: NUEVO CLIENTE ═══ */}
       {showNewClientModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[var(--card)] border border-[var(--border)] w-full max-w-sm rounded-[var(--radius-xl)] p-6 shadow-2xl relative animate-in zoom-in-95 duration-200">
+        <div
+          onClick={() => setShowNewClientModal(false)}
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[var(--card)] border border-[var(--border)] w-full max-w-sm rounded-[var(--radius-xl)] p-6 shadow-2xl relative animate-in zoom-in-95 duration-200"
+          >
             <button
               onClick={() => setShowNewClientModal(false)}
               className="absolute right-4 top-4 p-1.5 rounded-[var(--radius-md)] text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--bg)] transition"
@@ -1025,8 +1031,14 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
 
       {/* ═══ MODAL: VISTA PREVIA DEL COMPROBANTE ═══ */}
       {showReceiptPreview && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[var(--card)] border border-[var(--border)] w-full max-w-2xl rounded-[var(--radius-xl)] shadow-2xl relative animate-in zoom-in-95 duration-200 max-h-[95vh] flex flex-col">
+        <div
+          onClick={() => setShowReceiptPreview(false)}
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[var(--card)] border border-[var(--border)] w-full max-w-2xl rounded-[var(--radius-xl)] shadow-2xl relative animate-in zoom-in-95 duration-200 max-h-[95vh] flex flex-col"
+          >
             {/* Header */}
             <div className="flex items-center justify-between p-5 border-b border-[var(--border)]">
               <div className="flex items-center space-x-2 text-[var(--brand)]">
@@ -1204,8 +1216,14 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
 
       {/* ═══ MODAL: COMPROBANTE EMITIDO ═══ */}
       {issuedInvoice && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[var(--card)] border border-[var(--border)] w-full max-w-2xl rounded-[var(--radius-xl)] shadow-2xl relative animate-in zoom-in-95 duration-200 max-h-[95vh] flex flex-col">
+        <div
+          onClick={() => setIssuedInvoice(null)}
+          className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[var(--card)] border border-[var(--border)] w-full max-w-2xl rounded-[var(--radius-xl)] shadow-2xl relative animate-in zoom-in-95 duration-200 max-h-[95vh] flex flex-col"
+          >
             {/* Header */}
             <div className="flex items-center justify-between p-5 border-b border-[var(--border)]">
               <div className="flex items-center space-x-2 text-[var(--success)]">
