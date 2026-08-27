@@ -370,14 +370,16 @@ export default function DashboardClient({ data, userName, role, formattedDate, c
   const greeting = getGreeting(userName);
   const statCards = getStatCards(data, role);
 
-  // ── Filter state ──
-  const [{ period, chartType }, setFilters] = useState(loadFilters);
+  // ── Filter state (initialized with SSR defaults to prevent hydration mismatch) ──
+  const [{ period, chartType }, setFilters] = useState<{ period: DashboardPeriod; chartType: DashboardChartType }>({
+    period: "ultimos7",
+    chartType: "categorias",
+  });
   const [isPending, startTransition] = useTransition();
 
   // ── Chart data (server-fetched) ──
   const [evolutionData, setEvolutionData] = useState<EvolutionPoint[]>(data.ventasGrafico);
   const [pieData, setPieData] = useState<ChartPoint[]>(data.categoriaVentas);
-
 
   // ── Fetch filtered data when filters change (after init) ──
   const fetchChartData = useCallback(
@@ -395,13 +397,21 @@ export default function DashboardClient({ data, userName, role, formattedDate, c
     []
   );
 
+  // Load saved filters on client mount without hydration mismatch
+  const mountedRef = React.useRef(false);
   useEffect(() => {
-    saveFilters(period, chartType);
-    if (period === "ultimos7" && chartType === "categorias" && evolutionData.length > 0 && pieData.length > 0) {
-      return;
+    const saved = loadFilters();
+    if (saved.period !== "ultimos7" || saved.chartType !== "categorias") {
+      setFilters(saved);
     }
+    mountedRef.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (!mountedRef.current) return;
+    saveFilters(period, chartType);
     fetchChartData(period, chartType);
-  }, [period, chartType, fetchChartData, evolutionData.length, pieData.length]);
+  }, [period, chartType, fetchChartData]);
 
   // ── Filter handlers ──
   const handlePeriodChange = (p: DashboardPeriod) => setFilters((current) => ({ ...current, period: p }));

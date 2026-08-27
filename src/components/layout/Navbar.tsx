@@ -108,6 +108,7 @@ export default function Navbar({ user }: NavbarProps) {
                 alt="Logo de Chopper Repuestos"
                 width={148}
                 height={66}
+                priority
                 className="h-[3.9rem] w-auto object-contain rounded-lg drop-shadow-[0_2px_12px_rgba(0,0,0,0.5)] transition-all duration-300 group-hover:scale-105 group-hover:brightness-110 group-hover:drop-shadow-[0_4px_16px_rgba(0,0,0,0.6)]"
               />
             </Link>
