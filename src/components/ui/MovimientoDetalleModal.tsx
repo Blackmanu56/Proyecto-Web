@@ -421,39 +421,18 @@ export default function MovimientoDetalleModal({
             </div>
           )}
 
-          {compra && paymentSummary && (
-            <div className="pt-2.5 border-t border-[var(--border)] space-y-2.5">
-              <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">
-                Distribución de pago
-              </p>
-              <div className="bg-[var(--panel)] border border-[var(--border)] rounded-xl p-3.5 space-y-1.5">
-                {paymentSummary.payments.map((pago, index) => (
-                  <div key={pago.id ?? `${pago.medio}-${index}`} className="space-y-1">
-                    <div className="flex items-center justify-between gap-4 text-xs">
-                      <span className="text-[var(--text-muted)] font-semibold">
-                        {pago.label}
-                      </span>
-                      <span className="text-[var(--text)] font-mono font-bold">
-                        {formatCurrency(pago.monto)}
-                      </span>
-                    </div>
-                    {pago.medio === "FONDOS_EXTERNOS" && pago.observacion && (
-                      <p className="text-[11px] text-[var(--text-secondary)]">
-                        Origen: {pago.observacion}
-                      </p>
-                    )}
-                  </div>
-                ))}
-                <div className="pt-2 mt-2 border-t border-[var(--border)] space-y-1.5">
-                  <div className="flex items-center justify-between gap-4 text-xs">
-                    <span className="text-[var(--text-muted)] font-semibold">Total reposición</span>
-                    <span className="text-[var(--text)] font-mono font-bold">{formatCurrency(paymentSummary.total)}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-4 text-xs">
-                    <span className="text-[var(--text-muted)] font-semibold">Afectó Caja</span>
-                    <span className="text-[var(--danger)] font-mono font-bold">{formatCurrency(paymentSummary.cashImpact)}</span>
-                  </div>
-                </div>
+          {compra && (
+            <div className="pt-2.5 border-t border-[var(--border)]">
+              <div className="flex items-center justify-between bg-[var(--panel)] border border-[var(--border)] rounded-xl px-4 py-3 text-xs">
+                <span className="text-[var(--text-secondary)] font-semibold flex items-center gap-1.5">
+                  <CreditCard size={13} className="text-[var(--brand)]" />
+                  Forma de pago
+                </span>
+                <span className="text-xs font-mono font-bold text-[var(--text)]">
+                  {compra.origenPago === "TRANSFERENCIA_BANCARIA" || compraPagos[0]?.medio === "TRANSFERENCIA_BANCARIA"
+                    ? "Transferencia / Banco"
+                    : "Efectivo"} — {formatCurrency(compra.total)}
+                </span>
               </div>
             </div>
           )}

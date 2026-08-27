@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useState, useEffect, useTransition } from "react";
 import {
   Dialog,
   DialogContent,
@@ -16,17 +16,27 @@ import {
 } from "@/actions/solicitudes";
 import {
   AlertTriangle,
+  Banknote,
+  Calendar,
   CheckCircle,
   Clock,
+  DollarSign,
+  Landmark,
+  Layers,
   Minus,
   Package,
   Plus,
+  Tag,
+  Truck,
   User,
+  UserCheck,
   XCircle,
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { toast } from "sonner";
+import { formatCurrency } from "@/lib/utils";
+import AjustarPrecioIndividualModal from "@/components/ui/AjustarPrecioIndividualModal";
 
 /* ────────────────────── Types ────────────────────── */
 
@@ -40,7 +50,19 @@ interface SolicitudData {
   observacionResolucion?: string | null;
   createdAt: Date | string;
   resolvedAt?: Date | string | null;
-  producto: { id: number; nombre: string; cantidad: number };
+  producto: {
+    id: number;
+    nombre: string;
+    cantidad: number;
+    precioCompra?: number;
+    precioVenta?: number;
+    codigo?: string | null;
+    imagen?: string | null;
+    marca?: string | null;
+    categoria?: { id: number; nombre: string } | null;
+    proveedor?: { id: number; nombre: string } | null;
+    activo?: boolean;
+  };
   solicitante: { id: number; nombreCompleto: string };
   resueltoPor?: { id: number; nombreCompleto: string } | null;
   origenTabla?: "solicitud_stock" | "solicitud_reposicion" | "solicitud_caja";
@@ -72,6 +94,25 @@ export default function SolicitudStockDetail({
   const [success, setSuccess] = useState(false);
   const [isTransitionPending, startTransition] = useTransition();
 
+  // Payment method & Price adjustment states
+  const [metodoPago, setMetodoPago] = useState<"EFECTIVO" | "BANCO">("EFECTIVO");
+  const [precioCompraActual, setPrecioCompraActual] = useState<number>(
+    solicitud.producto.precioCompra ?? 0
+  );
+  const [precioVentaActual, setPrecioVentaActual] = useState<number>(
+    solicitud.producto.precioVenta ?? 0
+  );
+  const [showAjustarPrecioModal, setShowAjustarPrecioModal] = useState(false);
+
+  useEffect(() => {
+    if (solicitud.producto.precioCompra !== undefined) {
+      setPrecioCompraActual(solicitud.producto.precioCompra);
+    }
+    if (solicitud.producto.precioVenta !== undefined) {
+      setPrecioVentaActual(solicitud.producto.precioVenta);
+    }
+  }, [solicitud.producto.precioCompra, solicitud.producto.precioVenta]);
+
   const isResta = solicitud.tipo === "RESTA";
   const isPendiente = solicitud.estado === "PENDIENTE";
   const isAdmin = userRole === "ADMINISTRADOR";
@@ -82,7 +123,11 @@ export default function SolicitudStockDetail({
     setError("");
     startTransition(async () => {
       try {
-        const res = await aprobarSolicitudUnificada(solicitud.id, origenTabla);
+        const res = await aprobarSolicitudUnificada(
+          solicitud.id,
+          origenTabla,
+          isResta ? undefined : metodoPago
+        );
         if ("error" in res && res.error) {
           setError(res.error ?? "Error al aprobar");
           return;
@@ -202,77 +247,205 @@ export default function SolicitudStockDetail({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Summary card */}
-        <div className="space-y-3 p-4 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)]">
-          <div className="flex items-center gap-2">
-            <Package size={14} className="text-[var(--text-muted)]" />
-            <span className="text-sm font-medium text-[var(--text)]">
-              {solicitud.producto.nombre}
-            </span>
+        {/* ── Metadata grid (Fecha, Hora, Solicitante, Referencia) ── */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-3 bg-[var(--bg)] border border-[var(--border)] rounded-xl text-xs">
+          <div className="space-y-0.5">
+            <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider flex items-center gap-1">
+              <Calendar size={10} />
+              Fecha
+            </p>
+            <p className="text-xs text-[var(--text)] font-semibold">{fechaStr.split(",")[0] || fechaStr}</p>
           </div>
+          <div className="space-y-0.5">
+            <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider flex items-center gap-1">
+              <Clock size={10} />
+              Hora
+            </p>
+            <p className="text-xs text-[var(--text)] font-mono font-semibold">{fechaStr.includes(",") ? fechaStr.split(",")[1]?.trim() : "—"}</p>
+          </div>
+          <div className="space-y-0.5">
+            <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider flex items-center gap-1">
+              <User size={10} />
+              Solicitante
+            </p>
+            <p className="text-xs text-[var(--text)] font-semibold truncate" title={solicitud.solicitante.nombreCompleto}>
+              {solicitud.solicitante.nombreCompleto}
+            </p>
+          </div>
+          <div className="space-y-0.5">
+            <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider flex items-center gap-1">
+              <Tag size={10} />
+              Tipo
+            </p>
+            <p className={`text-xs font-bold uppercase ${isResta ? "text-[var(--danger)]" : "text-[var(--success)]"}`}>
+              {solicitud.tipo}
+            </p>
+          </div>
+        </div>
 
-          <div className="grid grid-cols-2 gap-3 text-xs">
-            <div>
-              <span className="text-[var(--text-muted)]">Tipo</span>
-              <p
-                className={`font-bold uppercase ${
-                  isResta ? "text-[var(--danger)]" : "text-[var(--success)]"
-                }`}
-              >
-                {solicitud.tipo}
-              </p>
+        {/* ── Detalle del Producto Card ── */}
+        <div className="bg-[var(--panel)] border border-[var(--border)] rounded-xl p-3.5 space-y-3">
+          <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider flex items-center gap-1">
+            <Package size={11} />
+            Detalle del Producto
+          </p>
+
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+            <div className="col-span-2 space-y-0.5">
+              <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Producto</p>
+              <p className="text-sm text-[var(--text)] font-semibold">{solicitud.producto.nombre}</p>
+              {solicitud.producto.codigo && (
+                <p className="text-[11px] font-mono text-[var(--text-muted)]">Cód: {solicitud.producto.codigo}</p>
+              )}
             </div>
-            <div>
-              <span className="text-[var(--text-muted)]">Cantidad</span>
-              <p className="font-bold text-[var(--text)] font-mono">
-                {solicitud.cantidad} unidades
+            <div className="space-y-0.5">
+              <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider flex items-center gap-1">
+                <Tag size={10} /> Marca
               </p>
+              <p className="text-xs text-[var(--text)] font-semibold">{solicitud.producto.marca ?? "—"}</p>
             </div>
-            <div>
-              <span className="text-[var(--text-muted)]">Stock actual</span>
-              <p className="font-mono text-[var(--text)]">
-                {solicitud.producto.cantidad} unidades
+            <div className="space-y-0.5">
+              <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider flex items-center gap-1">
+                <Layers size={10} /> Categoría
               </p>
+              <p className="text-xs text-[var(--text)] font-semibold">{solicitud.producto.categoria?.nombre ?? "—"}</p>
             </div>
-            {isResta && (
-              <div>
-                <span className="text-[var(--text-muted)]">Stock post-aprobación</span>
-                <p className="font-mono text-[var(--danger)]">
+            <div className="space-y-0.5">
+              <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider flex items-center gap-1">
+                <Truck size={10} /> Proveedor
+              </p>
+              <p className="text-xs text-[var(--text)] font-semibold">{solicitud.producto.proveedor?.nombre ?? "—"}</p>
+            </div>
+            <div className="space-y-0.5">
+              <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Cantidad solicitada</p>
+              <p className="text-xs text-[var(--text)] font-mono font-bold">{solicitud.cantidad} unidades</p>
+            </div>
+            <div className="space-y-0.5">
+              <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Stock actual</p>
+              <p className="text-xs text-[var(--text)] font-mono font-semibold">{solicitud.producto.cantidad} unidades</p>
+            </div>
+            {isResta ? (
+              <div className="space-y-0.5">
+                <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Stock post-aprobación</p>
+                <p className="text-xs text-[var(--danger)] font-mono font-bold">
                   {Math.max(0, solicitud.producto.cantidad - solicitud.cantidad)} unidades
                 </p>
               </div>
+            ) : (
+              <>
+                <div className="space-y-0.5">
+                  <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Precio compra unit.</p>
+                  <p className="text-xs text-[var(--text)] font-mono font-semibold">{formatCurrency(precioCompraActual)}</p>
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Importe total</p>
+                  <p className="text-xs text-[var(--warning)] font-mono font-bold">{formatCurrency(precioCompraActual * solicitud.cantidad)}</p>
+                </div>
+              </>
             )}
           </div>
+        </div>
 
-          <div className="border-t border-[var(--border)]/40 pt-3">
-            <p className="text-xs text-[var(--text-muted)] mb-1">Motivo</p>
-            <p className="text-sm text-[var(--text)]">{solicitud.motivo}</p>
+        {/* ── Motivo y Observaciones Card ── */}
+        <div className="bg-[var(--bg)] border border-[var(--border)] rounded-xl p-3.5 space-y-2 text-xs">
+          <div className="space-y-1">
+            <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Motivo de la solicitud</p>
+            <p className="text-xs text-[var(--text)] leading-relaxed">{solicitud.motivo || "—"}</p>
           </div>
-
-          <div className="flex items-center gap-4 text-xs text-[var(--text-secondary)]">
-            <div className="flex items-center gap-1.5">
-              <User size={12} />
-              <span>{solicitud.solicitante.nombreCompleto}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Clock size={12} />
-              <span>{fechaStr}</span>
-            </div>
-          </div>
-
           {solicitud.resueltoPor && (
-            <div className="border-t border-[var(--border)]/40 pt-3 text-xs text-[var(--text-secondary)]">
-              Resuelto por: {solicitud.resueltoPor.nombreCompleto}
+            <div className="pt-2 border-t border-[var(--border)]/70 flex items-center justify-between text-xs text-[var(--text-secondary)]">
+              <span className="flex items-center gap-1">
+                <UserCheck size={11} className="text-[var(--brand)]" />
+                Resuelto por: <strong className="text-[var(--text)]">{solicitud.resueltoPor.nombreCompleto}</strong>
+              </span>
+              {solicitud.resolvedAt && (
+                <span className="text-[11px] text-[var(--text-muted)]">
+                  {format(new Date(solicitud.resolvedAt), "dd/MM/yyyy HH:mm")}
+                </span>
+              )}
             </div>
           )}
-
           {solicitud.observacionResolucion && (
-            <div className="text-xs">
-              <span className="text-[var(--text-muted)]">Observación: </span>
-              <span className="text-[var(--text)]">{solicitud.observacionResolucion}</span>
+            <div className="pt-1.5 border-t border-[var(--border)]/70 space-y-0.5">
+              <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-wider">Observación de resolución</p>
+              <p className="text-xs text-[var(--text)]">{solicitud.observacionResolucion}</p>
             </div>
           )}
         </div>
+
+        {/* ═══ FORMA DE PAGO OBLIGATORIA & AJUSTE DE PRECIO (Solo REPOSICIÓN para Admin en estado Pendiente) ═══ */}
+        {!isResta && isPendiente && isAdmin && !showRejectInput && !showCancelConfirm && (
+          <div className="space-y-3 p-4 bg-[var(--card)] border border-[var(--border)] rounded-[var(--radius-md)]">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">
+                Forma de Pago <span className="text-[var(--danger)]">*</span>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMetodoPago("EFECTIVO")}
+                  className={`rounded-xl border px-3 py-2.5 text-xs font-bold transition flex items-center justify-center gap-2 ${
+                    metodoPago === "EFECTIVO"
+                      ? "border-[#22c55e]/40 bg-[#22c55e]/10 text-[#4ade80]"
+                      : "border-[var(--border)] bg-[var(--panel)] text-[var(--text-secondary)] hover:text-[var(--text)]"
+                  }`}
+                  disabled={isTransitionPending}
+                >
+                  <Banknote size={15} />
+                  Efectivo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMetodoPago("BANCO")}
+                  className={`rounded-xl border px-3 py-2.5 text-xs font-bold transition flex items-center justify-center gap-2 ${
+                    metodoPago === "BANCO"
+                      ? "border-[#38bdf8]/40 bg-[#38bdf8]/10 text-[#38bdf8]"
+                      : "border-[var(--border)] bg-[var(--panel)] text-[var(--text-secondary)] hover:text-[var(--text)]"
+                  }`}
+                  disabled={isTransitionPending}
+                >
+                  <Landmark size={15} />
+                  Transferencia / Banco
+                </button>
+              </div>
+            </div>
+
+            {/* Resumen Financiero y Enlace Ajustar Precio */}
+            <div className="p-3 rounded-xl bg-[var(--panel)]/70 border border-[var(--border)] space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-[var(--text-secondary)]">Precio de compra actual:</span>
+                <span className="font-mono font-bold text-[var(--text)]">
+                  {formatCurrency(precioCompraActual)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-[var(--text-secondary)]">Cantidad solicitada:</span>
+                <span className="font-mono font-bold text-[var(--text)]">
+                  {solicitud.cantidad} u.
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm border-t border-[var(--border)]/70 pt-2">
+                <span className="font-semibold text-[var(--text)]">
+                  Monto del egreso ({metodoPago === "EFECTIVO" ? "Caja" : "Banco"}):
+                </span>
+                <span className="font-mono font-black text-base text-[var(--warning)]">
+                  {formatCurrency(precioCompraActual * solicitud.cantidad)}
+                </span>
+              </div>
+
+              <div className="pt-2 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowAjustarPrecioModal(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border)] bg-transparent hover:bg-[var(--card)] hover:border-[var(--text-muted)] text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text)] transition-all shadow-sm"
+                >
+                  <DollarSign size={13} className="text-[var(--brand)]" />
+                  ¿Cambió el precio de compra?
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Error */}
         {error && (
@@ -396,6 +569,37 @@ export default function SolicitudStockDetail({
               </div>
             )}
           </div>
+        )}
+
+        {/* Modal existente: Ajustar Precios de Producto */}
+        {showAjustarPrecioModal && (
+          <AjustarPrecioIndividualModal
+            open={true}
+            onOpenChange={(v) => {
+              if (!v) setShowAjustarPrecioModal(false);
+            }}
+            producto={{
+              id: solicitud.producto.id,
+              nombre: solicitud.producto.nombre,
+              codigo: solicitud.producto.codigo ?? null,
+              imagen: solicitud.producto.imagen ?? null,
+              marca: solicitud.producto.marca ?? null,
+              precioCompra: precioCompraActual,
+              precioVenta: precioVentaActual,
+              activo: solicitud.producto.activo ?? true,
+              categoria: solicitud.producto.categoria ?? undefined,
+              proveedor: solicitud.producto.proveedor ?? undefined,
+            }}
+            initialAjustarCompra={true}
+            initialAjustarVenta={false}
+            onPriceUpdated={(newCompra, newVenta) => {
+              setPrecioCompraActual(newCompra);
+              if (newVenta) setPrecioVentaActual(newVenta);
+            }}
+            onSuccess={() => {
+              setShowAjustarPrecioModal(false);
+            }}
+          />
         )}
       </DialogContent>
     </Dialog>

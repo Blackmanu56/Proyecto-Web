@@ -17,6 +17,25 @@ const mocks = vi.hoisted(() => {
     notificacion: {
       create: vi.fn(),
     },
+    caja: {
+      findFirst: vi.fn(),
+      update: vi.fn(),
+    },
+    cuentaFinanciera: {
+      findFirst: vi.fn(),
+    },
+    movimientoCaja: {
+      create: vi.fn(),
+    },
+    movimientoFinanciero: {
+      create: vi.fn(),
+    },
+    compra: {
+      create: vi.fn(),
+    },
+    pagoCompra: {
+      create: vi.fn(),
+    },
   };
 
   return {
@@ -140,6 +159,24 @@ function setupMocks(solicitud: Record<string, unknown> | null = solicitudPendien
   mocks.tx.producto.updateMany.mockResolvedValue({ count: 1 });
   mocks.tx.movimientoProducto.create.mockResolvedValue({ id: 1 });
   mocks.tx.notificacion.create.mockResolvedValue({ id: 1 });
+  mocks.tx.caja.findFirst.mockResolvedValue({
+    id: 1,
+    estado: "ABIERTA",
+    movimientos: [{ tipo: "INGRESO", monto: 50000 }],
+  });
+  mocks.tx.caja.update.mockResolvedValue({ id: 1 });
+  mocks.tx.cuentaFinanciera.findFirst.mockResolvedValue({
+    id: 1,
+    tipo: "BANCO",
+    esPrincipal: true,
+    activa: true,
+    saldoInicial: 100000,
+    movimientos: [],
+  });
+  mocks.tx.movimientoCaja.create.mockResolvedValue({ id: 1 });
+  mocks.tx.movimientoFinanciero.create.mockResolvedValue({ id: 1 });
+  mocks.tx.compra.create.mockResolvedValue({ id: 1 });
+  mocks.tx.pagoCompra.create.mockResolvedValue({ id: 1 });
   mocks.registrarMovimiento.mockResolvedValue(undefined);
   mocks.evaluarYNotificarStock.mockResolvedValue(undefined);
   mocks.preferenciaNotificacion.findUnique.mockResolvedValue(null);
@@ -332,6 +369,72 @@ describe("aprobarSolicitudStock", () => {
     });
   });
 
+  it("registers cash egress in Caja when approving REPOSICION with EFECTIVO", async () => {
+    setupMocks(
+      solicitudPendiente({
+        tipo: "REPOSICION",
+        cantidad: 4,
+        producto: {
+          id: 10,
+          nombre: "Kit transmision",
+          cantidad: 10,
+          precioCompra: 2500,
+          activo: true,
+        },
+      })
+    );
+    mocks.requirePermission.mockResolvedValue(adminSession);
+    mocks.getSession.mockResolvedValue(adminSession);
+
+    const result = await aprobarSolicitudStock(100, "EFECTIVO");
+
+    expect(result.success).toBe(true);
+    expect(mocks.tx.movimientoCaja.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        cajaId: 1,
+        usuarioId: 1,
+        tipo: "EGRESO",
+        monto: 10000,
+        descripcion: "Reposición de stock: Kit transmision (4 u.)",
+      }),
+    });
+    expect(mocks.tx.caja.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: { gastosManuales: { increment: 10000 } },
+    });
+  });
+
+  it("registers bank egress in Banco when approving REPOSICION with BANCO", async () => {
+    setupMocks(
+      solicitudPendiente({
+        tipo: "REPOSICION",
+        cantidad: 2,
+        producto: {
+          id: 10,
+          nombre: "Kit transmision",
+          cantidad: 10,
+          precioCompra: 3000,
+          activo: true,
+        },
+      })
+    );
+    mocks.requirePermission.mockResolvedValue(adminSession);
+    mocks.getSession.mockResolvedValue(adminSession);
+
+    const result = await aprobarSolicitudStock(100, "BANCO");
+
+    expect(result.success).toBe(true);
+    expect(mocks.tx.movimientoFinanciero.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        cuentaFinancieraId: 1,
+        usuarioId: 1,
+        tipo: "EGRESO",
+        monto: 6000,
+        descripcion: "Reposición de stock: Kit transmision (2 u.)",
+      }),
+    });
+  });
+
   it("creates MovimientoProducto with correct args for RESTA", async () => {
     mocks.requirePermission.mockResolvedValue(adminSession);
     mocks.getSession.mockResolvedValue(adminSession);
@@ -347,7 +450,7 @@ describe("aprobarSolicitudStock", () => {
         cantidadNueva: 5,
         motivo: "Solicitud de resta #100 aprobada",
         observacion: "Observacion admin",
-        usuarioId: 2,
+        usuarioId: 1,
       }
     );
   });
@@ -368,7 +471,7 @@ describe("aprobarSolicitudStock", () => {
         cantidadNueva: 15,
         motivo: "Solicitud de reposici\u00f3n #100 aprobada",
         observacion: undefined,
-        usuarioId: 2,
+        usuarioId: 1,
       }
     );
   });

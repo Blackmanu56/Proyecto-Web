@@ -20,6 +20,19 @@ export interface SolicitudUnificada {
   motivo?: string | null;
   proveedorNombre?: string | null;
   origenTabla?: "solicitud_stock" | "solicitud_reposicion" | "solicitud_caja";
+  producto?: {
+    id: number;
+    nombre: string;
+    codigo?: string | null;
+    imagen?: string | null;
+    marca?: string | null;
+    precioCompra: number;
+    precioVenta: number;
+    cantidad: number;
+    activo: boolean;
+    categoria?: { id: number; nombre: string };
+    proveedor?: { id: number; nombre: string };
+  };
 }
 
 /* ────────────────────── Fetch ────────────────────── */
@@ -62,7 +75,15 @@ export async function getSolicitudesUnificadas(
               select: {
                 id: true,
                 nombre: true,
-                proveedor: { select: { nombre: true } },
+                codigo: true,
+                imagen: true,
+                marca: true,
+                precioCompra: true,
+                precioVenta: true,
+                cantidad: true,
+                activo: true,
+                categoria: { select: { id: true, nombre: true } },
+                proveedor: { select: { id: true, nombre: true } },
               },
             },
             solicitante: {
@@ -84,8 +105,22 @@ export async function getSolicitudesUnificadas(
           productoNombre: s.producto.nombre,
           proveedorNombre: s.producto.proveedor?.nombre ?? null,
           cantidad: s.cantidad,
+          monto: s.producto.precioCompra ? s.producto.precioCompra * s.cantidad : null,
           motivo: s.motivo,
           origenTabla: "solicitud_stock" as const,
+          producto: {
+            id: s.producto.id,
+            nombre: s.producto.nombre,
+            codigo: s.producto.codigo,
+            imagen: s.producto.imagen,
+            marca: s.producto.marca,
+            precioCompra: s.producto.precioCompra,
+            precioVenta: s.producto.precioVenta,
+            cantidad: s.producto.cantidad,
+            activo: s.producto.activo,
+            categoria: s.producto.categoria ?? undefined,
+            proveedor: s.producto.proveedor ?? undefined,
+          },
         }));
       })()
     );
@@ -101,11 +136,19 @@ export async function getSolicitudesUnificadas(
               select: {
                 id: true,
                 nombre: true,
-                proveedor: { select: { nombre: true } },
+                codigo: true,
+                imagen: true,
+                marca: true,
+                precioCompra: true,
+                precioVenta: true,
+                cantidad: true,
+                activo: true,
+                categoria: { select: { id: true, nombre: true } },
+                proveedor: { select: { id: true, nombre: true } },
               },
             },
             proveedor: {
-              select: { nombre: true },
+              select: { id: true, nombre: true },
             },
             solicitante: {
               select: { id: true, nombreCompleto: true },
@@ -129,6 +172,19 @@ export async function getSolicitudesUnificadas(
           monto: s.total,
           motivo: s.motivo,
           origenTabla: "solicitud_reposicion" as const,
+          producto: {
+            id: s.producto.id,
+            nombre: s.producto.nombre,
+            codigo: s.producto.codigo,
+            imagen: s.producto.imagen,
+            marca: s.producto.marca,
+            precioCompra: s.producto.precioCompra,
+            precioVenta: s.producto.precioVenta,
+            cantidad: s.producto.cantidad,
+            activo: s.producto.activo,
+            categoria: s.producto.categoria ?? undefined,
+            proveedor: s.proveedor ?? s.producto.proveedor ?? undefined,
+          },
         }));
       })()
     );
@@ -217,16 +273,18 @@ import { revalidatePath } from "next/cache";
 
 export async function aprobarSolicitudUnificada(
   id: number,
-  origenTabla?: "solicitud_stock" | "solicitud_reposicion" | "solicitud_caja"
+  origenTabla?: "solicitud_stock" | "solicitud_reposicion" | "solicitud_caja",
+  formaPago?: "EFECTIVO" | "BANCO" | "EFECTIVO_CAJA" | "TRANSFERENCIA_BANCARIA"
 ) {
   try {
     if (origenTabla === "solicitud_stock") {
-      const res = await aprobarSolicitudStock(id);
+      const res = await aprobarSolicitudStock(id, formaPago);
       revalidatePath("/solicitudes");
       return res;
     }
     if (origenTabla === "solicitud_reposicion") {
-      const res = await aprobarReposicion(id);
+      const medio = formaPago === "BANCO" || formaPago === "TRANSFERENCIA_BANCARIA" ? "TRANSFERENCIA_BANCARIA" : "EFECTIVO_CAJA";
+      const res = await aprobarReposicion(id, medio);
       revalidatePath("/solicitudes");
       return res;
     }

@@ -12,10 +12,11 @@ import {
 import { FormField } from "@/components/ui/form-field";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ShoppingCart, AlertTriangle, CheckCircle, Package } from "lucide-react";
+import { ShoppingCart, AlertTriangle, CheckCircle, Package, Banknote, Landmark, DollarSign } from "lucide-react";
 import { crearSolicitudStock } from "@/actions/solicitudes-stock";
 import { crearYaprobarReposicion } from "@/actions/reposiciones";
 import { formatCurrency } from "@/lib/utils";
+import AjustarPrecioIndividualModal from "@/components/ui/AjustarPrecioIndividualModal";
 
 /* ────────────────────── Types ────────────────────── */
 
@@ -28,8 +29,13 @@ interface CrearPedidoModalProps {
     imagen: string | null;
     cantidad: number;
     precioCompra: number;
+    precioVenta?: number;
+    codigo?: string | null;
+    marca?: string | null;
     proveedorId: number;
     proveedorNombre: string;
+    categoria?: { id: number; nombre: string };
+    proveedor?: { id: number; nombre: string };
   };
   onSuccess: () => void;
   canApprove?: boolean;
@@ -59,11 +65,19 @@ export default function CrearPedidoModal({
   const [motivo, setMotivo] = useState("");
   const [motivoOtro, setMotivoOtro] = useState("");
   const [observacion, setObservacion] = useState("");
-  const [aprobarYExec, setAprobarYExec] = useState(false);
+  const [formaPago, setFormaPago] = useState<"EFECTIVO" | "BANCO">("EFECTIVO");
+  const [precioCompraActual, setPrecioCompraActual] = useState(producto.precioCompra);
+  const [precioVentaActual, setPrecioVentaActual] = useState(producto.precioVenta ?? 0);
+  const [showAjustarPrecioModal, setShowAjustarPrecioModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+
+  React.useEffect(() => {
+    setPrecioCompraActual(producto.precioCompra);
+    setPrecioVentaActual(producto.precioVenta ?? 0);
+  }, [producto.precioCompra, producto.precioVenta, open]);
 
   const cantidadNum = typeof cantidad === "number" ? cantidad : 0;
   const esOtro = motivo === "Otro";
@@ -108,10 +122,11 @@ export default function CrearPedidoModal({
     try {
       let res: { success?: boolean; error?: string };
 
-      if (aprobarYExec && canApprove) {
+      if (canApprove) {
         res = await crearYaprobarReposicion(producto.id, {
           cantidad: cantidadNum,
           proveedorId: producto.proveedorId,
+          origenPago: formaPago === "BANCO" ? "TRANSFERENCIA_BANCARIA" : "EFECTIVO_CAJA",
           motivo: buildMotivoString(),
         });
       } else {
@@ -132,7 +147,7 @@ export default function CrearPedidoModal({
       if (res.success) {
         setSuccess(true);
         setSuccessMessage(
-          aprobarYExec && canApprove
+          canApprove
             ? "Pedido creado y ejecutado. El stock se actualizó inmediatamente."
             : "Pedido creado correctamente. El administrador deberá aprobarlo antes de ejecutar la reposición."
         );
@@ -157,7 +172,6 @@ export default function CrearPedidoModal({
     setMotivo("");
     setMotivoOtro("");
     setObservacion("");
-    setAprobarYExec(false);
     setError("");
     setSuccess(false);
     setSuccessMessage("");
@@ -226,7 +240,7 @@ export default function CrearPedidoModal({
                 <p className="text-xs text-[var(--text-secondary)] mt-0.5">
                   Precio compra:{" "}
                   <strong className="font-mono text-[var(--text)]">
-                    {formatCurrency(producto.precioCompra)}
+                    {formatCurrency(precioCompraActual)}
                   </strong>
                 </p>
               </div>
@@ -296,20 +310,76 @@ export default function CrearPedidoModal({
               />
             </FormField>
 
-            {/* ── Crear y aprobar (solo admin) ── */}
+            {/* ── Crear y aprobar automáticamente (solo admin) ── */}
             {canApprove && (
-              <label className="flex items-center gap-3 p-3 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] cursor-pointer hover:border-[var(--brand)]/30 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={aprobarYExec}
-                  onChange={(e) => setAprobarYExec(e.target.checked)}
-                  className="h-4 w-4 rounded border-[var(--border)] text-[var(--brand)] focus:ring-[var(--brand)] accent-[var(--brand)]"
-                />
-                <div>
-                  <p className="text-sm font-semibold text-[var(--text)]">Aprobar y ejecutar inmediatamente</p>
-                  <p className="text-xs text-[var(--text-secondary)]">Crea el pedido, lo aprueba y actualiza el stock en un solo paso.</p>
+              <div className="p-3.5 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] space-y-3">
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">
+                    Forma de pago <span className="text-[var(--danger)]">*</span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setFormaPago("EFECTIVO")}
+                      className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-xs font-bold transition-all ${
+                        formaPago === "EFECTIVO"
+                          ? "border-[#22C55E] bg-[#22C55E]/15 text-[#22C55E] shadow-sm"
+                          : "border-[var(--border)] bg-[var(--card)] text-[var(--text-secondary)] hover:border-[var(--text-muted)]"
+                      }`}
+                    >
+                      <Banknote size={15} />
+                      Efectivo (Caja)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormaPago("BANCO")}
+                      className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-xs font-bold transition-all ${
+                        formaPago === "BANCO"
+                          ? "border-[#38BDF8] bg-[#38BDF8]/15 text-[#38BDF8] shadow-sm"
+                          : "border-[var(--border)] bg-[var(--card)] text-[var(--text-secondary)] hover:border-[var(--text-muted)]"
+                      }`}
+                    >
+                      <Landmark size={15} />
+                      Transferencia / Banco
+                    </button>
+                  </div>
                 </div>
-              </label>
+
+                {/* Resumen Financiero y Botón Ajustar Precio */}
+                <div className="p-3 rounded-xl bg-[var(--panel)] border border-[var(--border)] space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-[var(--text-secondary)]">Precio de compra actual:</span>
+                    <span className="font-mono font-bold text-[var(--text)]">
+                      {formatCurrency(precioCompraActual)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-[var(--text-secondary)]">Cantidad a reponer:</span>
+                    <span className="font-mono font-bold text-[var(--text)]">
+                      {cantidadNum} u.
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm border-t border-[var(--border)]/70 pt-2">
+                    <span className="font-semibold text-[var(--text)]">
+                      Monto del egreso ({formaPago === "EFECTIVO" ? "Caja" : "Banco"}):
+                    </span>
+                    <span className="font-mono font-black text-base text-[var(--warning)]">
+                      {formatCurrency(precioCompraActual * cantidadNum)}
+                    </span>
+                  </div>
+
+                  <div className="pt-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setShowAjustarPrecioModal(true)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border)] bg-transparent hover:bg-[var(--card)] hover:border-[var(--text-muted)] text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text)] transition-all shadow-sm"
+                    >
+                      <DollarSign size={13} className="text-[var(--brand)]" />
+                      ¿Cambió el precio de compra?
+                    </button>
+                  </div>
+                </div>
+              </div>
             )}
 
             {/* ── Error ── */}
@@ -336,10 +406,41 @@ export default function CrearPedidoModal({
                 disabled={!isValid || loading}
                 className="bg-[var(--brand)] hover:bg-[var(--brand)]/85 text-white shadow-sm font-bold active:scale-95"
               >
-                {loading ? "Creando pedido..." : aprobarYExec && canApprove ? "Crear y aprobar" : "Crear pedido"}
+                {loading ? "Creando pedido..." : canApprove ? "Crear y aprobar" : "Crear pedido"}
               </Button>
             </div>
           </>
+        )}
+
+        {/* Modal existente: Ajustar Precios de Producto */}
+        {showAjustarPrecioModal && (
+          <AjustarPrecioIndividualModal
+            open={true}
+            onOpenChange={(v) => {
+              if (!v) setShowAjustarPrecioModal(false);
+            }}
+            producto={{
+              id: producto.id,
+              nombre: producto.nombre,
+              codigo: producto.codigo ?? null,
+              imagen: producto.imagen ?? null,
+              marca: producto.marca ?? null,
+              precioCompra: precioCompraActual,
+              precioVenta: precioVentaActual,
+              activo: true,
+              categoria: producto.categoria,
+              proveedor: producto.proveedor ?? { id: producto.proveedorId, nombre: producto.proveedorNombre },
+            }}
+            initialAjustarCompra={true}
+            initialAjustarVenta={false}
+            onPriceUpdated={(newCompra, newVenta) => {
+              setPrecioCompraActual(newCompra);
+              if (newVenta) setPrecioVentaActual(newVenta);
+            }}
+            onSuccess={() => {
+              setShowAjustarPrecioModal(false);
+            }}
+          />
         )}
       </DialogContent>
     </Dialog>

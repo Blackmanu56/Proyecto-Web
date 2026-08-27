@@ -178,6 +178,10 @@ export default function SolicitudesStockTable({
 
   // Acciones inline del admin
   const handleAprobarInline = (s: SolicitudRow) => {
+    if (s.tipo === "REPOSICION") {
+      setSelectedSolicitud(s);
+      return;
+    }
     startTransition(async () => {
       try {
         const res = await aprobarSolicitudStock(s.id);

@@ -493,6 +493,13 @@ export async function crearYaprobarReposicion(
 
       // Execute financial transaction
       const txTyped = tx as unknown as ReposicionTx;
+      const finalPagos =
+        validatedPagos && validatedPagos.length > 0
+          ? validatedPagos
+          : origenPago
+          ? [{ medio: origenPago as "EFECTIVO_CAJA" | "TRANSFERENCIA_BANCARIA", monto: cantidad * producto.precioCompra }]
+          : undefined;
+
       const execResult = await ejecutarReposicion(txTyped, {
         productoId,
         nombreProducto: producto.nombre,
@@ -500,7 +507,7 @@ export async function crearYaprobarReposicion(
         costoUnitario: producto.precioCompra,
         proveedorId,
         origenPago: origenPago as OrigenPagoCompraValue,
-        pagos: validatedPagos,
+        pagos: finalPagos,
         usuarioId: session.userId,
         descripcionPrefijo: `Reposición de '${producto.nombre}' (crear y aprobar)`,
       });

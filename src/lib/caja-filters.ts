@@ -37,6 +37,7 @@ export interface MovimientoCompra {
   proveedor: { id: number; nombre: string };
   detalles: MovimientoCompraDetalle[];
   pagos?: MovimientoCompraPago[];
+  origenPago?: string | null;
 }
 
 // ── Venta ────────────────────────────────────────────────────────────

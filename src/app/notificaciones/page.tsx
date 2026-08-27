@@ -7,6 +7,7 @@ import {
   CheckCircle,
   XCircle,
   CheckCheck,
+  Check,
   Loader2,
   AlertTriangle,
   PackageX,
@@ -24,6 +25,7 @@ import {
   Settings,
   ShoppingCart,
 } from "lucide-react";
+import * as SelectPrimitive from "@radix-ui/react-select";
 import {
   getNotificacionesPaginadas,
   marcarNotificacionLeida,
@@ -63,20 +65,137 @@ interface Notificacion {
   } | null;
 }
 
-/* ────────────────────── Constants ────────────────────── */
+interface TipoOption {
+  value: string;
+  label: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+}
 
-const TIPO_OPTIONS = [
-  { value: "", label: "Todos los tipos" },
-  { value: "SOLICITUD_CREADA", label: "Solicitudes creadas" },
-  { value: "SOLICITUD_APROBADA", label: "Solicitudes aprobadas" },
-  { value: "SOLICITUD_RECHAZADA", label: "Solicitudes rechazadas" },
-  { value: "SOLICITUD_CANCELADA", label: "Solicitudes canceladas" },
-  { value: "STOCK_CRITICO", label: "Stock crítico" },
-  { value: "STOCK_AGOTADO", label: "Stock agotado" },
-  { value: "STOCK_RESTADO", label: "Stock reducido" },
-  { value: "STOCK_RECARGADO", label: "Stock recargado" },
-  { value: "VENTA_CREADA", label: "Ventas realizadas" },
+interface TipoGroup {
+  group: string;
+  options: TipoOption[];
+}
+
+const TIPO_GROUPS: TipoGroup[] = [
+  {
+    group: "GENERAL",
+    options: [
+      { value: "TODOS", label: "Todos los tipos", icon: Filter },
+    ],
+  },
+  {
+    group: "SOLICITUDES",
+    options: [
+      { value: "SOLICITUD_CREADA", label: "Solicitudes creadas", icon: Bell },
+      { value: "SOLICITUD_APROBADA", label: "Solicitudes aprobadas", icon: CheckCircle },
+      { value: "SOLICITUD_RECHAZADA", label: "Solicitudes rechazadas", icon: XCircle },
+      { value: "SOLICITUD_CANCELADA", label: "Solicitudes canceladas", icon: XCircle },
+    ],
+  },
+  {
+    group: "STOCK",
+    options: [
+      { value: "STOCK_CRITICO", label: "Stock crítico", icon: AlertTriangle },
+      { value: "STOCK_AGOTADO", label: "Stock agotado", icon: PackageX },
+      { value: "STOCK_RESTADO", label: "Stock reducido", icon: TrendingDown },
+      { value: "STOCK_RECARGADO", label: "Stock recargado", icon: TrendingUp },
+    ],
+  },
+  {
+    group: "VENTAS",
+    options: [
+      { value: "VENTA_CREADA", label: "Ventas realizadas", icon: ShoppingCart },
+    ],
+  },
 ];
+
+const TIPO_OPTIONS = TIPO_GROUPS.flatMap((g) =>
+  g.options.map((opt) => ({
+    value: opt.value === "TODOS" ? "" : opt.value,
+    label: opt.label,
+  }))
+);
+
+/* ────────────────────── Component: TipoNotificacionSelect ────────────────────── */
+
+function TipoNotificacionSelect({
+  value,
+  onValueChange,
+}: {
+  value: string;
+  onValueChange: (v: string) => void;
+}) {
+  const currentValue = value || "TODOS";
+  const allOptions = TIPO_GROUPS.flatMap((g) => g.options);
+  const selectedOption = allOptions.find((o) => o.value === currentValue) ?? allOptions[0];
+  const IconComponent = selectedOption.icon;
+
+  return (
+    <SelectPrimitive.Root
+      value={currentValue}
+      onValueChange={(val) => onValueChange(val === "TODOS" ? "" : val)}
+    >
+      <SelectPrimitive.Trigger
+        className="group flex h-10 min-w-[190px] max-w-[240px] items-center justify-between gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3 text-xs font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none hover:border-[var(--border-hover)] focus:border-[var(--brand)] transition-all"
+        title="Filtrar por tipo de notificación"
+      >
+        <span className="flex items-center gap-2 truncate">
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-[var(--panel)] text-[var(--brand)] ring-1 ring-[var(--border)]">
+            <IconComponent size={12} />
+          </span>
+          <span className="truncate">{selectedOption.label}</span>
+        </span>
+        <SelectPrimitive.Icon asChild>
+          <ChevronDown className="h-4 w-4 shrink-0 text-[var(--text-muted)] transition-transform duration-200 group-data-[state=open]:rotate-180" />
+        </SelectPrimitive.Icon>
+      </SelectPrimitive.Trigger>
+
+      <SelectPrimitive.Portal>
+        <SelectPrimitive.Content
+          position="popper"
+          sideOffset={6}
+          className="z-50 min-w-[230px] max-h-[340px] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--card)] p-1.5 shadow-xl animate-in fade-in-80"
+        >
+          <SelectPrimitive.Viewport className="space-y-1">
+            {TIPO_GROUPS.map((group, groupIdx) => (
+              <React.Fragment key={group.group}>
+                {groupIdx > 0 && <div className="my-1 border-t border-[var(--border)]/60" />}
+                <div className="px-2 py-1 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">
+                  {group.group}
+                </div>
+                {group.options.map((option) => {
+                  const OptionIcon = option.icon;
+                  const isSelected = option.value === currentValue;
+                  return (
+                    <SelectPrimitive.Item
+                      key={option.value}
+                      value={option.value}
+                      className={`relative flex cursor-pointer select-none items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold outline-none transition-colors ${
+                        isSelected
+                          ? "bg-[var(--brand)]/10 text-[var(--brand)] font-bold"
+                          : "text-[var(--text)] hover:bg-[var(--panel)]"
+                      }`}
+                    >
+                      <span className="flex items-center gap-2 truncate">
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-[var(--panel)] text-[var(--text-secondary)]">
+                          <OptionIcon size={12} />
+                        </span>
+                        <SelectPrimitive.ItemText>{option.label}</SelectPrimitive.ItemText>
+                      </span>
+                      <SelectPrimitive.ItemIndicator>
+                        <Check size={14} className="shrink-0 text-[var(--brand)]" />
+                      </SelectPrimitive.ItemIndicator>
+                    </SelectPrimitive.Item>
+                  );
+                })}
+              </React.Fragment>
+            ))}
+          </SelectPrimitive.Viewport>
+        </SelectPrimitive.Content>
+      </SelectPrimitive.Portal>
+    </SelectPrimitive.Root>
+  );
+}
 
 /* ────────────────────── Helpers ────────────────────── */
 
@@ -355,100 +474,137 @@ export default function NotificacionesPage() {
         </div>
 
         {/* Toolbar */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mb-3 shrink-0">
-          {/* Search */}
-          <div className="relative flex-1">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-            <input
-              type="text"
-              placeholder="Buscar notificaciones..."
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              className="w-full pl-9 pr-9 py-2 text-sm bg-[var(--bg)] border border-[var(--border)]/60 rounded-xl text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/40 focus:border-[var(--brand)]/60 transition-all"
-            />
-            {busqueda && (
-              <button
-                onClick={() => setBusqueda("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-lg hover:bg-[var(--border)]/40 text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
-                title="Limpiar búsqueda"
-              >
-                <X size={13} />
-              </button>
-            )}
-          </div>
-
-          {/* Tipo filter */}
-          <div className="relative">
-            <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
-            <select
-              value={tipoFilter}
-              onChange={(e) => setTipoFilter(e.target.value)}
-              className="pl-9 pr-8 py-2 text-sm bg-[var(--bg)] border border-[var(--border)]/60 rounded-xl text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/40 focus:border-[var(--brand)]/60 transition-all appearance-none cursor-pointer"
-            >
-              {TIPO_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
-          </div>
-
-          {/* No leídas toggle */}
-          <button
-            onClick={() => setSoloNoLeidas((prev) => !prev)}
-            className={`flex items-center gap-2 px-3 py-2 text-sm font-semibold rounded-xl border transition-all ${
-              soloNoLeidas
-                ? "bg-[var(--brand)]/10 text-[var(--brand)] border-[var(--brand)]/30 ring-1 ring-[var(--brand)]/20"
-                : "bg-[var(--bg)] text-[var(--text-secondary)] border-[var(--border)]/60 hover:border-[var(--border)] hover:text-[var(--text)]"
-            }`}
-          >
-            <Bell size={14} />
-            Sin leer
-          </button>
-
-          {/* Clear filters */}
-          {hasActiveFilters && (
-            <button
-              onClick={handleClearFilters}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--text)] bg-[var(--bg)] border border-[var(--border)]/60 hover:border-[var(--border)] rounded-xl transition-all"
-            >
-              <Eraser size={14} />
-              Limpiar
-            </button>
-          )}
-
-          {/* Separator */}
-          <div className="hidden sm:block w-px h-6 bg-[var(--border)]/40" />
-
-          {/* Actions */}
-          <div className="flex items-center gap-2">
-            {selectedIds.size > 0 && (
-              <button
-                onClick={handleMarkSelectedRead}
-                disabled={markingSelected}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-[var(--brand)] bg-[var(--brand)]/10 hover:bg-[var(--brand)]/20 rounded-xl border border-[var(--brand)]/30 transition-all"
-              >
-                {markingSelected ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <CheckCheck size={14} />
+        <div className="shrink-0 flex items-end justify-between gap-3 bg-[var(--card)] p-3 rounded-2xl border border-[var(--border)] shadow-sm flex-wrap mb-3">
+          {/* Left: Search & Filter Type */}
+          <div className="flex items-end gap-2.5 flex-1 min-w-[280px]">
+            {/* Search */}
+            <div className="flex flex-col gap-1 flex-1 min-w-[220px]">
+              <label className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+                Búsqueda
+              </label>
+              <div className="relative">
+                <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                <input
+                  type="text"
+                  placeholder="Buscar notificaciones..."
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  className="w-full h-10 pl-9 pr-9 text-xs font-medium bg-[var(--bg)] border border-[var(--border)] rounded-xl text-[var(--text)] placeholder:text-[var(--text-muted)] hover:border-[var(--border-hover)] focus:outline-none focus:border-[var(--brand)] focus:ring-1 focus:ring-[var(--brand)]/30 transition-all shadow-[var(--shadow-sm)]"
+                />
+                {busqueda && (
+                  <button
+                    type="button"
+                    onClick={() => setBusqueda("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md hover:bg-[var(--panel)] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
+                    title="Limpiar búsqueda"
+                  >
+                    <X size={13} />
+                  </button>
                 )}
-                Marcar ({selectedIds.size})
-              </button>
+              </div>
+            </div>
+
+            {/* Tipo Filter (Grouped Radix Dropdown) */}
+            <div className="flex flex-col gap-1 min-w-[190px] max-w-[240px]">
+              <label className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+                Tipo
+              </label>
+              <TipoNotificacionSelect
+                value={tipoFilter}
+                onValueChange={setTipoFilter}
+              />
+            </div>
+
+            {/* Clear Filters button */}
+            {hasActiveFilters && (
+              <div className="flex flex-col gap-1">
+                <span aria-hidden="true" className="h-[14px]" />
+                <button
+                  type="button"
+                  onClick={handleClearFilters}
+                  className="flex items-center gap-1.5 h-10 px-3 text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text)] bg-[var(--bg)] border border-[var(--border)] hover:border-[var(--brand)]/40 hover:bg-[var(--brand)]/10 rounded-xl transition-all shadow-[var(--shadow-sm)] shrink-0"
+                  title="Limpiar todos los filtros"
+                >
+                  <Eraser size={13} className="text-[var(--brand)]" />
+                  <span>Limpiar</span>
+                </button>
+              </div>
             )}
-            <button
-              onClick={handleMarkAllRead}
-              disabled={markingAll || noLeidas === 0}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--text)] bg-[var(--bg)] border border-[var(--border)]/60 hover:border-[var(--border)] rounded-xl disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-            >
-              {markingAll ? (
-                <Loader2 size={14} className="animate-spin" />
+          </div>
+
+          {/* Right: Toggle "Sin leer" & Action "Marcar leído" */}
+          <div className="flex items-end gap-2.5 shrink-0">
+            {/* No leídas toggle */}
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+                Estado
+              </label>
+              <button
+                type="button"
+                onClick={() => setSoloNoLeidas((prev) => !prev)}
+                title={soloNoLeidas ? "Mostrar todas las notificaciones" : "Mostrar solo notificaciones sin leer"}
+                className={`flex items-center gap-2 h-10 px-3.5 text-xs font-bold rounded-xl transition-all shadow-[var(--shadow-sm)] active:scale-[0.98] ${
+                  soloNoLeidas
+                    ? "bg-[#047857] hover:bg-[#065F46] text-white shadow-sm"
+                    : "bg-[var(--bg)] text-[var(--text-secondary)] hover:text-[var(--text)] border border-[var(--border)] hover:border-[var(--border-hover)]"
+                }`}
+              >
+                <Bell size={14} className={soloNoLeidas ? "fill-current" : ""} />
+                <span>Sin leer</span>
+                {noLeidas > 0 && (
+                  <span
+                    className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                      soloNoLeidas
+                        ? "bg-white/20 text-white"
+                        : "bg-[var(--panel)] text-[var(--text-muted)] border border-[var(--border)]"
+                    }`}
+                  >
+                    {noLeidas}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Separator */}
+            <div className="hidden sm:block w-px h-10 bg-[var(--border)]/70 mb-0.5" />
+
+            {/* Unified Action Button */}
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+                Acción
+              </label>
+              {selectedIds.size > 0 ? (
+                <button
+                  type="button"
+                  onClick={handleMarkSelectedRead}
+                  disabled={markingSelected}
+                  title={`Marcar las ${selectedIds.size} notificaciones seleccionadas como leídas`}
+                  className="flex items-center gap-2 h-10 px-3.5 text-xs font-bold text-white bg-[var(--brand)] hover:bg-[var(--brand)]/90 rounded-xl transition-all shadow-[var(--shadow-sm)] active:scale-[0.98]"
+                >
+                  {markingSelected ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <CheckCheck size={14} />
+                  )}
+                  <span>Marcar seleccionadas ({selectedIds.size})</span>
+                </button>
               ) : (
-                <CheckCheck size={14} />
+                <button
+                  type="button"
+                  onClick={handleMarkAllRead}
+                  disabled={markingAll || noLeidas === 0}
+                  title="Marcar todas las notificaciones pendientes como leídas"
+                  className="flex items-center gap-2 h-10 px-3.5 text-xs font-bold text-[var(--text-secondary)] hover:text-[var(--text)] bg-[var(--bg)] hover:bg-[var(--panel)] border border-[var(--border)] hover:border-[var(--border-hover)] rounded-xl disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-[var(--shadow-sm)] active:scale-[0.98]"
+                >
+                  {markingAll ? (
+                    <Loader2 size={14} className="animate-spin text-[var(--brand)]" />
+                  ) : (
+                    <CheckCheck size={14} className={noLeidas > 0 ? "text-[var(--brand)]" : ""} />
+                  )}
+                  <span>Marcar todo leído</span>
+                </button>
               )}
-              Marcar todo leído
-            </button>
+            </div>
           </div>
         </div>
 

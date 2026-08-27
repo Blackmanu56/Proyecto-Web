@@ -134,10 +134,14 @@ export async function crearSolicitudStock(
   }
 }
 
+import { calcularEfectivoFisico } from "@/lib/caja-balance";
+import { calcularSaldoCuentaFinanciera } from "@/lib/cuenta-financiera";
+
 // ─── aprobarSolicitudStock ────────────────────────────────────────────────
 
 export async function aprobarSolicitudStock(
   solicitudId: number,
+  formaPagoOrObservacion?: "EFECTIVO" | "BANCO" | "EFECTIVO_CAJA" | "TRANSFERENCIA_BANCARIA" | string,
   observacion?: string
 ) {
   try {
@@ -146,6 +150,15 @@ export async function aprobarSolicitudStock(
     if (!Number.isInteger(solicitudId) || solicitudId <= 0) {
       throw new Error("El ID de la solicitud debe ser un número entero válido.");
     }
+
+    const isFormaPago =
+      formaPagoOrObservacion === "EFECTIVO" ||
+      formaPagoOrObservacion === "BANCO" ||
+      formaPagoOrObservacion === "EFECTIVO_CAJA" ||
+      formaPagoOrObservacion === "TRANSFERENCIA_BANCARIA";
+
+    const formaPago = isFormaPago ? formaPagoOrObservacion : undefined;
+    const observacionFinal = isFormaPago ? observacion : (formaPagoOrObservacion ?? observacion);
 
     const txResult = await prisma.$transaction(async (tx) => {
       const solicitud = await tx.solicitudStock.findUnique({
@@ -189,7 +202,109 @@ export async function aprobarSolicitudStock(
 
         stockNuevo = stockAnterior - solicitud.cantidad;
       } else {
-        // REPOSICION — increment stock
+        // REPOSICION — registrar egreso financiero y sumar stock
+        const isBanco = formaPago === "BANCO" || formaPago === "TRANSFERENCIA_BANCARIA";
+        const precioUnitario = solicitud.producto.precioCompra ?? 0;
+        const totalEgreso = precioUnitario * solicitud.cantidad;
+        let compraId: number | undefined = undefined;
+
+        if (totalEgreso > 0) {
+          // 1. Validar fondos antes de escribir
+          let cajaAbierta: any = null;
+          let cuentaBanco: any = null;
+
+          if (!isBanco) {
+            cajaAbierta = await tx.caja?.findFirst({
+              where: { estado: "ABIERTA" },
+              include: { movimientos: { select: { tipo: true, monto: true } } },
+            });
+            if (cajaAbierta) {
+              const efectivoDisponible = calcularEfectivoFisico(cajaAbierta.movimientos).efectivoEsperado;
+              if (totalEgreso > efectivoDisponible) {
+                throw new Error(
+                  `Fondos insuficientes en Caja. Disponible: $${efectivoDisponible.toFixed(2)}, Requerido: $${totalEgreso.toFixed(2)}.`
+                );
+              }
+            }
+          } else {
+            cuentaBanco = await tx.cuentaFinanciera?.findFirst({
+              where: { tipo: "BANCO", esPrincipal: true, activa: true },
+              include: { movimientos: { select: { tipo: true, monto: true } } },
+            });
+            if (cuentaBanco) {
+              const saldoBanco = calcularSaldoCuentaFinanciera(cuentaBanco.saldoInicial, cuentaBanco.movimientos).saldoActual;
+              if (totalEgreso > saldoBanco) {
+                throw new Error(
+                  `Fondos insuficientes en Banco. Disponible: $${saldoBanco.toFixed(2)}, Requerido: $${totalEgreso.toFixed(2)}.`
+                );
+              }
+            }
+          }
+
+          // 2. Registrar Compra y PagoCompra para auditoría e informes (solicitante = quien generó la reposición)
+          if (tx.compra?.create && tx.pagoCompra?.create) {
+            try {
+              const compra = await tx.compra.create({
+                data: {
+                  total: totalEgreso,
+                  proveedorId: solicitud.producto.proveedorId,
+                  usuarioId: solicitud.solicitanteId,
+                  origenPago: isBanco ? "TRANSFERENCIA_BANCARIA" : "EFECTIVO_CAJA",
+                  detalles: {
+                    create: {
+                      productoId: solicitud.productoId,
+                      cantidad: solicitud.cantidad,
+                      costoUnitario: precioUnitario,
+                      subtotal: totalEgreso,
+                    },
+                  },
+                },
+              });
+              compraId = compra.id;
+
+              await tx.pagoCompra.create({
+                data: {
+                  compraId: compra.id,
+                  medio: isBanco ? "TRANSFERENCIA_BANCARIA" : "EFECTIVO_CAJA",
+                  monto: totalEgreso,
+                },
+              });
+            } catch (errCompra) {
+              console.error("Error al registrar Compra de reposición:", errCompra);
+            }
+          }
+
+          // 3. Registrar Movimiento de Caja o Banco vinculado a la Compra y al Solicitante
+          if (!isBanco && cajaAbierta) {
+            await tx.movimientoCaja?.create({
+              data: {
+                cajaId: cajaAbierta.id,
+                usuarioId: solicitud.solicitanteId,
+                compraId: compraId ?? null,
+                tipo: "EGRESO",
+                monto: totalEgreso,
+                descripcion: `Reposición de stock: ${solicitud.producto.nombre} (${solicitud.cantidad} u.)`,
+              },
+            });
+            await tx.caja?.update({
+              where: { id: cajaAbierta.id },
+              data: { gastosManuales: { increment: totalEgreso } },
+            });
+          } else if (isBanco && cuentaBanco) {
+            await tx.movimientoFinanciero?.create({
+              data: {
+                cuentaFinancieraId: cuentaBanco.id,
+                tipo: "EGRESO",
+                monto: totalEgreso,
+                descripcion: `Reposición de stock: ${solicitud.producto.nombre} (${solicitud.cantidad} u.)`,
+                usuarioId: solicitud.solicitanteId,
+                compraId: compraId ?? null,
+              },
+            });
+          }
+        }
+
+        // Increment stock
         await tx.producto.update({
           where: { id: solicitud.productoId },
           data: { cantidad: { increment: solicitud.cantidad } },
@@ -205,8 +320,8 @@ export async function aprobarSolicitudStock(
         cantidadAnterior: stockAnterior,
         cantidadNueva: stockNuevo,
         motivo: `Solicitud de ${solicitud.tipo === "RESTA" ? "resta" : "reposición"} #${solicitud.id} aprobada`,
-        observacion: observacion ?? undefined,
-        usuarioId: session.userId,
+        observacion: observacionFinal ?? undefined,
+        usuarioId: solicitud.solicitanteId,
       });
 
       // Update solicitud status
@@ -215,34 +330,43 @@ export async function aprobarSolicitudStock(
         data: {
           estado: "APROBADA",
           resueltoPorId: session.userId,
-          observacionResolucion: observacion ?? null,
+          observacionResolucion: observacionFinal ?? null,
           resolvedAt: new Date(),
         },
       });
 
       // Notify the solicitante (respetando preferencias)
-      const prefAprobada = await prisma.preferenciaNotificacion.findUnique({
-        where: { usuarioId_tipo: { usuarioId: solicitud.solicitanteId, tipo: "SOLICITUD_APROBADA" } },
-      });
-      if (prefAprobada?.habilitada !== false) {
-        await tx.notificacion.create({
-          data: {
-            usuarioId: solicitud.solicitanteId,
-            tipo: "SOLICITUD_APROBADA",
-            titulo: "Solicitud de stock aprobada",
-            mensaje: `Tu solicitud de ${solicitud.tipo === "RESTA" ? "resta" : "reposición"} de ${solicitud.cantidad} unidades de '${solicitud.producto.nombre}' fue aprobada. Stock: ${stockAnterior} → ${stockNuevo}.`,
-            solicitudStockId: solicitud.id,
-            productoId: solicitud.productoId,
-            entidad: "solicitud_stock",
-          },
-        });
+      if (prisma?.preferenciaNotificacion?.findUnique && tx?.notificacion?.create) {
+        try {
+          const prefAprobada = await prisma.preferenciaNotificacion.findUnique({
+            where: { usuarioId_tipo: { usuarioId: solicitud.solicitanteId, tipo: "SOLICITUD_APROBADA" } },
+          });
+          if (prefAprobada?.habilitada !== false) {
+            await tx.notificacion.create({
+              data: {
+                usuarioId: solicitud.solicitanteId,
+                tipo: "SOLICITUD_APROBADA",
+                titulo: "Solicitud de stock aprobada",
+                mensaje: `Tu solicitud de ${solicitud.tipo === "RESTA" ? "resta" : "reposición"} de ${solicitud.cantidad} unidades de '${solicitud.producto.nombre}' fue aprobada. Stock: ${stockAnterior} → ${stockNuevo}.`,
+                solicitudStockId: solicitud.id,
+                productoId: solicitud.productoId,
+                entidad: "solicitud_stock",
+              },
+            });
+          }
+        } catch (notifErr) {
+          console.error("Error al notificar aprobación:", notifErr);
+        }
       }
 
       return { stockAnterior, stockNuevo, productoId: solicitud.productoId, tipo: solicitud.tipo, usuarioId: solicitud.solicitanteId, username: session.username };
     });
 
     revalidatePath("/productos");
+    revalidatePath("/solicitudes");
     revalidatePath("/solicitudes-stock");
+    revalidatePath("/caja");
+    revalidatePath("/dashboard");
 
     // Evaluar stock y crear notificaciones de stock (fuera de la transacción)
     await evaluarYNotificarStock({
@@ -545,6 +669,7 @@ export async function marcarNotificacionLeida(notificacionId: number) {
       throw new Error("Notificación no encontrada o no pertenece al usuario.");
     }
 
+    revalidatePath("/notificaciones");
     return { success: true };
   } catch (error: unknown) {
     console.error("Error en marcarNotificacionLeida:", error);
@@ -590,6 +715,7 @@ export async function marcarTodasLeidas() {
       data: { leida: true, readAt: new Date() },
     });
 
+    revalidatePath("/notificaciones");
     return { success: true };
   } catch (error: unknown) {
     console.error("Error en marcarTodasLeidas:", error);
@@ -749,6 +875,7 @@ const TIPOS_NOTIFICACION = [
   "STOCK_AGOTADO",
   "STOCK_RESTADO",
   "STOCK_RECARGADO",
+  "VENTA_CREADA",
 ] as const;
 
 export async function getPreferenciasNotificacion() {

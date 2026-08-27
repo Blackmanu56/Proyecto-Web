@@ -50,6 +50,19 @@ interface SolicitudUnificada {
   motivo?: string | null;
   proveedorNombre?: string | null;
   origenTabla?: "solicitud_stock" | "solicitud_reposicion" | "solicitud_caja";
+  producto?: {
+    id: number;
+    nombre: string;
+    codigo?: string | null;
+    imagen?: string | null;
+    marca?: string | null;
+    precioCompra: number;
+    precioVenta: number;
+    cantidad: number;
+    activo: boolean;
+    categoria?: { id: number; nombre: string };
+    proveedor?: { id: number; nombre: string };
+  };
 }
 
 interface SolicitudesTableProps {
@@ -742,6 +755,15 @@ export default function SolicitudesTable({
   const handleQuickApprove = (e: React.MouseEvent, sol: SolicitudUnificada) => {
     e.stopPropagation();
     if (!sol.origenTabla) return;
+    if (
+      sol.tipo === "Producto-Reposición" ||
+      sol.origenTabla === "solicitud_reposicion" ||
+      (sol.origen === "PRODUCTOS" && sol.tipo !== "Producto-Resta")
+    ) {
+      // Reposición requiere definir forma de pago y verificar precio de compra
+      handleVer(sol);
+      return;
+    }
     setActionPendingId(sol.id);
     startActionTransition(async () => {
       try {
@@ -882,10 +904,13 @@ export default function SolicitudesTable({
     motivo: sol.detalle,
     estado: sol.estado,
     createdAt: sol.fecha,
-    producto: {
+    producto: sol.producto ?? {
       id: 0,
       nombre: sol.productoNombre ?? "—",
       cantidad: sol.cantidad ?? 0,
+      precioCompra: 0,
+      precioVenta: 0,
+      activo: true,
     },
     solicitante: { id: sol.solicitanteId, nombreCompleto: sol.solicitanteNombre },
     origenTabla: sol.origenTabla,
@@ -1086,35 +1111,15 @@ export default function SolicitudesTable({
                   <td className="px-4 py-3.5">
                     {sol.productoNombre ? (
                       <div className="min-w-0 max-w-[280px]">
-                        <div className="flex items-center gap-1.5 font-semibold text-[var(--text)] text-xs truncate">
-                          <span className="truncate">{sol.productoNombre}</span>
-                          {sol.cantidad != null && (
-                            <span className="shrink-0 px-1.5 py-0.2 rounded text-[10px] font-black bg-[var(--panel)] border border-[var(--border)] text-[var(--text-secondary)]">
-                              x{sol.cantidad}
-                            </span>
-                          )}
-                        </div>
-                        {sol.proveedorNombre && (
-                          <span className="text-[11px] text-[var(--text-muted)] block truncate">
-                            Proveedor: {sol.proveedorNombre}
-                          </span>
-                        )}
-                        {sol.detalle && (
-                          <span className="text-[11px] text-[var(--text-secondary)] block truncate">
-                            {sol.detalle}
-                          </span>
-                        )}
+                        <span className="font-semibold text-[var(--text)] text-xs truncate block" title={sol.productoNombre}>
+                          {sol.productoNombre}
+                        </span>
                       </div>
                     ) : (
                       <div className="min-w-0 max-w-[280px]">
-                        <span className="text-xs font-semibold text-[var(--text)] block truncate">
+                        <span className="text-xs font-semibold text-[var(--text)] block truncate" title={sol.detalle}>
                           {sol.detalle || "—"}
                         </span>
-                        {sol.monto != null && (
-                          <span className="text-[11px] font-bold text-[#A78BFA] block">
-                            Monto: ${sol.monto.toLocaleString("es-AR")}
-                          </span>
-                        )}
                       </div>
                     )}
                   </td>

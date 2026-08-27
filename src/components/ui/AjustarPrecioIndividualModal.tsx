@@ -52,6 +52,9 @@ interface AjustarPrecioIndividualModalProps {
   onOpenChange: (open: boolean) => void;
   producto: ProductData;
   onSuccess: () => void;
+  onPriceUpdated?: (newPrecioCompra: number, newPrecioVenta: number) => void;
+  initialAjustarCompra?: boolean;
+  initialAjustarVenta?: boolean;
 }
 
 const QUICK_PERCENTAGES = [5, 10, 15, 20, 25, -5, -10];
@@ -69,12 +72,23 @@ export default function AjustarPrecioIndividualModal({
   onOpenChange,
   producto,
   onSuccess,
+  onPriceUpdated,
+  initialAjustarCompra,
+  initialAjustarVenta,
 }: AjustarPrecioIndividualModalProps) {
   const [isPending, startTransition] = useTransition();
 
   // Toggles
-  const [ajustarCompra, setAjustarCompra] = useState(false);
-  const [ajustarVenta, setAjustarVenta] = useState(true);
+  const [ajustarCompra, setAjustarCompra] = useState(initialAjustarCompra ?? false);
+  const [ajustarVenta, setAjustarVenta] = useState(initialAjustarVenta ?? true);
+
+  // Sync with initial values when modal opens
+  React.useEffect(() => {
+    if (open) {
+      setAjustarCompra(initialAjustarCompra ?? false);
+      setAjustarVenta(initialAjustarVenta ?? true);
+    }
+  }, [open, initialAjustarCompra, initialAjustarVenta]);
 
   // Compra state
   const [metodoCompra, setMetodoCompra] = useState<TipoAjustePrecio>("PORCENTAJE");
@@ -93,8 +107,8 @@ export default function AjustarPrecioIndividualModal({
 
   /* ── Reset Form ── */
   const resetForm = () => {
-    setAjustarCompra(false);
-    setAjustarVenta(true);
+    setAjustarCompra(initialAjustarCompra ?? false);
+    setAjustarVenta(initialAjustarVenta ?? true);
     setMetodoCompra("PORCENTAJE");
     setValorCompra("");
     setMetodoVenta("PORCENTAJE");
@@ -176,6 +190,7 @@ export default function AjustarPrecioIndividualModal({
         }
 
         toast.success(`Precios actualizados para ${producto.nombre}`);
+        onPriceUpdated?.(nuevoPrecioCompra, nuevoPrecioVenta);
         onSuccess();
         handleClose();
       } catch (err: unknown) {

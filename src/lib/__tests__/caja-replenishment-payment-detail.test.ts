@@ -85,36 +85,25 @@ describe("Caja replenishment payment detail contract", () => {
   });
 
   it.each([undefined, []])(
-    "does not render payment distribution for historical pagos=%j",
+    "renders replenishment detail with single line payment confirmation for pagos=%j",
     (pagos) => {
       const html = renderReplenishmentDetail(pagos);
 
       expect(html).toContain("Detalle de la Reposición");
       expect(html).toContain("Batería AGM");
       expect(html).toContain("Repuestos Alemania");
-      expect(html).not.toContain("Distribución de pago");
+      expect(html).toContain("Forma de pago");
     }
   );
 
-  it("renders derived labels, amounts, external origin, total and cash impact", () => {
+  it("renders single-line confirmation with payment method and amount", () => {
     const html = renderReplenishmentDetail([
-      { id: 1, medio: "EFECTIVO_CAJA", monto: 100_000 },
-      { id: 2, medio: "TRANSFERENCIA_BANCARIA", monto: 100_000 },
-      {
-        id: 3,
-        medio: "FONDOS_EXTERNOS",
-        monto: 47_200,
-        observacion: "Aporte del propietario",
-      },
+      { id: 1, medio: "TRANSFERENCIA_BANCARIA", monto: 247_200 },
     ]);
 
-    expect(html).toContain("Efectivo de Caja");
-    expect(html).toContain("Transferencia");
-    expect(html).toContain("Fondos Externos");
-    expect(html).toContain("Origen: Aporte del propietario");
+    expect(html).toContain("Forma de pago");
+    expect(html).toContain("Transferencia / Banco");
     expect(html).toContain("247.200,00");
-    expect(html).toContain("100.000,00");
-    expect(html).toContain("Afectó Caja");
   });
 
   it.each([
@@ -141,7 +130,7 @@ describe("Caja replenishment payment detail contract", () => {
     expect(getTopAmountLabel(renderNonReplenishmentDetail())).toBe("Monto");
   });
 
-  it("keeps the original product/provider/total detail before the additive block", () => {
+  it("keeps the original product/provider/total detail before the payment confirmation line", () => {
     const html = renderReplenishmentDetail([
       { id: 1, medio: "TRANSFERENCIA_BANCARIA", monto: 247_200 },
     ]);
@@ -149,14 +138,14 @@ describe("Caja replenishment payment detail contract", () => {
     const productIndex = html.indexOf("Batería AGM", originalIndex);
     const providerIndex = html.indexOf("Repuestos Alemania", originalIndex);
     const totalIndex = html.indexOf("Importe total", originalIndex);
-    const distributionIndex = html.indexOf("Distribución de pago");
+    const paymentLineIndex = html.indexOf("Forma de pago");
 
     expect(originalIndex).toBeGreaterThan(-1);
     expect(productIndex).toBeGreaterThan(originalIndex);
     expect(providerIndex).toBeGreaterThan(originalIndex);
     expect(totalIndex).toBeGreaterThan(originalIndex);
-    expect(distributionIndex).toBeGreaterThan(productIndex);
-    expect(distributionIndex).toBeGreaterThan(providerIndex);
-    expect(distributionIndex).toBeGreaterThan(totalIndex);
+    expect(paymentLineIndex).toBeGreaterThan(productIndex);
+    expect(paymentLineIndex).toBeGreaterThan(providerIndex);
+    expect(paymentLineIndex).toBeGreaterThan(totalIndex);
   });
 });

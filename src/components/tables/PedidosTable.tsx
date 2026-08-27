@@ -500,8 +500,13 @@ export default function PedidosTable({
             imagen: selectedProduct.imagen,
             cantidad: selectedProduct.cantidad,
             precioCompra: selectedProduct.precioCompra,
+            precioVenta: selectedProduct.precioVenta,
+            codigo: selectedProduct.codigo,
+            marca: selectedProduct.marca,
             proveedorId: selectedProduct.proveedor.id,
             proveedorNombre: selectedProduct.proveedor.nombre,
+            categoria: selectedProduct.categoria,
+            proveedor: selectedProduct.proveedor,
           }}
           onSuccess={handleModalSuccess}
           canApprove={canApprove}
