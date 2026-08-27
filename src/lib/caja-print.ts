@@ -3,7 +3,7 @@ import type {
   MovimientoEnriched,
   MovimientoVenta,
 } from "@/lib/caja-filters";
-import { getConcepto } from "@/lib/caja-filters";
+import { getConcepto, getMetodoPago } from "@/lib/caja-filters";
 import {
   formatMovimientoDescripcion,
   formatTipoComprobante,
@@ -18,6 +18,7 @@ const LABELS_PAGO: Record<string, string> = {
   EFECTIVO_CAJA: "Efectivo",
   TRANSFERENCIA: "Transferencia",
   TRANSFERENCIA_BANCARIA: "Transferencia",
+  BANCO: "Banco",
   TARJETA_DEBITO: "Débito",
   TARJETA_CREDITO: "Crédito",
   CUENTA_CORRIENTE_PROVEEDOR: "Cta. Cte.",
@@ -36,7 +37,11 @@ function obtenerPago(mov: MovimientoEnriched): string {
   const descripcion = mov.descripcion.toLowerCase().trim();
   const concepto = getConcepto(mov);
 
-  if (concepto === "APERTURA" || descripcion.includes("cierre") || concepto === "AJUSTE") {
+  if (descripcion.includes("acreditación") || descripcion.includes("acreditacion")) {
+    return "Banco";
+  }
+
+  if (concepto === "APERTURA" || descripcion.includes("cierre") || (concepto === "AJUSTE" && !descripcion.includes("acreditac"))) {
     return "—";
   }
 
@@ -45,7 +50,18 @@ function obtenerPago(mov: MovimientoEnriched): string {
   const pagos = mov.compra?.pagos ?? [];
   if (pagos.length > 1) return "Mixto";
   if (pagos.length === 1) return labelPago(pagos[0].medio);
-  if (concepto === "GASTO") return "Efectivo";
+  if (mov.compra?.origenPago) return labelPago(mov.compra.origenPago);
+
+  if (concepto === "REPOSICION") {
+    const mp = getMetodoPago(mov);
+    return mp === "BANCO" ? "Transferencia" : "Efectivo";
+  }
+
+  if (concepto === "GASTO") {
+    const mp = getMetodoPago(mov);
+    return mp === "BANCO" ? "Transferencia" : "Efectivo";
+  }
+
   return "—";
 }
 
@@ -77,8 +93,13 @@ export interface MovimientoFinancieroImpresion {
 }
 
 function claveOperacion(
-  mov: Pick<MovimientoEnriched, "id" | "ventaId" | "venta" | "compraId" | "compra">
+  mov: Pick<MovimientoEnriched, "id" | "ventaId" | "venta" | "compraId" | "compra" | "descripcion">
 ): string {
+  const desc = (mov.descripcion || "").toLowerCase();
+  if (desc.includes("acreditación") || desc.includes("acreditacion")) {
+    return `acreditacion:${mov.id}`;
+  }
+
   const ventaId = mov.ventaId ?? mov.venta?.id;
   if (ventaId != null) return `venta:${ventaId}`;
 
@@ -130,6 +151,11 @@ function impactoParaImpresion(mov: MovimientoEnriched): ImpactoFinanciero {
 }
 
 export function construirDescripcionImpresion(mov: MovimientoEnriched): string {
+  const desc = (mov.descripcion || "").toLowerCase();
+  if (desc.includes("acreditación") || desc.includes("acreditacion")) {
+    return formatMovimientoDescripcion(mov.descripcion);
+  }
+
   if (mov.venta) {
     const tipo = mov.venta.tipoComprobante
       ? formatTipoComprobante(mov.venta.tipoComprobante)

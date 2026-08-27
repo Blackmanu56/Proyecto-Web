@@ -124,14 +124,14 @@ export default function Navbar({ user }: NavbarProps) {
                     href={item.path}
                     className={`relative flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all duration-200 ${
                       isActive
-                        ? "bg-[var(--brand)]/10 text-white border border-[var(--brand)]/20 shadow-[0_0_14px_rgba(214,40,40,0.15)] font-bold"
+                        ? "bg-[rgba(214,40,40,0.12)] text-white border border-[rgba(214,40,40,0.30)] shadow-[0_0_14px_rgba(214,40,40,0.20)] font-bold"
                         : "text-[var(--text-secondary)] hover:text-white hover:bg-[var(--card)]/60 border border-transparent"
                     }`}
                   >
                     <Icon size={15} className={`shrink-0 transition-all duration-200 ${isActive ? "scale-110" : "group-hover:brightness-125"}`} />
                     <span>{item.name}</span>
                     {isActive && (
-                      <span className="absolute bottom-[-14px] left-1/2 -translate-x-1/2 w-7 h-[2px] bg-gradient-to-r from-transparent via-[var(--brand)] to-transparent rounded-full" />
+                      <span className="absolute bottom-[-14px] left-1/2 -translate-x-1/2 w-8 h-[2px] bg-gradient-to-r from-transparent via-[#d62828] to-transparent rounded-full shadow-[0_0_8px_rgba(214,40,40,0.8)]" />
                     )}
                   </Link>
                 );
@@ -150,14 +150,14 @@ export default function Navbar({ user }: NavbarProps) {
                   href={item.path}
                   className={`relative flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all duration-200 ${
                     isActive
-                      ? "bg-[var(--brand)]/10 text-white border border-[var(--brand)]/20 shadow-[0_0_14px_rgba(214,40,40,0.15)] font-bold"
+                      ? "bg-[rgba(214,40,40,0.12)] text-white border border-[rgba(214,40,40,0.30)] shadow-[0_0_14px_rgba(214,40,40,0.20)] font-bold"
                       : "text-[var(--text-secondary)] hover:text-white hover:bg-[var(--card)]/60 border border-transparent"
                   }`}
                 >
                   <Icon size={15} className={`shrink-0 transition-all duration-200 ${isActive ? "scale-110" : "group-hover:brightness-125"}`} />
                   <span>{item.name}</span>
                   {isActive && (
-                    <span className="absolute bottom-[-14px] left-1/2 -translate-x-1/2 w-7 h-[2px] bg-gradient-to-r from-transparent via-[var(--brand)] to-transparent rounded-full" />
+                    <span className="absolute bottom-[-14px] left-1/2 -translate-x-1/2 w-8 h-[2px] bg-gradient-to-r from-transparent via-[#d62828] to-transparent rounded-full shadow-[0_0_8px_rgba(214,40,40,0.8)]" />
                   )}
                 </Link>
               );

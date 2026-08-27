@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import MovimientoDetalleModal from "@/components/ui/MovimientoDetalleModal";
+import MovimientosPorAcreditarModal, { type MovimientoPorAcreditarItem } from "@/components/ui/MovimientosPorAcreditarModal";
 import { TableShell } from "@/components/ui/table-shell";
 import { ToolbarSelect, type ToolbarSelectTone } from "@/components/ui/toolbar-select";
 import {
@@ -62,6 +63,7 @@ import {
   Download,
   Filter,
   FolderOpen,
+  Info,
   Landmark,
   ListFilter,
   Lock,
@@ -78,6 +80,7 @@ import {
   Unlock,
   User,
   UserRound,
+  Wallet,
   Waves,
   X,
   XCircle
@@ -107,38 +110,83 @@ function renderPagoBadge(medio: string) {
     return <span className="text-[var(--text-secondary)] opacity-50">{"\u2014"}</span>;
   }
 
-  let style = "";
+  let colorStyle = "border-[#2B303B] bg-[#14161C]/60 text-[#94A3B8]";
   switch (medio) {
     case "Efectivo":
-      style = "bg-[#22C55E]/10 text-[#22C55E] border-[#22C55E]/20";
+      colorStyle = "border-blue-500/30 bg-blue-500/10 text-blue-400";
       break;
     case "Transferencia":
-    case "Débito":
-    case "Crédito":
-    case "Mercado Pago":
-      style = "bg-[#3B82F6]/10 text-[#3B82F6] border-[#3B82F6]/20";
+    case "Banco":
+      colorStyle = "border-sky-500/30 bg-sky-500/10 text-sky-400";
       break;
-    case "Mixto":
-      style = "bg-[#A855F7]/10 text-[#A855F7] border-[#A855F7]/20";
+    case "Débito":
+    case "Tarjeta de Débito":
+      colorStyle = "border-cyan-500/30 bg-cyan-500/10 text-cyan-400";
+      break;
+    case "Crédito":
+    case "Tarjeta de Crédito":
+      colorStyle = "border-purple-500/30 bg-purple-500/10 text-purple-400";
+      break;
+    case "Mercado Pago":
+      colorStyle = "border-sky-500/30 bg-sky-500/10 text-sky-400";
       break;
     case "Cta. Cte.":
-      style = "bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/20";
+      colorStyle = "border-amber-500/30 bg-amber-500/10 text-amber-400";
       break;
     case "Fondos externos":
-      style = "bg-[#6366F1]/10 text-[#6366F1] border-[#6366F1]/20";
+      colorStyle = "border-indigo-500/30 bg-indigo-500/10 text-indigo-400";
       break;
-    default:
-      style = "bg-card text-text-muted border-border";
+    case "Mixto":
+      colorStyle = "border-violet-500/30 bg-violet-500/10 text-violet-400";
+      break;
   }
 
   return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${style} whitespace-nowrap`}>
+    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium border ${colorStyle} whitespace-nowrap`}>
       {medio}
     </span>
   );
 }
 
+function renderTipoBadge(label: string) {
+  let colorStyle = "border-slate-500/30 bg-slate-500/10 text-slate-400";
+  const displayLabel = label === "EGRESO" || label === "GASTO" ? "GASTO" : label;
+  switch (displayLabel) {
+    case "VENTA":
+      colorStyle = "border-blue-500/30 bg-blue-500/10 text-blue-400";
+      break;
+    case "REPOSICIÓN":
+      colorStyle = "border-amber-500/30 bg-amber-500/10 text-amber-400";
+      break;
+    case "GASTO":
+      colorStyle = "border-orange-500/30 bg-orange-500/10 text-orange-400";
+      break;
+    case "ACREDITACIÓN":
+      colorStyle = "border-purple-500/30 bg-purple-500/10 text-purple-400";
+      break;
+    case "APERTURA":
+      colorStyle = "border-indigo-500/30 bg-indigo-500/10 text-indigo-400";
+      break;
+    case "AJUSTE":
+      colorStyle = "border-cyan-500/30 bg-cyan-500/10 text-cyan-400";
+      break;
+    case "CIERRE":
+      colorStyle = "border-slate-500/30 bg-slate-500/10 text-slate-400";
+      break;
+  }
+
+  return (
+    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold border ${colorStyle} whitespace-nowrap`}>
+      {displayLabel}
+    </span>
+  );
+}
+
 function getVentaDescripcionClean(mov: MovimientoInput): string {
+  const desc = (mov.descripcion ?? "").toLowerCase();
+  if (desc.includes("acreditación") || desc.includes("acreditacion")) {
+    return formatMovimientoDescripcion(mov.descripcion ?? "");
+  }
   if (mov.venta) {
     const tipo = mov.venta.tipoComprobante ? formatTipoComprobante(mov.venta.tipoComprobante) : "Comprobante";
     return `${tipo} N° ${mov.venta.id}`;
@@ -155,10 +203,10 @@ const cajaSelectBase = {
   chevron: "text-[#7890B2]",
 };
 
-const cajaSelectToneNaturaleza: ToolbarSelectTone = {
+const cajaSelectToneMetodoPago: ToolbarSelectTone = {
   ...cajaSelectBase,
-  trigger: `${cajaSelectBase.trigger} focus-visible:border-[#D62828] focus-visible:ring-[rgba(214,40,40,0.15)] data-[state=open]:border-[#D62828] data-[state=open]:ring-[rgba(214,40,40,0.15)]`,
-  icon: "bg-[rgba(214,40,40,0.12)] text-[#EF4444] ring-white/5",
+  trigger: `${cajaSelectBase.trigger} focus-visible:border-[#38BDF8] focus-visible:ring-[rgba(56,189,248,0.15)] data-[state=open]:border-[#38BDF8] data-[state=open]:ring-[rgba(56,189,248,0.15)]`,
+  icon: "bg-[rgba(56,189,248,0.12)] text-[#38BDF8] ring-white/5",
 };
 
 const cajaSelectToneConcepto: ToolbarSelectTone = {
@@ -255,6 +303,7 @@ interface CajaTerminalProps {
     saldo: number;
   };
   movimientosBanco?: MovimientoFinancieroImpresion[];
+  movimientosPorAcreditar?: MovimientoPorAcreditarItem[];
   cajaPendiente?: {
     id: number;
     montoInicial: number;
@@ -292,6 +341,7 @@ export default function CajaTerminal({
   saldosFinancieros,
   resumenBancoPeriodo,
   movimientosBanco = [],
+  movimientosPorAcreditar = [],
   cajaPendiente = null,
   solicitudesPendientes = [],
   solicitudesUsuario = [],
@@ -309,6 +359,7 @@ export default function CajaTerminal({
   const [showCerrarModal, setShowCerrarModal] = useState(false);
   const [showAjustarBancoModal, setShowAjustarBancoModal] = useState(false);
   const [showAjustarEfectivoModal, setShowAjustarEfectivoModal] = useState(false);
+  const [showPorAcreditarModal, setShowPorAcreditarModal] = useState(false);
   const [showGastoModal, setShowGastoModal] = useState(false);
   const [ajusteBancoErrorMsg, setAjusteBancoErrorMsg] = useState("");
   const [ajusteEfectivoErrorMsg, setAjusteEfectivoErrorMsg] = useState("");
@@ -318,7 +369,7 @@ export default function CajaTerminal({
   const [errorMsg, setErrorMsg] = useState("");
   const [cierreErrorMsg, setCierreErrorMsg] = useState("");
 
-  const [filtroNaturaleza, setFiltroNaturaleza] = useState("");
+  const [filtroMetodoPago, setFiltroMetodoPago] = useState("");
   const [filtroConcepto, setFiltroConcepto] = useState("");
   const [filtroUsuario, setFiltroUsuario] = useState("");
   const [filtroBusqueda, setFiltroBusqueda] = useState("");
@@ -335,7 +386,7 @@ export default function CajaTerminal({
       if (!Number.isNaN(vId)) {
         startTransition(() => {
           setHighlightedVentaId(vId);
-          setFiltroNaturaleza("");
+          setFiltroMetodoPago("");
           setFiltroConcepto("");
           setFiltroUsuario("");
           setFiltroBusqueda("");
@@ -346,7 +397,7 @@ export default function CajaTerminal({
       if (!Number.isNaN(mId)) {
         startTransition(() => {
           setHighlightedMovId(mId);
-          setFiltroNaturaleza("");
+          setFiltroMetodoPago("");
           setFiltroConcepto("");
           setFiltroUsuario("");
           setFiltroBusqueda("");
@@ -389,8 +440,10 @@ export default function CajaTerminal({
   const duracionMinutos = duracionMins % 60;
   const duracionDias = Math.floor(duracionHoras / 24);
   const duracionStr = duracionDias > 0
-    ? `${duracionDias} día${duracionDias > 1 ? "s" : ""}`
-    : `${String(duracionHoras).padStart(2, "0")}h ${String(duracionMinutos).padStart(2, "0")}m`;
+    ? `${duracionDias}d ${duracionHoras % 24}h`
+    : duracionHoras > 0
+      ? `${duracionHoras}h ${duracionMinutos}m`
+      : `${duracionMinutos}m`;
   const aperturaDesdeStr = fechaApertura
     ? `Abierta desde el ${formatDateShort(fechaApertura)} a las ${formatTime24(fechaApertura)}`
     : "";
@@ -589,12 +642,12 @@ export default function CajaTerminal({
   const movimientosFiltrados = useMemo(
     () =>
       filtrarMovimientos(movimientosConSaldo, {
-        naturaleza: filtroNaturaleza,
+        metodoPago: filtroMetodoPago,
         concepto: filtroConcepto,
         usuario: filtroUsuario,
         busqueda: filtroBusqueda,
       }),
-    [movimientosConSaldo, filtroNaturaleza, filtroConcepto, filtroUsuario, filtroBusqueda]
+    [movimientosConSaldo, filtroMetodoPago, filtroConcepto, filtroUsuario, filtroBusqueda]
   );
 
   const movimientosLibroDiario = useMemo(
@@ -609,22 +662,22 @@ export default function CajaTerminal({
 
   const movimientosLibroDiarioFiltrados = useMemo(
     () => filtrarMovimientos(movimientosLibroDiario, {
-      naturaleza: filtroNaturaleza,
+      metodoPago: filtroMetodoPago,
       concepto: filtroConcepto,
       usuario: filtroUsuario,
       busqueda: filtroBusqueda,
     }),
-    [movimientosLibroDiario, filtroNaturaleza, filtroConcepto, filtroUsuario, filtroBusqueda]
+    [movimientosLibroDiario, filtroMetodoPago, filtroConcepto, filtroUsuario, filtroBusqueda]
   );
 
   const movimientosImpresion = movimientosLibroDiario;
   const movimientosImpresionFiltrados = movimientosLibroDiarioFiltrados;
 
-  const filtrosActivos = [filtroNaturaleza, filtroConcepto, filtroUsuario, filtroBusqueda].filter(Boolean);
+  const filtrosActivos = [filtroMetodoPago, filtroConcepto, filtroUsuario, filtroBusqueda].filter(Boolean);
   const hayFiltrosActivos = filtrosActivos.length > 0;
 
   const limpiarFiltros = () => {
-    setFiltroNaturaleza("");
+    setFiltroMetodoPago("");
     setFiltroConcepto("");
     setFiltroUsuario("");
     setFiltroBusqueda("");
@@ -692,6 +745,10 @@ export default function CajaTerminal({
     return total + fila.ingresoPorAcreditar - fila.egresoPorAcreditar;
   }, 0);
 
+  const saldoRealCaja = saldosFinancieros?.efectivoFisico ?? saldoFinalTurno;
+  const saldoRealBanco = resumenBancoPeriodo?.saldo ?? (saldosFinancieros?.banco ?? 0);
+  const saldoRealPorAcreditar = saldosFinancieros?.porAcreditar ?? porAcreditarTurno;
+
   const resumenInferior = hayFiltrosActivos
     ? {
         movimientos: movimientosFiltrados.length,
@@ -701,15 +758,12 @@ export default function CajaTerminal({
         cajaInicial: cajaActiva?.montoInicial ?? 0,
         cajaIngresos: flujosFiltrado.ingresosCaja,
         cajaEgresos: flujosFiltrado.egresosCaja,
-        cajaSaldo: saldoFinalFiltrado,
+        cajaSaldo: saldoRealCaja,
         bancoInicial: resumenBancoPeriodo?.inicial ?? 0,
         bancoIngresos: flujosFiltrado.ingresosBanco,
         bancoEgresos: flujosFiltrado.egresosBanco,
-        bancoSaldo:
-          (resumenBancoPeriodo?.inicial ?? 0) +
-          flujosFiltrado.ingresosBanco -
-          flujosFiltrado.egresosBanco,
-        porAcreditar: porAcreditarFiltrado,
+        bancoSaldo: saldoRealBanco,
+        porAcreditar: saldoRealPorAcreditar,
       }
     : {
         movimientos: movimientosConSaldo.length,
@@ -724,7 +778,7 @@ export default function CajaTerminal({
         bancoIngresos: resumenBancoPeriodo?.ingresos ?? flujosTurno.ingresosBanco,
         bancoEgresos: resumenBancoPeriodo?.egresos ?? flujosTurno.egresosBanco,
         bancoSaldo: resumenBancoPeriodo?.saldo ?? 0,
-        porAcreditar: saldosFinancieros?.porAcreditar ?? porAcreditarTurno,
+        porAcreditar: saldoRealPorAcreditar,
       };
   const totalDisponibleResumen = resumenInferior.cajaSaldo + resumenInferior.bancoSaldo;
 
@@ -770,7 +824,7 @@ export default function CajaTerminal({
     if (hayFiltrosActivos) {
       lines.push("Filtros aplicados");
       if (filtroUsuario) lines.push(`Usuario: @${filtroUsuario}`);
-      if (filtroNaturaleza) lines.push(`Naturaleza: ${filtroNaturaleza}`);
+      if (filtroMetodoPago) lines.push(`Método de pago: ${filtroMetodoPago}`);
       if (filtroConcepto) lines.push(`Concepto: ${filtroConcepto}`);
       if (filtroBusqueda) lines.push(`Búsqueda: "${filtroBusqueda}"`);
       lines.push("");
@@ -1039,6 +1093,7 @@ export default function CajaTerminal({
                   <Button
                     variant="outline"
                     size="sm"
+                    className="border-[#2B303B] bg-[#14161C] hover:bg-[#1E2129] hover:border-[#3A414F] text-[#38bdf8] hover:text-[#7dd3fc] font-medium shadow-sm rounded-lg transition-all active:scale-[0.98]"
                     onClick={() => {
                       setErrorMsg("");
                       setShowGastoModal(true);
@@ -1053,6 +1108,7 @@ export default function CajaTerminal({
                   <Button
                     variant="outline"
                     size="sm"
+                    className="border-[#2B303B] bg-[#14161C] hover:bg-[#1E2129] hover:border-[#3A414F] text-[#38bdf8] hover:text-[#7dd3fc] font-medium shadow-sm rounded-lg transition-all active:scale-[0.98]"
                     onClick={() => {
                       setAjusteBancoErrorMsg("");
                       setShowAjustarBancoModal(true);
@@ -1066,6 +1122,7 @@ export default function CajaTerminal({
                   <Button
                     variant="outline"
                     size="sm"
+                    className="border-[#2B303B] bg-[#14161C] hover:bg-[#1E2129] hover:border-[#3A414F] text-[#38bdf8] hover:text-[#7dd3fc] font-medium shadow-sm rounded-lg transition-all active:scale-[0.98]"
                     onClick={() => {
                       setAjusteEfectivoErrorMsg("");
                       setShowAjustarEfectivoModal(true);
@@ -1075,8 +1132,24 @@ export default function CajaTerminal({
                     Ajustar Efectivo
                   </Button>
                 )}
-                <Button variant="outline" size="sm" onClick={handlePrint} leftIcon={<Printer size={14} />}>Imprimir</Button>
-                <Button variant="outline" size="sm" onClick={handleExportCSV} leftIcon={<Download size={14} />}>CSV</Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-[#2B303B] bg-[#14161C] hover:bg-[#1E2129] hover:border-[#3A414F] text-[#38bdf8] hover:text-[#7dd3fc] font-medium shadow-sm rounded-lg transition-all active:scale-[0.98]"
+                  onClick={handlePrint}
+                  leftIcon={<Printer size={14} />}
+                >
+                  Imprimir
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-[#2B303B] bg-[#14161C] hover:bg-[#1E2129] hover:border-[#3A414F] text-[#38bdf8] hover:text-[#7dd3fc] font-medium shadow-sm rounded-lg transition-all active:scale-[0.98]"
+                  onClick={handleExportCSV}
+                  leftIcon={<Download size={14} />}
+                >
+                  CSV
+                </Button>
                 <Button variant="danger" size="sm" onClick={handleCerrar} disabled={isPending} leftIcon={<Lock size={14} />}>Cerrar Caja</Button>
               </div>
             </div>
@@ -1085,7 +1158,7 @@ export default function CajaTerminal({
             {saldosFinancieros && (
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 shrink-0">
                 {/* Efectivo disponible */}
-                <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 shadow-[var(--shadow-sm)]">
+                <div className="bg-[var(--card)] border border-[var(--border)] hover:border-[#22c55e]/40 rounded-lg px-3 py-2 shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(34,197,94,0.12)]">
                   <div className="text-[10px] font-semibold text-[#22c55e] uppercase tracking-wider">Efectivo disponible</div>
                   <div className="text-sm font-black font-mono text-[var(--text)] mt-0.5">
                     {formatCurrency(saldosFinancieros.efectivoFisico)}
@@ -1093,7 +1166,7 @@ export default function CajaTerminal({
                 </div>
 
                 {/* Banco disponible */}
-                <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 shadow-[var(--shadow-sm)]">
+                <div className="bg-[var(--card)] border border-[var(--border)] hover:border-[#38bdf8]/40 rounded-lg px-3 py-2 shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(56,189,248,0.12)]">
                   <div className="text-[10px] font-semibold text-[#38bdf8] uppercase tracking-wider">Banco disponible</div>
                   <div className="text-sm font-black font-mono text-[var(--text)] mt-0.5">
                     {formatCurrency(saldosFinancieros.banco)}
@@ -1101,15 +1174,26 @@ export default function CajaTerminal({
                 </div>
 
                 {/* Por acreditar */}
-                <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 shadow-[var(--shadow-sm)]">
-                  <div className="text-[10px] font-semibold text-[#c084fc] uppercase tracking-wider">Por acreditar</div>
+                <div className="bg-[var(--card)] border border-[var(--border)] hover:border-[#c084fc]/40 rounded-lg px-3 py-2 shadow-[var(--shadow-sm)] flex flex-col justify-between transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(192,132,252,0.12)]">
+                  <div className="flex items-center justify-between gap-1">
+                    <div className="text-[10px] font-semibold text-[#c084fc] uppercase tracking-wider">Por acreditar</div>
+                    <button
+                      type="button"
+                      onClick={() => setShowPorAcreditarModal(true)}
+                      title="Ver y gestionar movimientos pendientes de acreditar"
+                      className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#c084fc] hover:text-[#d8b4fe] bg-[#c084fc]/10 hover:bg-[#c084fc]/20 border border-[#c084fc]/20 px-1.5 py-0.5 rounded-md transition-colors active:scale-95"
+                    >
+                      <ListFilter size={11} />
+                      <span>Ver pendientes</span>
+                    </button>
+                  </div>
                   <div className="text-sm font-black font-mono text-[var(--text)] mt-0.5">
                     {formatCurrency(saldosFinancieros.porAcreditar)}
                   </div>
                 </div>
 
                 {/* Total disponible */}
-                <div className="bg-[var(--card)] border border-[var(--brand)]/30 rounded-lg px-3 py-2 shadow-[var(--shadow-sm)]">
+                <div className="bg-[var(--card)] border border-[var(--border)] hover:border-[var(--brand)]/50 rounded-lg px-3 py-2 shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(214,40,40,0.15)]">
                   <div className="text-[10px] font-semibold text-[var(--brand)] uppercase tracking-wider">Total disponible</div>
                   <div className="text-sm font-black font-mono text-[var(--text)] mt-0.5">
                     {formatCurrency(saldosFinancieros.totalDisponible)}
@@ -1155,21 +1239,21 @@ export default function CajaTerminal({
                     Limpiar
                   </button>
                     <ToolbarSelect
-                      label="Naturaleza"
-                      value={filtroNaturaleza || "all"}
-                      onValueChange={(v) => setFiltroNaturaleza(v === "all" ? "" : v)}
-                      triggerIcon={Waves}
-                      minWidth="w-full sm:min-w-[150px]"
-                      tone={cajaSelectToneNaturaleza}
+                      label="Método de pago"
+                      value={filtroMetodoPago || "all"}
+                      onValueChange={(v) => setFiltroMetodoPago(v === "all" ? "" : v)}
+                      triggerIcon={Wallet}
+                      minWidth="w-full sm:min-w-[155px]"
+                      tone={cajaSelectToneMetodoPago}
                       triggerClassName={cajaSelectClassName.trigger}
                       iconClassName={cajaSelectClassName.icon}
                       labelClassName={`${cajaSelectClassName.label} text-[10px] tracking-[0.12em] uppercase`}
                       contentClassName={cajaSelectClassName.content}
                       itemClassName={cajaSelectClassName.item}
                       options={[
-                        { value: "all", label: "Todos", icon: ListFilter, iconClassName: "text-[#7890B2]", iconBoxClassName: "bg-[rgba(148,163,184,0.12)] text-[#7890B2]" },
-                        { value: "INGRESO", label: "Ingresos", icon: ArrowDownLeft, iconClassName: "text-[#22C55E]", iconBoxClassName: "bg-[rgba(34,197,94,0.12)] text-[#22C55E]" },
-                        { value: "EGRESO", label: "Egresos", icon: ArrowUpRight, iconClassName: "text-[#EF4444]", iconBoxClassName: "bg-[rgba(239,68,68,0.12)] text-[#EF4444]" },
+                        { value: "all", label: "Todos", icon: Wallet, iconClassName: "text-[#7890B2]", iconBoxClassName: "bg-[rgba(148,163,184,0.12)] text-[#7890B2]" },
+                        { value: "EFECTIVO", label: "Efectivo", icon: Banknote, iconClassName: "text-[#22C55E]", iconBoxClassName: "bg-[rgba(34,197,94,0.12)] text-[#22C55E]" },
+                        { value: "BANCO", label: "Banco", icon: Landmark, iconClassName: "text-[#38BDF8]", iconBoxClassName: "bg-[rgba(56,189,248,0.12)] text-[#38BDF8]" },
                       ]}
                     />
                     <ToolbarSelect
@@ -1303,9 +1387,7 @@ export default function CajaTerminal({
                               )}
                             </td>
                             <td className="px-2 py-3.5 text-center whitespace-nowrap">
-                              <Badge variant={visual.variant} size="sm">
-                                {visual.label}
-                              </Badge>
+                              {renderTipoBadge(visual.label)}
                             </td>
                             <td className="px-2 py-3.5 whitespace-nowrap">{renderPagoBadge(fila.pago)}</td>
                             <td className="px-3 py-3.5 text-right font-semibold text-[var(--text)] whitespace-nowrap">
@@ -1322,18 +1404,18 @@ export default function CajaTerminal({
                               {formatCurrency(fila.saldoCaja)}
                             </td>
                             <td className="px-3 py-3.5 text-right font-semibold whitespace-nowrap">
-                              {renderMoneyOrDash(fila.ingresoBanco, "text-[#38bdf8]")}
+                              {renderMoneyOrDash(fila.ingresoBanco, "text-[var(--success)]")}
                             </td>
                             <td className="px-3 py-3.5 text-right font-semibold whitespace-nowrap">
-                              {renderMoneyOrDash(fila.egresoBanco, "text-[#fb923c]")}
+                              {renderMoneyOrDash(fila.egresoBanco, "text-[var(--danger)]")}
                             </td>
-                            <td className="px-3 py-3.5 text-right font-bold whitespace-nowrap text-[#38bdf8]">
+                            <td className="px-3 py-3.5 text-right font-bold whitespace-nowrap text-[var(--text)]">
                               {formatCurrency(fila.saldoBanco)}
                             </td>
                             <td className="px-3 py-3.5 text-right font-semibold whitespace-nowrap">
-                              {renderMoneyOrDash(fila.ingresoPorAcreditar, "text-[#c084fc]")}
+                              {renderMoneyOrDash(fila.ingresoPorAcreditar, "text-[var(--text-secondary)]")}
                             </td>
-                            <td className="px-3 py-3.5 text-right font-bold whitespace-nowrap text-[#d8b4fe]">
+                            <td className="px-3 py-3.5 text-right font-bold whitespace-nowrap text-[var(--text)]">
                               {formatCurrency(fila.saldoPorAcreditar)}
                             </td>
                           </tr>
@@ -1358,8 +1440,8 @@ export default function CajaTerminal({
               </p>
             )}
             <div className="grid gap-2 xl:grid-cols-5">
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--panel)]/45 p-2.5">
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Operación económica</p>
+              <div className="rounded-xl border border-[var(--border)] hover:border-[#f59e0b]/40 bg-[var(--card)] p-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(245,158,11,0.12)]">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#f59e0b]">Operación económica</p>
                 <div className="mt-2 space-y-2">
                   <div className="flex items-center justify-between gap-3 text-sm">
                     <span className="text-[var(--text-secondary)]">Movimientos</span>
@@ -1371,7 +1453,7 @@ export default function CajaTerminal({
                   </div>
                   <div className="flex items-center justify-between gap-3 text-sm">
                     <span className="text-[var(--text-secondary)]">Reposiciones</span>
-                    <span className="font-mono font-bold text-[var(--warning)]">{formatCurrency(resumenInferior.reposiciones)}</span>
+                    <span className="font-mono font-bold text-[var(--danger)]">{formatCurrency(resumenInferior.reposiciones)}</span>
                   </div>
                   <div className="flex items-center justify-between gap-3 text-sm">
                     <span className="text-[var(--text-secondary)]">Gastos</span>
@@ -1380,12 +1462,12 @@ export default function CajaTerminal({
                 </div>
               </div>
 
-              <div className="rounded-xl border border-[var(--border)] bg-[rgba(34,197,94,0.07)] p-2.5">
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#4ade80]">Caja</p>
+              <div className="rounded-xl border border-[var(--border)] hover:border-[#22c55e]/40 bg-[var(--card)] p-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(34,197,94,0.12)]">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#22c55e]">Caja</p>
                 <div className="mt-2 space-y-2">
                   <div className="flex items-center justify-between gap-3 text-sm">
                     <span className="text-[var(--text-secondary)]">Inicial Caja</span>
-                    <span className="font-mono font-bold text-[var(--info)]">{formatCurrency(resumenInferior.cajaInicial)}</span>
+                    <span className="font-mono font-bold text-[var(--text)]">{formatCurrency(resumenInferior.cajaInicial)}</span>
                   </div>
                   <div className="flex items-center justify-between gap-3 text-sm">
                     <span className="text-[var(--text-secondary)]">Ingresos Caja</span>
@@ -1397,43 +1479,60 @@ export default function CajaTerminal({
                   </div>
                   <div className="flex items-center justify-between gap-3 text-sm">
                     <span className="text-[var(--text-secondary)]">Saldo Caja</span>
-                    <span className={`font-mono text-base font-black ${resumenInferior.cajaSaldo >= 0 ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
+                    <span className="font-mono text-base font-black text-[var(--text)]">
                       {formatCurrency(resumenInferior.cajaSaldo)}
                     </span>
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-xl border border-[var(--border)] bg-[rgba(56,189,248,0.07)] p-2.5">
+              <div className="rounded-xl border border-[var(--border)] hover:border-[#38bdf8]/40 bg-[var(--card)] p-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(56,189,248,0.12)]">
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#38bdf8]">Banco</p>
                 <div className="mt-2 space-y-2">
                   <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-[var(--text-secondary)]">Inicial Banco</span>
-                    <span className="font-mono font-bold text-[var(--info)]">{formatCurrency(resumenInferior.bancoInicial)}</span>
+                    <span className="text-[var(--text-secondary)] flex items-center gap-1">
+                      Inicial Banco
+                      <span
+                        title="Corresponde al saldo bancario con el que cerró la caja anterior."
+                        className="inline-flex cursor-help text-[var(--text-muted)] hover:text-[#38bdf8] transition-colors"
+                      >
+                        <Info size={13} />
+                      </span>
+                    </span>
+                    <span className="font-mono font-bold text-[var(--text)]">{formatCurrency(resumenInferior.bancoInicial)}</span>
                   </div>
                   <div className="flex items-center justify-between gap-3 text-sm">
                     <span className="text-[var(--text-secondary)]">Ingresos Banco</span>
-                    <span className="font-mono font-bold text-[#38bdf8]">{formatCurrency(resumenInferior.bancoIngresos)}</span>
+                    <span className="font-mono font-bold text-[var(--success)]">{formatCurrency(resumenInferior.bancoIngresos)}</span>
                   </div>
                   <div className="flex items-center justify-between gap-3 text-sm">
                     <span className="text-[var(--text-secondary)]">Egresos Banco</span>
-                    <span className="font-mono font-bold text-[#fb923c]">{formatCurrency(resumenInferior.bancoEgresos)}</span>
+                    <span className="font-mono font-bold text-[var(--danger)]">{formatCurrency(resumenInferior.bancoEgresos)}</span>
                   </div>
                   <div className="flex items-center justify-between gap-3 text-sm">
                     <span className="text-[var(--text-secondary)]">Saldo Banco</span>
-                    <span className={`font-mono text-base font-black ${resumenInferior.bancoSaldo >= 0 ? "text-[#38bdf8]" : "text-[var(--danger)]"}`}>
+                    <span className="font-mono text-base font-black text-[var(--text)]">
                       {formatCurrency(resumenInferior.bancoSaldo)}
                     </span>
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-xl border border-[var(--border)] bg-[rgba(168,85,247,0.08)] p-2.5">
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#c084fc]">Pendiente</p>
+              <div className="rounded-xl border border-[var(--border)] hover:border-[#c084fc]/40 bg-[var(--card)] p-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(192,132,252,0.12)]">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#c084fc]">Pendiente</p>
+                  <button
+                    type="button"
+                    onClick={() => setShowPorAcreditarModal(true)}
+                    className="text-[10px] font-semibold text-[#c084fc] hover:text-[#d8b4fe] hover:underline"
+                  >
+                    Ver pendientes
+                  </button>
+                </div>
                 <div className="mt-2 space-y-2">
                   <div className="flex items-center justify-between gap-3 text-sm">
                     <span className="text-[var(--text-secondary)]">Por acreditar</span>
-                    <span className="font-mono text-base font-black text-[#c084fc]">{formatCurrency(resumenInferior.porAcreditar)}</span>
+                    <span className="font-mono text-base font-black text-[var(--text)]">{formatCurrency(resumenInferior.porAcreditar)}</span>
                   </div>
                   <p className="pt-2 text-[11px] leading-relaxed text-[var(--text-secondary)]">
                     Crédito no entra en Banco hasta acreditarse.
@@ -1441,12 +1540,12 @@ export default function CajaTerminal({
                 </div>
               </div>
 
-              <div className="rounded-xl border border-[var(--brand)]/30 bg-[var(--brand-light)]/40 p-2.5">
+              <div className="rounded-xl border border-[var(--brand)]/30 hover:border-[var(--brand)]/60 bg-[var(--brand-light)]/40 p-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(214,40,40,0.15)]">
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--brand)]">Total</p>
                 <div className="mt-2 space-y-2">
                   <div className="flex items-center justify-between gap-3 text-sm">
                     <span className="text-[var(--text-secondary)]">Total disponible</span>
-                    <span className="font-mono text-lg font-black text-[var(--brand)]">{formatCurrency(totalDisponibleResumen)}</span>
+                    <span className="font-mono text-lg font-black text-[var(--text)]">{formatCurrency(totalDisponibleResumen)}</span>
                   </div>
                   <p className="pt-2 text-[11px] leading-relaxed text-[var(--text-secondary)]">
                     Caja + Banco. No incluye Por acreditar.
@@ -1480,6 +1579,12 @@ export default function CajaTerminal({
       open={showDetalleModal}
       onClose={() => { setShowDetalleModal(false); setMovimientoSeleccionado(null); }}
       movimiento={movimientoSeleccionado}
+    />
+
+    <MovimientosPorAcreditarModal
+      open={showPorAcreditarModal}
+      onClose={() => setShowPorAcreditarModal(false)}
+      movimientos={movimientosPorAcreditar}
     />
 
     {saldosFinancieros && (
@@ -1709,7 +1814,7 @@ export default function CajaTerminal({
       {hayFiltrosActivos && (
         <div className="cj-filters">
           <strong>Filtros aplicados:</strong>{" "}
-          {filtroNaturaleza && `Naturaleza: ${filtroNaturaleza}`}
+          {filtroMetodoPago && `Método de pago: ${filtroMetodoPago}`}
           {filtroConcepto && ` | Concepto: ${filtroConcepto}`}
           {filtroUsuario && ` | Usuario: ${usuariosConNombre.find((u) => u.username === filtroUsuario)?.nombreCompleto || filtroUsuario}`}
           {filtroBusqueda && ` | Búsqueda: "${filtroBusqueda}"`}

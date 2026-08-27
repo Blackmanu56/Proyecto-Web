@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import {
   getConcepto,
   getTipoVisual,
+  getMetodoPago,
   enrichMovimientos,
   filtrarMovimientos,
   getUsuariosUnicos,
@@ -171,8 +172,8 @@ describe("getTipoVisual", () => {
 
   it("detecta gasto", () => {
     const v = getTipoVisual(mov({ tipo: "EGRESO", descripcion: "Gasto: Limpieza" }));
-    expect(v.label).toBe("EGRESO");
-    expect(v.variant).toBe("danger");
+    expect(v.label).toBe("GASTO");
+    expect(v.variant).toBe("warning");
   });
 
   it("detecta reposición por descripción", () => {
@@ -575,5 +576,45 @@ describe("Escenarios de crash previos", () => {
       busqueda: "xyz",
     });
     expect(result).toHaveLength(0);
+  });
+
+  // ─── getMetodoPago & filtro Método de Pago ───────────────────
+  describe("getMetodoPago y filtro Método de Pago", () => {
+    it("identifica EFECTIVO para ventas en efectivo y gastos de caja", () => {
+      expect(getMetodoPago(mov({ venta: { id: 1, total: 100, metodoPago: "EFECTIVO" } }))).toBe("EFECTIVO");
+      expect(getMetodoPago(mov({ descripcion: "Gasto: Limpieza", impactaCaja: true }))).toBe("EFECTIVO");
+    });
+
+    it("identifica BANCO para transferencias, tarjetas y reposiciones por banco", () => {
+      expect(getMetodoPago(mov({ venta: { id: 2, total: 200, metodoPago: "TRANSFERENCIA" } }))).toBe("BANCO");
+      expect(getMetodoPago(mov({ venta: { id: 3, total: 300, metodoPago: "TARJETA_CREDITO" } }))).toBe("BANCO");
+      expect(getMetodoPago(mov({ compra: { id: 1, total: 500, proveedor: { id: 1, nombre: "P" }, detalles: [], origenPago: "TRANSFERENCIA_BANCARIA" } }))).toBe("BANCO");
+    });
+
+    it("filtra correctamente por metodoPago: EFECTIVO vs BANCO", () => {
+      const movimientos: MovimientoEnriched[] = [
+        enriched({ id: 1, venta: { id: 1, total: 100, metodoPago: "EFECTIVO" } }),
+        enriched({ id: 2, venta: { id: 2, total: 200, metodoPago: "TRANSFERENCIA" }, esNoEfectivo: true, impactaCaja: false }),
+        enriched({ id: 3, descripcion: "Gasto: Caja", impactaCaja: true }),
+      ];
+
+      const soloEfectivo = filtrarMovimientos(movimientos, {
+        metodoPago: "EFECTIVO",
+        concepto: "",
+        usuario: "",
+        busqueda: "",
+      });
+      expect(soloEfectivo).toHaveLength(2);
+      expect(soloEfectivo.map((m) => m.id)).toEqual([1, 3]);
+
+      const soloBanco = filtrarMovimientos(movimientos, {
+        metodoPago: "BANCO",
+        concepto: "",
+        usuario: "",
+        busqueda: "",
+      });
+      expect(soloBanco).toHaveLength(1);
+      expect(soloBanco[0].id).toBe(2);
+    });
   });
 });

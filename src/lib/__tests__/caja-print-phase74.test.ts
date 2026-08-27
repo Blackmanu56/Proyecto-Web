@@ -281,4 +281,93 @@ describe("Parte 7.4 — impresión Caja y Banco", () => {
     expect(component.toLowerCase()).not.toContain("firma del cajero");
     expect(component.toLowerCase()).not.toContain("firma del supervisor");
   });
+
+  // ─── Tests para BUG 1 & BUG 2 ─────────────────────────────────────────────
+  it("BUG 2 — distingue correctamente la columna PAGO para reposiciones en efectivo y banco", () => {
+    // Reposición en efectivo
+    const repoEfectivo = crearFilaImpresionLibroDiario(
+      movimiento({
+        tipo: "EGRESO",
+        monto: 40_000,
+        descripcion: "Reposición de stock: Bujías (10 u.)",
+        impactaCaja: true,
+        compraId: 101,
+        compra: {
+          id: 101,
+          total: 40_000,
+          proveedor: { id: 1, nombre: "Proveedor" },
+          detalles: [],
+          origenPago: "EFECTIVO_CAJA",
+        },
+      })
+    );
+    expect(repoEfectivo.pago).toBe("Efectivo");
+
+    // Reposición por banco / transferencia
+    const repoBanco = crearFilaImpresionLibroDiario(
+      movimiento({
+        tipo: "EGRESO",
+        monto: 75_000,
+        descripcion: "Reposición de stock: Cubiertas (2 u.)",
+        impactaCaja: false,
+        compraId: 102,
+        compra: {
+          id: 102,
+          total: 75_000,
+          proveedor: { id: 1, nombre: "Proveedor" },
+          detalles: [],
+          origenPago: "TRANSFERENCIA_BANCARIA",
+        },
+      })
+    );
+    expect(repoBanco.pago).toBe("Transferencia");
+  });
+
+  it("BUG 1 — filtrar por usuario preserva los saldos acumulados de las filas sin alterar el acumulado histórico", () => {
+    const ventaCreditoEmpleado = movimiento({
+      id: -(10 + 100_000),
+      tipo: "INGRESO",
+      monto: 50_000,
+      descripcion: "Venta #10 · Crédito",
+      fecha: new Date("2026-08-27T10:00:00-03:00"),
+      usuario: { username: "empleado1", nombreCompleto: "Empleado 1" },
+      ventaId: 10,
+      venta: { id: 10, total: 50_000, metodoPago: "TARJETA_CREDITO" },
+      esNoEfectivo: true,
+      impactaCaja: false,
+    });
+
+    const movBancoAcreditacionAdmin: MovimientoFinancieroImpresion = {
+      id: 99,
+      tipo: "INGRESO",
+      monto: 50_000,
+      fecha: new Date("2026-08-27T12:00:00-03:00"),
+      descripcion: "Acreditación de fondos — Venta #10",
+      usuario: { username: "admin", nombreCompleto: "Administrador" },
+      ventaId: 10,
+      venta: null,
+      compraId: null,
+      compra: null,
+    };
+
+    const modeloCompleto = crearModeloImpresionLibroDiario(
+      [ventaCreditoEmpleado],
+      [movBancoAcreditacionAdmin],
+      "2026-08-27T08:00:00-03:00",
+      100_000
+    );
+
+    expect(modeloCompleto).toHaveLength(2);
+    expect(modeloCompleto[0].saldoPorAcreditar).toBe(50_000);
+    expect(modeloCompleto[1].saldoPorAcreditar).toBe(0);
+    expect(modeloCompleto[1].saldoBanco).toBe(150_000);
+
+    // Al filtrar por usuario "admin" (solo queda la fila de acreditación)
+    const filtradoAdmin = modeloCompleto.filter((m) => m.usuario.username === "admin");
+    expect(filtradoAdmin).toHaveLength(1);
+
+    // La fila de acreditación conserva su saldo real acumulado (saldoPorAcreditar 0, saldoBanco 150.000)
+    expect(filtradoAdmin[0].saldoPorAcreditar).toBe(0);
+    expect(filtradoAdmin[0].saldoBanco).toBe(150_000);
+  });
 });

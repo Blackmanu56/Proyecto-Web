@@ -1,8 +1,15 @@
 import React from "react";
+import Link from "next/link";
 import { getSession } from "@/lib/auth.server";
-import { getCajaActiva, getHistorialCajas, getSolicitudesCajaPendientes, getSolicitudesCajaUsuario } from "@/actions/caja";
+import {
+  getCajaActiva,
+  getHistorialCajas,
+  getSolicitudesCajaPendientes,
+  getSolicitudesCajaUsuario,
+  getMovimientosPorAcreditarPendientes,
+} from "@/actions/caja";
 import CajaTerminal from "@/components/forms/CajaTerminal";
-import { Coins } from "lucide-react";
+import { Coins, Bell } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { calcularEfectivoFisico } from "@/lib/caja-balance";
 import {
@@ -28,7 +35,7 @@ export default async function CajaPage() {
     });
   }
 
-  const [cajaActiva, historialCajas, cajaPendiente, solicitudesPendientes, solicitudesUsuario] = await Promise.all([
+  const [cajaActiva, historialCajas, cajaPendiente, solicitudesPendientes, solicitudesUsuario, movimientosPorAcreditar] = await Promise.all([
     getCajaActiva(),
     getHistorialCajas(),
     prisma.caja.findFirst({
@@ -38,6 +45,7 @@ export default async function CajaPage() {
     }),
     getSolicitudesCajaPendientes(),
     getSolicitudesCajaUsuario(),
+    getMovimientosPorAcreditarPendientes(),
   ]);
 
   // Saldos financieros (Banco, Por acreditar, Total disponible)
@@ -137,6 +145,8 @@ export default async function CajaPage() {
   );
   const movimientosBanco = cuentasBanco.flatMap((cuenta) => cuenta.movimientos);
 
+  const pendientesCajaCount = (solicitudesPendientes ?? []).length;
+
   return (
     <div className="fixed inset-0 top-[5.5rem] bg-[var(--bg)] flex flex-col overflow-hidden z-10">
       <div className="flex-1 flex flex-col min-h-0 p-2 lg:p-3">
@@ -149,6 +159,16 @@ export default async function CajaPage() {
             <h1 className="text-2xl lg:text-3xl font-black text-[var(--text)] tracking-tight leading-tight">
               Control de Caja
             </h1>
+            {pendientesCajaCount > 0 && (
+              <Link
+                href="/solicitudes?filter=CAJA"
+                title={`${pendientesCajaCount} solicitud${pendientesCajaCount !== 1 ? "es" : ""} de caja pendiente${pendientesCajaCount !== 1 ? "s" : ""}`}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 hover:bg-amber-500/25 text-xs font-bold transition-all hover:scale-105 shadow-sm active:scale-95"
+              >
+                <Bell size={13} className="animate-pulse" />
+                <span>{pendientesCajaCount}</span>
+              </Link>
+            )}
           </div>
         </div>
 
@@ -163,6 +183,7 @@ export default async function CajaPage() {
               saldosFinancieros={saldosFinancieros}
               resumenBancoPeriodo={resumenBancoPeriodo}
               movimientosBanco={movimientosBanco}
+              movimientosPorAcreditar={movimientosPorAcreditar as React.ComponentProps<typeof CajaTerminal>["movimientosPorAcreditar"]}
               cajaPendiente={cajaPendiente as React.ComponentProps<typeof CajaTerminal>["cajaPendiente"]}
               solicitudesPendientes={solicitudesPendientes as React.ComponentProps<typeof CajaTerminal>["solicitudesPendientes"]}
               solicitudesUsuario={solicitudesUsuario as React.ComponentProps<typeof CajaTerminal>["solicitudesUsuario"]}

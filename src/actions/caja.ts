@@ -1155,3 +1155,158 @@ export async function registrarAjusteEfectivo(
     };
   }
 }
+
+/**
+ * Obtiene los movimientos de la cuenta POR_ACREDITAR que aún están pendientes de acreditar.
+ */
+export async function getMovimientosPorAcreditarPendientes() {
+  try {
+    const session = await getSession();
+    if (!session) return [];
+
+    const cuentaPorAcreditar = await prisma.cuentaFinanciera.findFirst({
+      where: { tipo: "POR_ACREDITAR", activa: true },
+      include: {
+        movimientos: {
+          include: {
+            usuario: { select: { username: true, nombreCompleto: true } },
+            venta: {
+              select: {
+                id: true,
+                total: true,
+                fecha: true,
+                metodoPago: true,
+                cliente: { select: { id: true, nombre: true, dni: true, cuit: true } },
+              },
+            },
+          },
+          orderBy: { fecha: "desc" },
+        },
+      },
+    });
+
+    if (!cuentaPorAcreditar) return [];
+
+    const egresosAcreditados = new Set(
+      cuentaPorAcreditar.movimientos
+        .filter((m) => m.tipo === "EGRESO" && m.referencia?.startsWith("ACREDITACION_"))
+        .map((m) => Number(m.referencia?.replace("ACREDITACION_", "")))
+    );
+
+    const pendientes = cuentaPorAcreditar.movimientos.filter(
+      (m) => m.tipo === "INGRESO" && !egresosAcreditados.has(m.id)
+    );
+
+    return pendientes;
+  } catch (error) {
+    console.error("Error en getMovimientosPorAcreditarPendientes:", error);
+    return [];
+  }
+}
+
+/**
+ * Marca un movimiento de la cuenta POR_ACREDITAR como acreditado:
+ * 1. Resta el monto de "Por acreditar" creando un EGRESO en la cuenta POR_ACREDITAR.
+ * 2. Suma el monto a "Banco disponible" creando un INGRESO en la cuenta BANCO principal.
+ * 3. Registra la fecha real (new Date()) y la referencia de trazabilidad para auditoría.
+ */
+export async function marcarMovimientoAcreditado(movimientoId: number) {
+  const session = await requirePermission("caja.ver", await getSession());
+
+  if (!movimientoId || typeof movimientoId !== "number") {
+    return { success: false, error: "ID de movimiento inválido." };
+  }
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Obtener el movimiento de origen
+      const mov = await tx.movimientoFinanciero.findUnique({
+        where: { id: movimientoId },
+        include: {
+          cuentaFinanciera: true,
+          venta: true,
+        },
+      });
+
+      if (!mov) {
+        throw new Error("Movimiento no encontrado.");
+      }
+
+      if (mov.cuentaFinanciera.tipo !== "POR_ACREDITAR" || mov.tipo !== "INGRESO") {
+        throw new Error("El movimiento no corresponde a un fondo pendiente de acreditación.");
+      }
+
+      // 2. Verificar que no haya sido acreditado previamente
+      const yaAcreditado = await tx.movimientoFinanciero.findFirst({
+        where: {
+          cuentaFinancieraId: mov.cuentaFinancieraId,
+          tipo: "EGRESO",
+          referencia: `ACREDITACION_${mov.id}`,
+        },
+      });
+
+      if (yaAcreditado) {
+        throw new Error("Este movimiento ya fue marcado como acreditado.");
+      }
+
+      // 3. Obtener cuenta Banco principal
+      const cuentaBanco = await tx.cuentaFinanciera.findFirst({
+        where: {
+          tipo: "BANCO",
+          esPrincipal: true,
+          activa: true,
+        },
+      });
+
+      if (!cuentaBanco) {
+        throw new Error("No hay una cuenta de Banco principal activa configurada.");
+      }
+
+      const fechaAcreditacion = new Date();
+      const refCode = `ACREDITACION_${mov.id}`;
+      const desc = mov.ventaId
+        ? `Acreditación de fondos — Venta #${mov.ventaId}`
+        : `Acreditación de fondos — ${mov.descripcion}`;
+
+      // 4. Egreso de POR_ACREDITAR
+      await tx.movimientoFinanciero.create({
+        data: {
+          cuentaFinancieraId: mov.cuentaFinancieraId,
+          tipo: "EGRESO",
+          monto: mov.monto,
+          fecha: fechaAcreditacion,
+          descripcion: desc,
+          referencia: refCode,
+          ventaId: mov.ventaId,
+          usuarioId: session.userId,
+        },
+      });
+
+      // 5. Ingreso a BANCO
+      await tx.movimientoFinanciero.create({
+        data: {
+          cuentaFinancieraId: cuentaBanco.id,
+          tipo: "INGRESO",
+          monto: mov.monto,
+          fecha: fechaAcreditacion,
+          descripcion: desc,
+          referencia: refCode,
+          ventaId: mov.ventaId,
+          usuarioId: session.userId,
+        },
+      });
+
+      return { success: true as const, monto: mov.monto };
+    });
+
+    revalidatePath("/caja");
+    revalidatePath("/dashboard");
+    return result;
+  } catch (error: unknown) {
+    console.error("Error en marcarMovimientoAcreditado:", error);
+    return {
+      success: false,
+      error: getErrorMessage(error, "Error al marcar el movimiento como acreditado."),
+    };
+  }
+}

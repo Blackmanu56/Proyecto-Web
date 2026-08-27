@@ -332,6 +332,37 @@ export function calcularImpactoFinanciero(
   const tipo = mov.tipo || "INGRESO";
   const esIngreso = tipo === "INGRESO";
   const afectaCaja = mov.impactaCaja !== false;
+  const desc = (mov.descripcion || "").toLowerCase();
+
+  // ── ACREDITACIONES DE FONDOS (Transferencia de POR_ACREDITAR a BANCO) ─
+  if (desc.includes("acreditación") || desc.includes("acreditacion")) {
+    if (esIngreso) {
+      return {
+        ingresoCaja: 0,
+        egresoCaja: 0,
+        ingresoBanco: monto,
+        egresoBanco: 0,
+        ingresoPorAcreditar: 0,
+        egresoPorAcreditar: monto,
+      };
+    }
+    return {
+      ingresoCaja: 0,
+      egresoCaja: 0,
+      ingresoBanco: 0,
+      egresoBanco: 0,
+      ingresoPorAcreditar: 0,
+      egresoPorAcreditar: monto,
+    };
+  }
+
+  // ── AJUSTES DE BANCO ──────────────────────────────────────────────────
+  if (desc.includes("[ajuste_banco]")) {
+    if (esIngreso) {
+      return { ingresoCaja: 0, egresoCaja: 0, ingresoBanco: monto, egresoBanco: 0, ingresoPorAcreditar: 0, egresoPorAcreditar: 0 };
+    }
+    return { ingresoCaja: 0, egresoCaja: 0, ingresoBanco: 0, egresoBanco: monto, ingresoPorAcreditar: 0, egresoPorAcreditar: 0 };
+  }
 
   // ── VENTAS ────────────────────────────────────────────────────────────
   if (esIngreso) {
@@ -362,7 +393,6 @@ export function calcularImpactoFinanciero(
   }
 
   // ── EGRESOS (reposiciones, gastos) ────────────────────────────────────
-  const desc = (mov.descripcion || "").toLowerCase();
 
   // Gasto manual → siempre Caja
   if (desc.startsWith("gasto:")) {

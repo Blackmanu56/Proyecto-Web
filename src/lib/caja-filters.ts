@@ -121,16 +121,57 @@ export interface ConceptoVisual {
 }
 
 export interface FiltrosCaja {
-  naturaleza: string;   // "" | "INGRESO" | "EGRESO"
-  concepto: string;     // "" | "VENTA" | "REPOSICION" | "GASTO"
-  usuario: string;      // "" | username
+  metodoPago?: string; // "" | "EFECTIVO" | "BANCO"
+  naturaleza?: string; // legacy support: "" | "INGRESO" | "EGRESO"
+  concepto: string; // "" | "VENTA" | "REPOSICION" | "GASTO"
+  usuario: string; // "" | username
   busqueda: string;
+}
+
+/**
+ * Determina si el movimiento se realizó por EFECTIVO o BANCO (transferencia/tarjeta).
+ * Null-safe.
+ */
+export function getMetodoPago(mov: MovimientoInput): "EFECTIVO" | "BANCO" {
+  if (!mov) return "EFECTIVO";
+
+  // Venta
+  if (mov.venta?.metodoPago) {
+    const mp = mov.venta.metodoPago.toUpperCase();
+    if (mp === "EFECTIVO" || mp === "EFECTIVO_CAJA") return "EFECTIVO";
+    return "BANCO";
+  }
+
+  // Compra / Reposición
+  const origen = mov.compra?.origenPago?.toUpperCase();
+  if (origen) {
+    if (origen === "EFECTIVO" || origen === "EFECTIVO_CAJA") return "EFECTIVO";
+    if (origen === "BANCO" || origen === "TRANSFERENCIA_BANCARIA" || origen === "TRANSFERENCIA") return "BANCO";
+  }
+  const pagos = mov.compra?.pagos ?? [];
+  if (pagos.length > 0) {
+    const primerMedio = pagos[0].medio.toUpperCase();
+    if (primerMedio.includes("EFECTIVO")) return "EFECTIVO";
+    if (primerMedio.includes("TRANSFERENCIA") || primerMedio.includes("BANCO")) return "BANCO";
+  }
+
+  // Descripción hints
+  const desc = (mov.descripcion || "").toLowerCase();
+  if (desc.includes("acreditación") || desc.includes("acreditacion")) return "BANCO";
+  if (desc.includes("[ajuste_banco]") || desc.includes("banco") || desc.includes("transferencia")) return "BANCO";
+  if (desc.includes("[ajuste_efectivo]") || desc.includes("efectivo")) return "EFECTIVO";
+
+  // If projected non-cash
+  if (mov.esNoEfectivo) return "BANCO";
+
+  // Default: si impacta caja es efectivo, sino banco
+  return mov.impactaCaja !== false ? "EFECTIVO" : "BANCO";
 }
 
 /**
  * Determina el concepto de un movimiento de forma null-safe.
  * Solo retorna valores que existen como opciones de filtro:
- * "VENTA", "REPOSICION", "GASTO"
+ * "VENTA", "REPOSICION", "GASTO", "AJUSTE", "APERTURA"
  */
 export function getConcepto(mov: MovimientoInput): string {
   if (!mov) return "VENTA";
@@ -149,6 +190,9 @@ export function getConcepto(mov: MovimientoInput): string {
 
   // Ajuste de efectivo (nuevo concepto)
   if (desc.startsWith("[ajuste_efectivo]")) return "AJUSTE";
+
+  // Acreditación de fondos
+  if (desc.includes("acreditación") || desc.includes("acreditacion")) return "AJUSTE";
 
   // Ajuste histórico (p. ej. reposiciones pagadas por banco) — antes que "reposici"
   if (desc.includes("ajuste")) return "AJUSTE";
@@ -187,7 +231,9 @@ export function getTipoVisual(mov: MovimientoInput): ConceptoVisual {
   if (desc.includes("cierre"))
     return { label: "CIERRE", variant: "default" };
   if (desc.startsWith("gasto:"))
-    return { label: "EGRESO", variant: "danger" };
+    return { label: "GASTO", variant: "warning" };
+  if (desc.includes("acreditación") || desc.includes("acreditacion"))
+    return { label: "ACREDITACIÓN", variant: "info" };
   if (desc.startsWith("[ajuste_efectivo]"))
     return { label: "AJUSTE", variant: "default" };
   if (desc.includes("ajuste"))
@@ -197,7 +243,7 @@ export function getTipoVisual(mov: MovimientoInput): ConceptoVisual {
   if (mov.compraId)
     return { label: "REPOSICIÓN", variant: "warning" };
   if (tipo === "EGRESO")
-    return { label: "EGRESO", variant: "danger" };
+    return { label: "GASTO", variant: "warning" };
   if (tipo === "INGRESO")
     return { label: "VENTA", variant: "success" };
 
@@ -281,10 +327,13 @@ export function filtrarMovimientos(
   if (!Array.isArray(movimientos) || movimientos.length === 0) return [];
   if (!filtros) return movimientos;
 
-  const { naturaleza, concepto, usuario, busqueda } = filtros;
+  const { metodoPago, naturaleza, concepto, usuario, busqueda } = filtros;
 
   return movimientos.filter((mov) => {
-    // Naturaleza (INGRESO / EGRESO)
+    // Método de pago (EFECTIVO / BANCO)
+    if (metodoPago && getMetodoPago(mov) !== metodoPago) return false;
+
+    // Naturaleza (INGRESO / EGRESO) - legacy
     if (naturaleza && mov.tipo !== naturaleza) return false;
 
     // Concepto

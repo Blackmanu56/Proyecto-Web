@@ -7,7 +7,10 @@ import {
   sumarSaldosCuentas,
   validarBancoPrincipal,
   resolverDestinoFinanciero,
+  calcularImpactoFinanciero,
 } from "../cuenta-financiera";
+import { crearModeloImpresionLibroDiario } from "../caja-print";
+import { enrichMovimientos } from "../caja-filters";
 
 // ─── calcularSaldoCuentaFinanciera ──────────────────────────────────────────
 
@@ -336,5 +339,154 @@ describe("calcularResumenBancoPeriodo", () => {
       egresos: 4_000,
       saldo: 26_000,
     });
+  });
+});
+
+// ─── FLUJO DE INTEGRACIÓN: VENTA A CRÉDITO Y ACREDITACIÓN ────────────────────
+
+describe("Integración: Flujo completo Venta a Crédito -> Por Acreditar -> Acreditación en Banco", () => {
+  it("crear venta a crédito genera saldo en Por Acreditar, y al acreditar sube Banco y baja Por Acreditar en la misma proporción", () => {
+    // 1. Estado inicial
+    const cuentaBancoInicial = {
+      id: 1,
+      saldoInicial: 500_000,
+      movimientos: [] as { tipo: string; monto: number; fecha: string; descripcion: string; ventaId?: number }[],
+    };
+    const cuentaPorAcreditarInicial = {
+      id: 2,
+      saldoInicial: 0,
+      movimientos: [] as { tipo: string; monto: number; fecha: string; descripcion: string; ventaId?: number; referencia?: string }[],
+    };
+    const efectivoInicial = 100_000;
+
+    const saldosIniciales = calcularSaldosFinancieros(
+      [cuentaBancoInicial],
+      [cuentaPorAcreditarInicial],
+      efectivoInicial
+    );
+    expect(saldosIniciales.banco).toBe(500_000);
+    expect(saldosIniciales.porAcreditar).toBe(0);
+    expect(saldosIniciales.totalDisponible).toBe(600_000);
+
+    // 2. Se realiza una venta con Tarjeta de Crédito por $150.000 (Venta #101)
+    const montoVentaCredito = 150_000;
+    const destino = resolverDestinoFinanciero(
+      "TARJETA_CREDITO",
+      montoVentaCredito,
+      cuentaBancoInicial,
+      cuentaPorAcreditarInicial
+    );
+    expect(destino).toEqual({ cuentaFinancieraId: 2, tipo: "POR_ACREDITAR" });
+
+    // Se registra INGRESO en cuenta POR_ACREDITAR
+    const movVentaCredito = {
+      id: 10,
+      tipo: "INGRESO",
+      monto: montoVentaCredito,
+      fecha: "2026-08-27T10:00:00-03:00",
+      descripcion: "Cobro tarjeta crédito · Venta #101",
+      ventaId: 101,
+    };
+    cuentaPorAcreditarInicial.movimientos.push(movVentaCredito);
+
+    // Verificación tras la venta
+    const saldosTrasVenta = calcularSaldosFinancieros(
+      [cuentaBancoInicial],
+      [cuentaPorAcreditarInicial],
+      efectivoInicial
+    );
+    expect(saldosTrasVenta.banco).toBe(500_000); // Banco no sube aún
+    expect(saldosTrasVenta.porAcreditar).toBe(150_000); // Por acreditar sube a 150k
+    expect(saldosTrasVenta.totalDisponible).toBe(600_000); // Total disponible no incluye pendiente
+
+    // Impacto financiero de la venta en Libro Diario
+    const impactoVenta = calcularImpactoFinanciero({
+      tipo: "INGRESO",
+      monto: montoVentaCredito,
+      esNoEfectivo: true,
+      impactaCaja: false,
+      venta: { total: montoVentaCredito, metodoPago: "TARJETA_CREDITO" },
+      descripcion: "Venta #101 · Crédito — Total $150.000",
+    });
+    expect(impactoVenta.ingresoPorAcreditar).toBe(150_000);
+    expect(impactoVenta.ingresoBanco).toBe(0);
+
+    // 3. Se marca el movimiento como acreditado (simulación de marcarMovimientoAcreditado)
+    const fechaAcreditacion = "2026-08-27T14:30:00-03:00";
+    const refCode = `ACREDITACION_${movVentaCredito.id}`;
+
+    // Par de movimientos atómicos:
+    // A) EGRESO de POR_ACREDITAR
+    cuentaPorAcreditarInicial.movimientos.push({
+      tipo: "EGRESO",
+      monto: montoVentaCredito,
+      fecha: fechaAcreditacion,
+      descripcion: `Acreditación de fondos — Venta #101`,
+      referencia: refCode,
+      ventaId: 101,
+    });
+
+    // B) INGRESO a BANCO
+    const movBancoAcreditacion = {
+      id: 20,
+      tipo: "INGRESO",
+      monto: montoVentaCredito,
+      fecha: fechaAcreditacion,
+      descripcion: `Acreditación de fondos — Venta #101`,
+      referencia: refCode,
+      ventaId: 101,
+    };
+    cuentaBancoInicial.movimientos.push(movBancoAcreditacion);
+
+    // 4. Verificación de saldos finales de ambas cuentas
+    const saldosTrasAcreditacion = calcularSaldosFinancieros(
+      [cuentaBancoInicial],
+      [cuentaPorAcreditarInicial],
+      efectivoInicial
+    );
+
+    // ASUNCIONES FINALES ESTRICTAS:
+    expect(saldosTrasAcreditacion.porAcreditar).toBe(0); // Por acreditar bajó exactamente a 0
+    expect(saldosTrasAcreditacion.banco).toBe(650_000); // Banco subió exactamente +$150.000 (500k -> 650k)
+    expect(saldosTrasAcreditacion.totalDisponible).toBe(750_000); // Total disponible subió a 750k
+
+    // 5. Verificación de Libro Diario y columnas SALDO PEND. / SALDO BANCO
+    const ventaProyectada = {
+      id: -(101 + 100_000),
+      tipo: "INGRESO" as const,
+      monto: montoVentaCredito,
+      descripcion: "Venta #101 · Crédito — Total $150.000,00",
+      fecha: "2026-08-27T10:00:00-03:00",
+      usuario: { username: "admin" },
+      ventaId: 101,
+      venta: {
+        id: 101,
+        total: montoVentaCredito,
+        metodoPago: "TARJETA_CREDITO",
+      },
+      esNoEfectivo: true,
+      impactaCaja: false,
+    };
+
+    const movimientosEnriched = enrichMovimientos([ventaProyectada]);
+    const modeloLibroDiario = crearModeloImpresionLibroDiario(
+      movimientosEnriched,
+      [movBancoAcreditacion],
+      "2026-08-27T08:00:00-03:00",
+      500_000
+    );
+
+    // Debe contener 2 filas: la venta original y la acreditación bancaria (sin colisión)
+    expect(modeloLibroDiario).toHaveLength(2);
+
+    const fila1 = modeloLibroDiario[0]; // Venta
+    expect(fila1.ventaId).toBe(101);
+    expect(fila1.saldoPorAcreditar).toBe(150_000);
+    expect(fila1.saldoBanco).toBe(500_000);
+
+    const fila2 = modeloLibroDiario[1]; // Acreditación
+    expect(fila2.descripcion).toBe("Acreditación de fondos — Venta #101");
+    expect(fila2.saldoBanco).toBe(650_000); // Banco acumulado subió a 650.000
+    expect(fila2.saldoPorAcreditar).toBe(0); // Pendiente acumulado bajó a 0
   });
 });

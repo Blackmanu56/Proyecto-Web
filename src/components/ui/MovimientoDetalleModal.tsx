@@ -116,7 +116,7 @@ export default function MovimientoDetalleModal({
     else if (desc.toLowerCase().includes("stock inicial")) tipoLabel = "Reposición";
     else if (desc.toLowerCase().includes("cierre")) tipoLabel = "Cierre";
     else if (desc.toLowerCase().includes("ajuste")) tipoLabel = "Ajuste";
-    else tipoLabel = "Egreso";
+    else tipoLabel = "Gasto";
   }
 
   const badgeColorMap: Record<string, string> = {
@@ -161,16 +161,30 @@ export default function MovimientoDetalleModal({
         {/* Body — scrollable */}
         <div className="px-6 py-4 space-y-3 overflow-y-auto flex-1">
           {/* Tipo Badge + ID */}
-          <div className="flex items-center justify-between">
-            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-full border ${badgeColorMap[badgeVariant]}`}>
-              {isIncome ? <ArrowUpRight size={12} /> : <ArrowDownLeft size={12} />}
-              {tipoLabel}
-            </span>
-            <span className="text-xs text-[var(--text-secondary)] font-mono flex items-center gap-1">
-              <Hash size={12} />
-              {esVenta ? `Venta #${movimiento.ventaId}` : `#${movimiento.itemNumber || movimiento.id}`}
-            </span>
-          </div>
+          {(() => {
+            let colorStyle = "border-slate-500/30 bg-slate-500/10 text-slate-400";
+            const tl = tipoLabel.toLowerCase();
+            if (tl.includes("venta")) colorStyle = "border-blue-500/30 bg-blue-500/10 text-blue-400";
+            else if (tl.includes("reposici")) colorStyle = "border-amber-500/30 bg-amber-500/10 text-amber-400";
+            else if (tl.includes("gasto") || tl.includes("egreso")) colorStyle = "border-orange-500/30 bg-orange-500/10 text-orange-400";
+            else if (tl.includes("acreditac")) colorStyle = "border-purple-500/30 bg-purple-500/10 text-purple-400";
+            else if (tl.includes("apertura")) colorStyle = "border-indigo-500/30 bg-indigo-500/10 text-indigo-400";
+            else if (tl.includes("ajuste")) colorStyle = "border-cyan-500/30 bg-cyan-500/10 text-cyan-400";
+            else if (tl.includes("cierre")) colorStyle = "border-slate-500/30 bg-slate-500/10 text-slate-400";
+
+            return (
+              <div className="flex items-center justify-between">
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-md border ${colorStyle}`}>
+                  {isIncome ? <ArrowUpRight size={13} /> : <ArrowDownLeft size={13} />}
+                  {tipoLabel}
+                </span>
+                <span className="text-xs text-[var(--text-secondary)] font-mono flex items-center gap-1">
+                  <Hash size={12} />
+                  {esVenta ? `Venta #${movimiento.ventaId}` : `#${movimiento.itemNumber || movimiento.id}`}
+                </span>
+              </div>
+            );
+          })()}
 
           {/* Monto / Afectó Caja */}
           {esVenta ? (
