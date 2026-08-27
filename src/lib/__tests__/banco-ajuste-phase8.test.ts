@@ -4,6 +4,10 @@ const mocks = vi.hoisted(() => {
   const tx = {
     cuentaFinanciera: { findFirst: vi.fn() },
     movimientoFinanciero: { create: vi.fn() },
+    solicitudCaja: { create: vi.fn().mockResolvedValue({ id: 99 }) },
+    rol: { findMany: vi.fn().mockResolvedValue([{ id: 1, nombre: "ADMINISTRADOR" }]) },
+    usuario: { findMany: vi.fn().mockResolvedValue([{ id: 7 }]) },
+    notificacion: { createMany: vi.fn().mockResolvedValue({ count: 1 }) },
   };
 
   return {
@@ -143,7 +147,7 @@ describe("Parte 8 — ajuste auditable de Banco", () => {
     });
   });
 
-  it("F) Usuario sin permiso de administrador → rechazado", async () => {
+  it("F) Usuario sin permiso de administrador → solicita aprobación", async () => {
     mocks.getSession.mockResolvedValueOnce(VENTAS_SESSION);
     mocks.requirePermission.mockResolvedValueOnce(VENTAS_SESSION);
 
@@ -153,9 +157,9 @@ describe("Parte 8 — ajuste auditable de Banco", () => {
       motivo: "Intento sin permiso",
     });
 
-    expect(result).toEqual({
-      success: false,
-      error: "Solo un administrador puede ajustar el Banco.",
+    expect(result).toMatchObject({
+      success: true,
+      needsApproval: true,
     });
     expect(mocks.tx.movimientoFinanciero.create).not.toHaveBeenCalled();
   });

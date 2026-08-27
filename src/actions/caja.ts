@@ -878,6 +878,7 @@ export type AjusteBancoResult =
       success: true;
       saldoActual: number;
       saldoResultante: number;
+      needsApproval?: boolean;
     }
   | {
       success: false;
@@ -932,7 +933,7 @@ export async function registrarAjusteBanco(
       });
 
       revalidatePath("/caja");
-      return { success: true, saldoActual: 0, saldoResultante: 0 };
+      return { success: true, needsApproval: true, saldoActual: 0, saldoResultante: 0 };
     } catch (error: unknown) {
       console.error("Error en registrarAjusteBanco (solicitud):", error);
       return { success: false, error: getErrorMessage(error, "Error al crear la solicitud de ajuste") };

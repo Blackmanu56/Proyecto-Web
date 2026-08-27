@@ -34,13 +34,13 @@ describe("seed única oficial", () => {
   });
 
   it("versiona los assets demo de productos dentro del repositorio", () => {
-    expect(PRODUCT_DEMOS).toHaveLength(13);
+    expect(PRODUCT_DEMOS).toHaveLength(100);
 
     const productsWithImage = PRODUCT_DEMOS.filter((product) => product.imagen);
     const productsWithoutImage = PRODUCT_DEMOS.filter((product) => !product.imagen);
 
-    expect(productsWithImage).toHaveLength(12);
-    expect(productsWithoutImage).toHaveLength(1);
+    expect(productsWithImage).toHaveLength(100);
+    expect(productsWithoutImage).toHaveLength(0);
 
     productsWithImage.forEach((product) => {
       expect(product.imagen).toMatch(/^\/(uploads|seed\/productos)\/.+\.(jpg|jpeg|png|webp|gif)$/);

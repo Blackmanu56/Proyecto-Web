@@ -23,8 +23,8 @@ import { cerrarCaja } from "../../actions/caja";
 beforeEach(() => {
   vi.clearAllMocks();
   vi.spyOn(console, "error").mockImplementation(() => undefined);
-  mocks.getSession.mockResolvedValue({ userId: 9 });
-  mocks.requirePermission.mockResolvedValue({ userId: 9 });
+  mocks.getSession.mockResolvedValue({ userId: 9, role: "ADMINISTRADOR" });
+  mocks.requirePermission.mockResolvedValue({ userId: 9, role: "ADMINISTRADOR" });
   mocks.transaction.mockImplementation(
     (callback: (tx: typeof mocks.tx) => Promise<unknown>) => callback(mocks.tx)
   );
