@@ -55,6 +55,7 @@ interface AjustarPrecioIndividualModalProps {
   onPriceUpdated?: (newPrecioCompra: number, newPrecioVenta: number) => void;
   initialAjustarCompra?: boolean;
   initialAjustarVenta?: boolean;
+  esSolicitud?: boolean;
 }
 
 const QUICK_PERCENTAGES = [5, 10, 15, 20, 25, -5, -10];
@@ -75,6 +76,7 @@ export default function AjustarPrecioIndividualModal({
   onPriceUpdated,
   initialAjustarCompra,
   initialAjustarVenta,
+  esSolicitud = false,
 }: AjustarPrecioIndividualModalProps) {
   const [isPending, startTransition] = useTransition();
 
@@ -189,8 +191,12 @@ export default function AjustarPrecioIndividualModal({
           return;
         }
 
-        toast.success(`Precios actualizados para ${producto.nombre}`);
-        onPriceUpdated?.(nuevoPrecioCompra, nuevoPrecioVenta);
+        if (result.esSolicitud) {
+          toast.success(`Solicitud de cambio de precio enviada para ${producto.nombre}`);
+        } else {
+          toast.success(`Precios actualizados para ${producto.nombre}`);
+          onPriceUpdated?.(nuevoPrecioCompra, nuevoPrecioVenta);
+        }
         onSuccess();
         handleClose();
       } catch (err: unknown) {
@@ -211,10 +217,12 @@ export default function AjustarPrecioIndividualModal({
             </div>
             <div>
               <DialogTitle className="text-lg font-bold text-[var(--text)]">
-                Ajustar Precios de Producto
+                {esSolicitud ? "Solicitar Cambio de Precios" : "Ajustar Precios de Producto"}
               </DialogTitle>
               <DialogDescription className="text-xs text-[var(--text-secondary)]">
-                Modificá el precio de compra, venta o ambos con cálculo de margen en tiempo real.
+                {esSolicitud
+                  ? "Configurá los nuevos precios. Como no eres administrador, se generará una solicitud sujeta a aprobación."
+                  : "Modificá el precio de compra, venta o ambos con cálculo de margen en tiempo real."}
               </DialogDescription>
             </div>
           </div>
@@ -613,7 +621,7 @@ export default function AjustarPrecioIndividualModal({
               loading={isPending}
               leftIcon={<CheckCircle size={15} />}
             >
-              Confirmar ajuste de precio
+              {esSolicitud ? "Enviar solicitud de precio" : "Confirmar ajuste de precio"}
             </Button>
           </div>
         </form>

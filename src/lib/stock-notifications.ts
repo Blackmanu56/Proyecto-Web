@@ -2,8 +2,185 @@ import { prisma } from "@/lib/prisma";
 import type { TipoNotificacion } from "@prisma/client";
 
 /**
- * Evalúa el estado del stock después de un movimiento y crea notificaciones
- * correspondientes (CRÍTICO, AGOTADO, RESTADO, RECARGADO).
+ * Obtiene los destinatarios (IDs de usuarios activos) para alertas de stock
+ * (ADMINISTRADOR y ENCARGADO_STOCK).
+ */
+async function getDestinatariosStockAlerta(): Promise<number[]> {
+  const roles = await prisma.rol.findMany({ select: { id: true, nombre: true } });
+  const rolAdmin = roles.find((r) => r.nombre === "ADMINISTRADOR");
+  const rolEncargadoStock = roles.find((r) => r.nombre === "ENCARGADO_STOCK");
+
+  const destinatarios = new Map<number, true>();
+  if (rolAdmin) {
+    const admins = await prisma.usuario.findMany({
+      where: { rolId: rolAdmin.id, activo: true },
+      select: { id: true },
+    });
+    for (const u of admins) destinatarios.set(u.id, true);
+  }
+  if (rolEncargadoStock) {
+    const encargados = await prisma.usuario.findMany({
+      where: { rolId: rolEncargadoStock.id, activo: true },
+      select: { id: true },
+    });
+    for (const u of encargados) destinatarios.set(u.id, true);
+  }
+
+  return Array.from(destinatarios.keys());
+}
+
+/**
+ * Obtiene una función para verificar si un usuario tiene habilitado un tipo de notificación.
+ */
+async function getFiltroPreferencias(userIds: number[]) {
+  const preferencias = await prisma.preferenciaNotificacion.findMany({
+    where: { usuarioId: { in: userIds } },
+    select: { usuarioId: true, tipo: true, habilitada: true },
+  });
+
+  const deshabilitadas = new Map<number, Set<string>>();
+  for (const pref of preferencias) {
+    if (!pref.habilitada) {
+      const set = deshabilitadas.get(pref.usuarioId) ?? new Set();
+      set.add(pref.tipo);
+      deshabilitadas.set(pref.usuarioId, set);
+    }
+  }
+
+  return (userId: number, tipo: string): boolean => {
+    return !deshabilitadas.get(userId)?.has(tipo);
+  };
+}
+
+/**
+ * Obtiene el conteo actual de productos activos en estado crítico y sin stock.
+ */
+async function getConteosStockAlerta() {
+  const productos = await prisma.producto.findMany({
+    where: { activo: true },
+    select: { id: true, cantidad: true, stockMinimo: true },
+  });
+
+  const criticosCount = productos.filter(
+    (p) => p.cantidad > 0 && p.cantidad <= p.stockMinimo
+  ).length;
+
+  const agotadosCount = productos.filter((p) => p.cantidad === 0).length;
+
+  return { criticosCount, agotadosCount };
+}
+
+/**
+ * Sincroniza o actualiza la notificación agrupada para un tipo de alerta de stock
+ * (STOCK_CRITICO o STOCK_AGOTADO) para los destinatarios especificados.
+ */
+async function sincronizarNotificacionAgrupada({
+  tipo,
+  count,
+  destinatarios,
+  usuarioQuiere,
+  forceCreateIfNotExists = false,
+}: {
+  tipo: "STOCK_CRITICO" | "STOCK_AGOTADO";
+  count: number;
+  destinatarios: number[];
+  usuarioQuiere: (userId: number, tipo: string) => boolean;
+  forceCreateIfNotExists?: boolean;
+}) {
+  const titulo = tipo === "STOCK_CRITICO" ? "⚠ Stock crítico" : "🔴 Stock agotado";
+  const mensaje =
+    tipo === "STOCK_CRITICO"
+      ? `Se detectaron ${count} productos con stock crítico`
+      : `Se detectaron ${count} productos sin stock`;
+
+  for (const userId of destinatarios) {
+    if (!usuarioQuiere(userId, tipo)) continue;
+
+    if (count === 0) {
+      // Si llega a 0, la notificación se marca como resuelta / desaparece
+      await prisma.notificacion.deleteMany({
+        where: {
+          usuarioId: userId,
+          tipo,
+          leida: false,
+        },
+      });
+    } else {
+      // count > 0: buscar si existe una notificación activa (no leída) de este tipo
+      const existingUnread = await prisma.notificacion.findFirst({
+        where: {
+          usuarioId: userId,
+          tipo,
+          leida: false,
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      if (existingUnread) {
+        // Actualizar la notificación existente con el nuevo contador
+        await prisma.notificacion.update({
+          where: { id: existingUnread.id },
+          data: {
+            titulo,
+            mensaje,
+            entidad: "stock",
+            productoId: null,
+          },
+        });
+        // Limpiar posibles duplicados antiguos no leídos
+        await prisma.notificacion.deleteMany({
+          where: {
+            usuarioId: userId,
+            tipo,
+            leida: false,
+            id: { not: existingUnread.id },
+          },
+        });
+      } else if (forceCreateIfNotExists) {
+        // Se crea nueva notificación agrupada si no existe una activa
+        await prisma.notificacion.create({
+          data: {
+            usuarioId: userId,
+            tipo: tipo as TipoNotificacion,
+            titulo,
+            mensaje,
+            entidad: "stock",
+            productoId: null,
+            leida: false,
+          },
+        });
+      } else {
+        // En verificación pasiva, crear solo si no hay ninguna reciente en 24h
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const recent = await prisma.notificacion.findFirst({
+          where: {
+            usuarioId: userId,
+            tipo,
+            createdAt: { gte: oneDayAgo },
+          },
+        });
+        if (!recent) {
+          await prisma.notificacion.create({
+            data: {
+              usuarioId: userId,
+              tipo: tipo as TipoNotificacion,
+              titulo,
+              mensaje,
+              entidad: "stock",
+              productoId: null,
+              leida: false,
+            },
+          });
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Evalúa el estado del stock después de un movimiento y actualiza las notificaciones
+ * agrupadas correspondientes (CRÍTICO, AGOTADO), además de generar las notificaciones
+ * individuales de movimiento para el usuario (RESTADO, RECARGADO).
  *
  * Debe llamarse DESPUÉS del commit de la transacción que modificó el stock,
  * ya que usa prisma (no tx) para leer el estado final consistente.
@@ -18,7 +195,7 @@ export async function evaluarYNotificarStock(params: {
   motivo: string;
 }) {
   try {
-    const { productoId, cantidadAnterior, cantidadNueva, usuarioId, usuarioNombre, tipoMovimiento, motivo } = params;
+    const { productoId, cantidadAnterior, cantidadNueva, usuarioId, usuarioNombre, motivo } = params;
 
     // Skip if stock didn't actually change
     if (cantidadAnterior === cantidadNueva) {
@@ -34,169 +211,63 @@ export async function evaluarYNotificarStock(params: {
       return;
     }
 
-  const stockMinimo = producto.stockMinimo;
-  console.log(`[stock-notifications] Product: ${producto.nombre}, stockMinimo=${stockMinimo}, activo=${producto.activo}`);
-  const esBaja = cantidadNueva < cantidadAnterior;
-  const esAlta = cantidadNueva > cantidadAnterior;
+    const stockMinimo = producto.stockMinimo;
+    const esBaja = cantidadNueva < cantidadAnterior;
+    const esAlta = cantidadNueva > cantidadAnterior;
 
-  // ── Determine which notification types to create ──
-  const tiposNotificar: Array<{ tipo: string; titulo: string; mensaje: string }> = [];
+    const destinatarios = await getDestinatariosStockAlerta();
+    const allUserIds = Array.from(new Set([...destinatarios, usuarioId]));
+    const usuarioQuiere = await getFiltroPreferencias(allUserIds);
 
-  if (esBaja) {
-    // STOCK_RESTADO — always on decrease
-    tiposNotificar.push({
-      tipo: "STOCK_RESTADO",
-      titulo: "Stock reducido",
-      mensaje: `${usuarioNombre} restó ${cantidadAnterior - cantidadNueva} unidades de '${producto.nombre}'. Stock: ${cantidadAnterior} → ${cantidadNueva}. Motivo: ${motivo}`,
-    });
-
-    // STOCK_CRITICO — crossed threshold (was OK, now <= min)
-    if (cantidadAnterior > stockMinimo && cantidadNueva <= stockMinimo && cantidadNueva > 0) {
-      tiposNotificar.push({
-        tipo: "STOCK_CRITICO",
-        titulo: "⚠ Stock crítico",
-        mensaje: `'${producto.nombre}' quedó con ${cantidadNueva} unidades (mínimo: ${stockMinimo}).`,
-      });
-    }
-
-    // STOCK_AGOTADO — hit zero
-    if (cantidadAnterior > 0 && cantidadNueva === 0) {
-      tiposNotificar.push({
-        tipo: "STOCK_AGOTADO",
-        titulo: "🔴 Stock agotado",
-        mensaje: `'${producto.nombre}' se quedó sin stock. Se requiere reposición urgente.`,
-      });
-    }
-  } else if (esAlta) {
-    // STOCK_RECARGADO — always on increase
-    tiposNotificar.push({
-      tipo: "STOCK_RECARGADO",
-      titulo: "Stock recargado",
-      mensaje: `${usuarioNombre} agregó ${cantidadNueva - cantidadAnterior} unidades de '${producto.nombre}'. Stock: ${cantidadAnterior} → ${cantidadNueva}.`,
-    });
-  }
-
-  if (tiposNotificar.length === 0) {
-    console.log("[stock-notifications] Skip: no notification types to create");
-    return;
-  }
-
-  console.log(`[stock-notifications] Types to notify: ${tiposNotificar.map((t) => t.tipo).join(", ")}`);
-
-  // ── Fetch recipients ──
-  // Admins + Encargados de Stock receive critical/empty alerts
-  // The user who caused the movement gets RESTADO/RECARGADO
-  let admins: { id: number }[] = [];
-  let encargadosStock: { id: number }[] = [];
-  let preferencias: { usuarioId: number; tipo: string; habilitada: boolean }[] = [];
-  const destinatariosCriticos = new Map<number, true>();
-
-  try {
-    // Fetch roles first to avoid relation filter issues with PrismaPg adapter
-    const roles = await prisma.rol.findMany({ select: { id: true, nombre: true } });
-    const rolAdmin = roles.find((r) => r.nombre === "ADMINISTRADOR");
-    const rolEncargadoStock = roles.find((r) => r.nombre === "ENCARGADO_STOCK");
-
-    if (rolAdmin) {
-      admins = await prisma.usuario.findMany({
-        where: { rolId: rolAdmin.id, activo: true },
-        select: { id: true },
-      });
-    }
-
-    if (rolEncargadoStock) {
-      encargadosStock = await prisma.usuario.findMany({
-        where: { rolId: rolEncargadoStock.id, activo: true },
-        select: { id: true },
-      });
-    }
-
-    // Merge unique recipients for critical alerts
-    for (const u of admins) destinatariosCriticos.set(u.id, true);
-    for (const u of encargadosStock) destinatariosCriticos.set(u.id, true);
-
-    console.log(`[stock-notifications] Recipients: ${admins.length} admins, ${encargadosStock.length} encargados stock. IDs: [${[...destinatariosCriticos.keys()].join(", ")}]`);
-
-    // Fetch preferences for all potential recipients
-    const allUserIds = [...destinatariosCriticos.keys(), usuarioId];
-    preferencias = await prisma.preferenciaNotificacion.findMany({
-      where: { usuarioId: { in: allUserIds } },
-      select: { usuarioId: true, tipo: true, habilitada: true },
-    });
-  } catch (err) {
-    console.error("[stock-notifications] Error fetching recipients/preferences:", err);
-    return;
-  }
-
-  // Build a lookup: userId -> Set of disabled types
-  const deshabilitadasPorUsuario = new Map<number, Set<string>>();
-  for (const pref of preferencias) {
-    if (!pref.habilitada) {
-      const set = deshabilitadasPorUsuario.get(pref.usuarioId) ?? new Set();
-      set.add(pref.tipo);
-      deshabilitadasPorUsuario.set(pref.usuarioId, set);
-    }
-  }
-
-  // Helper: check if user wants this notification type
-  const usuarioQuiere = (userId: number, tipo: string): boolean => {
-    const deshabilitadas = deshabilitadasPorUsuario.get(userId);
-    return !deshabilitadas?.has(tipo);
-  };
-
-  // Build notification records
-  const notificaciones: Array<{
-    usuarioId: number;
-    tipo: TipoNotificacion;
-    titulo: string;
-    mensaje: string;
-    entidad: string;
-    productoId: number;
-  }> = [];
-
-  for (const { tipo, titulo, mensaje } of tiposNotificar) {
-    const esAlertaCritica = tipo === "STOCK_CRITICO" || tipo === "STOCK_AGOTADO";
-
-    if (esAlertaCritica) {
-      // Send to ALL admins + encargados de stock (respetando preferencias)
-      for (const userId of destinatariosCriticos.keys()) {
-        if (!usuarioQuiere(userId, tipo)) continue;
-        notificaciones.push({
-          usuarioId: userId,
-          tipo: tipo as TipoNotificacion,
-          titulo,
-          mensaje,
-          entidad: "stock",
-          productoId,
-        });
-      }
-    } else {
-      // RESTADO / RECARGADO → send to the user who did it (respetando preferencias)
-      if (!destinatariosCriticos.has(usuarioId) && usuarioQuiere(usuarioId, tipo)) {
-        notificaciones.push({
+    // ── 1. Notificaciones individuales de movimiento (RESTADO / RECARGADO) ──
+    const destinatariosSet = new Set(destinatarios);
+    if (esBaja && !destinatariosSet.has(usuarioId) && usuarioQuiere(usuarioId, "STOCK_RESTADO")) {
+      await prisma.notificacion.create({
+        data: {
           usuarioId,
-          tipo: tipo as TipoNotificacion,
-          titulo,
-          mensaje,
+          tipo: "STOCK_RESTADO",
+          titulo: "Stock reducido",
+          mensaje: `${usuarioNombre} restó ${cantidadAnterior - cantidadNueva} unidades de '${producto.nombre}'. Stock: ${cantidadAnterior} → ${cantidadNueva}. Motivo: ${motivo}`,
           entidad: "stock",
           productoId,
-        });
-      }
+        },
+      });
+    } else if (esAlta && !destinatariosSet.has(usuarioId) && usuarioQuiere(usuarioId, "STOCK_RECARGADO")) {
+      await prisma.notificacion.create({
+        data: {
+          usuarioId,
+          tipo: "STOCK_RECARGADO",
+          titulo: "Stock recargado",
+          mensaje: `${usuarioNombre} agregó ${cantidadNueva - cantidadAnterior} unidades de '${producto.nombre}'. Stock: ${cantidadAnterior} → ${cantidadNueva}.`,
+          entidad: "stock",
+          productoId,
+        },
+      });
     }
-  }
 
-  if (notificaciones.length > 0) {
-    console.log(`[stock-notifications] Creating ${notificaciones.length} notifications:`, notificaciones.map((n) => `${n.tipo}->${n.usuarioId}`).join(", "));
-    try {
-      await prisma.notificacion.createMany({ data: notificaciones });
-      console.log("[stock-notifications] Notifications created successfully");
-    } catch (err) {
-      console.error("[stock-notifications] Error creating notifications:", err);
-      console.error("[stock-notifications] Data:", JSON.stringify(notificaciones, null, 2));
-    }
-  } else {
-    console.log("[stock-notifications] No notifications to create (all filtered by preferences or no critical recipients)");
-  }
+    // ── 2. Notificaciones agrupadas (STOCK_CRITICO y STOCK_AGOTADO) ──
+    const { criticosCount, agotadosCount } = await getConteosStockAlerta();
+
+    const entroCritico = cantidadAnterior > stockMinimo && cantidadNueva <= stockMinimo && cantidadNueva > 0;
+    const entroAgotado = cantidadAnterior > 0 && cantidadNueva === 0;
+
+    // Sincronizar Stock Crítico
+    await sincronizarNotificacionAgrupada({
+      tipo: "STOCK_CRITICO",
+      count: criticosCount,
+      destinatarios,
+      usuarioQuiere,
+      forceCreateIfNotExists: entroCritico,
+    });
+
+    // Sincronizar Stock Agotado (Sin Stock)
+    await sincronizarNotificacionAgrupada({
+      tipo: "STOCK_AGOTADO",
+      count: agotadosCount,
+      destinatarios,
+      usuarioQuiere,
+      forceCreateIfNotExists: entroAgotado,
+    });
   } catch (err) {
     console.error("[stock-notifications] Error in evaluarYNotificarStock:", err);
   }
@@ -204,129 +275,34 @@ export async function evaluarYNotificarStock(params: {
 
 /**
  * Verifica el estado ACTUAL de stock de TODOS los productos activos
- * y crea notificaciones de STOCK_CRITICO / STOCK_AGOTADO para los que
- * estén en estado de alerta, SOLO si no existe ya una notificación
- * reciente (últimas 24h) para ese producto + tipo + usuario.
+ * y asegura que las notificaciones agrupadas de STOCK_CRITICO y STOCK_AGOTADO
+ * reflejen fielmente el total de productos afectados.
  *
- * Se llama al abrir la campanita de notificaciones para garantizar
- * que las alertas aparezcan incluso si el stock ya estaba bajo
- * antes de que existiera la función.
+ * Se llama al abrir la campanita de notificaciones o cargar /notificaciones.
  */
 export async function verificarStockActual() {
   try {
-    console.log("[stock-notifications] verificarStockActual: checking all products...");
+    const destinatarios = await getDestinatariosStockAlerta();
+    if (destinatarios.length === 0) return;
 
-    const productos = await prisma.producto.findMany({
-      where: { activo: true },
-      select: { id: true, nombre: true, cantidad: true, stockMinimo: true },
+    const usuarioQuiere = await getFiltroPreferencias(destinatarios);
+    const { criticosCount, agotadosCount } = await getConteosStockAlerta();
+
+    await sincronizarNotificacionAgrupada({
+      tipo: "STOCK_CRITICO",
+      count: criticosCount,
+      destinatarios,
+      usuarioQuiere,
+      forceCreateIfNotExists: false,
     });
 
-    console.log(`[stock-notifications] verificarStockActual: ${productos.length} active products`);
-
-    // Find products that need alerts
-    const criticos = productos.filter((p) => p.cantidad > 0 && p.cantidad <= p.stockMinimo);
-    const agotados = productos.filter((p) => p.cantidad === 0);
-
-    if (criticos.length === 0 && agotados.length === 0) {
-      console.log("[stock-notifications] verificarStockActual: no products in alert state");
-      return;
-    }
-
-    console.log(`[stock-notifications] verificarStockActual: ${criticos.length} critical, ${agotados.length} empty`);
-
-    // Fetch recipients
-    const roles = await prisma.rol.findMany({ select: { id: true, nombre: true } });
-    const rolAdmin = roles.find((r) => r.nombre === "ADMINISTRADOR");
-    const rolEncargadoStock = roles.find((r) => r.nombre === "ENCARGADO_STOCK");
-
-    const destinatarios = new Map<number, true>();
-    if (rolAdmin) {
-      const admins = await prisma.usuario.findMany({
-        where: { rolId: rolAdmin.id, activo: true },
-        select: { id: true },
-      });
-      for (const u of admins) destinatarios.set(u.id, true);
-    }
-    if (rolEncargadoStock) {
-      const encargados = await prisma.usuario.findMany({
-        where: { rolId: rolEncargadoStock.id, activo: true },
-        select: { id: true },
-      });
-      for (const u of encargados) destinatarios.set(u.id, true);
-    }
-
-    if (destinatarios.size === 0) {
-      console.log("[stock-notifications] verificarStockActual: no recipients found");
-      return;
-    }
-
-    const userIds = [...destinatarios.keys()];
-    const now = new Date();
-    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-
-    // Check existing recent notifications to avoid duplicates
-    const existingNotis = await prisma.notificacion.findMany({
-      where: {
-        usuarioId: { in: userIds },
-        tipo: { in: ["STOCK_CRITICO", "STOCK_AGOTADO"] },
-        createdAt: { gte: oneDayAgo },
-      },
-      select: { usuarioId: true, tipo: true, productoId: true },
+    await sincronizarNotificacionAgrupada({
+      tipo: "STOCK_AGOTADO",
+      count: agotadosCount,
+      destinatarios,
+      usuarioQuiere,
+      forceCreateIfNotExists: false,
     });
-
-    // Build set of existing "user+tipo+productoId" combos
-    const existingSet = new Set(
-      existingNotis.map((n) => `${n.usuarioId}|${n.tipo}|${n.productoId}`)
-    );
-
-    const notificaciones: Array<{
-      usuarioId: number;
-      tipo: "STOCK_CRITICO" | "STOCK_AGOTADO";
-      titulo: string;
-      mensaje: string;
-      entidad: string;
-      productoId: number;
-    }> = [];
-
-    for (const p of criticos) {
-      for (const userId of userIds) {
-        const key = `${userId}|STOCK_CRITICO|${p.id}`;
-        if (!existingSet.has(key)) {
-          notificaciones.push({
-            usuarioId: userId,
-            tipo: "STOCK_CRITICO",
-            titulo: "⚠ Stock crítico",
-            mensaje: `'${p.nombre}' tiene ${p.cantidad} unidades disponibles y alcanzó el mínimo configurado (${p.stockMinimo}).`,
-            entidad: "stock",
-            productoId: p.id,
-          });
-        }
-      }
-    }
-
-    for (const p of agotados) {
-      for (const userId of userIds) {
-        const key = `${userId}|STOCK_AGOTADO|${p.id}`;
-        if (!existingSet.has(key)) {
-          notificaciones.push({
-            usuarioId: userId,
-            tipo: "STOCK_AGOTADO",
-            titulo: "🔴 Stock agotado",
-            mensaje: `'${p.nombre}' se quedó sin stock. Se requiere reposición urgente.`,
-            entidad: "stock",
-            productoId: p.id,
-          });
-        }
-      }
-    }
-
-    if (notificaciones.length > 0) {
-      console.log(`[stock-notifications] verificarStockActual: creating ${notificaciones.length} notifications`);
-      await prisma.notificacion.createMany({ data: notificaciones });
-      console.log("[stock-notifications] verificarStockActual: done");
-    } else {
-      console.log("[stock-notifications] verificarStockActual: all alerts already exist (no duplicates)");
-    }
   } catch (err) {
     console.error("[stock-notifications] verificarStockActual error:", err);
   }

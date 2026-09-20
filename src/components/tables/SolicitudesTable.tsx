@@ -19,9 +19,12 @@ import {
   Search,
   Eraser,
   Layers,
+  DollarSign,
+  User,
 } from "lucide-react";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import SolicitudStockDetail from "@/components/ui/SolicitudStockDetail";
+import SolicitudPrecioDetail from "@/components/ui/SolicitudPrecioDetail";
 import {
   aprobarSolicitudUnificada,
   rechazarSolicitudUnificada,
@@ -49,7 +52,14 @@ interface SolicitudUnificada {
   monto?: number | null;
   motivo?: string | null;
   proveedorNombre?: string | null;
-  origenTabla?: "solicitud_stock" | "solicitud_reposicion" | "solicitud_caja";
+  precioCompraActual?: number | null;
+  precioCompraNuevo?: number | null;
+  precioVentaActual?: number | null;
+  precioVentaNuevo?: number | null;
+  observacionResolucion?: string | null;
+  aprobadorNombre?: string | null;
+  fechaResolucion?: Date | string | null;
+  origenTabla?: "solicitud_stock" | "solicitud_reposicion" | "solicitud_caja" | "solicitud_precio";
   producto?: {
     id: number;
     nombre: string;
@@ -80,6 +90,7 @@ type TipoFilter =
   | "TODOS"
   | "Producto-Resta"
   | "Producto-Reposición"
+  | "Producto-Precio"
   | "Caja-Apertura"
   | "Caja-Cierre"
   | "Caja-Ajuste efectivo"
@@ -110,6 +121,7 @@ const SUBTIPO_BY_MODULO: Record<
     { value: "TODOS", label: "Todos los tipos", icon: Filter },
     { value: "Producto-Reposición", label: "Producto — Reposición", icon: TrendingUp },
     { value: "Producto-Resta", label: "Producto — Resta", icon: TrendingDown },
+    { value: "Producto-Precio", label: "Producto — Cambio de precio", icon: DollarSign },
     { value: "Caja-Apertura", label: "Caja — Apertura", icon: Wallet },
     { value: "Caja-Cierre", label: "Caja — Cierre", icon: Wallet },
     { value: "Caja-Ajuste efectivo", label: "Caja — Ajuste efectivo", icon: Wallet },
@@ -120,6 +132,7 @@ const SUBTIPO_BY_MODULO: Record<
     { value: "TODOS", label: "Todos de productos", icon: Boxes },
     { value: "Producto-Reposición", label: "Reposición de stock", icon: TrendingUp },
     { value: "Producto-Resta", label: "Resta de stock", icon: TrendingDown },
+    { value: "Producto-Precio", label: "Cambio de precio", icon: DollarSign },
   ],
   CAJA: [
     { value: "TODOS", label: "Todos de caja", icon: Wallet },
@@ -310,6 +323,123 @@ function TipoFilterSelect({
                   </SelectPrimitive.Item>
                 );
               })}
+            </SelectPrimitive.Viewport>
+          </SelectPrimitive.Content>
+        </SelectPrimitive.Portal>
+      </SelectPrimitive.Root>
+    </div>
+  );
+}
+
+const USUARIO_TONE = {
+  trigger: "border-[#10B981]/25 hover:border-[#10B981]/60 focus-visible:border-[#10B981] focus-visible:ring-[#10B981]/20 data-[state=open]:border-[#10B981]/70 data-[state=open]:ring-[#10B981]/20",
+  icon: "bg-[#10B981]/15 text-[#34D399] ring-[#10B981]/20",
+  content: "border-[#10B981]/30",
+  itemFocus: "focus:bg-[#10B981]/10",
+  selected: "data-[state=checked]:bg-[#10B981]/12 data-[state=checked]:text-[#A7F3D0]",
+  check: "text-[#34D399]",
+  chevron: "text-[#34D399]",
+};
+
+function UsuarioFilterSelect({
+  value,
+  onValueChange,
+  usuarios,
+  currentUserId,
+}: {
+  value: string;
+  onValueChange: (v: string) => void;
+  usuarios: { id: number; nombre: string }[];
+  currentUserId?: number;
+}) {
+  const selectedOption =
+    value === "TODOS"
+      ? { id: "TODOS", nombre: "Todos los usuarios" }
+      : usuarios.find((u) => String(u.id) === value) ?? { id: "TODOS", nombre: "Todos los usuarios" };
+
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+        Usuario
+      </label>
+      <SelectPrimitive.Root value={value} onValueChange={onValueChange}>
+        <SelectPrimitive.Trigger
+          className={cn(
+            "group flex h-10 min-w-[170px] max-w-[220px] items-center justify-between gap-2 rounded-xl border bg-[var(--bg)] px-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200",
+            USUARIO_TONE.trigger
+          )}
+        >
+          <span className="flex items-center gap-2 truncate">
+            <span className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ring-1", USUARIO_TONE.icon)}>
+              <User size={13} />
+            </span>
+            <span className="truncate">{selectedOption.nombre}</span>
+          </span>
+          <SelectPrimitive.Icon asChild>
+            <svg
+              className={cn("h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180", USUARIO_TONE.chevron)}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </SelectPrimitive.Icon>
+        </SelectPrimitive.Trigger>
+        <SelectPrimitive.Portal>
+          <SelectPrimitive.Content
+            position="popper"
+            sideOffset={6}
+            className={cn(
+              "z-50 min-w-[190px] max-h-[280px] overflow-y-auto rounded-xl border bg-[var(--card)] p-1.5 shadow-[var(--shadow-md)] animate-in fade-in-80",
+              USUARIO_TONE.content
+            )}
+          >
+            <SelectPrimitive.Viewport className="space-y-1">
+              <SelectPrimitive.Item
+                value="TODOS"
+                className={cn(
+                  "relative flex cursor-pointer select-none items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold text-[var(--text)] outline-none transition-colors",
+                  USUARIO_TONE.itemFocus,
+                  USUARIO_TONE.selected
+                )}
+              >
+                <span className="flex items-center gap-2 truncate">
+                  <span className={cn("flex h-5 w-5 items-center justify-center rounded-md ring-1", USUARIO_TONE.icon)}>
+                    <User size={12} />
+                  </span>
+                  <SelectPrimitive.ItemText>Todos los usuarios</SelectPrimitive.ItemText>
+                </span>
+                <SelectPrimitive.ItemIndicator>
+                  <Check size={14} className={cn("shrink-0", USUARIO_TONE.check)} />
+                </SelectPrimitive.ItemIndicator>
+              </SelectPrimitive.Item>
+
+              {usuarios.map((user) => (
+                <SelectPrimitive.Item
+                  key={user.id}
+                  value={String(user.id)}
+                  className={cn(
+                    "relative flex cursor-pointer select-none items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold text-[var(--text)] outline-none transition-colors",
+                    USUARIO_TONE.itemFocus,
+                    USUARIO_TONE.selected
+                  )}
+                >
+                  <span className="flex items-center gap-2 truncate">
+                    <span className={cn("flex h-5 w-5 items-center justify-center rounded-md ring-1", USUARIO_TONE.icon)}>
+                      <User size={12} />
+                    </span>
+                    <SelectPrimitive.ItemText>
+                      {user.nombre}
+                      {currentUserId === user.id ? " (Tú)" : ""}
+                    </SelectPrimitive.ItemText>
+                  </span>
+                  <SelectPrimitive.ItemIndicator>
+                    <Check size={14} className={cn("shrink-0", USUARIO_TONE.check)} />
+                  </SelectPrimitive.ItemIndicator>
+                </SelectPrimitive.Item>
+              ))}
             </SelectPrimitive.Viewport>
           </SelectPrimitive.Content>
         </SelectPrimitive.Portal>
@@ -658,7 +788,7 @@ export default function SolicitudesTable({
     ) {
       return estadoParam;
     }
-    return "TODAS";
+    return "PENDIENTE";
   });
   const [search, setSearch] = useState("");
   const [moduloFilter, setModuloFilter] = useState<ModuloFilter>(() => {
@@ -667,6 +797,7 @@ export default function SolicitudesTable({
     return "TODOS";
   });
   const [tipoFilter, setTipoFilter] = useState<TipoFilter>("TODOS");
+  const [usuarioFilter, setUsuarioFilter] = useState<string>("TODOS");
   const [highlightedSolicitudId, setHighlightedSolicitudId] = useState<number | null>(() => {
     const idParam = searchParams.get("solicitudId") || searchParams.get("highlight") || searchParams.get("id");
     const parsed = Number(idParam);
@@ -683,6 +814,18 @@ export default function SolicitudesTable({
   const [, startActionTransition] = useTransition();
 
   const lastProcessedParamsRef = useRef<string | null>(null);
+
+  const usuariosOptions = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const s of solicitudes) {
+      if (s.solicitanteId && s.solicitanteNombre) {
+        map.set(s.solicitanteId, s.solicitanteNombre);
+      }
+    }
+    return Array.from(map.entries())
+      .map(([id, nombre]) => ({ id, nombre }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }, [solicitudes]);
 
   /* ── Sincronizar filtros y highlight con query params de la URL ── */
   useEffect(() => {
@@ -709,6 +852,7 @@ export default function SolicitudesTable({
         setSearch("");
         setModuloFilter("TODOS");
         setTipoFilter("TODOS");
+        setUsuarioFilter("TODOS");
       } else if (!idParam) {
         setHighlightedSolicitudId(null);
       }
@@ -737,14 +881,16 @@ export default function SolicitudesTable({
     search !== "" ||
     moduloFilter !== "TODOS" ||
     tipoFilter !== "TODOS" ||
-    filter !== "TODAS" ||
+    usuarioFilter !== "TODOS" ||
+    filter !== "PENDIENTE" ||
     highlightedSolicitudId !== null;
 
   const handleClearFilters = useCallback(() => {
     setSearch("");
     setModuloFilter("TODOS");
     setTipoFilter("TODOS");
-    setFilter("TODAS");
+    setUsuarioFilter("TODOS");
+    setFilter("PENDIENTE");
     setHighlightedSolicitudId(null);
     lastProcessedParamsRef.current = "";
     if (searchParams.toString()) {
@@ -867,9 +1013,12 @@ export default function SolicitudesTable({
       if (tipoFilter !== "TODOS" && s.tipo !== tipoFilter) {
         return false;
       }
+      if (usuarioFilter !== "TODOS" && String(s.solicitanteId) !== usuarioFilter) {
+        return false;
+      }
       return true;
     });
-  }, [solicitudes, search, moduloFilter, tipoFilter]);
+  }, [solicitudes, search, moduloFilter, tipoFilter, usuarioFilter]);
 
   const counts = useMemo(() => {
     return {
@@ -1042,6 +1191,16 @@ export default function SolicitudesTable({
           onValueChange={setTipoFilter}
           modulo={moduloFilter}
         />
+
+        {/* Usuario Filter (Solo visible para Administrador) */}
+        {userRole === "ADMINISTRADOR" && (
+          <UsuarioFilterSelect
+            value={usuarioFilter}
+            onValueChange={setUsuarioFilter}
+            usuarios={usuariosOptions}
+            currentUserId={userId}
+          />
+        )}
       </div>
 
       {/* Table */}
@@ -1220,22 +1379,45 @@ export default function SolicitudesTable({
         </table>
       </div>
 
-      {/* Modal: PRODUCTOS → SolicitudStockDetail */}
-      {selectedSolicitud && selectedSolicitud.origen === "PRODUCTOS" && (
-        <SolicitudStockDetail
-          open={true}
-          onOpenChange={(open) => {
-            if (!open) handleCloseModal();
-          }}
-          solicitud={mapToStockSolicitud(selectedSolicitud)}
-          currentUserId={userId}
-          userRole={userRole}
-          onSuccess={() => {
-            handleCloseModal();
-            router.refresh();
-          }}
-        />
-      )}
+      {/* Modal: PRODUCTOS (Precio) → SolicitudPrecioDetail */}
+      {selectedSolicitud &&
+        selectedSolicitud.origen === "PRODUCTOS" &&
+        (selectedSolicitud.origenTabla === "solicitud_precio" ||
+          selectedSolicitud.tipo === "Producto-Precio") && (
+          <SolicitudPrecioDetail
+            open={true}
+            onOpenChange={(open) => {
+              if (!open) handleCloseModal();
+            }}
+            solicitud={selectedSolicitud}
+            currentUserId={userId}
+            userRole={userRole}
+            onSuccess={() => {
+              handleCloseModal();
+              router.refresh();
+            }}
+          />
+        )}
+
+      {/* Modal: PRODUCTOS (Stock) → SolicitudStockDetail */}
+      {selectedSolicitud &&
+        selectedSolicitud.origen === "PRODUCTOS" &&
+        selectedSolicitud.origenTabla !== "solicitud_precio" &&
+        selectedSolicitud.tipo !== "Producto-Precio" && (
+          <SolicitudStockDetail
+            open={true}
+            onOpenChange={(open) => {
+              if (!open) handleCloseModal();
+            }}
+            solicitud={mapToStockSolicitud(selectedSolicitud)}
+            currentUserId={userId}
+            userRole={userRole}
+            onSuccess={() => {
+              handleCloseModal();
+              router.refresh();
+            }}
+          />
+        )}
 
       {/* Modal: CAJA → CajaDetailModal */}
       {selectedSolicitud && selectedSolicitud.origen === "CAJA" && (

@@ -49,6 +49,7 @@ interface Notificacion {
   solicitudStockId?: number | null;
   solicitudReposicionId?: number | null;
   solicitudCajaId?: number | null;
+  solicitudPrecioId?: number | null;
   productoId?: number | null;
   solicitudStock?: {
     id: number;
@@ -86,7 +87,7 @@ const TIPO_GROUPS: TipoGroup[] = [
   {
     group: "SOLICITUDES",
     options: [
-      { value: "SOLICITUD_CREADA", label: "Solicitudes creadas", icon: Bell },
+      { value: "SOLICITUD_CREADA", label: "Solicitudes pendientes", icon: Bell },
       { value: "SOLICITUD_APROBADA", label: "Solicitudes aprobadas", icon: CheckCircle },
       { value: "SOLICITUD_RECHAZADA", label: "Solicitudes rechazadas", icon: XCircle },
       { value: "SOLICITUD_CANCELADA", label: "Solicitudes canceladas", icon: XCircle },
@@ -269,7 +270,11 @@ function absoluteDate(date: Date | string) {
 }
 
 function buildHref(noti: Notificacion): string | null {
-  const solicitudId = noti.solicitudStockId || noti.solicitudReposicionId || noti.solicitudCajaId;
+  const solicitudId =
+    noti.solicitudStockId ||
+    noti.solicitudReposicionId ||
+    noti.solicitudCajaId ||
+    noti.solicitudPrecioId;
 
   switch (noti.tipo) {
     case "SOLICITUD_CREADA":
@@ -309,7 +314,8 @@ function buildHref(noti: Notificacion): string | null {
         solicitudId ||
         noti.entidad === "solicitud_stock" ||
         noti.entidad === "reposicion" ||
-        noti.entidad === "solicitud_caja"
+        noti.entidad === "solicitud_caja" ||
+        noti.entidad === "solicitud_precio"
       ) {
         return solicitudId ? `/solicitudes?solicitudId=${solicitudId}` : "/solicitudes";
       }

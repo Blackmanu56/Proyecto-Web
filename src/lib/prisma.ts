@@ -18,11 +18,12 @@ const prismaLogLevels: ("query" | "info" | "warn" | "error")[] =
       : ["warn", "error"];
 
 export const prisma =
-  globalForPrisma.prisma ||
-  new PrismaClient({
-    adapter,
-    log: prismaLogLevels,
-  });
+  globalForPrisma.prisma && "solicitudPrecio" in globalForPrisma.prisma
+    ? globalForPrisma.prisma
+    : new PrismaClient({
+        adapter,
+        log: prismaLogLevels,
+      });
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;

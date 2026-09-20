@@ -19,7 +19,14 @@ export interface SolicitudUnificada {
   monto?: number | null;
   motivo?: string | null;
   proveedorNombre?: string | null;
-  origenTabla?: "solicitud_stock" | "solicitud_reposicion" | "solicitud_caja";
+  precioCompraActual?: number | null;
+  precioCompraNuevo?: number | null;
+  precioVentaActual?: number | null;
+  precioVentaNuevo?: number | null;
+  observacionResolucion?: string | null;
+  aprobadorNombre?: string | null;
+  fechaResolucion?: Date | string | null;
+  origenTabla?: "solicitud_stock" | "solicitud_reposicion" | "solicitud_caja" | "solicitud_precio";
   producto?: {
     id: number;
     nombre: string;
@@ -59,15 +66,13 @@ export async function getSolicitudesUnificadas(
     }
 
     const isAdmin = role === "ADMINISTRADOR";
-    const isStock = role === "ENCARGADO_STOCK";
-    const isVentas = role === "ENCARGADO_VENTAS";
 
     const queries: Promise<SolicitudUnificada[]>[] = [];
 
     /* ── 1. Solicitudes Stock (Resta + Reposición de SolicitudStock) ── */
     queries.push(
       (async () => {
-        const where = isAdmin || isStock ? {} : { solicitanteId: userId };
+        const where = isAdmin ? {} : { solicitanteId: userId };
         const solicitudes = await prisma.solicitudStock.findMany({
           where,
           include: {
@@ -128,7 +133,7 @@ export async function getSolicitudesUnificadas(
     /* ── 2. Solicitudes Reposición (de SolicitudReposicion) ── */
     queries.push(
       (async () => {
-        const where = isAdmin || isStock ? {} : { solicitanteId: userId };
+        const where = isAdmin ? {} : { solicitanteId: userId };
         const solicitudes = await prisma.solicitudReposicion.findMany({
           where,
           include: {
@@ -192,7 +197,7 @@ export async function getSolicitudesUnificadas(
     /* ── 3. Solicitudes Caja (de SolicitudCaja) ── */
     queries.push(
       (async () => {
-        const where = isAdmin || isVentas ? {} : { solicitanteId: userId };
+        const where = isAdmin ? {} : { solicitanteId: userId };
         const solicitudes = await prisma.solicitudCaja.findMany({
           where,
           include: {
@@ -228,6 +233,75 @@ export async function getSolicitudesUnificadas(
           monto: s.monto,
           motivo: s.motivo,
           origenTabla: "solicitud_caja" as const,
+        }));
+      })()
+    );
+
+    /* ── 4. Solicitudes Cambio de Precio (de SolicitudPrecio) ── */
+    queries.push(
+      (async () => {
+        const where = isAdmin ? {} : { solicitanteId: userId };
+        const solicitudes = await prisma.solicitudPrecio.findMany({
+          where,
+          include: {
+            producto: {
+              select: {
+                id: true,
+                nombre: true,
+                codigo: true,
+                imagen: true,
+                marca: true,
+                precioCompra: true,
+                precioVenta: true,
+                cantidad: true,
+                activo: true,
+                categoria: { select: { id: true, nombre: true } },
+                proveedor: { select: { id: true, nombre: true } },
+              },
+            },
+            solicitante: {
+              select: { id: true, nombreCompleto: true },
+            },
+            aprobador: {
+              select: { id: true, nombreCompleto: true },
+            },
+          },
+          orderBy: { fechaSolicitud: "desc" },
+        });
+
+        return solicitudes.map((s) => ({
+          id: s.id,
+          origen: "PRODUCTOS" as const,
+          tipo: "Producto-Precio",
+          solicitanteId: s.solicitanteId,
+          solicitanteNombre: s.solicitante.nombreCompleto,
+          fecha: s.fechaSolicitud,
+          estado: s.estado,
+          detalle: s.motivo,
+          productoNombre: s.producto.nombre,
+          proveedorNombre: s.producto.proveedor?.nombre ?? null,
+          precioCompraActual: s.precioCompraActual,
+          precioCompraNuevo: s.precioCompraNuevo,
+          precioVentaActual: s.precioVentaActual,
+          precioVentaNuevo: s.precioVentaNuevo,
+          observacionResolucion: s.observacionResolucion,
+          aprobadorNombre: s.aprobador?.nombreCompleto ?? null,
+          fechaResolucion: s.fechaResolucion,
+          motivo: s.motivo,
+          origenTabla: "solicitud_precio" as const,
+          producto: {
+            id: s.producto.id,
+            nombre: s.producto.nombre,
+            codigo: s.producto.codigo,
+            imagen: s.producto.imagen,
+            marca: s.producto.marca,
+            precioCompra: s.producto.precioCompra,
+            precioVenta: s.producto.precioVenta,
+            cantidad: s.producto.cantidad,
+            activo: s.producto.activo,
+            categoria: s.producto.categoria ?? undefined,
+            proveedor: s.producto.proveedor ?? undefined,
+          },
         }));
       })()
     );
@@ -269,11 +343,16 @@ import {
   aprobarSolicitudCaja,
   rechazarSolicitudCaja,
 } from "./caja";
+import {
+  aprobarSolicitudPrecio,
+  rechazarSolicitudPrecio,
+  cancelarSolicitudPrecio,
+} from "./solicitudes-precio";
 import { revalidatePath } from "next/cache";
 
 export async function aprobarSolicitudUnificada(
   id: number,
-  origenTabla?: "solicitud_stock" | "solicitud_reposicion" | "solicitud_caja",
+  origenTabla?: "solicitud_stock" | "solicitud_reposicion" | "solicitud_caja" | "solicitud_precio",
   formaPago?: "EFECTIVO" | "BANCO" | "EFECTIVO_CAJA" | "TRANSFERENCIA_BANCARIA"
 ) {
   try {
@@ -293,6 +372,11 @@ export async function aprobarSolicitudUnificada(
       revalidatePath("/solicitudes");
       return res;
     }
+    if (origenTabla === "solicitud_precio") {
+      const res = await aprobarSolicitudPrecio(id);
+      revalidatePath("/solicitudes");
+      return res;
+    }
     return { error: "Tipo de solicitud no especificado." };
   } catch (error: unknown) {
     console.error("Error en aprobarSolicitudUnificada:", error);
@@ -307,7 +391,7 @@ export async function aprobarSolicitudUnificada(
 
 export async function rechazarSolicitudUnificada(
   id: number,
-  origenTabla: "solicitud_stock" | "solicitud_reposicion" | "solicitud_caja",
+  origenTabla: "solicitud_stock" | "solicitud_reposicion" | "solicitud_caja" | "solicitud_precio",
   motivo: string
 ) {
   try {
@@ -329,6 +413,11 @@ export async function rechazarSolicitudUnificada(
       revalidatePath("/solicitudes");
       return res;
     }
+    if (origenTabla === "solicitud_precio") {
+      const res = await rechazarSolicitudPrecio(id, motivo);
+      revalidatePath("/solicitudes");
+      return res;
+    }
     return { error: "Tipo de solicitud no especificado." };
   } catch (error: unknown) {
     console.error("Error en rechazarSolicitudUnificada:", error);
@@ -343,7 +432,7 @@ export async function rechazarSolicitudUnificada(
 
 export async function cancelarSolicitudUnificada(
   id: number,
-  origenTabla: "solicitud_stock" | "solicitud_reposicion" | "solicitud_caja",
+  origenTabla: "solicitud_stock" | "solicitud_reposicion" | "solicitud_caja" | "solicitud_precio",
   motivo?: string
 ) {
   try {
@@ -354,6 +443,12 @@ export async function cancelarSolicitudUnificada(
 
     if (origenTabla === "solicitud_stock") {
       const res = await cancelarSolicitudStock(id, motivo);
+      revalidatePath("/solicitudes");
+      return res;
+    }
+
+    if (origenTabla === "solicitud_precio") {
+      const res = await cancelarSolicitudPrecio(id);
       revalidatePath("/solicitudes");
       return res;
     }

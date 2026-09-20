@@ -37,6 +37,7 @@ interface Notificacion {
   solicitudStockId?: number | null;
   solicitudReposicionId?: number | null;
   solicitudCajaId?: number | null;
+  solicitudPrecioId?: number | null;
   productoId?: number | null;
   solicitudStock?: {
     id: number;
@@ -162,7 +163,11 @@ function absoluteDate(date: Date | string) {
 }
 
 function buildHref(noti: Notificacion): string | null {
-  const solicitudId = noti.solicitudStockId || noti.solicitudReposicionId || noti.solicitudCajaId;
+  const solicitudId =
+    noti.solicitudStockId ||
+    noti.solicitudReposicionId ||
+    noti.solicitudCajaId ||
+    noti.solicitudPrecioId;
 
   switch (noti.tipo) {
     case "SOLICITUD_CREADA":
@@ -202,7 +207,8 @@ function buildHref(noti: Notificacion): string | null {
         solicitudId ||
         noti.entidad === "solicitud_stock" ||
         noti.entidad === "reposicion" ||
-        noti.entidad === "solicitud_caja"
+        noti.entidad === "solicitud_caja" ||
+        noti.entidad === "solicitud_precio"
       ) {
         return solicitudId ? `/solicitudes?solicitudId=${solicitudId}` : "/solicitudes";
       }

@@ -7,7 +7,15 @@ const mocks = vi.hoisted(() => ({
   rol: { findMany: vi.fn() },
   usuario: { findMany: vi.fn() },
   preferenciaNotificacion: { findMany: vi.fn() },
-  notificacion: { createMany: vi.fn(), findMany: vi.fn() },
+  notificacion: {
+    create: vi.fn(),
+    createMany: vi.fn(),
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
+    update: vi.fn(),
+    deleteMany: vi.fn(),
+    delete: vi.fn(),
+  },
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -58,9 +66,16 @@ function defaultParams(overrides: Record<string, unknown> = {}) {
 
 function setupPrismaMocks(
   productOverrides: Record<string, unknown> = {},
-  options: { preferencias?: Array<{ usuarioId: number; tipo: string; habilitada: boolean }> } = {}
+  options: {
+    preferencias?: Array<{ usuarioId: number; tipo: string; habilitada: boolean }>;
+    activeProducts?: Array<{ id: number; cantidad: number; stockMinimo: number; activo?: boolean }>;
+    existingUnread?: any;
+  } = {}
 ) {
   mocks.producto.findUnique.mockResolvedValue({ ...PRODUCT_BASE, ...productOverrides });
+  mocks.producto.findMany.mockResolvedValue(
+    options.activeProducts ?? [{ id: 5, cantidad: 3, stockMinimo: 5, activo: true }]
+  );
   mocks.rol.findMany.mockResolvedValue(ROLES);
   mocks.usuario.findMany.mockImplementation(async (args: { where: { rolId: number } }) => {
     if (args.where.rolId === 1) return ADMIN_USERS;
@@ -68,18 +83,17 @@ function setupPrismaMocks(
     return [];
   });
   mocks.preferenciaNotificacion.findMany.mockResolvedValue(options.preferencias ?? []);
+  mocks.notificacion.create.mockResolvedValue({ id: 1 });
   mocks.notificacion.createMany.mockResolvedValue({ count: 0 });
-}
-
-function lastCreateManyData() {
-  return mocks.notificacion.createMany.mock.calls.at(-1)![0].data as Array<{
-    usuarioId: number;
-    tipo: string;
-    titulo: string;
-    mensaje: string;
-    entidad: string;
-    productoId: number;
-  }>;
+  mocks.notificacion.findFirst.mockImplementation(async (args: any) => {
+    if (typeof options.existingUnread === "function") {
+      return options.existingUnread(args);
+    }
+    return options.existingUnread ?? null;
+  });
+  mocks.notificacion.findMany.mockResolvedValue([]);
+  mocks.notificacion.update.mockResolvedValue({ id: 1 });
+  mocks.notificacion.deleteMany.mockResolvedValue({ count: 1 });
 }
 
 // ─── Lifecycle ──────────────────────────────────────────────────────────────
@@ -97,335 +111,221 @@ afterEach(() => {
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
 
-describe("evaluarYNotificarStock", () => {
-  // ── 1. STOCK_CRITICO → ADMINISTRADOR ────────────────────────────────────
+describe("evaluarYNotificarStock (Grouped notifications)", () => {
+  it("creates grouped STOCK_CRITICO for ADMINISTRADOR and ENCARGADO_STOCK when crossing below stockMinimo", async () => {
+    // 1 critical product (id 5, cantidad 3, min 5)
+    setupPrismaMocks({}, {
+      activeProducts: [{ id: 5, cantidad: 3, stockMinimo: 5 }],
+    });
 
-  it("sends STOCK_CRITICO to ADMINISTRADOR when stock crosses below stockMinimo", async () => {
-    // Stock 10 → 3, stockMinimo=5 → crosses threshold, not zero
-    await evaluarYNotificarStock(defaultParams());
+    await evaluarYNotificarStock(defaultParams({ cantidadAnterior: 10, cantidadNueva: 3 }));
 
-    const data = lastCreateManyData();
-    const criticoToAdmin = data.find(
-      (n) => n.tipo === "STOCK_CRITICO" && n.usuarioId === 10
-    );
+    // Verify create was called for admin (10) and encargado (20) with grouped format
+    const createCalls = mocks.notificacion.create.mock.calls.map((c) => c[0].data);
+    const criticoAdmin = createCalls.find((n) => n.tipo === "STOCK_CRITICO" && n.usuarioId === 10);
+    const criticoEncargado = createCalls.find((n) => n.tipo === "STOCK_CRITICO" && n.usuarioId === 20);
 
-    expect(criticoToAdmin).toBeDefined();
-    expect(criticoToAdmin!.titulo).toBe("⚠ Stock crítico");
-    expect(criticoToAdmin!.productoId).toBe(5);
+    expect(criticoAdmin).toBeDefined();
+    expect(criticoAdmin.titulo).toBe("⚠ Stock crítico");
+    expect(criticoAdmin.mensaje).toBe("Se detectaron 1 productos con stock crítico");
+    expect(criticoAdmin.productoId).toBeNull();
+
+    expect(criticoEncargado).toBeDefined();
+    expect(criticoEncargado.mensaje).toBe("Se detectaron 1 productos con stock crítico");
   });
 
-  // ── 2. STOCK_CRITICO → ENCARGADO_STOCK ─────────────────────────────────
+  it("updates counter on existing unread grouped notification when new product enters critical state", async () => {
+    // 7 products are now critical, existing unread has id 99
+    setupPrismaMocks({}, {
+      activeProducts: Array.from({ length: 7 }, (_, i) => ({ id: i + 1, cantidad: 2, stockMinimo: 5 })),
+      existingUnread: (args: any) => {
+        if (args?.where?.tipo === "STOCK_CRITICO" && !args?.where?.leida) {
+          return { id: 99, tipo: "STOCK_CRITICO", usuarioId: args.where.usuarioId, mensaje: "Se detectaron 6 productos con stock crítico" };
+        }
+        return null;
+      },
+    });
 
-  it("sends STOCK_CRITICO to ENCARGADO_STOCK when stock crosses below stockMinimo", async () => {
-    await evaluarYNotificarStock(defaultParams());
+    await evaluarYNotificarStock(defaultParams({ cantidadAnterior: 10, cantidadNueva: 3 }));
 
-    const data = lastCreateManyData();
-    const criticoToEncargado = data.find(
-      (n) => n.tipo === "STOCK_CRITICO" && n.usuarioId === 20
-    );
-
-    expect(criticoToEncargado).toBeDefined();
-    expect(criticoToEncargado!.titulo).toBe("⚠ Stock crítico");
-  });
-
-  // ── 3. STOCK_AGOTADO → ADMINISTRADOR ───────────────────────────────────
-
-  it("sends STOCK_AGOTADO to ADMINISTRADOR when stock hits 0", async () => {
-    // Stock 10 → 0
-    await evaluarYNotificarStock(defaultParams({ cantidadNueva: 0 }));
-
-    const data = lastCreateManyData();
-    const agotadoToAdmin = data.find(
-      (n) => n.tipo === "STOCK_AGOTADO" && n.usuarioId === 10
-    );
-
-    expect(agotadoToAdmin).toBeDefined();
-    expect(agotadoToAdmin!.titulo).toBe("🔴 Stock agotado");
-    expect(agotadoToAdmin!.mensaje).toContain("sin stock");
-  });
-
-  // ── 4. STOCK_AGOTADO → ENCARGADO_STOCK ────────────────────────────────
-
-  it("sends STOCK_AGOTADO to ENCARGADO_STOCK when stock hits 0", async () => {
-    await evaluarYNotificarStock(defaultParams({ cantidadNueva: 0 }));
-
-    const data = lastCreateManyData();
-    const agotadoToEncargado = data.find(
-      (n) => n.tipo === "STOCK_AGOTADO" && n.usuarioId === 20
-    );
-
-    expect(agotadoToEncargado).toBeDefined();
-    expect(agotadoToEncargado!.titulo).toBe("🔴 Stock agotado");
-  });
-
-  // ── 5. No duplicate notifications ──────────────────────────────────────
-
-  it("does not create duplicate notifications for same product at same level", async () => {
-    const params = defaultParams();
-
-    await evaluarYNotificarStock(params);
-    const firstData = lastCreateManyData();
-
-    // Verify no duplicate usuarioId+tipo pairs in a single call
-    const keys = firstData.map((n) => `${n.usuarioId}-${n.tipo}`);
-    expect(new Set(keys).size).toBe(keys.length);
-
-    // Call again with same params — same result, no extras
-    await evaluarYNotificarStock(params);
-    const secondData = lastCreateManyData();
-
-    const keys2 = secondData.map((n) => `${n.usuarioId}-${n.tipo}`);
-    expect(new Set(keys2).size).toBe(keys2.length);
-  });
-
-  // ── 6. STOCK_RESTADO → only movement user, not admins ─────────────────
-
-  it("sends STOCK_RESTADO only to the user who caused the movement, not to admins", async () => {
-    // User 30 is NOT admin (10) nor encargado (20)
-    await evaluarYNotificarStock(defaultParams());
-
-    const data = lastCreateManyData();
-    const restadoEntries = data.filter((n) => n.tipo === "STOCK_RESTADO");
-
-    // Only user 30 gets RESTADO
-    expect(restadoEntries).toHaveLength(1);
-    expect(restadoEntries[0].usuarioId).toBe(30);
-    expect(restadoEntries[0].mensaje).toContain("Pedro");
-
-    // Admins/encargados do NOT get RESTADO
-    const restadoToAdmin = data.find(
-      (n) => n.tipo === "STOCK_RESTADO" && n.usuarioId === 10
-    );
-    const restadoToEncargado = data.find(
-      (n) => n.tipo === "STOCK_RESTADO" && n.usuarioId === 20
-    );
-    expect(restadoToAdmin).toBeUndefined();
-    expect(restadoToEncargado).toBeUndefined();
-  });
-
-  // ── 7. STOCK_RECARGADO → only movement user, not admins ────────────────
-
-  it("sends STOCK_RECARGADO only to the user who caused the movement, not to admins", async () => {
-    // Stock increases: 5 → 15
-    await evaluarYNotificarStock(
-      defaultParams({ cantidadAnterior: 5, cantidadNueva: 15 })
-    );
-
-    const data = lastCreateManyData();
-    const recargadoEntries = data.filter((n) => n.tipo === "STOCK_RECARGADO");
-
-    // Only user 30 gets RECARGADO
-    expect(recargadoEntries).toHaveLength(1);
-    expect(recargadoEntries[0].usuarioId).toBe(30);
-    expect(recargadoEntries[0].mensaje).toContain("Pedro");
-    expect(recargadoEntries[0].mensaje).toContain("10 unidades");
-
-    // Admins/encargados do NOT get RECARGADO
-    const recargadoToAdmin = data.find(
-      (n) => n.tipo === "STOCK_RECARGADO" && n.usuarioId === 10
-    );
-    expect(recargadoToAdmin).toBeUndefined();
-  });
-
-  // ── 8. No critical notification when stock stays above minimum ────────
-
-  it("does not create any notification when stock decreases but stays above stockMinimo and user is admin", async () => {
-    // Stock 10 → 8, stockMinimo=5 → still above threshold
-    // User is admin, so RESTADO won't be sent to them either
-    await evaluarYNotificarStock(
-      defaultParams({
-        usuarioId: 10,
-        usuarioNombre: "admin",
-        cantidadNueva: 8,
+    // Should update existing notification 99 to 7 products
+    expect(mocks.notificacion.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 99 },
+        data: expect.objectContaining({
+          mensaje: "Se detectaron 7 productos con stock crítico",
+        }),
       })
     );
-
-    // createMany should NOT be called (no notifications to create)
-    expect(mocks.notificacion.createMany).not.toHaveBeenCalled();
   });
 
-  // ── Edge cases ─────────────────────────────────────────────────────────
-
-  it("skips when stock did not change", async () => {
-    await evaluarYNotificarStock(defaultParams({ cantidadNueva: 10 }));
-
-    expect(mocks.notificacion.createMany).not.toHaveBeenCalled();
-  });
-
-  it("skips when product is not found", async () => {
-    mocks.producto.findUnique.mockResolvedValue(null);
-
-    await evaluarYNotificarStock(defaultParams());
-
-    expect(mocks.notificacion.createMany).not.toHaveBeenCalled();
-  });
-
-  it("skips when product is inactive", async () => {
-    setupPrismaMocks({ activo: false });
-
-    await evaluarYNotificarStock(defaultParams());
-
-    expect(mocks.notificacion.createMany).not.toHaveBeenCalled();
-  });
-
-  it("respects notification preferences and skips disabled types", async () => {
-    // User 10 (admin) has STOCK_CRITICO disabled
+  it("creates grouped STOCK_AGOTADO for ADMINISTRADOR and ENCARGADO_STOCK when product hits zero", async () => {
     setupPrismaMocks({}, {
-      preferencias: [
-        { usuarioId: 10, tipo: "STOCK_CRITICO", habilitada: false },
+      activeProducts: [{ id: 5, cantidad: 0, stockMinimo: 5 }],
+    });
+
+    await evaluarYNotificarStock(defaultParams({ cantidadAnterior: 10, cantidadNueva: 0 }));
+
+    const createCalls = mocks.notificacion.create.mock.calls.map((c) => c[0].data);
+    const agotadoAdmin = createCalls.find((n) => n.tipo === "STOCK_AGOTADO" && n.usuarioId === 10);
+    const agotadoEncargado = createCalls.find((n) => n.tipo === "STOCK_AGOTADO" && n.usuarioId === 20);
+
+    expect(agotadoAdmin).toBeDefined();
+    expect(agotadoAdmin.titulo).toBe("🔴 Stock agotado");
+    expect(agotadoAdmin.mensaje).toBe("Se detectaron 1 productos sin stock");
+    expect(agotadoAdmin.productoId).toBeNull();
+
+    expect(agotadoEncargado).toBeDefined();
+    expect(agotadoEncargado.mensaje).toBe("Se detectaron 1 productos sin stock");
+  });
+
+  it("removes/resolves unread notification when count drops to 0", async () => {
+    // 0 critical products (all replenished)
+    setupPrismaMocks({}, {
+      activeProducts: [{ id: 5, cantidad: 20, stockMinimo: 5 }],
+    });
+
+    await evaluarYNotificarStock(defaultParams({ cantidadAnterior: 3, cantidadNueva: 20 }));
+
+    // Should delete/clean up unread critical notifications
+    expect(mocks.notificacion.deleteMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tipo: "STOCK_CRITICO",
+          leida: false,
+        }),
+      })
+    );
+  });
+
+  it("handles STOCK_CRITICO and STOCK_AGOTADO independently", async () => {
+    // 3 critical products and 2 empty products
+    setupPrismaMocks({}, {
+      activeProducts: [
+        { id: 1, cantidad: 2, stockMinimo: 5 },
+        { id: 2, cantidad: 3, stockMinimo: 5 },
+        { id: 3, cantidad: 1, stockMinimo: 5 },
+        { id: 4, cantidad: 0, stockMinimo: 5 },
+        { id: 5, cantidad: 0, stockMinimo: 5 },
       ],
     });
 
+    await evaluarYNotificarStock(defaultParams({ cantidadAnterior: 10, cantidadNueva: 0 }));
+
+    const createCalls = mocks.notificacion.create.mock.calls.map((c) => c[0].data);
+    const criticoAdmin = createCalls.find((n) => n.tipo === "STOCK_CRITICO" && n.usuarioId === 10);
+    const agotadoAdmin = createCalls.find((n) => n.tipo === "STOCK_AGOTADO" && n.usuarioId === 10);
+
+    expect(criticoAdmin).toBeDefined();
+    expect(criticoAdmin.mensaje).toBe("Se detectaron 3 productos con stock crítico");
+
+    expect(agotadoAdmin).toBeDefined();
+    expect(agotadoAdmin.mensaje).toBe("Se detectaron 2 productos sin stock");
+  });
+
+  it("sends individual STOCK_RESTADO only to the movement user", async () => {
     await evaluarYNotificarStock(defaultParams());
 
-    const data = lastCreateManyData();
+    const createCalls = mocks.notificacion.create.mock.calls.map((c) => c[0].data);
+    const restado = createCalls.find((n) => n.tipo === "STOCK_RESTADO");
 
-    // Admin 10 should NOT get STOCK_CRITICO
-    const criticoToAdmin = data.find(
-      (n) => n.tipo === "STOCK_CRITICO" && n.usuarioId === 10
-    );
-    expect(criticoToAdmin).toBeUndefined();
-
-    // Encargado 20 still gets it (no preference blocking)
-    const criticoToEncargado = data.find(
-      (n) => n.tipo === "STOCK_CRITICO" && n.usuarioId === 20
-    );
-    expect(criticoToEncargado).toBeDefined();
+    expect(restado).toBeDefined();
+    expect(restado.usuarioId).toBe(30);
+    expect(restado.mensaje).toContain("Pedro restó 7 unidades");
   });
 
-  it("creates both STOCK_RESTADO and STOCK_CRITICO when crossing threshold", async () => {
-    await evaluarYNotificarStock(defaultParams());
+  it("sends individual STOCK_RECARGADO only to the movement user", async () => {
+    setupPrismaMocks({}, {
+      activeProducts: [{ id: 5, cantidad: 15, stockMinimo: 5 }],
+    });
 
-    const data = lastCreateManyData();
-    const tipos = data.map((n) => n.tipo);
+    await evaluarYNotificarStock(defaultParams({ cantidadAnterior: 5, cantidadNueva: 15 }));
 
-    expect(tipos).toContain("STOCK_RESTADO");
-    expect(tipos).toContain("STOCK_CRITICO");
-    expect(tipos).not.toContain("STOCK_AGOTADO");
+    const createCalls = mocks.notificacion.create.mock.calls.map((c) => c[0].data);
+    const recargado = createCalls.find((n) => n.tipo === "STOCK_RECARGADO");
+
+    expect(recargado).toBeDefined();
+    expect(recargado.usuarioId).toBe(30);
+    expect(recargado.mensaje).toContain("Pedro agregó 10 unidades");
   });
 
-  it("creates both STOCK_RESTADO and STOCK_AGOTADO when hitting zero", async () => {
-    await evaluarYNotificarStock(defaultParams({ cantidadNueva: 0 }));
+  it("respects notification preferences and skips disabled types", async () => {
+    // Admin 10 has disabled STOCK_CRITICO
+    setupPrismaMocks({}, {
+      preferencias: [{ usuarioId: 10, tipo: "STOCK_CRITICO", habilitada: false }],
+      activeProducts: [{ id: 5, cantidad: 3, stockMinimo: 5 }],
+    });
 
-    const data = lastCreateManyData();
-    const tipos = data.map((n) => n.tipo);
+    await evaluarYNotificarStock(defaultParams({ cantidadAnterior: 10, cantidadNueva: 3 }));
 
-    expect(tipos).toContain("STOCK_RESTADO");
-    expect(tipos).toContain("STOCK_AGOTADO");
-    expect(tipos).not.toContain("STOCK_CRITICO");
-  });
+    const createCalls = mocks.notificacion.create.mock.calls.map((c) => c[0].data);
+    const criticoAdmin = createCalls.find((n) => n.tipo === "STOCK_CRITICO" && n.usuarioId === 10);
+    const criticoEncargado = createCalls.find((n) => n.tipo === "STOCK_CRITICO" && n.usuarioId === 20);
 
-  it("handles error fetching recipients gracefully without crashing", async () => {
-    mocks.rol.findMany.mockRejectedValue(new Error("DB connection lost"));
-
-    // Should not throw
-    await expect(
-      evaluarYNotificarStock(defaultParams())
-    ).resolves.toBeUndefined();
-
-    expect(mocks.notificacion.createMany).not.toHaveBeenCalled();
+    expect(criticoAdmin).toBeUndefined();
+    expect(criticoEncargado).toBeDefined();
   });
 });
 
-// ─── verificarStockActual ──────────────────────────────────────────────────
-
-describe("verificarStockActual", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mocks.notificacion.createMany.mockResolvedValue({ count: 0 });
-    mocks.notificacion.findMany.mockResolvedValue([]);
-    mocks.rol.findMany.mockResolvedValue(ROLES);
-    mocks.usuario.findMany.mockImplementation(async (args: { where: { rolId: number } }) => {
-      if (args.where.rolId === 1) return ADMIN_USERS;
-      if (args.where.rolId === 2) return ENCARGADO_USERS;
-      return [];
+describe("verificarStockActual (Grouped sync)", () => {
+  it("creates grouped notifications if no recent notification exists in last 24h", async () => {
+    setupPrismaMocks({}, {
+      activeProducts: [
+        { id: 1, cantidad: 3, stockMinimo: 5 },
+        { id: 2, cantidad: 0, stockMinimo: 5 },
+      ],
+      existingUnread: null,
     });
-  });
-
-  it("creates STOCK_CRITICO for products at or below stockMinimo", async () => {
-    mocks.producto.findMany.mockResolvedValue([
-      { id: 1, nombre: "Filtro A", cantidad: 3, stockMinimo: 5 },
-    ]);
 
     await verificarStockActual();
 
-    expect(mocks.notificacion.createMany).toHaveBeenCalledOnce();
-    const data = lastCreateManyData();
-    expect(data).toHaveLength(2); // admin + encargado
-    expect(data.every((n) => n.tipo === "STOCK_CRITICO")).toBe(true);
+    const createCalls = mocks.notificacion.create.mock.calls.map((c) => c[0].data);
+    expect(createCalls.some((n) => n.tipo === "STOCK_CRITICO" && n.mensaje === "Se detectaron 1 productos con stock crítico")).toBe(true);
+    expect(createCalls.some((n) => n.tipo === "STOCK_AGOTADO" && n.mensaje === "Se detectaron 1 productos sin stock")).toBe(true);
   });
 
-  it("creates STOCK_AGOTADO for products with zero stock", async () => {
-    mocks.producto.findMany.mockResolvedValue([
-      { id: 1, nombre: "Filtro A", cantidad: 0, stockMinimo: 5 },
-    ]);
+  it("updates unread grouped notification with current counts on sync", async () => {
+    setupPrismaMocks({}, {
+      activeProducts: [
+        { id: 1, cantidad: 3, stockMinimo: 5 },
+        { id: 2, cantidad: 2, stockMinimo: 5 },
+      ],
+      existingUnread: (args: any) => {
+        if (args?.where?.tipo === "STOCK_CRITICO" && args?.where?.leida === false) {
+          return { id: 77, tipo: "STOCK_CRITICO", usuarioId: args.where.usuarioId };
+        }
+        return null;
+      },
+    });
 
     await verificarStockActual();
 
-    expect(mocks.notificacion.createMany).toHaveBeenCalledOnce();
-    const data = lastCreateManyData();
-    expect(data).toHaveLength(2);
-    expect(data.every((n) => n.tipo === "STOCK_AGOTADO")).toBe(true);
+    expect(mocks.notificacion.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 77 },
+        data: expect.objectContaining({
+          mensaje: "Se detectaron 2 productos con stock crítico",
+        }),
+      })
+    );
   });
 
-  it("creates both CRITICO and AGOTADO for mixed products", async () => {
-    mocks.producto.findMany.mockResolvedValue([
-      { id: 1, nombre: "Filtro A", cantidad: 3, stockMinimo: 5 },
-      { id: 2, nombre: "Filtro B", cantidad: 0, stockMinimo: 2 },
-    ]);
+  it("deletes unread notifications if no products are in alert state", async () => {
+    setupPrismaMocks({}, {
+      activeProducts: [{ id: 1, cantidad: 10, stockMinimo: 5 }],
+    });
 
     await verificarStockActual();
 
-    const data = lastCreateManyData();
-    expect(data).toHaveLength(4); // 2 products × 2 users
-    const tipos = data.map((n) => n.tipo);
-    expect(tipos).toContain("STOCK_CRITICO");
-    expect(tipos).toContain("STOCK_AGOTADO");
-  });
-
-  it("does not create notifications when all products are above minimum", async () => {
-    mocks.producto.findMany.mockResolvedValue([
-      { id: 1, nombre: "Filtro A", cantidad: 10, stockMinimo: 5 },
-    ]);
-
-    await verificarStockActual();
-
-    expect(mocks.notificacion.createMany).not.toHaveBeenCalled();
-  });
-
-  it("skips existing notifications from last 24h (dedup)", async () => {
-    mocks.producto.findMany.mockResolvedValue([
-      { id: 1, nombre: "Filtro A", cantidad: 3, stockMinimo: 5 },
-    ]);
-    // Simulate existing notification for admin (user 10) for product 1
-    mocks.notificacion.findMany.mockResolvedValue([
-      { usuarioId: 10, tipo: "STOCK_CRITICO", productoId: 1 },
-    ]);
-
-    await verificarStockActual();
-
-    const data = lastCreateManyData();
-    // Only encargado (user 20) should get notification; admin already has it
-    expect(data).toHaveLength(1);
-    expect(data[0].usuarioId).toBe(20);
-  });
-
-  it("handles empty product list gracefully", async () => {
-    mocks.producto.findMany.mockResolvedValue([]);
-
-    await verificarStockActual();
-
-    expect(mocks.notificacion.createMany).not.toHaveBeenCalled();
-  });
-
-  it("does not create notifications for products above minimum", async () => {
-    mocks.producto.findMany.mockResolvedValue([
-      { id: 1, nombre: "Filtro A", cantidad: 10, stockMinimo: 5 },
-      { id: 2, nombre: "Filtro B", cantidad: 8, stockMinimo: 3 },
-    ]);
-
-    await verificarStockActual();
-
-    expect(mocks.notificacion.createMany).not.toHaveBeenCalled();
+    expect(mocks.notificacion.deleteMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ tipo: "STOCK_CRITICO", leida: false }),
+      })
+    );
+    expect(mocks.notificacion.deleteMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ tipo: "STOCK_AGOTADO", leida: false }),
+      })
+    );
   });
 });

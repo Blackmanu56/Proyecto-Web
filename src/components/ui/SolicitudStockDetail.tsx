@@ -65,7 +65,7 @@ interface SolicitudData {
   };
   solicitante: { id: number; nombreCompleto: string };
   resueltoPor?: { id: number; nombreCompleto: string } | null;
-  origenTabla?: "solicitud_stock" | "solicitud_reposicion" | "solicitud_caja";
+  origenTabla?: "solicitud_stock" | "solicitud_reposicion" | "solicitud_caja" | "solicitud_precio";
 }
 
 interface SolicitudStockDetailProps {

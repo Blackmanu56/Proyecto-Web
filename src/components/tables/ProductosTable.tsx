@@ -1104,8 +1104,8 @@ export default function ProductosTable({
               )}
             </div>
 
-            {/* Agregar dropdown */}
-            {["ADMINISTRADOR", "ENCARGADO_STOCK"].includes(userRole) && (
+            {/* Agregar dropdown (Solo ADMINISTRADOR) */}
+            {userRole === "ADMINISTRADOR" && (
               <div ref={addMenuRef} className="relative flex flex-col gap-1">
                 <label className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Acciones</label>
                 <button
@@ -1534,7 +1534,7 @@ export default function ProductosTable({
               <div className="p-1.5 rounded-[var(--radius-md)] bg-[var(--brand-light)] text-[var(--brand)]">
                 <Package size={16} />
               </div>
-              {editingProduct ? "Editar Repuesto" : "Agregar Nuevo Repuesto"}
+              {editingProduct ? "Editar Producto" : "Agregar Nuevo Producto"}
             </DialogTitle>
             <DialogDescription>
               Complete la información técnica y comercial del producto.
@@ -1555,8 +1555,8 @@ export default function ProductosTable({
             className="flex-1 overflow-y-auto md:overflow-y-hidden px-4 py-3 space-y-2.5"
           >
 
-            {/* ── Nombre del Repuesto (full width) ── */}
-            <FormField label="Nombre del Repuesto" required className="mb-0">
+            {/* ── Nombre del Producto (full width) ── */}
+            <FormField label="Nombre del Producto" required className="mb-0">
               <Input
                 name="nombre"
                 type="text"
@@ -1669,31 +1669,33 @@ export default function ProductosTable({
                 <p className="text-[10px] text-[var(--text-secondary)]">JPG, PNG o WebP. Max 2MB.</p>
               </div>
 
-              {/* Column 2 — Precios + Stock Mínimo */}
+              {/* Column 2 — Precios */}
               <div className="flex flex-col gap-2.5">
                 <div className="flex items-center gap-1.5 mb-1">
                   <DollarSign size={12} className="text-[var(--brand)]" />
                   <span className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
-                    {editingProduct ? "Configuración" : "Comercial"}
+                    Comercial
                   </span>
                 </div>
                 {editingProduct ? (
                   <>
-                    <div className="p-2.5 rounded-[var(--radius-md)] bg-[var(--bg)]/70 border border-[var(--border)] space-y-1.5">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-[var(--text-secondary)] font-medium">Precio Compra:</span>
-                        <span className="font-mono font-bold text-blue-400">{formatCurrency(editingProduct.precioCompra)}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-[var(--text-secondary)] font-medium">Precio Venta:</span>
-                        <span className="font-mono font-bold text-[#34D399]">{formatCurrency(editingProduct.precioVenta)}</span>
-                      </div>
-                      <p className="text-[10px] text-[var(--text-muted)] pt-1 border-t border-[var(--border)]/50 italic">
-                        Los precios se modifican desde la acción &quot;Ajustar precio&quot;.
-                      </p>
-                    </div>
-                    <FormField label="Stock Mínimo" required className="mb-0">
-                      <Input name="stockMinimo" type="number" defaultValue={editingProduct.stockMinimo ?? ""} required placeholder="0" className="font-mono py-2" />
+                    <FormField label="Precio Compra" className="mb-0">
+                      <Input
+                        type="text"
+                        value={formatCurrency(editingProduct.precioCompra)}
+                        disabled
+                        placeholder="0.00"
+                        className="font-mono bg-[var(--bg)]/50 py-2 text-blue-400 font-semibold"
+                      />
+                    </FormField>
+                    <FormField label="Precio Venta" className="mb-0">
+                      <Input
+                        type="text"
+                        value={formatCurrency(editingProduct.precioVenta)}
+                        disabled
+                        placeholder="0.00"
+                        className="font-mono bg-[var(--bg)]/50 py-2 text-[#34D399] font-semibold"
+                      />
                     </FormField>
                   </>
                 ) : (
@@ -1703,9 +1705,6 @@ export default function ProductosTable({
                     </FormField>
                     <FormField label="Precio Venta" required className="mb-0">
                       <Input name="precioVenta" type="number" step="0.01" required placeholder="0.00" className="font-mono py-2" />
-                    </FormField>
-                    <FormField label="Stock de Seguridad Mínimo" required className="mb-0">
-                      <Input name="stockMinimo" type="number" required placeholder="0" className="font-mono py-2" />
                     </FormField>
                   </>
                 )}
@@ -1718,13 +1717,21 @@ export default function ProductosTable({
                   <span className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">Stock</span>
                 </div>
                 {editingProduct ? (
-                  <FormField label="Stock Actual" className="mb-0">
-                    <Input type="number" value={editingProduct.cantidad} disabled placeholder="0" className="font-mono bg-[var(--bg)]/50 py-2" />
-                  </FormField>
+                  <>
+                    <FormField label="Stock Actual" className="mb-0">
+                      <Input type="number" value={editingProduct.cantidad} disabled placeholder="0" className="font-mono bg-[var(--bg)]/50 py-2" />
+                    </FormField>
+                    <FormField label="Stock Mínimo" required className="mb-0">
+                      <Input name="stockMinimo" type="number" defaultValue={editingProduct.stockMinimo ?? ""} required placeholder="0" className="font-mono py-2" />
+                    </FormField>
+                  </>
                 ) : (
                   <>
                     <FormField label="Stock Inicial" required className="mb-0">
                       <Input name="cantidad" type="number" min="0" required placeholder="0" className="font-mono py-2" />
+                    </FormField>
+                    <FormField label="Stock de Seguridad Mínimo" required className="mb-0">
+                      <Input name="stockMinimo" type="number" required placeholder="0" className="font-mono py-2" />
                     </FormField>
                     {/* Payment Distribution for Initial Stock */}
                     <div className="col-span-full">
@@ -1764,7 +1771,7 @@ export default function ProductosTable({
               Cancelar
             </Button>
             <Button type="submit" form={PRODUCT_FORM_ID} loading={isPending} disabled={isPending || distribucionIncompleta}>
-              {editingProduct ? "Guardar cambios" : "Agregar Repuesto"}
+              {editingProduct ? "Guardar cambios" : "Agregar Producto"}
             </Button>
           </div>
         </DialogContent>
@@ -1855,6 +1862,7 @@ export default function ProductosTable({
             setAjusteIndividualModal({ open, product: open ? ajusteIndividualModal.product : null })
           }
           producto={ajusteIndividualModal.product}
+          esSolicitud={userRole !== "ADMINISTRADOR"}
           onSuccess={() => router.refresh()}
         />
       )}

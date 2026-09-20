@@ -40,7 +40,7 @@ export default async function SolicitudesPage({ searchParams }: PageProps) {
   const solicitudes =
     result && "data" in result ? result.data ?? [] : [];
 
-  const initialFilter = params.filter;
+  const initialFilter = params.filter ?? "PENDIENTE";
 
   return (
     <div className="fixed inset-0 top-[5.5rem] bg-[var(--bg)] flex flex-col overflow-hidden z-10">

@@ -23,6 +23,7 @@ import {
   calcularComparacionProducto,
   type CalculoPrecioItem,
 } from "@/lib/ajuste-precios";
+import { crearSolicitudPrecio } from "@/actions/solicitudes-precio";
 
 const productoSchema = z.object({
   nombre: z.string().min(2, "El nombre del producto debe tener al menos 2 caracteres"),
@@ -697,6 +698,43 @@ export async function ajustarPrecioIndividual(inputData: unknown) {
     redondeo,
     motivo,
   } = validation.data;
+
+  // Si el usuario no es ADMINISTRADOR, generar Solicitud de Cambio de Precio
+  if (session.role !== "ADMINISTRADOR") {
+    const producto = await prisma.producto.findUnique({
+      where: { id: productoId },
+    });
+    if (!producto) {
+      return { error: "Producto no encontrado." };
+    }
+
+    const nuevoPrecioCompra = ajustarCompra && metodoCompra && valorCompra !== undefined
+      ? calcularNuevoPrecio(producto.precioCompra, metodoCompra, valorCompra, redondeo)
+      : producto.precioCompra;
+
+    const nuevoPrecioVenta = ajustarVenta && metodoVenta && valorVenta !== undefined
+      ? calcularNuevoPrecio(producto.precioVenta, metodoVenta, valorVenta, redondeo)
+      : producto.precioVenta;
+
+    const res = await crearSolicitudPrecio({
+      productoId,
+      nuevoPrecioCompra: ajustarCompra ? nuevoPrecioCompra : undefined,
+      nuevoPrecioVenta: ajustarVenta ? nuevoPrecioVenta : undefined,
+      motivo,
+    });
+
+    if (res.error) {
+      return { error: res.error };
+    }
+
+    return {
+      success: true,
+      esSolicitud: true,
+      solicitudId: res.solicitudId,
+      nuevoPrecioCompra,
+      nuevoPrecioVenta,
+    };
+  }
 
   try {
     const result = await prisma.$transaction(async (tx) => {

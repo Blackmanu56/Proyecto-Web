@@ -126,6 +126,8 @@ model Usuario {
   solicitudesStockResueltas SolicitudStock[]          @relation("SolicitudStockResuelto")
   solicitudesCajaCreadas    SolicitudCaja[]           @relation("solicitudesCajaSolicitante")
   solicitudesCajaResueltas  SolicitudCaja[]           @relation("solicitudesCajaAprobador")
+  solicitudesPrecioCreadas  SolicitudPrecio[]         @relation("SolicitudPrecioSolicitante")
+  solicitudesPrecioResueltas SolicitudPrecio[]        @relation("SolicitudPrecioAprobador")
   notificaciones            Notificacion[]
   preferenciasNotificacion  PreferenciaNotificacion[]
   ajustesPrecio             AjustePrecio[]
@@ -210,6 +212,7 @@ model Producto {
   movimientosProducto   MovimientoProducto[]
   solicitudesReposicion SolicitudReposicion[]
   solicitudesStock      SolicitudStock[]
+  solicitudesPrecio     SolicitudPrecio[]
   notificaciones        Notificacion[]
   ajustesPrecioDetalle  AjustePrecioDetalle[]
 
@@ -404,6 +407,34 @@ model SolicitudCaja {
   @@map("solicitudes_caja")
 }
 
+model SolicitudPrecio {
+  id                    Int              @id @default(autoincrement())
+  productoId            Int              @map("producto_id")
+  solicitanteId         Int              @map("solicitante_id")
+  aprobadorId           Int?             @map("aprobador_id")
+  precioCompraActual    Float            @map("precio_compra_actual")
+  precioCompraNuevo     Float            @map("precio_compra_nuevo")
+  precioVentaActual     Float            @map("precio_venta_actual")
+  precioVentaNuevo      Float            @map("precio_venta_nuevo")
+  motivo                String
+  estado                EstadoSolicitud  @default(PENDIENTE)
+  observacionResolucion String?          @map("observacion_resolucion")
+  ajustePrecioId        Int?             @map("ajuste_precio_id")
+  fechaSolicitud        DateTime         @default(now()) @map("fecha_solicitud")
+  fechaResolucion       DateTime?        @map("fecha_resolucion")
+
+  producto       Producto       @relation(fields: [productoId], references: [id], onDelete: Restrict)
+  solicitante    Usuario        @relation("SolicitudPrecioSolicitante", fields: [solicitanteId], references: [id])
+  aprobador      Usuario?       @relation("SolicitudPrecioAprobador", fields: [aprobadorId], references: [id])
+  notificaciones Notificacion[]
+
+  @@index([productoId])
+  @@index([solicitanteId])
+  @@index([estado])
+  @@index([fechaSolicitud])
+  @@map("solicitudes_precio")
+}
+
 model Notificacion {
   id                    Int              @id @default(autoincrement())
   usuarioId             Int
@@ -413,9 +444,10 @@ model Notificacion {
   solicitudStockId      Int?
   solicitudReposicionId Int?
   solicitudCajaId       Int?             @map("solicitud_caja_id")
+  solicitudPrecioId     Int?             @map("solicitud_precio_id")
   cajaId                Int?             @map("caja_id")
   productoId            Int?
-  entidad               String? // "solicitud_stock" | "reposicion" | "stock" | "venta" | "caja" | "solicitud_caja"
+  entidad               String? // "solicitud_stock" | "reposicion" | "stock" | "venta" | "caja" | "solicitud_caja" | "solicitud_precio"
   leida                 Boolean          @default(false)
   createdAt             DateTime         @default(now())
   readAt                DateTime?
@@ -424,6 +456,7 @@ model Notificacion {
   solicitudStock      SolicitudStock?      @relation(fields: [solicitudStockId], references: [id], onDelete: SetNull)
   solicitudReposicion SolicitudReposicion? @relation(fields: [solicitudReposicionId], references: [id], onDelete: SetNull)
   solicitudCaja       SolicitudCaja?       @relation(fields: [solicitudCajaId], references: [id], onDelete: SetNull)
+  solicitudPrecio     SolicitudPrecio?     @relation(fields: [solicitudPrecioId], references: [id], onDelete: SetNull)
   caja                Caja?                @relation(fields: [cajaId], references: [id], onDelete: SetNull)
   producto            Producto?            @relation(fields: [productoId], references: [id], onDelete: SetNull)
 

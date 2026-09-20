@@ -38,8 +38,8 @@ const TIPO_CONFIG: Record<
   { label: string; description: string; icon: React.ReactNode; color: string }
 > = {
   SOLICITUD_CREADA: {
-    label: "Solicitud creada",
-    description: "Cuando se crea un nuevo pedido de reposición",
+    label: "Solicitudes pendientes",
+    description: "Cuando se genera una nueva solicitud pendiente de aprobación",
     icon: <Bell size={16} />,
     color: "text-[var(--info)]",
   },
