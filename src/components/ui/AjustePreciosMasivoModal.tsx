@@ -14,14 +14,8 @@ import {
   TrendingUp,
   Search,
   Filter,
-  ArrowRight,
   CheckCircle,
-  AlertTriangle,
   AlertCircle,
-  Layers,
-  Tag,
-  Truck,
-  Boxes,
   Calculator,
   RefreshCw,
   X,
@@ -30,8 +24,6 @@ import { toast } from "sonner";
 import { formatCurrency, cn } from "@/lib/utils";
 import {
   type TipoAjustePrecio,
-  type PreciosAfectados,
-  type TipoRedondeo,
   type CalculoPrecioItem,
 } from "@/lib/ajuste-precios";
 import { previewAjustePreciosMasivo, ajustarPreciosMasivo } from "@/actions/productos";
@@ -47,7 +39,7 @@ interface AjustePreciosMasivoModalProps {
   onSuccess: () => void;
 }
 
-const QUICK_PERCENTAGES = [5, 10, 15, 20, 25, 30, -5, -10];
+const QUICK_PERCENTAGES = [5, 10, 15, 20, 25, -5, -10];
 
 const MOTIVO_SUGGESTIONS = [
   "Actualización por nueva lista del proveedor",
@@ -73,11 +65,14 @@ export default function AjustePreciosMasivoModal({
   const [proveedorId, setProveedorId] = useState<number | "all">("all");
   const [estado, setEstado] = useState<"activos" | "inactivos" | "todos">("activos");
 
-  // 2. Configuración del Ajuste
-  const [tipoAjuste, setTipoAjuste] = useState<"PORCENTAJE" | "MONTO_FIJO">("PORCENTAJE");
-  const [valorAjuste, setValorAjuste] = useState<number | "">(10);
-  const [preciosAfectados, setPreciosAfectados] = useState<PreciosAfectados>("SOLO_VENTA");
-  const [redondeo, setRedondeo] = useState<TipoRedondeo>("SIN_REDONDEO");
+  // 2. Configuración del Ajuste (Idéntica a Ajuste Individual)
+  const [ajustarCompra, setAjustarCompra] = useState(false);
+  const [metodoCompra, setMetodoCompra] = useState<TipoAjustePrecio>("PORCENTAJE");
+  const [valorCompra, setValorCompra] = useState<number | "">("");
+
+  const [ajustarVenta, setAjustarVenta] = useState(true);
+  const [metodoVenta, setMetodoVenta] = useState<TipoAjustePrecio>("PORCENTAJE");
+  const [valorVenta, setValorVenta] = useState<number | "">(10);
 
   // 3. Live Preview State
   const [previewItems, setPreviewItems] = useState<CalculoPrecioItem[]>([]);
@@ -95,10 +90,12 @@ export default function AjustePreciosMasivoModal({
     setMarca("all");
     setProveedorId("all");
     setEstado("activos");
-    setTipoAjuste("PORCENTAJE");
-    setValorAjuste(10);
-    setPreciosAfectados("SOLO_VENTA");
-    setRedondeo("SIN_REDONDEO");
+    setAjustarCompra(false);
+    setMetodoCompra("PORCENTAJE");
+    setValorCompra("");
+    setAjustarVenta(true);
+    setMetodoVenta("PORCENTAJE");
+    setValorVenta(10);
     setPreviewItems([]);
     setPreviewSearch("");
     setMotivo("");
@@ -110,10 +107,20 @@ export default function AjustePreciosMasivoModal({
     onOpenChange(false);
   };
 
+  const numValorCompra = typeof valorCompra === "number" ? valorCompra : 0;
+  const numValorVenta = typeof valorVenta === "number" ? valorVenta : 0;
+
   /* ── Fetch Live Preview ── */
   const fetchPreview = useCallback(async () => {
-    const numVal = typeof valorAjuste === "number" ? valorAjuste : 0;
-    if (numVal === 0) {
+    if (!ajustarCompra && !ajustarVenta) {
+      setPreviewItems([]);
+      return;
+    }
+    if (ajustarCompra && (valorCompra === "" || numValorCompra === 0) && (!ajustarVenta || valorVenta === "" || numValorVenta === 0)) {
+      setPreviewItems([]);
+      return;
+    }
+    if (ajustarVenta && (valorVenta === "" || numValorVenta === 0) && (!ajustarCompra || valorCompra === "" || numValorCompra === 0)) {
       setPreviewItems([]);
       return;
     }
@@ -123,16 +130,19 @@ export default function AjustePreciosMasivoModal({
 
     try {
       const payload = {
-        tipoAjuste,
-        valorAjuste: numVal,
-        preciosAfectados,
+        ajustarCompra,
+        metodoCompra: ajustarCompra ? metodoCompra : undefined,
+        valorCompra: ajustarCompra ? numValorCompra : undefined,
+        ajustarVenta,
+        metodoVenta: ajustarVenta ? metodoVenta : undefined,
+        valorVenta: ajustarVenta ? numValorVenta : undefined,
         filtros: {
           categoriaId,
           marca,
           proveedorId,
           estado,
         },
-        redondeo,
+        redondeo: "SIN_REDONDEO" as const,
         motivo: "Previsualización",
       };
 
@@ -154,7 +164,7 @@ export default function AjustePreciosMasivoModal({
     } finally {
       setPreviewLoading(false);
     }
-  }, [tipoAjuste, valorAjuste, preciosAfectados, categoriaId, marca, proveedorId, estado, redondeo]);
+  }, [ajustarCompra, metodoCompra, valorCompra, numValorCompra, ajustarVenta, metodoVenta, valorVenta, numValorVenta, categoriaId, marca, proveedorId, estado]);
 
   /* ── Trigger Preview on change with debounce ── */
   useEffect(() => {
@@ -179,9 +189,10 @@ export default function AjustePreciosMasivoModal({
   }, [previewItems, previewSearch]);
 
   // Validation
-  const numValorAjuste = typeof valorAjuste === "number" ? valorAjuste : 0;
   const isValid =
-    numValorAjuste !== 0 &&
+    (ajustarCompra || ajustarVenta) &&
+    (!ajustarCompra || (valorCompra !== "" && numValorCompra !== 0)) &&
+    (!ajustarVenta || (valorVenta !== "" && numValorVenta !== 0)) &&
     previewItems.length > 0 &&
     !previewError?.includes("precio menor o igual a $0") &&
     motivo.trim().length >= 3;
@@ -196,16 +207,19 @@ export default function AjustePreciosMasivoModal({
     startTransition(async () => {
       try {
         const payload = {
-          tipoAjuste,
-          valorAjuste: numValorAjuste,
-          preciosAfectados,
+          ajustarCompra,
+          metodoCompra: ajustarCompra ? metodoCompra : undefined,
+          valorCompra: ajustarCompra ? numValorCompra : undefined,
+          ajustarVenta,
+          metodoVenta: ajustarVenta ? metodoVenta : undefined,
+          valorVenta: ajustarVenta ? numValorVenta : undefined,
           filtros: {
             categoriaId,
             marca,
             proveedorId,
             estado,
           },
-          redondeo,
+          redondeo: "SIN_REDONDEO" as const,
           motivo: motivo.trim(),
         };
 
@@ -257,9 +271,6 @@ export default function AjustePreciosMasivoModal({
                 <Filter size={14} className="text-blue-400" />
                 1. Alcance / Filtros de Productos
               </h3>
-              <Badge variant="default" size="sm">
-                Filtros acumulativos (AND)
-              </Badge>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -342,134 +353,215 @@ export default function AjustePreciosMasivoModal({
             </div>
           </div>
 
-          {/* 2. SECCIÓN: Configuración del Ajuste */}
+          {/* 2. SECCIÓN: Configuración del Ajuste (Idéntica a Ajuste Individual) */}
           <div className="p-4 rounded-xl bg-[var(--bg)] border border-[var(--border)] space-y-3.5">
             <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)] flex items-center gap-1.5">
               <Calculator size={14} className="text-[#34D399]" />
               2. Configuración del Ajuste
             </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Tipo de Ajuste y Valor */}
-              <div className="space-y-2">
-                <label className="block text-[11px] font-semibold text-[var(--text-secondary)]">
-                  Tipo y valor del ajuste
-                </label>
-                <div className="flex gap-1 p-1 bg-[var(--panel)] rounded-lg border border-[var(--border)]">
-                  <button
-                    type="button"
-                    onClick={() => setTipoAjuste("PORCENTAJE")}
-                    className={cn(
-                      "flex-1 py-1 px-2 rounded-md text-xs font-bold transition-colors",
-                      tipoAjuste === "PORCENTAJE"
-                        ? "bg-[#047857] text-white shadow-sm"
-                        : "text-[var(--text-secondary)] hover:text-[var(--text)]"
-                    )}
-                  >
-                    % Porcentaje
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTipoAjuste("MONTO_FIJO")}
-                    className={cn(
-                      "flex-1 py-1 px-2 rounded-md text-xs font-bold transition-colors",
-                      tipoAjuste === "MONTO_FIJO"
-                        ? "bg-[#047857] text-white shadow-sm"
-                        : "text-[var(--text-secondary)] hover:text-[var(--text)]"
-                    )}
-                  >
-                    $ Monto Fijo
-                  </button>
+            {/* Configuración de Precios en 2 Columnas */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              {/* PRECIO DE COMPRA */}
+              <div
+                className={cn(
+                  "p-4 rounded-xl border transition-all duration-200",
+                  ajustarCompra
+                    ? "bg-blue-500/[0.04] border-blue-500/40 ring-1 ring-blue-500/20"
+                    : "bg-[var(--panel)]/50 border-[var(--border)]/70 opacity-70"
+                )}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={ajustarCompra}
+                      onChange={(e) => setAjustarCompra(e.target.checked)}
+                      className="h-4 w-4 rounded border-[var(--border)] accent-blue-500 cursor-pointer"
+                    />
+                    <span className="text-xs font-bold uppercase tracking-wider text-blue-400">
+                      Precio de Compra
+                    </span>
+                  </label>
                 </div>
 
-                <div className="relative">
-                  <input
-                    type="number"
-                    step={tipoAjuste === "PORCENTAJE" ? "0.1" : "1"}
-                    placeholder={tipoAjuste === "PORCENTAJE" ? "Ej. 10 para +10% o -5 para -5%" : "Ej. 500 para +$500"}
-                    value={valorAjuste}
-                    onChange={(e) =>
-                      setValorAjuste(e.target.value === "" ? "" : Number(e.target.value))
-                    }
-                    className="w-full h-9 px-3 bg-[var(--panel)] border border-[var(--border)] rounded-xl text-sm font-bold text-[var(--text)] focus:outline-none focus:border-[#047857] transition-colors"
-                  />
-                </div>
+                {ajustarCompra ? (
+                  <div className="space-y-3 animate-in fade-in-0 duration-150">
+                    {/* Selector Método */}
+                    <div className="grid grid-cols-3 gap-1 p-1 bg-[var(--panel)] rounded-lg border border-[var(--border)] text-xs font-semibold">
+                      {(
+                        [
+                          { key: "PORCENTAJE", label: "% Porcentaje" },
+                          { key: "MONTO_FIJO", label: "$ Monto Fijo" },
+                          { key: "VALOR_DIRECTO", label: "Nuevo Valor" },
+                        ] as const
+                      ).map((m) => (
+                        <button
+                          key={m.key}
+                          type="button"
+                          onClick={() => {
+                            setMetodoCompra(m.key);
+                            setValorCompra("");
+                          }}
+                          className={cn(
+                            "py-1 px-1.5 rounded-md text-[11px] font-bold transition-colors",
+                            metodoCompra === m.key
+                              ? "bg-blue-500 text-white shadow-sm"
+                              : "text-[var(--text-secondary)] hover:text-[var(--text)]"
+                          )}
+                        >
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
 
-                {tipoAjuste === "PORCENTAJE" && (
-                  <div className="flex flex-wrap gap-1">
-                    {QUICK_PERCENTAGES.map((pct) => (
-                      <button
-                        key={pct}
-                        type="button"
-                        onClick={() => setValorAjuste(pct)}
-                        className={cn(
-                          "px-2 py-0.5 rounded text-[10px] font-bold border transition-colors",
-                          valorAjuste === pct
-                            ? "bg-[#047857] border-[#047857] text-white"
-                            : "bg-[var(--panel)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text)]"
-                        )}
-                      >
-                        {pct > 0 ? `+${pct}%` : `${pct}%`}
-                      </button>
-                    ))}
+                    {/* Input Valor */}
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step={metodoCompra === "PORCENTAJE" ? "0.1" : "1"}
+                        placeholder={
+                          metodoCompra === "PORCENTAJE"
+                            ? "Ej. 10 para +10% o -5 para -5%"
+                            : metodoCompra === "MONTO_FIJO"
+                            ? "Ej. 500 para +$500 o -200"
+                            : "Ej. 15000"
+                        }
+                        value={valorCompra}
+                        onChange={(e) =>
+                          setValorCompra(e.target.value === "" ? "" : Number(e.target.value))
+                        }
+                        className="w-full h-9 px-3 bg-[var(--bg)] border border-[var(--border)] rounded-xl text-sm font-bold text-[var(--text)] focus:outline-none focus:border-blue-500 transition-colors"
+                      />
+                    </div>
+
+                    {/* Chips rápidos si es porcentaje */}
+                    {metodoCompra === "PORCENTAJE" && (
+                      <div className="flex flex-wrap gap-1">
+                        {QUICK_PERCENTAGES.map((pct) => (
+                          <button
+                            key={pct}
+                            type="button"
+                            onClick={() => setValorCompra(pct)}
+                            className={cn(
+                              "px-2 py-0.5 rounded text-[10px] font-bold border transition-colors",
+                              valorCompra === pct
+                                ? "bg-blue-500 border-blue-500 text-white"
+                                : "bg-[var(--panel)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text)]"
+                            )}
+                          >
+                            {pct > 0 ? `+${pct}%` : `${pct}%`}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
+                ) : (
+                  <p className="text-xs text-[var(--text-secondary)] py-2">
+                    El precio de compra no se modificará en los productos seleccionados.
+                  </p>
                 )}
               </div>
 
-              {/* Precios a Modificar */}
-              <div className="space-y-2">
-                <label className="block text-[11px] font-semibold text-[var(--text-secondary)]">
-                  Precios a modificar
-                </label>
-                <div className="space-y-1.5">
-                  {(
-                    [
-                      { key: "SOLO_VENTA", label: "Solo Precio de Venta" },
-                      { key: "SOLO_COMPRA", label: "Solo Precio de Compra" },
-                      { key: "AMBOS", label: "Ambos (Compra y Venta)" },
-                    ] as const
-                  ).map((opt) => (
-                    <label
-                      key={opt.key}
-                      className={cn(
-                        "flex items-center gap-2.5 p-2 rounded-lg border cursor-pointer select-none transition-colors",
-                        preciosAfectados === opt.key
-                          ? "bg-[#047857]/10 border-[#047857]/50 text-[var(--text)] font-bold"
-                          : "bg-[var(--panel)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text)]"
-                      )}
-                    >
-                      <input
-                        type="radio"
-                        name="preciosAfectados"
-                        checked={preciosAfectados === opt.key}
-                        onChange={() => setPreciosAfectados(opt.key)}
-                        className="accent-[#047857] cursor-pointer"
-                      />
-                      <span className="text-xs">{opt.label}</span>
-                    </label>
-                  ))}
+              {/* PRECIO DE VENTA */}
+              <div
+                className={cn(
+                  "p-4 rounded-xl border transition-all duration-200",
+                  ajustarVenta
+                    ? "bg-[#047857]/[0.04] border-[#047857]/40 ring-1 ring-[#047857]/20"
+                    : "bg-[var(--panel)]/50 border-[var(--border)]/70 opacity-70"
+                )}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={ajustarVenta}
+                      onChange={(e) => setAjustarVenta(e.target.checked)}
+                      className="h-4 w-4 rounded border-[var(--border)] accent-[#047857] cursor-pointer"
+                    />
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#34D399]">
+                      Precio de Venta
+                    </span>
+                  </label>
                 </div>
-              </div>
 
-              {/* Redondeo */}
-              <div className="space-y-2">
-                <label className="block text-[11px] font-semibold text-[var(--text-secondary)]">
-                  Redondeo de precios
-                </label>
-                <select
-                  value={redondeo}
-                  onChange={(e) => setRedondeo(e.target.value as TipoRedondeo)}
-                  className="w-full h-9 px-2.5 bg-[var(--panel)] border border-[var(--border)] rounded-xl text-xs font-semibold text-[var(--text)] focus:outline-none focus:border-[#047857] cursor-pointer"
-                >
-                  <option value="SIN_REDONDEO">Sin redondeo (2 decimales)</option>
-                  <option value="ENTERO">Al peso más cercano ($1)</option>
-                  <option value="MULTIPLO_10">Al múltiplo de $10</option>
-                  <option value="MULTIPLO_100">Al múltiplo de $100</option>
-                  <option value="MULTIPLO_1000">Al múltiplo de $1.000</option>
-                </select>
-                <p className="text-[11px] text-[var(--text-secondary)] leading-tight">
-                  El redondeo se aplica inmediatamente después de calcular el nuevo valor.
-                </p>
+                {ajustarVenta ? (
+                  <div className="space-y-3 animate-in fade-in-0 duration-150">
+                    {/* Selector Método */}
+                    <div className="grid grid-cols-3 gap-1 p-1 bg-[var(--panel)] rounded-lg border border-[var(--border)] text-xs font-semibold">
+                      {(
+                        [
+                          { key: "PORCENTAJE", label: "% Porcentaje" },
+                          { key: "MONTO_FIJO", label: "$ Monto Fijo" },
+                          { key: "VALOR_DIRECTO", label: "Nuevo Valor" },
+                        ] as const
+                      ).map((m) => (
+                        <button
+                          key={m.key}
+                          type="button"
+                          onClick={() => {
+                            setMetodoVenta(m.key);
+                            setValorVenta("");
+                          }}
+                          className={cn(
+                            "py-1 px-1.5 rounded-md text-[11px] font-bold transition-colors",
+                            metodoVenta === m.key
+                              ? "bg-[#047857] text-white shadow-sm"
+                              : "text-[var(--text-secondary)] hover:text-[var(--text)]"
+                          )}
+                        >
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Input Valor */}
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step={metodoVenta === "PORCENTAJE" ? "0.1" : "1"}
+                        placeholder={
+                          metodoVenta === "PORCENTAJE"
+                            ? "Ej. 15 para +15% o -10"
+                            : metodoVenta === "MONTO_FIJO"
+                            ? "Ej. 1000 para +$1000"
+                            : "Ej. 25000"
+                        }
+                        value={valorVenta}
+                        onChange={(e) =>
+                          setValorVenta(e.target.value === "" ? "" : Number(e.target.value))
+                        }
+                        className="w-full h-9 px-3 bg-[var(--bg)] border border-[var(--border)] rounded-xl text-sm font-bold text-[var(--text)] focus:outline-none focus:border-[#047857] transition-colors"
+                      />
+                    </div>
+
+                    {/* Chips rápidos si es porcentaje */}
+                    {metodoVenta === "PORCENTAJE" && (
+                      <div className="flex flex-wrap gap-1">
+                        {QUICK_PERCENTAGES.map((pct) => (
+                          <button
+                            key={pct}
+                            type="button"
+                            onClick={() => setValorVenta(pct)}
+                            className={cn(
+                              "px-2 py-0.5 rounded text-[10px] font-bold border transition-colors",
+                              valorVenta === pct
+                                ? "bg-[#047857] border-[#047857] text-white"
+                                : "bg-[var(--panel)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text)]"
+                            )}
+                          >
+                            {pct > 0 ? `+${pct}%` : `${pct}%`}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-[var(--text-secondary)] py-2">
+                    El precio de venta no se modificará en los productos seleccionados.
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -531,10 +623,10 @@ export default function AjustePreciosMasivoModal({
                 <thead className="sticky top-0 bg-[var(--card)] border-b border-[var(--border)] text-[10px] uppercase font-bold text-[var(--text-secondary)]">
                   <tr>
                     <th className="py-2 px-3">Producto</th>
-                    {(preciosAfectados === "SOLO_COMPRA" || preciosAfectados === "AMBOS") && (
+                    {ajustarCompra && (
                       <th className="py-2 px-3 text-right">Compra Actual → Nueva</th>
                     )}
-                    {(preciosAfectados === "SOLO_VENTA" || preciosAfectados === "AMBOS") && (
+                    {ajustarVenta && (
                       <th className="py-2 px-3 text-right">Venta Actual → Nueva</th>
                     )}
                     <th className="py-2 px-3 text-center">Margen</th>
@@ -543,14 +635,14 @@ export default function AjustePreciosMasivoModal({
                 <tbody className="divide-y divide-[var(--border)]/50 font-medium">
                   {previewLoading ? (
                     <tr>
-                      <td colSpan={4} className="py-8 text-center text-[var(--text-secondary)]">
+                      <td colSpan={ajustarCompra && ajustarVenta ? 4 : 3} className="py-8 text-center text-[var(--text-secondary)]">
                         <RefreshCw size={18} className="animate-spin mx-auto text-[#34D399] mb-1" />
                         Calculando vista previa...
                       </td>
                     </tr>
                   ) : filteredPreview.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="py-8 text-center text-[var(--text-secondary)]">
+                      <td colSpan={ajustarCompra && ajustarVenta ? 4 : 3} className="py-8 text-center text-[var(--text-secondary)]">
                         {previewItems.length === 0
                           ? "No se encontraron productos que coincidan con los filtros seleccionados."
                           : "No hay productos que coincidan con la búsqueda."}
@@ -568,7 +660,7 @@ export default function AjustePreciosMasivoModal({
                         </td>
 
                         {/* Compra */}
-                        {(preciosAfectados === "SOLO_COMPRA" || preciosAfectados === "AMBOS") && (
+                        {ajustarCompra && (
                           <td className="py-2 px-3 text-right font-mono">
                             <span className="text-[var(--text-secondary)] line-through mr-1">
                               {formatCurrency(item.precioCompraAnterior)}
@@ -590,7 +682,7 @@ export default function AjustePreciosMasivoModal({
                         )}
 
                         {/* Venta */}
-                        {(preciosAfectados === "SOLO_VENTA" || preciosAfectados === "AMBOS") && (
+                        {ajustarVenta && (
                           <td className="py-2 px-3 text-right font-mono">
                             <span className="text-[var(--text-secondary)] line-through mr-1">
                               {formatCurrency(item.precioVentaAnterior)}
@@ -669,12 +761,12 @@ export default function AjustePreciosMasivoModal({
             <div className="text-xs text-[var(--text-secondary)]">
               {previewItems.length > 0 && (
                 <span>
-                  Vas a modificar <strong>{previewItems.length} productos</strong> con un ajuste de{" "}
-                  <strong>
-                    {tipoAjuste === "PORCENTAJE"
-                      ? `${numValorAjuste > 0 ? `+${numValorAjuste}` : numValorAjuste}%`
-                      : `${numValorAjuste > 0 ? `+$${numValorAjuste}` : `$${numValorAjuste}`}`}
-                  </strong>
+                  Vas a modificar <strong>{previewItems.length} productos</strong>
+                  {ajustarCompra && ajustarVenta
+                    ? " (Compra y Venta)"
+                    : ajustarCompra
+                    ? " (Solo Compra)"
+                    : " (Solo Venta)"}
                 </span>
               )}
             </div>

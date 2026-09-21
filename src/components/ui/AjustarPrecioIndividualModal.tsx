@@ -26,9 +26,7 @@ import { toast } from "sonner";
 import { formatCurrency, cn } from "@/lib/utils";
 import {
   calcularNuevoPrecio,
-  calcularMargenGanancia,
   type TipoAjustePrecio,
-  type TipoRedondeo,
 } from "@/lib/ajuste-precios";
 import { ajustarPrecioIndividual } from "@/actions/productos";
 
@@ -100,9 +98,6 @@ export default function AjustarPrecioIndividualModal({
   const [metodoVenta, setMetodoVenta] = useState<TipoAjustePrecio>("PORCENTAJE");
   const [valorVenta, setValorVenta] = useState<number | "">("");
 
-  // Redondeo
-  const [redondeo, setRedondeo] = useState<TipoRedondeo>("SIN_REDONDEO");
-
   // Motivo
   const [motivo, setMotivo] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -115,7 +110,6 @@ export default function AjustarPrecioIndividualModal({
     setValorCompra("");
     setMetodoVenta("PORCENTAJE");
     setValorVenta("");
-    setRedondeo("SIN_REDONDEO");
     setMotivo("");
     setError(null);
   };
@@ -131,29 +125,16 @@ export default function AjustarPrecioIndividualModal({
 
   const nuevoPrecioCompra = useMemo(() => {
     if (!ajustarCompra || valorCompra === "") return producto.precioCompra;
-    return calcularNuevoPrecio(producto.precioCompra, metodoCompra, numValorCompra, redondeo);
-  }, [ajustarCompra, valorCompra, producto.precioCompra, metodoCompra, numValorCompra, redondeo]);
+    return calcularNuevoPrecio(producto.precioCompra, metodoCompra, numValorCompra);
+  }, [ajustarCompra, valorCompra, producto.precioCompra, metodoCompra, numValorCompra]);
 
   const nuevoPrecioVenta = useMemo(() => {
     if (!ajustarVenta || valorVenta === "") return producto.precioVenta;
-    return calcularNuevoPrecio(producto.precioVenta, metodoVenta, numValorVenta, redondeo);
-  }, [ajustarVenta, valorVenta, producto.precioVenta, metodoVenta, numValorVenta, redondeo]);
+    return calcularNuevoPrecio(producto.precioVenta, metodoVenta, numValorVenta);
+  }, [ajustarVenta, valorVenta, producto.precioVenta, metodoVenta, numValorVenta]);
 
   const diffCompra = nuevoPrecioCompra - producto.precioCompra;
   const diffVenta = nuevoPrecioVenta - producto.precioVenta;
-
-  const margenActual = useMemo(
-    () => calcularMargenGanancia(producto.precioCompra, producto.precioVenta),
-    [producto.precioCompra, producto.precioVenta]
-  );
-
-  const margenNuevo = useMemo(
-    () => calcularMargenGanancia(nuevoPrecioCompra, nuevoPrecioVenta),
-    [nuevoPrecioCompra, nuevoPrecioVenta]
-  );
-
-  const variacionMargen =
-    margenActual !== null && margenNuevo !== null ? margenNuevo - margenActual : null;
 
   // Validation
   const isValid =
@@ -179,7 +160,7 @@ export default function AjustarPrecioIndividualModal({
           valorCompra: ajustarCompra ? numValorCompra : undefined,
           metodoVenta: ajustarVenta ? metodoVenta : undefined,
           valorVenta: ajustarVenta ? numValorVenta : undefined,
-          redondeo,
+          redondeo: "SIN_REDONDEO" as const,
           motivo: motivo.trim(),
         };
 
@@ -505,71 +486,7 @@ export default function AjustarPrecioIndividualModal({
             </div>
           </div>
 
-          {/* 3. Margen de Ganancia y Redondeo */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 p-3.5 rounded-xl bg-[var(--bg)] border border-[var(--border)]">
-            {/* Margen */}
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)] mb-1 flex items-center gap-1.5">
-                <Calculator size={13} className="text-amber-400" />
-                Margen de Ganancia
-              </p>
-              <div className="flex items-center gap-2 mt-1">
-                <div className="font-mono text-sm">
-                  <span className="text-[var(--text-secondary)]">Actual: </span>
-                  <strong className="text-[var(--text)]">
-                    {margenActual !== null ? `${margenActual}%` : "—"}
-                  </strong>
-                </div>
-                <ArrowRight size={14} className="text-[var(--text-muted)]" />
-                <div className="font-mono text-sm">
-                  <span className="text-[var(--text-secondary)]">Nuevo: </span>
-                  <strong
-                    className={cn(
-                      margenNuevo !== null && margenNuevo >= 30
-                        ? "text-[#34D399]"
-                        : margenNuevo !== null && margenNuevo > 0
-                        ? "text-amber-400"
-                        : "text-[#F87171]"
-                    )}
-                  >
-                    {margenNuevo !== null ? `${margenNuevo}%` : "—"}
-                  </strong>
-                </div>
-                {variacionMargen !== null && variacionMargen !== 0 && (
-                  <span
-                    className={cn(
-                      "text-[10px] font-extrabold px-1.5 py-0.5 rounded-full",
-                      variacionMargen > 0
-                        ? "bg-emerald-500/15 text-emerald-400"
-                        : "bg-red-500/15 text-red-400"
-                    )}
-                  >
-                    {variacionMargen > 0 ? `+${variacionMargen.toFixed(1)}%` : `${variacionMargen.toFixed(1)}%`}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Redondeo */}
-            <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)] mb-1">
-                Redondeo aplicado
-              </label>
-              <select
-                value={redondeo}
-                onChange={(e) => setRedondeo(e.target.value as TipoRedondeo)}
-                className="w-full h-8 px-2 bg-[var(--panel)] border border-[var(--border)] rounded-lg text-xs font-semibold text-[var(--text)] focus:outline-none focus:border-blue-500 cursor-pointer"
-              >
-                <option value="SIN_REDONDEO">Sin redondeo (2 decimales)</option>
-                <option value="ENTERO">Al peso más cercano ($1)</option>
-                <option value="MULTIPLO_10">Al múltiplo de $10</option>
-                <option value="MULTIPLO_100">Al múltiplo de $100</option>
-                <option value="MULTIPLO_1000">Al múltiplo de $1.000</option>
-              </select>
-            </div>
-          </div>
-
-          {/* 4. Motivo obligatorio */}
+          {/* 3. Motivo obligatorio */}
           <div>
             <label className="block text-xs font-bold text-[var(--text)] mb-1">
               Motivo del ajuste * <span className="text-[11px] font-normal text-[var(--text-secondary)]">(Obligatorio para auditoría)</span>

@@ -182,7 +182,7 @@ function ModuloFilterSelect({
       <SelectPrimitive.Root value={value} onValueChange={(v) => onValueChange(v as ModuloFilter)}>
         <SelectPrimitive.Trigger
           className={cn(
-            "group flex h-10 min-w-[170px] max-w-[210px] items-center justify-between gap-2 rounded-xl border bg-[var(--bg)] px-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200",
+            "group flex h-10 min-w-[155px] max-w-[195px] items-center justify-between gap-2 rounded-xl border bg-[var(--bg)] px-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200",
             MODULO_TONE.trigger
           )}
         >
@@ -267,7 +267,7 @@ function TipoFilterSelect({
       <SelectPrimitive.Root value={value} onValueChange={(v) => onValueChange(v as TipoFilter)}>
         <SelectPrimitive.Trigger
           className={cn(
-            "group flex h-10 min-w-[190px] max-w-[240px] items-center justify-between gap-2 rounded-xl border bg-[var(--bg)] px-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200",
+            "group flex h-10 min-w-[170px] max-w-[215px] items-center justify-between gap-2 rounded-xl border bg-[var(--bg)] px-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200",
             TIPO_TONE.trigger
           )}
         >
@@ -365,7 +365,7 @@ function UsuarioFilterSelect({
       <SelectPrimitive.Root value={value} onValueChange={onValueChange}>
         <SelectPrimitive.Trigger
           className={cn(
-            "group flex h-10 min-w-[170px] max-w-[220px] items-center justify-between gap-2 rounded-xl border bg-[var(--bg)] px-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200",
+            "group flex h-10 min-w-[155px] max-w-[200px] items-center justify-between gap-2 rounded-xl border bg-[var(--bg)] px-3 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200",
             USUARIO_TONE.trigger
           )}
         >
@@ -1137,7 +1137,7 @@ export default function SolicitudesTable({
         <div className="hidden xl:block w-px h-10 bg-[var(--border)]/70 mb-0.5" />
 
         {/* Search input */}
-        <div className="flex flex-col gap-1 w-full sm:w-[400px] lg:w-[460px] xl:w-[500px] min-w-[340px]">
+        <div className="flex flex-col gap-1 w-full sm:w-[260px] md:w-[280px] lg:w-[300px] xl:w-[320px] min-w-[200px]">
           <label className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
             Búsqueda
           </label>
@@ -1163,22 +1163,6 @@ export default function SolicitudesTable({
           </div>
         </div>
 
-        {/* Botón Limpiar */}
-        {hasActiveFilters && (
-          <div className="flex flex-col gap-1">
-            <span aria-hidden="true" className="h-[14px]" />
-            <button
-              type="button"
-              onClick={handleClearFilters}
-              className="group flex h-10 min-w-[110px] shrink-0 items-center justify-center gap-2 rounded-xl border border-[var(--brand)]/30 bg-[var(--bg)] py-2 px-3 text-xs font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200 hover:border-[var(--brand)]/60 hover:bg-[var(--brand)]/10 hover:text-white focus-visible:border-[var(--brand)] active:scale-[0.98]"
-              title="Limpiar filtros"
-            >
-              <Eraser size={13} className="text-[var(--brand)]" />
-              <span>Limpiar</span>
-            </button>
-          </div>
-        )}
-
         {/* Separator */}
         <div className="hidden xl:block w-px h-10 bg-[var(--border)]/70 mb-0.5" />
 
@@ -1200,6 +1184,22 @@ export default function SolicitudesTable({
             usuarios={usuariosOptions}
             currentUserId={userId}
           />
+        )}
+
+        {/* Botón Limpiar (al final para no desplazar ni romper el orden de los filtros) */}
+        {hasActiveFilters && (
+          <div className="flex flex-col gap-1 shrink-0 animate-in fade-in duration-150">
+            <span aria-hidden="true" className="h-[14px]" />
+            <button
+              type="button"
+              onClick={handleClearFilters}
+              className="group flex h-10 min-w-[100px] shrink-0 items-center justify-center gap-2 rounded-xl border border-[var(--brand)]/30 bg-[var(--bg)] py-2 px-3 text-xs font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] outline-none transition-all duration-200 hover:border-[var(--brand)]/60 hover:bg-[var(--brand)]/10 hover:text-white focus-visible:border-[var(--brand)] active:scale-[0.98]"
+              title="Limpiar filtros"
+            >
+              <Eraser size={13} className="text-[var(--brand)]" />
+              <span>Limpiar</span>
+            </button>
+          </div>
         )}
       </div>
 

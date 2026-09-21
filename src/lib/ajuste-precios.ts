@@ -58,17 +58,35 @@ export const ajusteMasivoFiltrosSchema = z.object({
 });
 
 export const ajusteMasivoSchema = z.object({
-  tipoAjuste: z.enum(["PORCENTAJE", "MONTO_FIJO"]),
-  valorAjuste: z
-    .number()
-    .refine((v) => !isNaN(v) && isFinite(v) && v !== 0, "El valor del ajuste no puede ser 0 o inválido"),
-  preciosAfectados: z.enum(["SOLO_VENTA", "SOLO_COMPRA", "AMBOS"]),
+  // Campos independientes de compra y venta (idénticos a ajuste individual)
+  ajustarCompra: z.boolean().optional(),
+  ajustarVenta: z.boolean().optional(),
+  metodoCompra: z.enum(["PORCENTAJE", "MONTO_FIJO", "VALOR_DIRECTO"]).optional(),
+  valorCompra: z.number().optional(),
+  metodoVenta: z.enum(["PORCENTAJE", "MONTO_FIJO", "VALOR_DIRECTO"]).optional(),
+  valorVenta: z.number().optional(),
+
+  // Compatibilidad con esquema anterior
+  tipoAjuste: z.enum(["PORCENTAJE", "MONTO_FIJO"]).optional(),
+  valorAjuste: z.number().optional(),
+  preciosAfectados: z.enum(["SOLO_VENTA", "SOLO_COMPRA", "AMBOS"]).optional(),
+
   filtros: ajusteMasivoFiltrosSchema,
   redondeo: z
     .enum(["SIN_REDONDEO", "ENTERO", "MULTIPLO_10", "MULTIPLO_100", "MULTIPLO_1000"])
     .default("SIN_REDONDEO"),
   motivo: z.string().min(3, "El motivo del ajuste masivo es obligatorio (mínimo 3 caracteres)"),
-});
+}).refine(
+  (data) => {
+    if (data.ajustarCompra !== undefined || data.ajustarVenta !== undefined) {
+      const tieneCompra = Boolean(data.ajustarCompra && data.valorCompra !== undefined && data.valorCompra !== 0);
+      const tieneVenta = Boolean(data.ajustarVenta && data.valorVenta !== undefined && data.valorVenta !== 0);
+      return tieneCompra || tieneVenta;
+    }
+    return data.valorAjuste !== undefined && data.valorAjuste !== 0;
+  },
+  { message: "Debe seleccionar al menos un precio para ajustar (compra o venta) con un valor válido" }
+);
 
 /* ────────────────────── Pure Calculation Functions ────────────────────── */
 

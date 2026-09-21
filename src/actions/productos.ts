@@ -852,7 +852,15 @@ export async function previewAjustePreciosMasivo(inputData: unknown) {
     return { error: validation.error.errors[0].message };
   }
 
-  const { tipoAjuste, valorAjuste, preciosAfectados, filtros, redondeo } = validation.data;
+  const data = validation.data;
+  const { filtros, redondeo } = data;
+
+  const ajustarCompraFinal = data.ajustarCompra ?? (data.preciosAfectados === "SOLO_COMPRA" || data.preciosAfectados === "AMBOS");
+  const ajustarVentaFinal = data.ajustarVenta ?? (data.preciosAfectados === "SOLO_VENTA" || data.preciosAfectados === "AMBOS");
+  const metodoCompraFinal = data.metodoCompra ?? data.tipoAjuste ?? "PORCENTAJE";
+  const valorCompraFinal = data.valorCompra ?? data.valorAjuste ?? 0;
+  const metodoVentaFinal = data.metodoVenta ?? data.tipoAjuste ?? "PORCENTAJE";
+  const valorVentaFinal = data.valorVenta ?? data.valorAjuste ?? 0;
 
   try {
     const whereClause: Prisma.ProductoWhereInput = {};
@@ -895,12 +903,12 @@ export async function previewAjustePreciosMasivo(inputData: unknown) {
       let nuevoPrecioCompra = p.precioCompra;
       let nuevoPrecioVenta = p.precioVenta;
 
-      if (preciosAfectados === "SOLO_COMPRA" || preciosAfectados === "AMBOS") {
-        nuevoPrecioCompra = calcularNuevoPrecio(p.precioCompra, tipoAjuste, valorAjuste, redondeo);
+      if (ajustarCompraFinal && valorCompraFinal !== 0) {
+        nuevoPrecioCompra = calcularNuevoPrecio(p.precioCompra, metodoCompraFinal, valorCompraFinal, redondeo);
       }
 
-      if (preciosAfectados === "SOLO_VENTA" || preciosAfectados === "AMBOS") {
-        nuevoPrecioVenta = calcularNuevoPrecio(p.precioVenta, tipoAjuste, valorAjuste, redondeo);
+      if (ajustarVentaFinal && valorVentaFinal !== 0) {
+        nuevoPrecioVenta = calcularNuevoPrecio(p.precioVenta, metodoVentaFinal, valorVentaFinal, redondeo);
       }
 
       if (nuevoPrecioCompra <= 0 || nuevoPrecioVenta <= 0) {
@@ -949,7 +957,15 @@ export async function ajustarPreciosMasivo(inputData: unknown) {
     return { error: validation.error.errors[0].message };
   }
 
-  const { tipoAjuste, valorAjuste, preciosAfectados, filtros, redondeo, motivo } = validation.data;
+  const data = validation.data;
+  const { filtros, redondeo, motivo } = data;
+
+  const ajustarCompraFinal = data.ajustarCompra ?? (data.preciosAfectados === "SOLO_COMPRA" || data.preciosAfectados === "AMBOS");
+  const ajustarVentaFinal = data.ajustarVenta ?? (data.preciosAfectados === "SOLO_VENTA" || data.preciosAfectados === "AMBOS");
+  const metodoCompraFinal = data.metodoCompra ?? data.tipoAjuste ?? "PORCENTAJE";
+  const valorCompraFinal = data.valorCompra ?? data.valorAjuste ?? 0;
+  const metodoVentaFinal = data.metodoVenta ?? data.tipoAjuste ?? "PORCENTAJE";
+  const valorVentaFinal = data.valorVenta ?? data.valorAjuste ?? 0;
 
   try {
     const result = await prisma.$transaction(async (tx) => {
@@ -999,12 +1015,12 @@ export async function ajustarPreciosMasivo(inputData: unknown) {
         let nuevoPrecioCompra = p.precioCompra;
         let nuevoPrecioVenta = p.precioVenta;
 
-        if (preciosAfectados === "SOLO_COMPRA" || preciosAfectados === "AMBOS") {
-          nuevoPrecioCompra = calcularNuevoPrecio(p.precioCompra, tipoAjuste, valorAjuste, redondeo);
+        if (ajustarCompraFinal && valorCompraFinal !== 0) {
+          nuevoPrecioCompra = calcularNuevoPrecio(p.precioCompra, metodoCompraFinal, valorCompraFinal, redondeo);
         }
 
-        if (preciosAfectados === "SOLO_VENTA" || preciosAfectados === "AMBOS") {
-          nuevoPrecioVenta = calcularNuevoPrecio(p.precioVenta, tipoAjuste, valorAjuste, redondeo);
+        if (ajustarVentaFinal && valorVentaFinal !== 0) {
+          nuevoPrecioVenta = calcularNuevoPrecio(p.precioVenta, metodoVentaFinal, valorVentaFinal, redondeo);
         }
 
         if (nuevoPrecioCompra <= 0) {
@@ -1028,11 +1044,15 @@ export async function ajustarPreciosMasivo(inputData: unknown) {
       }
 
       // 3. Crear cabecera de AjustePrecio
+      const tipoAjusteHeader = data.tipoAjuste ?? (ajustarCompraFinal && ajustarVentaFinal ? `${metodoCompraFinal}_Y_${metodoVentaFinal}` : ajustarCompraFinal ? metodoCompraFinal : metodoVentaFinal);
+      const valorHeader = data.valorAjuste ?? (ajustarVentaFinal ? valorVentaFinal : valorCompraFinal);
+      const preciosAfectadosHeader = data.preciosAfectados ?? (ajustarCompraFinal && ajustarVentaFinal ? "AMBOS" : ajustarCompraFinal ? "SOLO_COMPRA" : "SOLO_VENTA");
+
       const ajuste = await tx.ajustePrecio.create({
         data: {
-          tipoAjuste,
-          valor: valorAjuste,
-          preciosAfectados,
+          tipoAjuste: tipoAjusteHeader,
+          valor: valorHeader,
+          preciosAfectados: preciosAfectadosHeader,
           filtros: filtros as unknown as Prisma.InputJsonValue,
           redondeo,
           motivo,
