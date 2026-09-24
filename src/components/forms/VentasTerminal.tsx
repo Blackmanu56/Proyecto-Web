@@ -3,6 +3,7 @@
 import { crearClienteRapido,createVenta,toggleFavorito } from "@/actions/ventas";
 import { ToolbarSelect } from "@/components/ui/toolbar-select";
 import Image from "next/image";
+import Link from "next/link";
 import { formatCurrency,formatDate,formatDateShort,formatTime24 } from "@/lib/utils";
 import {
 AlertTriangle,
@@ -68,6 +69,12 @@ interface VentasTerminalProps {
   usuario?: { id: number; username: string; nombreCompleto: string } | null;
   favoritoIds: number[];
   ventasPorProducto: Record<number, number>;
+  estadoCaja?: {
+    habilitada: boolean;
+    motivo?: "SIN_CAJA" | "CAJA_CERRADA" | "CAJA_VENCIDA";
+    mensaje?: string;
+    horasAbierta?: number;
+  };
 }
 
 type ProductFilter = "todos" | "favoritos" | "mas-vendidos";
@@ -89,7 +96,14 @@ const COMPROBANTES: { value: ComprobanteType; label: string; desc: string }[] = 
   { value: "FACTURA_C", label: "Factura C", desc: "Exento" },
 ];
 
-export default function VentasTerminal({ productos, clientes, usuario, favoritoIds: initialFavoritoIds, ventasPorProducto }: VentasTerminalProps) {
+export default function VentasTerminal({
+  productos,
+  clientes,
+  usuario,
+  favoritoIds: initialFavoritoIds,
+  ventasPorProducto,
+  estadoCaja,
+}: VentasTerminalProps) {
   const [isPending, startTransition] = useTransition();
   const receiptRef = useRef<HTMLDivElement>(null);
   const issuedReceiptRef = useRef<HTMLDivElement>(null);
@@ -328,6 +342,10 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
   // ─── ABRIR VISTA PREVIA ───
   const handleOpenPreview = () => {
     setErrorMsg("");
+    if (estadoCaja && !estadoCaja.habilitada) {
+      setErrorMsg(estadoCaja.mensaje || "La caja no está habilitada para operar.");
+      return;
+    }
     if (!selectedClient) {
       setErrorMsg("Debe seleccionar un cliente antes de facturar.");
       return;
@@ -346,6 +364,10 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
   // ─── CONFIRMAR COBRO ───
   const handleConfirmPayment = async () => {
     setShowReceiptPreview(false);
+    if (estadoCaja && !estadoCaja.habilitada) {
+      setErrorMsg(estadoCaja.mensaje || "La caja no está habilitada para operar.");
+      return;
+    }
     const items = cart.map(item => ({ productoId: item.id, cantidad: item.cantidad }));
 
     startTransition(async () => {
@@ -914,6 +936,32 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
               </div>
             </div>
 
+            {/* Banner de Caja Inhabilitada */}
+            {estadoCaja && !estadoCaja.habilitada && (
+              <div className="p-2.5 bg-amber-500/15 border border-amber-500/35 rounded-xl flex items-start gap-2.5 text-amber-200 text-xs">
+                <AlertTriangle size={16} className="text-amber-400 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-amber-300">
+                    {estadoCaja.motivo === "CAJA_VENCIDA"
+                      ? "Caja vencida (+24 horas abierta)"
+                      : "Caja cerrada"}
+                  </p>
+                  <p className="text-[11px] text-amber-200/90 mt-0.5 leading-snug">
+                    {estadoCaja.mensaje}
+                  </p>
+                  <Link
+                    href="/caja"
+                    className="inline-flex items-center gap-1 mt-2 text-[11px] font-bold text-white bg-amber-600 hover:bg-amber-500 px-2.5 py-1 rounded-lg transition-colors shadow-sm"
+                  >
+                    <span>
+                      {estadoCaja.motivo === "CAJA_VENCIDA" ? "Ir a cerrar caja" : "Ir a abrir caja"}
+                    </span>
+                    <ArrowRight size={12} />
+                  </Link>
+                </div>
+              </div>
+            )}
+
             {/* Error */}
             {errorMsg && (
               <div className="p-2 bg-[var(--danger-light)] border border-[var(--danger)]/20 text-[var(--danger)] text-xs font-semibold rounded flex items-center space-x-1.5">
@@ -925,7 +973,12 @@ export default function VentasTerminal({ productos, clientes, usuario, favoritoI
             {/* Botón Cobrar */}
             <button
               onClick={handleOpenPreview}
-              disabled={isPending || cart.length === 0}
+              disabled={isPending || cart.length === 0 || (estadoCaja !== undefined && !estadoCaja.habilitada)}
+              title={
+                estadoCaja && !estadoCaja.habilitada
+                  ? estadoCaja.mensaje
+                  : undefined
+              }
               className="w-full py-3 bg-gradient-to-r from-[var(--danger)] to-[var(--brand)] hover:from-[var(--brand)] hover:to-[var(--danger)] text-white font-bold rounded shadow-lg shadow-[var(--danger)]/20 focus:outline-none transition duration-150 flex items-center justify-center text-base disabled:opacity-40 hover:shadow-xl hover:shadow-[var(--danger)]/30"
             >
               {isPending ? "Procesando..." : (

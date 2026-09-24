@@ -3,12 +3,13 @@ import { getSession } from "@/lib/auth.server";
 import { prisma } from "@/lib/prisma";
 import VentasTerminal from "@/components/forms/VentasTerminal";
 import { ShoppingCart } from "lucide-react";
+import { validarCajaHabilitadaParaVenta } from "@/lib/caja-status";
 
 export default async function VentasPage() {
   const session = await getSession();
 
   // Carga de datos del servidor
-  const [productos, clientes, usuario, favoritos, ventasPorProducto] = await Promise.all([
+  const [productos, clientes, usuario, favoritos, ventasPorProducto, cajaActiva] = await Promise.all([
     prisma.producto.findMany({
       where: { activo: true },
       include: { categoria: true },
@@ -33,7 +34,14 @@ export default async function VentasPage() {
       _sum: { cantidad: true },
       orderBy: { _sum: { cantidad: "desc" } },
     }),
+    prisma.caja.findFirst({
+      where: { estado: "ABIERTA" },
+      orderBy: { fechaApertura: "desc" },
+      select: { id: true, estado: true, fechaApertura: true },
+    }),
   ]);
+
+  const estadoCaja = validarCajaHabilitadaParaVenta(cajaActiva);
 
   // Set de IDs de favoritos para lookup rápido (serializado como array para client component)
   const favoritoIds = favoritos.map(f => f.productoId);
@@ -65,6 +73,7 @@ export default async function VentasPage() {
             usuario={usuario}
             favoritoIds={favoritoIds}
             ventasPorProducto={Object.fromEntries(ventasMap)}
+            estadoCaja={estadoCaja}
           />
         </div>
       </div>

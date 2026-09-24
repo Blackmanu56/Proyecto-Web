@@ -10,6 +10,7 @@ import { resolverDestinoFinanciero } from "@/lib/cuenta-financiera";
 import type { DestinoFinanciero } from "@/lib/cuenta-financiera";
 import { registrarMovimiento } from "@/lib/movimiento-producto";
 import { evaluarYNotificarStock } from "@/lib/stock-notifications";
+import { validarCajaHabilitadaParaVenta } from "@/lib/caja-status";
 
 interface VentaItem {
   productoId: number;
@@ -142,16 +143,20 @@ export async function createVenta(
         throw new Error("El cliente seleccionado est? dado de baja.");
       }
 
-      const esCobroEfectivo = ventaInput.metodoPago === "EFECTIVO";
+      // Validar que exista una caja abierta y vigente (<= 24 horas) para operar cualquier venta
+      const cajaAbierta = await tx.caja.findFirst({
+        where: { estado: "ABIERTA" },
+        orderBy: { fechaApertura: "desc" },
+      });
 
-      // Solo un cobro físico en efectivo requiere una Caja abierta.
-      const cajaAbierta = esCobroEfectivo
-        ? await tx.caja.findFirst({ where: { estado: "ABIERTA" } })
-        : null;
-
-      if (esCobroEfectivo && !cajaAbierta) {
-        throw new Error("No hay una caja abierta para registrar un cobro en efectivo.");
+      const validacionCaja = validarCajaHabilitadaParaVenta(cajaAbierta);
+      if (!validacionCaja.habilitada) {
+        throw new Error(
+          validacionCaja.mensaje || "No hay una caja habilitada para realizar ventas."
+        );
       }
+
+      const esCobroEfectivo = ventaInput.metodoPago === "EFECTIVO";
 
       let totalVenta = 0.0;
       const detallesAGuardar = [];

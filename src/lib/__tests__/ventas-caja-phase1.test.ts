@@ -45,7 +45,13 @@ vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 
 import { createVenta } from "../../actions/ventas";
 
-const OPEN_CAJA = { id: 7, estado: "ABIERTA", montoInicial: 100_000, totalVentas: 0 };
+const OPEN_CAJA = {
+  id: 7,
+  estado: "ABIERTA",
+  montoInicial: 100_000,
+  totalVentas: 0,
+  fechaApertura: new Date(),
+};
 const SESSION = { userId: 3, permissions: ["ventas.crear"] };
 
 type MetodoPago = "EFECTIVO" | "TRANSFERENCIA" | "TARJETA_DEBITO" | "TARJETA_CREDITO";
@@ -145,29 +151,38 @@ describe("Phase 1 sale cash semantics", () => {
     }
   );
 
-  it("blocks a cash sale without an open Caja using the exact business message", async () => {
-    mocks.tx.caja.findFirst.mockResolvedValue(null);
-
-    const result = await sell("EFECTIVO");
-
-    expect(result).toEqual({ error: "No hay una caja abierta para registrar un cobro en efectivo." });
-    expect(mocks.tx.venta.create).not.toHaveBeenCalled();
-    expect(mocks.tx.producto.update).not.toHaveBeenCalled();
-  });
-
-  it.each(["TRANSFERENCIA", "TARJETA_DEBITO", "TARJETA_CREDITO"] as const)(
-    "allows %s without an open Caja and creates MovimientoFinanciero",
+  it.each(["EFECTIVO", "TRANSFERENCIA", "TARJETA_DEBITO", "TARJETA_CREDITO"] as const)(
+    "blocks %s sale when there is no open Caja",
     async (metodoPago) => {
       mocks.tx.caja.findFirst.mockResolvedValue(null);
 
       const result = await sell(metodoPago);
 
-      expect(result).toMatchObject({ success: true, ventaId: 22, total: 50_000 });
-      expect(mocks.tx.venta.create).toHaveBeenCalledOnce();
-      expect(mocks.tx.producto.update).toHaveBeenCalledOnce();
-      expect(mocks.tx.movimientoCaja.create).not.toHaveBeenCalled();
-      expect(mocks.tx.movimientoFinanciero.create).toHaveBeenCalledOnce();
-      expect(mocks.tx.caja.update).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        error: "No hay una caja abierta en el sistema para realizar ventas.",
+      });
+      expect(mocks.tx.venta.create).not.toHaveBeenCalled();
+      expect(mocks.tx.producto.update).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each(["EFECTIVO", "TRANSFERENCIA", "TARJETA_DEBITO", "TARJETA_CREDITO"] as const)(
+    "blocks %s sale when Caja has been open for more than 24 hours",
+    async (metodoPago) => {
+      const expiredCaja = {
+        ...OPEN_CAJA,
+        fechaApertura: new Date(Date.now() - 25 * 60 * 60 * 1000),
+      };
+      mocks.tx.caja.findFirst.mockResolvedValue(expiredCaja);
+
+      const result = await sell(metodoPago);
+
+      expect(result).toEqual({
+        error:
+          "La caja actual lleva abierta más de 24 horas. Debe realizar el cierre de caja antes de registrar nuevas ventas.",
+      });
+      expect(mocks.tx.venta.create).not.toHaveBeenCalled();
+      expect(mocks.tx.producto.update).not.toHaveBeenCalled();
     }
   );
 });
