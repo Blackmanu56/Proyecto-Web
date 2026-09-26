@@ -1,36 +1,50 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Chopper Repuestos - Sistema de Gestión Integral (SGI)
 
-## Getting Started
+Sistema de gestión web integral para **Chopper Repuestos**, desarrollado con Next.js (App Router), React 19, TypeScript, Tailwind CSS y Prisma ORM.
 
-First, run the development server:
+## Base de Datos
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+La base de datos del sistema opera sobre **Supabase PostgreSQL** en la nube.
+
+### Variables de Entorno
+
+Configurar en el archivo `.env` las cadenas de conexión provistas por Supabase:
+
+```env
+# Supabase PostgreSQL (Connection Pooler / Transaction mode - puerto 6543)
+DATABASE_URL="postgresql://postgres.[PROJECT-REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres?pgbouncer=true"
+
+# Supabase PostgreSQL (Direct / Session mode para migraciones - puerto 5432)
+DIRECT_URL="postgresql://postgres.[PROJECT-REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:5432/postgres"
+
+# Secreto para la firma de JSON Web Tokens (JWT)
+JWT_SECRET="tu-clave-secreta"
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Primeros Pasos
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Instalar dependencias:
+```bash
+npm install
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+2. Generar el cliente de Prisma:
+```bash
+npx prisma generate
+```
 
-## Learn More
+3. Iniciar el servidor de desarrollo:
+```bash
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+La aplicación estará disponible en [http://localhost:3000](http://localhost:3000).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Scripts Disponibles
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `npm run dev`: Inicia el servidor de desarrollo.
+- `npm run build`: Compila la aplicación para producción.
+- `npm run start`: Inicia el servidor de producción.
+- `npm run lint`: Ejecuta el linter (ESLint).
+- `npm run test`: Ejecuta los tests unitarios con Vitest.
+- `npm run db:seed`: Ejecuta el seed de datos base con Prisma.

@@ -1,17 +1,21 @@
-services:
-  db:
-    image: postgres:15-alpine
-    restart: always
-    env_file:
-      - .env
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
-      POSTGRES_DB: ${POSTGRES_DB:-pasantes_db}
-    ports:
-      - "5433:5432"
-    volumes:
-      - db_data:/var/lib/postgresql/data
+# NOTA: La base de datos fue migrada a Supabase PostgreSQL.
+# El servicio local de PostgreSQL queda comentado como respaldo histórico.
+# No es necesario ejecutar docker compose up para el funcionamiento de la aplicación.
 
-volumes:
-  db_data:
+# services:
+#   db:
+#     image: postgres:15-alpine
+#     restart: always
+#     env_file:
+#       - .env
+#     environment:
+#       POSTGRES_USER: ${POSTGRES_USER:-user}
+#       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+#       POSTGRES_DB: ${POSTGRES_DB:-pasantes_db}
+#     ports:
+#       - "5433:5432"
+#     volumes:
+#       - db_data:/var/lib/postgresql/data
+# 
+# volumes:
+#   db_data:
