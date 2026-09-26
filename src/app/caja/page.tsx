@@ -21,21 +21,29 @@ export default async function CajaPage() {
   const session = await getSession();
   const userRole = session?.role || "ENCARGADO_VENTAS";
 
-  let currentUser = null;
-  if (session?.userId) {
-    currentUser = await prisma.usuario.findUnique({
-      where: { id: session.userId },
-      select: {
-        id: true,
-        username: true,
-        nombreCompleto: true,
-        fotoUrl: true,
-        rol: { select: { id: true, nombre: true } },
-      },
-    });
-  }
-
-  const [cajaActiva, historialCajas, cajaPendiente, solicitudesPendientes, solicitudesUsuario, movimientosPorAcreditar] = await Promise.all([
+  const [
+    currentUser,
+    cajaActiva,
+    historialCajas,
+    cajaPendiente,
+    solicitudesPendientes,
+    solicitudesUsuario,
+    movimientosPorAcreditar,
+    cuentasBanco,
+    cuentasPorAcreditar,
+  ] = await Promise.all([
+    session?.userId
+      ? prisma.usuario.findUnique({
+          where: { id: session.userId },
+          select: {
+            id: true,
+            username: true,
+            nombreCompleto: true,
+            fotoUrl: true,
+            rol: { select: { id: true, nombre: true } },
+          },
+        })
+      : Promise.resolve(null),
     getCajaActiva(),
     getHistorialCajas(),
     prisma.caja.findFirst({
@@ -46,10 +54,7 @@ export default async function CajaPage() {
     getSolicitudesCajaPendientes(),
     getSolicitudesCajaUsuario(),
     getMovimientosPorAcreditarPendientes(),
-  ]);
-
-  // Saldos financieros (Banco, Por acreditar, Total disponible)
-  const [cuentasBanco, cuentasPorAcreditar] = await Promise.all([
+    // Saldos financieros (Banco, Por acreditar)
     prisma.cuentaFinanciera.findMany({
       where: { tipo: "BANCO", esPrincipal: true, activa: true },
       include: {

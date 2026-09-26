@@ -53,106 +53,148 @@ export async function getDashboardData(): Promise<DashboardData> {
     const ahora = new Date();
     const hoyInicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
     const hoyFin = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 23, 59, 59);
-
-    // 1. Estadísticas básicas
-    // Ventas de hoy (monto total)
-    const ventasHoyDb = await prisma.venta.aggregate({
-      where: {
-        fecha: {
-          gte: hoyInicio,
-          lte: hoyFin,
-        },
-      },
-      _sum: {
-        total: true,
-      },
-    });
-
-    // Ventas de hoy (cantidad de operaciones)
-    const ventasHoyCountDb = await prisma.venta.count({
-      where: {
-        fecha: {
-          gte: hoyInicio,
-          lte: hoyFin,
-        },
-      },
-    });
-
-    // Saldo en caja activa
-    const cajaActiva = await prisma.caja.findFirst({
-      where: { estado: "ABIERTA" },
-      include: {
-        movimientos: {
-          select: { tipo: true, monto: true },
-        },
-      },
-    });
-    const ingresosCajaVal = calcularEfectivoCajaActiva(cajaActiva);
-
-    // Conteo stock bajo
-    const stockBajoDb = await prisma.producto.count({
-      where: {
-        activo: true,
-        cantidad: {
-          lte: prisma.producto.fields.stockMinimo,
-        },
-      },
-    });
-
-    // Productos sin stock (cantidad = 0)
-    const productosSinStockDb = await prisma.producto.count({
-      where: {
-        activo: true,
-        cantidad: 0,
-      },
-    });
-
-    // Productos activos
-    const productosActivosCountDb = await prisma.producto.count({
-      where: { activo: true },
-    });
-
-    // Movimientos de inventario hoy (compras registradas)
-    const movimientosInventarioHoyDb = await prisma.compra.count({
-      where: {
-        fecha: {
-          gte: hoyInicio,
-          lte: hoyFin,
-        },
-      },
-    });
-
-    // Total clientes
-    const clientesCount = await prisma.cliente.count();
-
-    // Clientes atendidos hoy (distintos)
-    const clientesAtendidosHoyDb = await prisma.venta.findMany({
-      where: {
-        fecha: {
-          gte: hoyInicio,
-          lte: hoyFin,
-        },
-      },
-      select: { clienteId: true },
-      distinct: ["clienteId"],
-    });
-    const clientesAtendidosHoyCount = clientesAtendidosHoyDb.length;
-
-    // Proveedores activos
-    const proveedoresActivosDb = await prisma.proveedor.count({
-      where: { activo: true },
-    });
-
-    // 2. Gráfico de ventas (Últimos 7 días)
     const sieteDiasAtras = new Date(ahora.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const ventasRecientes = await prisma.venta.findMany({
-      where: {
-        fecha: {
-          gte: sieteDiasAtras,
+
+    // Ejecutar todas las consultas independientes en paralelo con Promise.all
+    const [
+      ventasHoyDb,
+      ventasHoyCountDb,
+      cajaActiva,
+      stockBajoDb,
+      productosSinStockDb,
+      productosActivosCountDb,
+      movimientosInventarioHoyDb,
+      clientesCount,
+      clientesAtendidosHoyDb,
+      proveedoresActivosDb,
+      ventasRecientes,
+      detallesVenta,
+      movimientosCaja,
+      productosDb,
+    ] = await Promise.all([
+      // 1. Ventas de hoy (monto total)
+      prisma.venta.aggregate({
+        where: {
+          fecha: {
+            gte: hoyInicio,
+            lte: hoyFin,
+          },
         },
-      },
-      orderBy: { fecha: "asc" },
-    });
+        _sum: {
+          total: true,
+        },
+      }),
+
+      // 2. Ventas de hoy (cantidad de operaciones)
+      prisma.venta.count({
+        where: {
+          fecha: {
+            gte: hoyInicio,
+            lte: hoyFin,
+          },
+        },
+      }),
+
+      // 3. Saldo en caja activa
+      prisma.caja.findFirst({
+        where: { estado: "ABIERTA" },
+        include: {
+          movimientos: {
+            select: { tipo: true, monto: true },
+          },
+        },
+      }),
+
+      // 4. Conteo stock bajo
+      prisma.producto.count({
+        where: {
+          activo: true,
+          cantidad: {
+            lte: prisma.producto.fields.stockMinimo,
+          },
+        },
+      }),
+
+      // 5. Productos sin stock (cantidad = 0)
+      prisma.producto.count({
+        where: {
+          activo: true,
+          cantidad: 0,
+        },
+      }),
+
+      // 6. Productos activos
+      prisma.producto.count({
+        where: { activo: true },
+      }),
+
+      // 7. Movimientos de inventario hoy (compras registradas)
+      prisma.compra.count({
+        where: {
+          fecha: {
+            gte: hoyInicio,
+            lte: hoyFin,
+          },
+        },
+      }),
+
+      // 8. Total clientes
+      prisma.cliente.count(),
+
+      // 9. Clientes atendidos hoy (distintos)
+      prisma.venta.findMany({
+        where: {
+          fecha: {
+            gte: hoyInicio,
+            lte: hoyFin,
+          },
+        },
+        select: { clienteId: true },
+        distinct: ["clienteId"],
+      }),
+
+      // 10. Proveedores activos
+      prisma.proveedor.count({
+        where: { activo: true },
+      }),
+
+      // 11. Gráfico de ventas (Últimos 7 días)
+      prisma.venta.findMany({
+        where: {
+          fecha: {
+            gte: sieteDiasAtras,
+          },
+        },
+        orderBy: { fecha: "asc" },
+      }),
+
+      // 12. Productos más vendidos / categorías
+      prisma.detalleVenta.findMany({
+        include: {
+          producto: {
+            include: { categoria: true },
+          },
+        },
+      }),
+
+      // 13. Movimientos recientes de caja
+      prisma.movimientoCaja.findMany({
+        take: 5,
+        orderBy: { fecha: "desc" },
+        include: {
+          usuario: true,
+        },
+      }),
+
+      // 14. Motor predictivo de demanda
+      prisma.producto.findMany({
+        where: { activo: true },
+        include: { proveedor: true },
+      }),
+    ]);
+
+    const ingresosCajaVal = calcularEfectivoCajaActiva(cajaActiva);
+    const clientesAtendidosHoyCount = clientesAtendidosHoyDb.length;
 
     // Agrupar ventas por fecha
     const ventasPorFechaMap: { [key: string]: number } = {};
@@ -175,14 +217,6 @@ export async function getDashboardData(): Promise<DashboardData> {
     }));
 
     // 3. Productos más vendidos
-    const detallesVenta = await prisma.detalleVenta.findMany({
-      include: {
-        producto: {
-          include: { categoria: true },
-        },
-      },
-    });
-
     const agrupadoProductos: { [key: string]: number } = {};
     detallesVenta.forEach((d) => {
       agrupadoProductos[d.producto.nombre] = (agrupadoProductos[d.producto.nombre] || 0) + d.cantidad;
@@ -209,14 +243,6 @@ export async function getDashboardData(): Promise<DashboardData> {
     })).slice(0, 4);
 
     // 5. Movimientos recientes de caja
-    const movimientosCaja = await prisma.movimientoCaja.findMany({
-      take: 5,
-      orderBy: { fecha: "desc" },
-      include: {
-        usuario: true,
-      },
-    });
-
     const cajaMovimientosRecientes = movimientosCaja.map((m) => ({
       id: m.id,
       descripcion: m.descripcion,
@@ -227,12 +253,6 @@ export async function getDashboardData(): Promise<DashboardData> {
     }));
 
     // 6. MOTOR PREDICTIVO DE DEMANDA (TESIS LOGIC)
-    // Suponemos una tasa de ventas basadas en el histórico acumulado
-    const productosDb = await prisma.producto.findMany({
-      where: { activo: true },
-      include: { proveedor: true },
-    });
-
     const totalVentasPorProducto: { [key: number]: number } = {};
     detallesVenta.forEach((d) => {
       totalVentasPorProducto[d.productoId] = (totalVentasPorProducto[d.productoId] || 0) + d.cantidad;
