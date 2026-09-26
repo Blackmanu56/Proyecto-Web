@@ -12,7 +12,13 @@ import type { PeriodoPreset } from "@/lib/reportPeriods";
 import {
   Calendar,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   ChevronUp,
+  Filter,
+  Layers,
   Printer,
   RefreshCw,
   Search,
@@ -44,8 +50,13 @@ const TIPO_COLOR: Record<string, string> = {
   Venta: CHART_COLORS[0],
   "Reposición": CHART_COLORS[1],
   "Movimiento de Caja": CHART_COLORS[2],
+  "Apertura de Caja": CHART_COLORS[2],
+  "Cierre de Caja": CHART_COLORS[2],
   "Cambio de Estado": CHART_COLORS[3],
   "Edición de datos": CHART_COLORS[4],
+  "Ajuste de Precio": "#8b5cf6",
+  "Ajuste de Precios": "#8b5cf6",
+  "Ajuste de Stock": "#f59e0b",
 };
 
 const inputClass =
@@ -123,6 +134,7 @@ function RoleMetrics({ emp }: { emp: EmpleadoDashboardRow }) {
     return (
       <div className="flex items-center justify-between gap-2 flex-wrap text-xs text-[var(--text-muted)]">
         <span>Reposiciones: <strong className="text-[var(--text)]">{emp.comprasCount}</strong></span>
+        <span>Ajustes stock: <strong className="text-[var(--text)]">{emp.ajustesStockCount}</strong></span>
         <span>Cambios de estado: <strong className="text-[var(--text)]">{emp.cambiosEstadoProductoCount}</strong></span>
       </div>
     );
@@ -132,7 +144,8 @@ function RoleMetrics({ emp }: { emp: EmpleadoDashboardRow }) {
       <div className="flex items-center justify-between gap-2 flex-wrap text-xs text-[var(--text-muted)]">
         <span>Cajas abiertas: <strong className="text-[var(--text)]">{emp.cajasAbiertasCount}</strong></span>
         <span>Cierres: <strong className="text-[var(--text)]">{emp.cierresCount}</strong></span>
-        <span>Movimientos de caja: <strong className="text-[var(--text)]">{emp.movimientosCajaCount}</strong></span>
+        <span>Mov. caja: <strong className="text-[var(--text)]">{emp.movimientosCajaCount}</strong></span>
+        <span>Ajustes precio: <strong className="text-[var(--text)]">{emp.ajustesPrecioCount}</strong></span>
       </div>
     );
   }
@@ -145,8 +158,9 @@ function EmpleadoDetalle({ emp }: { emp: EmpleadoDashboardRow }) {
   const modulos = [
     { label: "Ventas", value: emp.ventasCount },
     { label: "Reposiciones", value: emp.comprasCount },
-    { label: "Caja", value: emp.movimientosCajaCount },
-    { label: "Productos", value: emp.cambiosEstadoProductoCount },
+    { label: "Caja", value: emp.movimientosCajaCount + emp.cierresCount },
+    { label: "Productos", value: emp.cambiosEstadoProductoCount + emp.ajustesPrecioCount },
+    { label: "Stock", value: emp.ajustesStockCount },
   ];
   const max = Math.max(...modulos.map((m) => m.value), 1);
   return (
@@ -222,6 +236,67 @@ export default function EmpleadosReport({ initialData }: Props) {
   const [expandedUsuarioId, setExpandedUsuarioId] = useState<number | null>(null);
   const [activeSubView, setActiveSubView] = useState<SubViewId>("analisis");
 
+  // Filtros y paginación para el Historial de Actividades
+  const [actividadSearch, setActividadSearch] = useState("");
+  const [actividadUsuarioId, setActividadUsuarioId] = useState("");
+  const [actividadModulo, setActividadModulo] = useState("");
+  const [actividadTipo, setActividadTipo] = useState("");
+  const [actividadPage, setActividadPage] = useState(1);
+  const [actividadPageSize, setActividadPageSize] = useState(20);
+
+  // Módulos y tipos únicos presentes en las actividades
+  const availableModulos = useMemo(() => {
+    const set = new Set(data.actividadReciente.map((a) => a.modulo).filter(Boolean));
+    return Array.from(set).sort();
+  }, [data.actividadReciente]);
+
+  const availableTipos = useMemo(() => {
+    let items = data.actividadReciente;
+    if (actividadModulo) {
+      items = items.filter((a) => a.modulo === actividadModulo);
+    }
+    const set = new Set(items.map((a) => a.tipo).filter(Boolean));
+    return Array.from(set).sort();
+  }, [data.actividadReciente, actividadModulo]);
+
+  // Filtros aplicados a la lista completa de actividades del período
+  const actividadesFiltradas = useMemo(() => {
+    let list = data.actividadReciente;
+    if (actividadUsuarioId) {
+      const uid = Number(actividadUsuarioId);
+      list = list.filter((a) => a.usuarioId === uid);
+    }
+    if (rolFiltro) {
+      list = list.filter((a) => a.rol === rolFiltro);
+    }
+    if (actividadModulo) {
+      list = list.filter((a) => a.modulo === actividadModulo);
+    }
+    if (actividadTipo) {
+      list = list.filter((a) => a.tipo === actividadTipo);
+    }
+    if (actividadSearch.trim()) {
+      const q = actividadSearch.trim().toLowerCase();
+      list = list.filter(
+        (a) =>
+          a.descripcion.toLowerCase().includes(q) ||
+          a.empleado.toLowerCase().includes(q) ||
+          a.tipo.toLowerCase().includes(q) ||
+          a.modulo.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [data.actividadReciente, actividadUsuarioId, rolFiltro, actividadModulo, actividadTipo, actividadSearch]);
+
+  const totalActividades = actividadesFiltradas.length;
+  const totalPages = Math.max(1, Math.ceil(totalActividades / actividadPageSize));
+  const currentPage = Math.min(Math.max(1, actividadPage), totalPages);
+
+  const paginatedActividades = useMemo(() => {
+    const start = (currentPage - 1) * actividadPageSize;
+    return actividadesFiltradas.slice(start, start + actividadPageSize);
+  }, [actividadesFiltradas, currentPage, actividadPageSize]);
+
   useEffect(() => {
     if (printSection) {
       const t = setTimeout(() => {
@@ -240,6 +315,7 @@ export default function EmpleadosReport({ initialData }: Props) {
         hasta ? `${hasta}T00:00:00` : undefined
       );
       setData(result);
+      setActividadPage(1);
     });
   };
 
@@ -295,7 +371,7 @@ export default function EmpleadosReport({ initialData }: Props) {
                 : "bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--text)] border border-[var(--border)]"
             }`}
           >
-            {v === "analisis" ? "Análisis" : v === "detalle" ? "Detalle de empleados" : "Actividad"}
+            {v === "analisis" ? "Análisis" : v === "detalle" ? "Detalle de empleados" : "Historial de Actividades"}
           </button>
         ))}
       </div>
@@ -573,57 +649,229 @@ export default function EmpleadosReport({ initialData }: Props) {
           </>
         )}
 
-        {/* Actividad Reciente (log) */}
+        {/* Historial de Actividades (con filtros contextuales y paginación) */}
         {activeSubView === "actividad" && (
-          <>
-        <div className="report-section" data-section-id="actividad-reciente" data-print-active={printActive("actividad-reciente")}>
-          <div className="flex items-center justify-between mb-2">
-            <h3 className={sectionHeaderClass}>Actividad Reciente</h3>
-            <button onClick={() => setPrintSection("actividad-reciente")} className={printButtonClass} title="Imprimir esta sección">
-              <Printer size={12} />
-            </button>
-          </div>
-          <div className="bg-[var(--card)] print:bg-white border border-[var(--border)] print:border-gray-300 rounded-xl overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-[var(--border)] print:border-gray-300 bg-[var(--panel)] print:bg-gray-100">
-                    <th className={"text-left " + tableCellHeader}>Fecha y hora</th>
-                    <th className={"text-left " + tableCellHeader}>Empleado</th>
-                    <th className={"text-left " + tableCellHeader}>Rol</th>
-                    <th className={"text-left " + tableCellHeader}>Módulo</th>
-                    <th className={"text-left " + tableCellHeader}>Acción</th>
-                    <th className={"text-left " + tableCellHeader}>Descripción</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[var(--border)] print:divide-gray-300">
-                  {data.actividadReciente.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-[var(--text-secondary)]">
-                        Sin actividad en el período
-                      </td>
-                    </tr>
-                  ) : data.actividadReciente.map((item) => (
-                    <tr key={item.id} className="hover:bg-[var(--border)]/40 transition-colors">
-                      <td className="px-4 py-3 text-xs text-[var(--text-muted)] whitespace-nowrap">{item.fechaLabel}</td>
-                      <td className="px-4 py-3 font-semibold text-[var(--text)]">{item.empleado}</td>
-                      <td className="px-4 py-3 text-[var(--text-muted)]">{item.rol}</td>
-                      <td className="px-4 py-3 text-[var(--text-muted)]">{item.modulo}</td>
-                      <td className="px-4 py-3">
-                        <span className="inline-flex items-center gap-2 [&>span]:mt-0">
-                          <TipoDot tipo={item.tipo} />
-                          <span className="text-[var(--text)]">{item.tipo}</span>
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-[var(--text)]">{item.descripcion}</td>
-                    </tr>
+          <div className="report-section space-y-3" data-section-id="actividad-reciente" data-print-active={printActive("actividad-reciente")}>
+            <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
+              <div>
+                <h3 className={sectionHeaderClass}>Historial de Actividades</h3>
+                <p className="text-xs text-[var(--text-muted)]">
+                  {totalActividades === 1
+                    ? "1 actividad registrada"
+                    : `${totalActividades} actividades registradas en el período`}
+                  {data.actividadReciente.length !== totalActividades && (
+                    <span> (filtradas de un total de {data.actividadReciente.length})</span>
+                  )}
+                </p>
+              </div>
+              <button onClick={() => setPrintSection("actividad-reciente")} className={printButtonClass} title="Imprimir esta sección">
+                <Printer size={12} />
+              </button>
+            </div>
+
+            {/* Barra de filtros contextuales para actividades */}
+            <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
+                  <Search size={12} /> Búsqueda
+                </label>
+                <input
+                  type="text"
+                  placeholder="Buscar en descripción, producto..."
+                  value={actividadSearch}
+                  onChange={(e) => {
+                    setActividadSearch(e.target.value);
+                    setActividadPage(1);
+                  }}
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
+                  <User size={12} /> Empleado
+                </label>
+                <select
+                  value={actividadUsuarioId}
+                  onChange={(e) => {
+                    setActividadUsuarioId(e.target.value);
+                    setActividadPage(1);
+                  }}
+                  className={inputClass}
+                >
+                  <option value="">Todos los empleados</option>
+                  {data.empleados.map((u) => (
+                    <option key={u.usuarioId} value={u.usuarioId}>
+                      {u.nombreCompleto} ({ROL_LABEL[u.rol] || u.rol})
+                    </option>
                   ))}
-                </tbody>
-              </table>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
+                  <Layers size={12} /> Módulo
+                </label>
+                <select
+                  value={actividadModulo}
+                  onChange={(e) => {
+                    setActividadModulo(e.target.value);
+                    setActividadTipo("");
+                    setActividadPage(1);
+                  }}
+                  className={inputClass}
+                >
+                  <option value="">Todos los módulos</option>
+                  {availableModulos.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
+                  <Filter size={12} /> Tipo de Acción
+                </label>
+                <select
+                  value={actividadTipo}
+                  onChange={(e) => {
+                    setActividadTipo(e.target.value);
+                    setActividadPage(1);
+                  }}
+                  className={inputClass}
+                >
+                  <option value="">Todas las acciones</option>
+                  {availableTipos.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Tabla de Actividades */}
+            <div className="bg-[var(--card)] print:bg-white border border-[var(--border)] print:border-gray-300 rounded-xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-[var(--border)] print:border-gray-300 bg-[var(--panel)] print:bg-gray-100">
+                      <th className={"text-left " + tableCellHeader}>Fecha y hora</th>
+                      <th className={"text-left " + tableCellHeader}>Empleado</th>
+                      <th className={"text-left " + tableCellHeader}>Rol</th>
+                      <th className={"text-left " + tableCellHeader}>Módulo</th>
+                      <th className={"text-left " + tableCellHeader}>Acción</th>
+                      <th className={"text-left " + tableCellHeader}>Descripción</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--border)] print:divide-gray-300">
+                    {paginatedActividades.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-8 text-center text-[var(--text-secondary)]">
+                          {data.actividadReciente.length === 0
+                            ? "Sin actividad en el período seleccionado."
+                            : "No se encontraron actividades con los filtros aplicados."}
+                        </td>
+                      </tr>
+                    ) : (
+                      paginatedActividades.map((item) => (
+                        <tr key={item.id} className="hover:bg-[var(--border)]/40 transition-colors">
+                          <td className="px-4 py-3 text-xs text-[var(--text-muted)] whitespace-nowrap">{item.fechaLabel}</td>
+                          <td className="px-4 py-3 font-semibold text-[var(--text)]">{item.empleado}</td>
+                          <td className="px-4 py-3 text-[var(--text-muted)]">{ROL_LABEL[item.rol] || item.rol}</td>
+                          <td className="px-4 py-3 text-[var(--text-muted)]">{item.modulo}</td>
+                          <td className="px-4 py-3">
+                            <span className="inline-flex items-center gap-2 [&>span]:mt-0">
+                              <TipoDot tipo={item.tipo} />
+                              <span className="text-[var(--text)]">{item.tipo}</span>
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-[var(--text)]">{item.descripcion}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Barra de Paginación */}
+              {totalActividades > 0 && (
+                <div className="print:hidden flex items-center justify-between px-4 py-3 border-t border-[var(--border)] bg-[var(--panel)]/50 gap-4 flex-wrap text-xs text-[var(--text-muted)]">
+                  <div className="flex items-center gap-2">
+                    <span>
+                      Mostrando{" "}
+                      <strong className="text-[var(--text)]">
+                        {Math.min((currentPage - 1) * actividadPageSize + 1, totalActividades)}
+                      </strong>{" "}
+                      a{" "}
+                      <strong className="text-[var(--text)]">
+                        {Math.min(currentPage * actividadPageSize, totalActividades)}
+                      </strong>{" "}
+                      de <strong className="text-[var(--text)]">{totalActividades}</strong> actividades
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <span>Filas por página:</span>
+                      <select
+                        value={actividadPageSize}
+                        onChange={(e) => {
+                          setActividadPageSize(Number(e.target.value));
+                          setActividadPage(1);
+                        }}
+                        className="bg-[var(--card)] border border-[var(--border)] rounded px-2 py-1 text-xs text-[var(--text)] focus:outline-none"
+                      >
+                        <option value={20}>20</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                      </select>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setActividadPage(1)}
+                        disabled={currentPage <= 1}
+                        className="p-1.5 rounded bg-[var(--card)] border border-[var(--border)] text-[var(--text)] hover:bg-[var(--panel)] disabled:opacity-40 disabled:cursor-not-allowed transition"
+                        title="Primera página"
+                      >
+                        <ChevronsLeft size={14} />
+                      </button>
+                      <button
+                        onClick={() => setActividadPage((p) => Math.max(1, p - 1))}
+                        disabled={currentPage <= 1}
+                        className="p-1.5 rounded bg-[var(--card)] border border-[var(--border)] text-[var(--text)] hover:bg-[var(--panel)] disabled:opacity-40 disabled:cursor-not-allowed transition"
+                        title="Página anterior"
+                      >
+                        <ChevronLeft size={14} />
+                      </button>
+                      <span className="px-2">
+                        Página <strong>{currentPage}</strong> de <strong>{totalPages}</strong>
+                      </span>
+                      <button
+                        onClick={() => setActividadPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={currentPage >= totalPages}
+                        className="p-1.5 rounded bg-[var(--card)] border border-[var(--border)] text-[var(--text)] hover:bg-[var(--panel)] disabled:opacity-40 disabled:cursor-not-allowed transition"
+                        title="Página siguiente"
+                      >
+                        <ChevronRight size={14} />
+                      </button>
+                      <button
+                        onClick={() => setActividadPage(totalPages)}
+                        disabled={currentPage >= totalPages}
+                        className="p-1.5 rounded bg-[var(--card)] border border-[var(--border)] text-[var(--text)] hover:bg-[var(--panel)] disabled:opacity-40 disabled:cursor-not-allowed transition"
+                        title="Última página"
+                      >
+                        <ChevronsRight size={14} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-        </div>
-          </>
         )}
 
         {/* Tabla Empleados (con fila expandible por empleado) */}

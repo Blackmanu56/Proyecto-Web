@@ -996,6 +996,8 @@ export type EmpleadoDashboardRow = {
   cierresCount: number;              // cierres de caja del período (movimiento CIERRE)
   movimientosCajaCount: number;        // SOLO movimientos manuales (sin ventaId/compraId)
   cambiosEstadoProductoCount: number;
+  ajustesPrecioCount: number;
+  ajustesStockCount: number;
   actividadReciente: EmpleadoActividadItem[]; // últimos 5 de ESE empleado
 };
 
@@ -1061,16 +1063,28 @@ export async function getEmpleadosDashboard(fechaDesde?: string, fechaHasta?: st
     const rolPorId = new Map(usuarios.map((u) => [u.id, u.rol.nombre]));
 
     const ventaDateFilter = buildDateFilter(fechaDesde, fechaHasta);
-    const [ventas, compras, movimientos, historiales, cajasAbiertas] = await Promise.all([
+    const createdAtFilter = buildDateFilter(fechaDesde, fechaHasta, "createdAt");
+    const fechaCierreFilter = buildDateFilter(fechaDesde, fechaHasta, "fechaCierre");
+
+    const [
+      ventas,
+      compras,
+      movimientos,
+      historiales,
+      cajasAbiertas,
+      cajasCerradas,
+      ajustesPrecios,
+      movimientosStock,
+    ] = await Promise.all([
       prisma.venta.findMany({
         where: ventaDateFilter,
-        select: { id: true, fecha: true, total: true, usuarioId: true },
+        select: { id: true, fecha: true, total: true, usuarioId: true, metodoPago: true },
       }),
       prisma.compra.findMany({
         // buildDateFilter tipa VentaWhereInput; el shape { fecha: {...} } es
         // idéntico al filtro de Compra/HistorialEstado, solo difiere el tipo generado.
         where: ventaDateFilter as Prisma.CompraWhereInput,
-        select: { id: true, fecha: true, total: true, usuarioId: true },
+        select: { id: true, fecha: true, total: true, usuarioId: true, proveedor: { select: { nombre: true } } },
       }),
       prisma.movimientoCaja.findMany({
         where: { ...buildMovimientoCajaDateFilter(fechaDesde, fechaHasta), ventaId: null, compraId: null },
@@ -1078,12 +1092,84 @@ export async function getEmpleadosDashboard(fechaDesde?: string, fechaHasta?: st
       }),
       prisma.historialEstado.findMany({
         where: ventaDateFilter as Prisma.HistorialEstadoWhereInput,
-        select: { id: true, fecha: true, usuarioId: true, productoId: true, estadoAnterior: true, estadoNuevo: true, observacion: true },
+        select: {
+          id: true,
+          fecha: true,
+          usuarioId: true,
+          productoId: true,
+          estadoAnterior: true,
+          estadoNuevo: true,
+          observacion: true,
+          producto: { select: { nombre: true, codigo: true } },
+        },
       }),
       prisma.caja.groupBy({
         by: ["usuarioId"],
         where: buildDateFilter(fechaDesde, fechaHasta, "fechaApertura"),
         _count: { id: true },
+      }),
+      prisma.caja.findMany({
+        where: {
+          estado: "CERRADA",
+          ...(fechaCierreFilter as Prisma.CajaWhereInput),
+        },
+        select: {
+          id: true,
+          usuarioId: true,
+          fechaCierre: true,
+          totalContado: true,
+          observacionCierre: true,
+        },
+      }),
+      prisma.ajustePrecio.findMany({
+        where: createdAtFilter as Prisma.AjustePrecioWhereInput,
+        select: {
+          id: true,
+          usuarioId: true,
+          tipoAjuste: true,
+          valor: true,
+          preciosAfectados: true,
+          motivo: true,
+          esMasivo: true,
+          cantidadProductos: true,
+          createdAt: true,
+          detalles: {
+            take: 3,
+            select: {
+              precioCompraAnterior: true,
+              precioCompraNuevo: true,
+              precioVentaAnterior: true,
+              precioVentaNuevo: true,
+              producto: { select: { nombre: true, codigo: true } },
+            },
+          },
+        },
+      }),
+      prisma.movimientoProducto.findMany({
+        where: {
+          ...(createdAtFilter as Prisma.MovimientoProductoWhereInput),
+          tipo: {
+            in: [
+              "RESTA_MANUAL",
+              "EDICION",
+              "REPOSICION_DIRECTA",
+              "REPOSICION_APROBADA",
+              "SOLICITUD_RESTA_APROBADA",
+            ],
+          },
+        },
+        select: {
+          id: true,
+          usuarioId: true,
+          productoId: true,
+          tipo: true,
+          cantidadAnterior: true,
+          cantidadNueva: true,
+          motivo: true,
+          observacion: true,
+          createdAt: true,
+          producto: { select: { nombre: true, codigo: true } },
+        },
       }),
     ]);
 
@@ -1096,6 +1182,8 @@ export async function getEmpleadosDashboard(fechaDesde?: string, fechaHasta?: st
       cambiosEstadoProductoCount: number;
       cajasAbiertasCount: number;
       cierresCount: number;
+      ajustesPrecioCount: number;
+      ajustesStockCount: number;
       acciones: number;
       ultimaFecha: Date | null;
     };
@@ -1106,7 +1194,7 @@ export async function getEmpleadosDashboard(fechaDesde?: string, fechaHasta?: st
         a = {
           ventasCount: 0, totalVendido: 0, comprasCount: 0, totalCompras: 0,
           movimientosCajaCount: 0, cambiosEstadoProductoCount: 0, cajasAbiertasCount: 0,
-          cierresCount: 0,
+          cierresCount: 0, ajustesPrecioCount: 0, ajustesStockCount: 0,
           acciones: 0, ultimaFecha: null,
         };
         acc[uid] = a;
@@ -1135,7 +1223,7 @@ export async function getEmpleadosDashboard(fechaDesde?: string, fechaHasta?: st
         rol: rolPorId.get(v.usuarioId) ?? "",
         tipo: "Venta",
         modulo: "Ventas",
-        descripcion: `Registró Venta #${v.id}`,
+        descripcion: `Registró Venta #${v.id} (${formatCurrency(v.total)}${v.metodoPago ? ` - ${v.metodoPago}` : ""})`,
       });
     }
 
@@ -1154,14 +1242,13 @@ export async function getEmpleadosDashboard(fechaDesde?: string, fechaHasta?: st
         rol: rolPorId.get(c.usuarioId) ?? "",
         tipo: "Reposición",
         modulo: "Stock",
-        descripcion: `Registró Reposición #${c.id}`,
+        descripcion: `Registró Reposición #${c.id} (${formatCurrency(c.total)}${c.proveedor?.nombre ? ` - Prov: ${c.proveedor.nombre}` : ""})`,
       });
     }
 
     for (const m of movimientos) {
       const a = getAcc(m.usuarioId);
       a.movimientosCajaCount += 1;
-      if (m.tipo === "CIERRE") a.cierresCount += 1;
       a.acciones += 1;
       touch(a, m.fecha);
       const montoStr = m.monto > 0 ? ` - ${formatCurrency(m.monto)}` : "";
@@ -1182,6 +1269,28 @@ export async function getEmpleadosDashboard(fechaDesde?: string, fechaHasta?: st
       });
     }
 
+    for (const caja of cajasCerradas) {
+      if (caja.fechaCierre) {
+        const a = getAcc(caja.usuarioId);
+        a.cierresCount += 1;
+        a.acciones += 1;
+        touch(a, caja.fechaCierre);
+        const contadoStr = caja.totalContado != null ? ` (Contado: ${formatCurrency(caja.totalContado)})` : "";
+        const obsStr = caja.observacionCierre ? ` - ${caja.observacionCierre}` : "";
+        items.push({
+          id: `cierre-${caja.id}`,
+          fecha: caja.fechaCierre.toISOString(),
+          fechaLabel: actividadFechaLabel(caja.fechaCierre, now),
+          usuarioId: caja.usuarioId,
+          empleado: nombrePorId.get(caja.usuarioId) ?? "",
+          rol: rolPorId.get(caja.usuarioId) ?? "",
+          tipo: "Cierre de Caja",
+          modulo: "Caja",
+          descripcion: `Cierre de Caja #${caja.id}${contadoStr}${obsStr}`,
+        });
+      }
+    }
+
     for (const h of historiales) {
       const a = getAcc(h.usuarioId);
       // Las ediciones de datos (prefijo [EDITAR]) no son cambios de estado reales:
@@ -1192,6 +1301,7 @@ export async function getEmpleadosDashboard(fechaDesde?: string, fechaHasta?: st
       }
       a.acciones += 1;
       touch(a, h.fecha);
+      const prodName = h.producto?.nombre ? `"${h.producto.nombre}"` : `Producto #${h.productoId}`;
       items.push({
         id: `hist-${h.id}`,
         fecha: h.fecha.toISOString(),
@@ -1203,9 +1313,86 @@ export async function getEmpleadosDashboard(fechaDesde?: string, fechaHasta?: st
         modulo: "Productos",
         descripcion: `Registró ${
           esEdicionDatos
-            ? `Producto #${h.productoId}: ${h.observacion}`
-            : `Producto #${h.productoId}: ${h.estadoAnterior} → ${h.estadoNuevo}`
+            ? `${prodName}: ${h.observacion}`
+            : `${prodName}: ${h.estadoAnterior} → ${h.estadoNuevo}${h.observacion ? ` (${h.observacion})` : ""}`
         }`,
+      });
+    }
+
+    for (const aj of ajustesPrecios) {
+      const a = getAcc(aj.usuarioId);
+      a.ajustesPrecioCount += 1;
+      a.acciones += 1;
+      touch(a, aj.createdAt);
+
+      let desc = "";
+      if (aj.esMasivo) {
+        const valStr =
+          aj.tipoAjuste === "PORCENTAJE"
+            ? `${aj.valor && aj.valor > 0 ? "+" : ""}${aj.valor}%`
+            : `${formatCurrency(aj.valor ?? 0)}`;
+        desc = `Ajuste Masivo de Precios (${valStr} en ${aj.cantidadProductos} productos) - Motivo: ${aj.motivo}`;
+      } else {
+        const d0 = aj.detalles[0];
+        const prodNombre = d0?.producto?.nombre ?? "Producto";
+        let detalleStr = "";
+        if (d0) {
+          if (aj.preciosAfectados === "SOLO_COMPRA") {
+            detalleStr = ` (Compra: ${formatCurrency(d0.precioCompraAnterior)} → ${formatCurrency(d0.precioCompraNuevo)})`;
+          } else if (aj.preciosAfectados === "SOLO_VENTA") {
+            detalleStr = ` (Venta: ${formatCurrency(d0.precioVentaAnterior)} → ${formatCurrency(d0.precioVentaNuevo)})`;
+          } else {
+            detalleStr = ` (Venta: ${formatCurrency(d0.precioVentaAnterior)} → ${formatCurrency(d0.precioVentaNuevo)}, Compra: ${formatCurrency(d0.precioCompraAnterior)} → ${formatCurrency(d0.precioCompraNuevo)})`;
+          }
+        }
+        desc = `Ajuste de Precio: ${prodNombre}${detalleStr} - Motivo: ${aj.motivo}`;
+      }
+
+      items.push({
+        id: `ajuste-precio-${aj.id}`,
+        fecha: aj.createdAt.toISOString(),
+        fechaLabel: actividadFechaLabel(aj.createdAt, now),
+        usuarioId: aj.usuarioId,
+        empleado: nombrePorId.get(aj.usuarioId) ?? "",
+        rol: rolPorId.get(aj.usuarioId) ?? "",
+        tipo: aj.esMasivo ? "Ajuste de Precios" : "Ajuste de Precio",
+        modulo: "Productos",
+        descripcion: desc,
+      });
+    }
+
+    for (const ms of movimientosStock) {
+      const a = getAcc(ms.usuarioId);
+      a.ajustesStockCount += 1;
+      a.acciones += 1;
+      touch(a, ms.createdAt);
+
+      const tipoLabel =
+        ms.tipo === "RESTA_MANUAL"
+          ? "Resta Manual de Stock"
+          : ms.tipo === "EDICION"
+          ? "Edición de Stock"
+          : ms.tipo === "REPOSICION_DIRECTA"
+          ? "Reposición Directa"
+          : ms.tipo === "REPOSICION_APROBADA"
+          ? "Reposición Aprobada"
+          : ms.tipo === "SOLICITUD_RESTA_APROBADA"
+          ? "Resta de Stock (Aprobada)"
+          : "Ajuste de Stock";
+
+      const prod = ms.producto?.nombre ?? `Producto #${ms.productoId}`;
+      const desc = `${tipoLabel}: ${prod} (${ms.cantidadAnterior} → ${ms.cantidadNueva} uds.) - Motivo: ${ms.motivo}`;
+
+      items.push({
+        id: `mov-stock-${ms.id}`,
+        fecha: ms.createdAt.toISOString(),
+        fechaLabel: actividadFechaLabel(ms.createdAt, now),
+        usuarioId: ms.usuarioId,
+        empleado: nombrePorId.get(ms.usuarioId) ?? "",
+        rol: rolPorId.get(ms.usuarioId) ?? "",
+        tipo: "Ajuste de Stock",
+        modulo: "Stock",
+        descripcion: desc,
       });
     }
 
@@ -1230,7 +1417,7 @@ export async function getEmpleadosDashboard(fechaDesde?: string, fechaHasta?: st
     const ZERO: Acc = {
       ventasCount: 0, totalVendido: 0, comprasCount: 0, totalCompras: 0,
       movimientosCajaCount: 0, cambiosEstadoProductoCount: 0, cajasAbiertasCount: 0,
-      cierresCount: 0,
+      cierresCount: 0, ajustesPrecioCount: 0, ajustesStockCount: 0,
       acciones: 0, ultimaFecha: null,
     };
     const empleados: EmpleadoDashboardRow[] = usuarios.map((u) => {
@@ -1252,6 +1439,8 @@ export async function getEmpleadosDashboard(fechaDesde?: string, fechaHasta?: st
         cierresCount: a.cierresCount,
         movimientosCajaCount: a.movimientosCajaCount,
         cambiosEstadoProductoCount: a.cambiosEstadoProductoCount,
+        ajustesPrecioCount: a.ajustesPrecioCount,
+        ajustesStockCount: a.ajustesStockCount,
         actividadReciente: porUsuario[u.id] ?? [],
       };
     });
@@ -1284,27 +1473,28 @@ export async function getEmpleadosDashboard(fechaDesde?: string, fechaHasta?: st
 
     // Actividad por módulo (solo módulos con acciones > 0)
     let totalVentas = 0;
-    let totalMovManuales = 0;
+    let totalCaja = 0;
     let totalCompras = 0;
-    let totalCambiosEstado = 0;
+    let totalProductos = 0;
+    let totalStock = 0;
     for (const key of Object.keys(acc)) {
       const a = acc[Number(key)];
       totalVentas += a.ventasCount;
-      totalMovManuales += a.movimientosCajaCount;
+      totalCaja += a.movimientosCajaCount + a.cierresCount;
       totalCompras += a.comprasCount;
-      totalCambiosEstado += a.cambiosEstadoProductoCount;
+      totalProductos += a.cambiosEstadoProductoCount + a.ajustesPrecioCount;
+      totalStock += a.ajustesStockCount;
     }
     const actividadPorModulo = [
       { modulo: "Ventas", acciones: totalVentas },
-      { modulo: "Caja", acciones: totalMovManuales },
+      { modulo: "Caja", acciones: totalCaja },
       { modulo: "Reposiciones", acciones: totalCompras },
-      { modulo: "Productos", acciones: totalCambiosEstado },
+      { modulo: "Productos", acciones: totalProductos },
+      { modulo: "Stock", acciones: totalStock },
     ].filter((m) => m.acciones > 0);
 
-    // Actividad reciente global (últimos 20, más reciente primero)
-    const actividadReciente = [...items]
-      .sort((a, b) => b.fecha.localeCompare(a.fecha))
-      .slice(0, 20);
+    // Historial de actividad del período (ordenado de más reciente a más antiguo)
+    const actividadReciente = [...items].sort((a, b) => b.fecha.localeCompare(a.fecha));
 
     return {
       resumen: {
@@ -1364,11 +1554,13 @@ type DateRangeFilter = { gte?: Date; lte?: Date };
 
 function buildDateFilter(fechaDesde?: string, fechaHasta?: string): Prisma.VentaWhereInput;
 function buildDateFilter(fechaDesde: string | undefined, fechaHasta: string | undefined, field: "fechaApertura"): Prisma.CajaWhereInput;
+function buildDateFilter(fechaDesde: string | undefined, fechaHasta: string | undefined, field: "fechaCierre"): Prisma.CajaWhereInput;
+function buildDateFilter(fechaDesde: string | undefined, fechaHasta: string | undefined, field: "createdAt"): { createdAt?: DateRangeFilter };
 function buildDateFilter(
   fechaDesde?: string,
   fechaHasta?: string,
-  field: "fecha" | "fechaApertura" = "fecha"
-): Prisma.VentaWhereInput | Prisma.CajaWhereInput {
+  field: "fecha" | "fechaApertura" | "fechaCierre" | "createdAt" = "fecha"
+): any {
   if (!fechaDesde && !fechaHasta) return {};
 
   const range: DateRangeFilter = {};
@@ -1379,7 +1571,7 @@ function buildDateFilter(
     range.lte = hasta;
   }
 
-  return field === "fechaApertura" ? { fechaApertura: range } : { fecha: range };
+  return { [field]: range };
 }
 
 function buildMovimientoCajaDateFilter(fechaDesde?: string, fechaHasta?: string): Prisma.MovimientoCajaWhereInput {
