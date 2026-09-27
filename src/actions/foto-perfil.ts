@@ -7,6 +7,7 @@ import path from "path";
 import { requirePermission } from "@/lib/auth-permissions";
 
 const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "avatars");
+const ECOMMERCE_UPLOAD_DIR = path.resolve(process.cwd(), "..", "ecommerce", "public", "uploads", "avatars");
 const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"];
@@ -70,6 +71,12 @@ export async function subirFotoPerfil(
     const buffer = Buffer.from(await file.arrayBuffer());
     await fs.writeFile(path.join(UPLOAD_DIR, filename), buffer);
 
+    // Also mirror to ecommerce if available
+    try {
+      await fs.mkdir(ECOMMERCE_UPLOAD_DIR, { recursive: true });
+      await fs.writeFile(path.join(ECOMMERCE_UPLOAD_DIR, filename), buffer);
+    } catch {}
+
     // Delete old photo file if exists (before updating DB so we keep it if save fails)
     const oldUrl = usuario.fotoUrl;
     if (oldUrl) {
@@ -80,6 +87,9 @@ export async function subirFotoPerfil(
       } catch {
         // Old file might not exist — ignore
       }
+      try {
+        await fs.unlink(path.join(ECOMMERCE_UPLOAD_DIR, oldFilename));
+      } catch {}
     }
 
     // Update user record
@@ -123,6 +133,9 @@ export async function eliminarFotoPerfil(
     } catch {
       // File might not exist — proceed with DB cleanup
     }
+    try {
+      await fs.unlink(path.join(ECOMMERCE_UPLOAD_DIR, filename));
+    } catch {}
 
     // Clear DB fields
     await prisma.usuario.update({
