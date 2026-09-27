@@ -18,19 +18,16 @@ import {
   Area,
   ResponsiveContainer,
 } from "recharts";
-import { Users } from "lucide-react";
+import { Users, Package } from "lucide-react";
 import {
   ReportPrintHeader,
   DIAS_SEMANA,
   type AnalisisCache,
   type ChartGranularity,
 } from "./ventasShared";
-import type { ReporteVentasPeriodKey } from "@/lib/reportPeriods";
-
 interface AnalisisViewProps {
   cache: AnalisisCache | null;
   loading: boolean; // skeleton en la primera activación
-  activePeriod: ReporteVentasPeriodKey;
   fechaDesde: string;
   fechaHasta: string;
   chartGranularity: ChartGranularity;
@@ -39,14 +36,23 @@ interface AnalisisViewProps {
   setPrintSection: (s: string | null) => void;
 }
 
-/** Delta real entre períodos; null cuando el anterior no existe o es 0. */
-function calcDelta(cur: number, prev: number): { pct: number; dir: "up" | "down" } | null {
-  if (!prev) return null; // ocultar: prev 0 o faltante
-  const pct = Math.round(((cur - prev) / prev) * 1000) / 10; // 1 decimal
-  return { pct, dir: pct >= 0 ? "up" : "down" };
-}
-
 const truncate = (s: string, max: number): string => (s.length > max ? s.slice(0, max - 1) + "…" : s);
+
+const renderYAxisCategoryTick = ({ x, y, payload }: any) => (
+  <g transform={`translate(${x},${y})`}>
+    <text
+      x={-6}
+      y={0}
+      dy={3}
+      textAnchor="end"
+      fill="var(--text-secondary)"
+      fontSize={10}
+      className="select-none"
+    >
+      {payload.value}
+    </text>
+  </g>
+);
 
 const GRANULARITY_LABELS: Record<ChartGranularity, string> = {
   dia: "Diario",
@@ -142,8 +148,6 @@ export default function AnalisisView({
 
   /* ── Derivados de datos ── */
   const resumen = cache?.resumen;
-  const prevResumen = cache?.prevResumen ?? null;
-
   const categoriaData = useMemo(() => {
     if (!cache) return [];
     return [...cache.categoria].sort((a, b) => b.subtotal - a.subtotal);
@@ -157,7 +161,7 @@ export default function AnalisisView({
   const categoriaBarData = useMemo(
     () =>
       categoriaData.slice(0, 12).map((c) => ({
-        name: truncate(c.categoria, 22),
+        name: truncate(c.categoria, 20),
         subtotal: c.subtotal,
       })),
     [categoriaData]
@@ -168,22 +172,28 @@ export default function AnalisisView({
     [cache]
   );
 
-  const topProdsBarData = useMemo(
+  const topProductos = useMemo(
     () =>
       cache
         ? cache.topProductos
-            .slice() // no mutar el array del cache
+            .slice()
             .sort((a, b) =>
               topProductsMetric === "unidades" ? b.cantidad - a.cantidad : b.ingreso - a.ingreso
             )
-            .slice(0, 8)
-            .map((p) => ({
-              name: truncate(p.producto, 22),
-              cantidad: p.cantidad,
-              ingreso: p.ingreso,
-            }))
+            .slice(0, 5)
         : [],
     [cache, topProductsMetric]
+  );
+
+  const maxProdValue = useMemo(
+    () =>
+      Math.max(
+        ...topProductos.map((p) =>
+          topProductsMetric === "unidades" ? p.cantidad : p.ingreso
+        ),
+        1
+      ),
+    [topProductos, topProductsMetric]
   );
 
   const diaSemanaData = useMemo(() => {
@@ -195,23 +205,11 @@ export default function AnalisisView({
     });
   }, [cache]);
 
-  const topClientesBarData = useMemo(
-    () =>
-      cache
-        ? cache.topClientes.slice(0, 8).map((c) => ({
-            name: truncate(c.cliente, 22),
-            total: c.total,
-            compras: c.cantidad,
-          }))
-        : [],
-    [cache]
-  );
+  const topClientes = useMemo(() => (cache ? cache.topClientes.slice(0, 5) : []), [cache]);
+  const maxClienteTotal = useMemo(() => Math.max(...topClientes.map((c) => c.total), 1), [topClientes]);
 
   const topVendedores = useMemo(() => (cache ? cache.vendedores.slice(0, 5) : []), [cache]);
   const maxVendedorTotal = useMemo(() => Math.max(...topVendedores.map((s) => s.totalVendido), 1), [topVendedores]);
-
-  const deltaTotal = calcDelta(resumen?.total ?? 0, prevResumen?.total ?? 0);
-  const showComparison = !!prevResumen && prevResumen.total > 0 && deltaTotal !== null;
 
   const granularityButtons = (
     <div className="flex items-center gap-1">
@@ -304,25 +302,11 @@ export default function AnalisisView({
         </div>
       </div>
 
-      {/* Evolución + comparación */}
+      {/* Evolución */}
       <ChartWrapper
         title="Evolución de Ventas"
         height={320}
-        action={
-          <div className="flex items-center gap-3">
-            {showComparison && (
-              <span className="text-xs text-[var(--text-muted)] hidden md:inline">
-                vs período anterior:{" "}
-                <span
-                  className={`font-bold ${deltaTotal!.dir === "up" ? "text-[var(--success)]" : "text-[var(--danger)]"}`}
-                >
-                  {formatCurrency(prevResumen!.total)} {deltaTotal!.dir === "up" ? "▲" : "▼"} {Math.abs(deltaTotal!.pct)}%
-                </span>
-              </span>
-            )}
-            {granularityButtons}
-          </div>
-        }
+        action={granularityButtons}
       >
         {cache && cache.evolucion.length > 0 ? (
           <AreaChart data={cache.evolucion} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
@@ -344,6 +328,8 @@ export default function AnalisisView({
               dataKey="ventas"
               stroke="var(--brand)"
               strokeWidth={2}
+              dot={{ r: 3, fill: "var(--brand)" }}
+              activeDot={{ r: 5 }}
               fill="url(#brandGradient)"
               name="Ventas"
             />
@@ -399,7 +385,13 @@ export default function AnalisisView({
               <BarChart data={categoriaBarData} layout="vertical" margin={{ top: 0, right: 10, left: 10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis type="number" stroke="var(--text-secondary)" tick={{ fontSize: 10 }} />
-                <YAxis type="category" dataKey="name" stroke="var(--text-secondary)" tick={{ fontSize: 10 }} width={130} />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  stroke="var(--text-secondary)"
+                  width={145}
+                  tick={renderYAxisCategoryTick}
+                />
                 <Tooltip
                   formatter={(value: number) => [formatCurrency(value), "Subtotal"]}
                   cursor={{ fill: "var(--border)", fillOpacity: 0.3 }}
@@ -450,59 +442,77 @@ export default function AnalisisView({
 
       {/* Top Productos | Día de la Semana */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <ChartWrapper
-          title="Top Productos"
-          height={260}
-          action={
-            <div className="flex items-center gap-1">
-              {(["unidades", "facturacion"] as const).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setTopProductsMetric(m)}
-                  className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
-                    topProductsMetric === m
-                      ? "bg-[var(--brand)] text-white"
-                      : "bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--text)] border border-[var(--border)]"
-                  }`}
-                >
-                  {m === "unidades" ? "Unidades" : "Facturación"}
-                </button>
-              ))}
+        <div className="bg-[var(--panel)] rounded-xl p-4 border border-[var(--border)] flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-[var(--text-muted)] flex items-center gap-2">
+                <Package size={14} className="text-[var(--brand)]" />
+                Top Productos
+              </h3>
+              <div className="flex items-center gap-1">
+                {(["unidades", "facturacion"] as const).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setTopProductsMetric(m)}
+                    className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
+                      topProductsMetric === m
+                        ? "bg-[var(--brand)] text-white"
+                        : "bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--text)] border border-[var(--border)]"
+                    }`}
+                  >
+                    {m === "unidades" ? "Unidades" : "Facturación"}
+                  </button>
+                ))}
+              </div>
             </div>
-          }
-        >
-          {topProdsBarData.length > 0 ? (
-            <BarChart data={topProdsBarData} layout="vertical" margin={{ top: 0, right: 10, left: 10, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis type="number" stroke="var(--text-secondary)" tick={{ fontSize: 10 }} />
-              <YAxis type="category" dataKey="name" stroke="var(--text-secondary)" tick={{ fontSize: 10 }} width={130} />
-              <Tooltip
-                formatter={(value: number) =>
-                  topProductsMetric === "unidades"
-                    ? [`${value} unidades`, "Cantidad"]
-                    : [formatCurrency(value), "Ingreso"]
-                }
-                cursor={{ fill: "var(--border)", fillOpacity: 0.3 }}
-                contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: "8px", fontSize: 12 }}
-                itemStyle={{ color: "var(--text)" }}
-              />
-              <Bar
-                dataKey={topProductsMetric === "unidades" ? "cantidad" : "ingreso"}
-                fill={CHART_COLORS[0]}
-                radius={[0, 4, 4, 0]}
-                name={topProductsMetric === "unidades" ? "Cantidad" : "Ingreso"}
-              />
-            </BarChart>
-          ) : (
-            <div className="flex items-center justify-center h-full text-[var(--text-secondary)] text-sm">
-              Sin datos de productos
-            </div>
-          )}
-        </ChartWrapper>
 
-        <ChartWrapper title="Ventas por Día de la Semana" height={260}>
+            <div className="space-y-2">
+              {topProductos.length > 0 ? (
+                topProductos.map((p, i) => {
+                  const val = topProductsMetric === "unidades" ? p.cantidad : p.ingreso;
+                  const pct = maxProdValue > 0 ? (val / maxProdValue) * 100 : 0;
+                  return (
+                    <div
+                      key={p.productoId}
+                      className="flex items-center gap-3 p-3 rounded-lg bg-[var(--card)] border border-[var(--border)] hover:border-[var(--border-hover)] transition-colors"
+                    >
+                      <span className="text-sm font-bold shrink-0 w-8 text-center text-[var(--text-muted)]">{i + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-semibold text-[var(--text)] truncate" title={p.producto}>
+                            {p.producto}
+                          </p>
+                          <span className="text-xs font-bold text-[var(--brand)] shrink-0">
+                            {topProductsMetric === "unidades" ? `${p.cantidad} u.` : formatCurrency(p.ingreso)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 text-xs text-[var(--text-muted)]">
+                          <span>{p.categoria || "Sin categoría"}</span>
+                          <span>·</span>
+                          <span>{topProductsMetric === "unidades" ? formatCurrency(p.ingreso) : `${p.cantidad} unidades`}</span>
+                        </div>
+                        <div className="mt-1.5 h-1.5 rounded-full bg-[var(--border)]">
+                          <div
+                            className="h-full rounded-full bg-[var(--brand)] transition-all duration-300"
+                            style={{ width: `${Math.max(pct, 4)}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="flex items-center justify-center h-48 text-[var(--text-secondary)] text-sm">
+                  Sin datos de productos
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <ChartWrapper title="Ventas por Día de la Semana" height={365}>
           {cache && cache.diaSemana.some((d) => d.ventas > 0) ? (
-            <BarChart data={diaSemanaData} margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
+            <BarChart data={diaSemanaData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="name" stroke="var(--text-secondary)" tick={{ fontSize: 10 }} interval={0} />
               <YAxis stroke="var(--text-secondary)" tick={{ fontSize: 11 }} />
@@ -522,26 +532,53 @@ export default function AnalisisView({
 
       {/* Top Clientes | Top Vendedores */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <ChartWrapper title="Top Clientes" height={260}>
-          {topClientesBarData.length > 0 ? (
-            <BarChart data={topClientesBarData} layout="vertical" margin={{ top: 0, right: 10, left: 10, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis type="number" stroke="var(--text-secondary)" tick={{ fontSize: 10 }} />
-              <YAxis type="category" dataKey="name" stroke="var(--text-secondary)" tick={{ fontSize: 10 }} width={130} />
-              <Tooltip
-                formatter={(value: number) => [formatCurrency(value), "Total"]}
-                cursor={{ fill: "var(--border)", fillOpacity: 0.3 }}
-                contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: "8px", fontSize: 12 }}
-                itemStyle={{ color: "var(--text)" }}
-              />
-              <Bar dataKey="total" fill={CHART_COLORS[3]} radius={[0, 4, 4, 0]} name="Total" />
-            </BarChart>
-          ) : (
-            <div className="flex items-center justify-center h-full text-[var(--text-secondary)] text-sm">
-              Sin datos de clientes
+        <div className="bg-[var(--panel)] rounded-xl p-4 border border-[var(--border)] flex flex-col justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-[var(--text-muted)] mb-3 flex items-center gap-2">
+              <Users size={14} className="text-[var(--info)]" />
+              Top Clientes
+            </h3>
+
+            <div className="space-y-2">
+              {topClientes.length > 0 ? (
+                topClientes.map((c, i) => {
+                  const pct = maxClienteTotal > 0 ? (c.total / maxClienteTotal) * 100 : 0;
+                  return (
+                    <div
+                      key={c.clienteId}
+                      className="flex items-center gap-3 p-3 rounded-lg bg-[var(--card)] border border-[var(--border)] hover:border-[var(--border-hover)] transition-colors"
+                    >
+                      <span className="text-sm font-bold shrink-0 w-8 text-center text-[var(--text-muted)]">{i + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-semibold text-[var(--text)] truncate" title={c.cliente}>
+                            {c.cliente}
+                          </p>
+                          <span className="text-xs font-bold text-[var(--success)] shrink-0">
+                            {formatCurrency(c.total)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 text-xs text-[var(--text-muted)]">
+                          <span>{c.cantidad} {c.cantidad === 1 ? "compra" : "compras"}</span>
+                        </div>
+                        <div className="mt-1.5 h-1.5 rounded-full bg-[var(--border)]">
+                          <div
+                            className="h-full rounded-full bg-[var(--info)] transition-all duration-300"
+                            style={{ width: `${Math.max(pct, 4)}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="flex items-center justify-center h-48 text-[var(--text-secondary)] text-sm">
+                  Sin datos de clientes
+                </div>
+              )}
             </div>
-          )}
-        </ChartWrapper>
+          </div>
+        </div>
 
         <div className="bg-[var(--panel)] rounded-xl p-4 border border-[var(--border)]">
           <h3 className="text-sm font-semibold text-[var(--text-muted)] mb-3 flex items-center gap-2">
@@ -551,7 +588,6 @@ export default function AnalisisView({
           <div className="space-y-2">
             {topVendedores.length > 0 ? (
               topVendedores.map((s, i) => {
-                const avg = s.cantidadVentas > 0 ? s.totalVendido / s.cantidadVentas : 0;
                 const pct = maxVendedorTotal > 0 ? (s.totalVendido / maxVendedorTotal) * 100 : 0;
                 return (
                   <div
@@ -560,17 +596,20 @@ export default function AnalisisView({
                   >
                     <span className="text-sm font-bold shrink-0 w-8 text-center text-[var(--text-muted)]">{i + 1}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-[var(--text)] truncate">{s.vendedor}</p>
-                      <div className="flex items-center gap-3 mt-1 flex-wrap">
-                        <span className="text-xs text-[var(--text-muted)]">{s.cantidadVentas} ventas</span>
-                        <span className="text-xs text-[var(--text-muted)]">·</span>
-                        <span className="text-xs font-semibold text-[var(--success)]">{formatCurrency(s.totalVendido)}</span>
-                        <span className="text-xs text-[var(--text-muted)]">·</span>
-                        <span className="text-xs text-[var(--text-muted)]">Prom: {formatCurrency(avg)}</span>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-[var(--text)] truncate" title={s.vendedor}>
+                          {s.vendedor}
+                        </p>
+                        <span className="text-xs font-bold text-[var(--success)] shrink-0">
+                          {formatCurrency(s.totalVendido)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1 text-xs text-[var(--text-muted)]">
+                        <span>{s.cantidadVentas} {s.cantidadVentas === 1 ? "venta" : "ventas"}</span>
                       </div>
                       <div className="mt-1.5 h-1.5 rounded-full bg-[var(--border)]">
                         <div
-                          className="h-full rounded-full bg-[var(--info)]"
+                          className="h-full rounded-full bg-[var(--info)] transition-all duration-300"
                           style={{ width: `${Math.max(pct, 4)}%` }}
                         />
                       </div>
@@ -579,7 +618,9 @@ export default function AnalisisView({
                 );
               })
             ) : (
-              <p className="text-xs text-[var(--text-secondary)] text-center py-4">Sin datos</p>
+              <div className="flex items-center justify-center h-48 text-[var(--text-secondary)] text-sm">
+                Sin datos de vendedores
+              </div>
             )}
           </div>
         </div>

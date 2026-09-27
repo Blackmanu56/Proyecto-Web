@@ -26,7 +26,6 @@ import {
   type VentasReportData,
 } from "./ventasShared";
 import {
-  getPreviousWindow,
   getVentasDateRange,
   type ReporteVentasPeriodKey,
 } from "@/lib/reportPeriods";
@@ -87,16 +86,13 @@ export default function VentasReport({ initialData, usuarios }: Props) {
   // -- Carga del batch de Análisis (lazy: solo al activar, caché sirve el retorno) --
   const loadAnalisisData = useCallback(async (): Promise<AnalisisCache> => {
     const filters = { fechaDesde: fechaDesde || undefined, fechaHasta: fechaHasta || undefined };
-    const prev = getPreviousWindow(activePeriod, fechaDesde, fechaHasta);
     return getVentasAnalisisBatch({
       fechaDesde: filters.fechaDesde,
       fechaHasta: filters.fechaHasta,
       usuarioId,
-      prevFechaDesde: prev?.desde,
-      prevFechaHasta: prev?.hasta,
       agruparPor: granularityRef.current,
     });
-  }, [fechaDesde, fechaHasta, usuarioId, activePeriod]);
+  }, [fechaDesde, fechaHasta, usuarioId]);
 
   // Fetch-on-first-activation (spec: lazy mount). La invalidación por rangeKey pone la
   // cache en null → analisisCache en deps hace que este efecto corra de nuevo y refetchee
@@ -185,21 +181,10 @@ export default function VentasReport({ initialData, usuarios }: Props) {
     [fetchTabla]
   );
 
-  // Al cambiar de sub-módulo se resetea el filtro completo al estado predeterminado:
-  // período 7d + fechas + vendedor "Todos", y se refetchea la tabla con valores explícitos.
-  // El reset del período invalida la cache de Análisis vía rangeKey (refetch al activarse).
-  const handleSubViewChange = useCallback(
-    (v: SubViewId) => {
-      const range = getVentasDateRange("7d");
-      setActiveSubView(v);
-      setActivePeriod("7d");
-      setFechaDesde(range.desde);
-      setFechaHasta(range.hasta);
-      setUsuarioId(undefined);
-      fetchTabla({ uid: null, desde: range.desde, hasta: range.hasta });
-    },
-    [fetchTabla]
-  );
+  // Al cambiar de sub-módulo se conserva el período y los filtros seleccionados
+  const handleSubViewChange = useCallback((v: SubViewId) => {
+    setActiveSubView(v);
+  }, []);
 
   const handleSearch = useCallback(() => fetchTabla(), [fetchTabla]);
 
@@ -223,11 +208,20 @@ export default function VentasReport({ initialData, usuarios }: Props) {
   }, [data, clienteSearch]);
 
   const handleSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
+    if (sortKey !== key) {
+      // 1er click: orden por defecto de esa columna
       setSortKey(key);
       setSortDir(DEFAULT_SORT_DIR[key]);
+    } else {
+      const defaultDir = DEFAULT_SORT_DIR[key];
+      if (sortDir === defaultDir) {
+        // 2do click: dirección opuesta
+        setSortDir(defaultDir === "desc" ? "asc" : "desc");
+      } else {
+        // 3er click: volver al estado original (sin ordenamiento activo)
+        setSortKey(null);
+        setSortDir(defaultDir);
+      }
     }
   };
 
@@ -259,40 +253,28 @@ export default function VentasReport({ initialData, usuarios }: Props) {
     });
   }, [ventasFiltradas, sortKey, sortDir]);
 
-  const totales = useMemo(() => {
-    const v = ventasFiltradas;
-    const cantidad = v.length;
-    const total = v.reduce((s, x) => s + (x.total || 0), 0);
-    const productosVendidos = v.reduce((s: number, x) => s + (x.cantidadProductos || 0), 0);
-    return { cantidad, total, productosVendidos };
-  }, [ventasFiltradas]);
-
-  const clientesUnicos = useMemo(() => {
-    return new Set((data.ventas || []).map((v) => v.cliente)).size;
-  }, [data]);
-
   const inputClass =
     "w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/40 focus:border-[var(--brand)] transition";
 
   return (
     <div className="space-y-4">
-      {/* Selector de sub-vista (patrón SubPestanasProductos) + imprimir */}
+      {/* Selector de sub-vista */}
       <div className="print:hidden flex flex-wrap gap-1 bg-[var(--panel)] border border-[var(--border)] rounded-xl p-1">
         {(["analisis", "detalle"] as SubViewId[]).map((v) => (
           <button
             key={v}
             onClick={() => handleSubViewChange(v)}
-            className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+            className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
               activeSubView === v
-                ? "bg-[var(--brand)]/10 text-[var(--brand)] border border-[var(--brand)]/20"
-                : "text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--border)]/50"
+                ? "bg-[var(--brand)] text-white"
+                : "bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--text)] border border-[var(--border)]"
             }`}
           >
             {v === "analisis" ? "Análisis" : "Detalle de ventas"}
           </button>
         ))}
         {isPending && (
-          <div className="ml-auto flex items-center">
+          <div className="ml-auto flex items-center px-2">
             <RefreshCw size={14} className="animate-spin text-[var(--text-muted)]" />
           </div>
         )}
@@ -427,7 +409,6 @@ export default function VentasReport({ initialData, usuarios }: Props) {
         <AnalisisView
           cache={analisisCache}
           loading={analisisLoading}
-          activePeriod={activePeriod}
           fechaDesde={fechaDesde}
           fechaHasta={fechaHasta}
           chartGranularity={chartGranularity}
@@ -440,8 +421,6 @@ export default function VentasReport({ initialData, usuarios }: Props) {
           data={data}
           ventasFiltradas={ventasFiltradas}
           sortedVentas={sortedVentas}
-          totales={totales}
-          clientesUnicos={clientesUnicos}
           fechaDesde={fechaDesde}
           fechaHasta={fechaHasta}
           sortKey={sortKey}

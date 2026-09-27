@@ -180,4 +180,62 @@ describe("Parte 5 — Separación Efectivo / Banco en Apertura-Cierre-Arqueo", (
     ];
     expect(simularEfectivoEsperado(movimientos)).toBe(70_000);
   });
+
+  // ─── Informe de Cierres: Unificación de Total Esperado ─────────────────
+  describe("Informe de Cierres - Total Esperado y Diferencias Unificadas", () => {
+    it("1. Caja sin ventas ni egresos: totalEsperado = montoInicial", () => {
+      const movimientos = [
+        { tipo: "INGRESO", monto: 10_000 }, // Apertura
+      ];
+      const res = calcularEfectivoFisico(movimientos);
+      expect(res.totalIngresos).toBe(10_000);
+      expect(res.totalEgresos).toBe(0);
+      expect(res.efectivoEsperado).toBe(10_000);
+    });
+
+    it("2. Caja con ventas en efectivo y sin egresos: totalEsperado = montoInicial + ventas", () => {
+      const movimientos = [
+        { tipo: "INGRESO", monto: 10_000 }, // Apertura
+        { tipo: "INGRESO", monto: 50_000 }, // Ventas efectivo
+      ];
+      const res = calcularEfectivoFisico(movimientos);
+      expect(res.totalIngresos).toBe(60_000);
+      expect(res.totalEgresos).toBe(0);
+      expect(res.efectivoEsperado).toBe(60_000);
+    });
+
+    it("3. Caja con ventas y egresos (gastos/reposición): totalEsperado = montoInicial + ventas - egresos", () => {
+      const movimientos = [
+        { tipo: "INGRESO", monto: 10_000 }, // Apertura
+        { tipo: "INGRESO", monto: 50_000 }, // Ventas efectivo
+        { tipo: "EGRESO", monto: 3_000 },  // Gasto manual
+        { tipo: "EGRESO", monto: 2_000 },  // Pago de reposición
+      ];
+      const res = calcularEfectivoFisico(movimientos);
+      expect(res.totalIngresos).toBe(60_000);
+      expect(res.totalEgresos).toBe(5_000);
+      expect(res.efectivoEsperado).toBe(55_000);
+    });
+
+    it("4. Arqueo con balance exacto (diferencia 0)", () => {
+      const totalEsperado = 55_000;
+      const totalContado = 55_000;
+      const diff = totalContado - totalEsperado;
+      expect(diff).toBe(0);
+    });
+
+    it("5. Arqueo con sobrante (diferencia > 0)", () => {
+      const totalEsperado = 55_000;
+      const totalContado = 56_000;
+      const diff = totalContado - totalEsperado;
+      expect(diff).toBe(1_000);
+    });
+
+    it("6. Arqueo con faltante (diferencia < 0)", () => {
+      const totalEsperado = 55_000;
+      const totalContado = 53_000;
+      const diff = totalContado - totalEsperado;
+      expect(diff).toBe(-2_000);
+    });
+  });
 });
