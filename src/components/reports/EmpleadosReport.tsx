@@ -170,9 +170,6 @@ export default function EmpleadosReport({ initialData }: Props) {
       const uid = Number(actividadUsuarioId);
       list = list.filter((a) => a.usuarioId === uid);
     }
-    if (rolFiltro) {
-      list = list.filter((a) => a.rol === rolFiltro);
-    }
     if (actividadModulo) {
       list = list.filter((a) => a.modulo === actividadModulo);
     }
@@ -190,7 +187,7 @@ export default function EmpleadosReport({ initialData }: Props) {
       );
     }
     return list;
-  }, [data.actividadReciente, actividadUsuarioId, rolFiltro, actividadModulo, actividadTipo, actividadSearch]);
+  }, [data.actividadReciente, actividadUsuarioId, actividadModulo, actividadTipo, actividadSearch]);
 
   const totalActividades = actividadesFiltradas.length;
   const totalPages = Math.max(1, Math.ceil(totalActividades / actividadPageSize));
@@ -332,7 +329,7 @@ export default function EmpleadosReport({ initialData }: Props) {
         {/* Contenido colapsable */}
         {filtersOpen && (
           <div className="px-4 pb-4 space-y-3 border-t border-[var(--border)]">
-            <div className="pt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="pt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl">
               <div>
                 <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
                   <Calendar size={12} /> Desde
@@ -358,29 +355,6 @@ export default function EmpleadosReport({ initialData }: Props) {
                     setFechaHasta(e.target.value);
                     setActivePeriod("personalizado");
                   }}
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
-                  <UserCheck size={12} /> Rol
-                </label>
-                <select value={rolFiltro} onChange={(e) => setRolFiltro(e.target.value)} className={inputClass}>
-                  <option value="">Todos</option>
-                  <option value="ADMINISTRADOR">Administrador</option>
-                  <option value="ENCARGADO_VENTAS">Encargado de Ventas</option>
-                  <option value="ENCARGADO_STOCK">Encargado de Stock</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
-                  <User size={12} /> Usuario
-                </label>
-                <input
-                  type="text"
-                  placeholder="Buscar por nombre o usuario..."
-                  value={searchUser}
-                  onChange={(e) => setSearchUser(e.target.value)}
                   className={inputClass}
                 />
               </div>
@@ -605,13 +579,51 @@ export default function EmpleadosReport({ initialData }: Props) {
 
         {/* ── 2. SUBMÓDULO DETALLE DE EMPLEADOS ── */}
         {activeSubView === "detalle" && (
-          <div className="report-section" data-section-id="tabla" data-print-active={printActive("tabla")}>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className={sectionHeaderClass}>Listado de Empleados</h3>
+          <div className="report-section space-y-3" data-section-id="tabla" data-print-active={printActive("tabla")}>
+            <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
+              <div>
+                <h3 className={sectionHeaderClass}>Listado de Empleados</h3>
+                <p className="text-xs text-[var(--text-muted)]">
+                  {empleadosTabla.length === 1
+                    ? "1 empleado registrado"
+                    : `${empleadosTabla.length} empleados registrados`}
+                  {data.empleados.length !== empleadosTabla.length && (
+                    <span> (filtrados de un total de {data.empleados.length})</span>
+                  )}
+                </p>
+              </div>
               <button onClick={() => setPrintSection("tabla")} className={printButtonClass} title="Imprimir esta sección">
                 <Printer size={12} />
               </button>
             </div>
+
+            {/* Filtros contextuales del Listado de Empleados */}
+            <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl p-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
+                  <UserCheck size={12} /> Rol
+                </label>
+                <select value={rolFiltro} onChange={(e) => setRolFiltro(e.target.value)} className={inputClass}>
+                  <option value="">Todos los roles</option>
+                  <option value="ADMINISTRADOR">Administrador</option>
+                  <option value="ENCARGADO_VENTAS">Encargado de Ventas</option>
+                  <option value="ENCARGADO_STOCK">Encargado de Stock</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
+                  <User size={12} /> Usuario
+                </label>
+                <input
+                  type="text"
+                  placeholder="Buscar por nombre o usuario..."
+                  value={searchUser}
+                  onChange={(e) => setSearchUser(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+            </div>
+
             <div className="bg-[var(--card)] print:bg-white border border-[var(--border)] print:border-gray-300 rounded-xl overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
