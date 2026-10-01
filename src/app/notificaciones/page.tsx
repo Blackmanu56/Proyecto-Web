@@ -17,6 +17,8 @@ import {
   Filter,
   ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   ChevronDown,
   ExternalLink,
   X,
@@ -338,6 +340,7 @@ export default function NotificacionesPage() {
   const [total, setTotal] = useState(0);
   const [noLeidas, setNoLeidas] = useState(0);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [totalPages, setTotalPages] = useState(1);
   const [busqueda, setBusqueda] = useState("");
   const [tipoFilter, setTipoFilter] = useState("");
@@ -359,13 +362,13 @@ export default function NotificacionesPage() {
           tipo: tipoFilter || undefined,
           soloNoLeidas,
           page,
-          pageSize: 20,
+          pageSize,
         });
         if (!cancelled && !("error" in res)) {
           setNotificaciones(res.data as Notificacion[]);
           setTotal(res.total);
           setNoLeidas(res.noLeidas);
-          setTotalPages(Math.max(1, Math.ceil(res.total / 20)));
+          setTotalPages(Math.max(1, Math.ceil(res.total / pageSize)));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -374,7 +377,7 @@ export default function NotificacionesPage() {
     return () => {
       cancelled = true;
     };
-  }, [busqueda, tipoFilter, soloNoLeidas, page, refreshKey]);
+  }, [busqueda, tipoFilter, soloNoLeidas, page, pageSize, refreshKey]);
 
   const handleMarkRead = async (id: number) => {
     setNotificaciones((prev) =>
@@ -615,7 +618,7 @@ export default function NotificacionesPage() {
         </div>
 
         {/* Table */}
-        <div className="flex-1 min-h-0 bg-[var(--card)] border border-[var(--border)]/60 rounded-xl overflow-hidden">
+        <div className="flex-1 min-h-0 bg-[var(--card)] border border-[var(--border)]/60 rounded-xl overflow-hidden flex flex-col">
           {loading ? (
             <div className="flex items-center justify-center py-20">
               <Loader2 size={24} className="animate-spin text-[var(--text-muted)]" />
@@ -628,7 +631,7 @@ export default function NotificacionesPage() {
               </p>
             </div>
           ) : (
-            <div className="overflow-y-auto h-full min-h-0">
+            <div className="overflow-y-auto flex-1 min-h-0">
               {/* Select all header */}
               <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--border)] bg-[#17191f] sticky top-0 z-20 shadow-[0_2px_10px_rgba(0,0,0,0.3)]">
                 <input
@@ -728,50 +731,82 @@ export default function NotificacionesPage() {
               })}
             </div>
           )}
-        </div>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between shrink-0 mt-3">
-            <p className="text-xs text-[var(--text-muted)]">
-              Página {page} de {totalPages}
-            </p>
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page <= 1}
-                className="p-2 rounded-lg bg-[var(--card)] border border-[var(--border)]/60 text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--card)]/80 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                const start = Math.max(1, Math.min(page - 2, totalPages - 4));
-                const p = start + i;
-                if (p > totalPages) return null;
-                return (
-                  <button
-                    key={p}
-                    onClick={() => setPage(p)}
-                    className={`w-8 h-8 rounded-lg text-sm font-medium transition-all ${
-                      p === page
-                        ? "bg-[var(--brand)] text-white"
-                        : "bg-[var(--card)] border border-[var(--border)]/60 text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--card)]/80"
-                    }`}
+          {/* Barra de Paginación */}
+          {total > 0 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--border)] bg-[var(--panel)]/50 gap-4 flex-wrap text-xs text-[var(--text-muted)] shrink-0">
+              <div className="flex items-center gap-2">
+                <span>
+                  Mostrando{" "}
+                  <strong className="text-[var(--text)]">
+                    {Math.min((page - 1) * pageSize + 1, total)}
+                  </strong>{" "}
+                  a{" "}
+                  <strong className="text-[var(--text)]">
+                    {Math.min(page * pageSize, total)}
+                  </strong>{" "}
+                  de <strong className="text-[var(--text)]">{total}</strong> notificaciones
+                </span>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <span>Filas por página:</span>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => {
+                      setPageSize(Number(e.target.value));
+                      setPage(1);
+                    }}
+                    className="bg-[var(--card)] border border-[var(--border)] rounded px-2 py-1 text-xs text-[var(--text)] focus:outline-none"
                   >
-                    {p}
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setPage(1)}
+                    disabled={page <= 1}
+                    className="p-1.5 rounded bg-[var(--card)] border border-[var(--border)] text-[var(--text)] hover:bg-[var(--panel)] disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    title="Primera página"
+                  >
+                    <ChevronsLeft size={14} />
                   </button>
-                );
-              })}
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages}
-                className="p-2 rounded-lg bg-[var(--card)] border border-[var(--border)]/60 text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--card)]/80 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-              >
-                <ChevronRight size={16} />
-              </button>
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page <= 1}
+                    className="p-1.5 rounded bg-[var(--card)] border border-[var(--border)] text-[var(--text)] hover:bg-[var(--panel)] disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    title="Página anterior"
+                  >
+                    <ChevronLeft size={14} />
+                  </button>
+                  <span className="px-2">
+                    Página <strong>{page}</strong> de <strong>{totalPages}</strong>
+                  </span>
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page >= totalPages}
+                    className="p-1.5 rounded bg-[var(--card)] border border-[var(--border)] text-[var(--text)] hover:bg-[var(--panel)] disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    title="Página siguiente"
+                  >
+                    <ChevronRight size={14} />
+                  </button>
+                  <button
+                    onClick={() => setPage(totalPages)}
+                    disabled={page >= totalPages}
+                    className="p-1.5 rounded bg-[var(--card)] border border-[var(--border)] text-[var(--text)] hover:bg-[var(--panel)] disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    title="Última página"
+                  >
+                    <ChevronsRight size={14} />
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Preferences modal */}
