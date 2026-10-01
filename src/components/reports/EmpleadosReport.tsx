@@ -6,7 +6,6 @@ import ChartWrapper, { CHART_COLORS } from "@/components/ui/ChartWrapper";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { formatCurrency } from "@/lib/utils";
 import { formatLocalDate, getCierresDateRange } from "@/lib/reportPeriods";
 import type { PeriodoPreset } from "@/lib/reportPeriods";
 import {
@@ -25,8 +24,12 @@ import {
   User,
   UserCheck,
 } from "lucide-react";
-import { Fragment, useEffect, useMemo, useState, useTransition } from "react";
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import {
+  Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie,
+  PieChart as RePie, ResponsiveContainer, Tooltip, XAxis, YAxis,
+} from "recharts";
+import DetalleEmpleadoModal from "./DetalleEmpleadoModal";
 
 type SubViewId = "analisis" | "detalle" | "actividad";
 
@@ -71,7 +74,6 @@ const tableCellHeader =
 const printButtonClass =
   "p-1.5 rounded-lg bg-[var(--border)] text-[var(--text-muted)] hover:text-emerald-400 hover:bg-[var(--border)] transition print:hidden";
 
-// Único patrón de tooltip del proyecto (ver ClientesReport.tsx)
 const tooltipStyle = {
   contentStyle: {
     backgroundColor: "var(--card)",
@@ -85,8 +87,8 @@ const tooltipStyle = {
   labelStyle: { color: "var(--text-muted)" },
 };
 
-// Tooltip custom del gráfico "Actividad por Día": label del día en bold,
-// una fila por empleado con actividad, y el total del día.
+// Tooltip custom del gráfico "Evolución de Actividad": label del día en bold,
+// desglose por empleado con actividad, y el total del día.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function ActividadDiaTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null;
@@ -120,104 +122,6 @@ function TipoDot({ tipo }: { tipo: string }) {
   );
 }
 
-// Métricas según el rol del empleado (usadas en Resumen por Empleado y en el detalle)
-function RoleMetrics({ emp }: { emp: EmpleadoDashboardRow }) {
-  if (emp.rol === "ENCARGADO_VENTAS") {
-    return (
-      <div className="flex items-center justify-between gap-2 flex-wrap text-xs text-[var(--text-muted)]">
-        <span>Ventas: <strong className="text-[var(--text)]">{emp.ventasCount}</strong></span>
-        <span>Monto vendido: <strong className="text-[var(--text)]">{formatCurrency(emp.totalVendido)}</strong></span>
-      </div>
-    );
-  }
-  if (emp.rol === "ENCARGADO_STOCK") {
-    return (
-      <div className="flex items-center justify-between gap-2 flex-wrap text-xs text-[var(--text-muted)]">
-        <span>Reposiciones: <strong className="text-[var(--text)]">{emp.comprasCount}</strong></span>
-        <span>Ajustes stock: <strong className="text-[var(--text)]">{emp.ajustesStockCount}</strong></span>
-        <span>Cambios de estado: <strong className="text-[var(--text)]">{emp.cambiosEstadoProductoCount}</strong></span>
-      </div>
-    );
-  }
-  if (emp.rol === "ADMINISTRADOR") {
-    return (
-      <div className="flex items-center justify-between gap-2 flex-wrap text-xs text-[var(--text-muted)]">
-        <span>Cajas abiertas: <strong className="text-[var(--text)]">{emp.cajasAbiertasCount}</strong></span>
-        <span>Cierres: <strong className="text-[var(--text)]">{emp.cierresCount}</strong></span>
-        <span>Mov. caja: <strong className="text-[var(--text)]">{emp.movimientosCajaCount}</strong></span>
-        <span>Ajustes precio: <strong className="text-[var(--text)]">{emp.ajustesPrecioCount}</strong></span>
-      </div>
-    );
-  }
-  // Rol desconocido → solo la parte común
-  return null;
-}
-
-// Contenido de la fila expandida de la tabla (debajo de la fila del empleado)
-function EmpleadoDetalle({ emp }: { emp: EmpleadoDashboardRow }) {
-  const modulos = [
-    { label: "Ventas", value: emp.ventasCount },
-    { label: "Reposiciones", value: emp.comprasCount },
-    { label: "Caja", value: emp.movimientosCajaCount + emp.cierresCount },
-    { label: "Productos", value: emp.cambiosEstadoProductoCount + emp.ajustesPrecioCount },
-    { label: "Stock", value: emp.ajustesStockCount },
-  ];
-  const max = Math.max(...modulos.map((m) => m.value), 1);
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-2">
-      <div>
-        <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2">
-          Actividad por módulo
-        </p>
-        <div className="space-y-2">
-          {modulos.map((m) => (
-            <div key={m.label}>
-              <div className="flex items-center justify-between text-xs mb-1">
-                <span className="text-[var(--text-muted)]">{m.label}</span>
-                <span className="font-bold text-[var(--text)]">{m.value}</span>
-              </div>
-              <div className="h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-[var(--brand)] rounded-full"
-                  style={{ width: `${(m.value / max) * 100}%` }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div>
-        <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2">
-          Métricas de rol
-        </p>
-        <RoleMetrics emp={emp} />
-      </div>
-      <div>
-        <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2">
-          Actividad reciente
-        </p>
-        {emp.actividadReciente.length === 0 ? (
-          <p className="text-xs text-[var(--text-secondary)]">Sin actividad en el período</p>
-        ) : (
-          <div className="space-y-1.5">
-            {emp.actividadReciente.map((a) => (
-              <div key={a.id} className="flex items-start gap-2 text-xs">
-                <TipoDot tipo={a.tipo} />
-                <div className="min-w-0">
-                  <p className="font-semibold text-[var(--text)]">
-                    {a.tipo} <span className="font-normal text-[var(--text-muted)]">· {a.descripcion}</span>
-                  </p>
-                   <p className="text-[var(--text-muted)]">{a.fechaLabel}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 interface Props {
   initialData: EmpleadosDashboard;
   userRole: string;
@@ -233,8 +137,8 @@ export default function EmpleadosReport({ initialData }: Props) {
   const [rolFiltro, setRolFiltro] = useState("");
   const [isPending, startTransition] = useTransition();
   const [printSection, setPrintSection] = useState<string | null>(null);
-  const [expandedUsuarioId, setExpandedUsuarioId] = useState<number | null>(null);
   const [activeSubView, setActiveSubView] = useState<SubViewId>("analisis");
+  const [selectedEmpleado, setSelectedEmpleado] = useState<EmpleadoDashboardRow | null>(null);
 
   // Filtros y paginación para el Historial de Actividades
   const [actividadSearch, setActividadSearch] = useState("");
@@ -307,7 +211,7 @@ export default function EmpleadosReport({ initialData }: Props) {
     }
   }, [printSection]);
 
-  // Refetch del dashboard con el rango elegido — F1: date-only del input + "T00:00:00"
+  // Refetch del dashboard con el rango elegido
   const handleSearch = (desde: string = fechaDesde, hasta: string = fechaHasta) => {
     startTransition(async () => {
       const result = await getEmpleadosDashboard(
@@ -322,7 +226,6 @@ export default function EmpleadosReport({ initialData }: Props) {
   const handlePeriodChange = (period: PeriodoSeleccion) => {
     setActivePeriod(period);
     if (period === "personalizado") {
-      // El usuario elige Desde/Hasta en el panel y presiona Buscar
       setFiltersOpen(true);
       return;
     }
@@ -334,7 +237,7 @@ export default function EmpleadosReport({ initialData }: Props) {
     handleSearch(desde, hasta);
   };
 
-  // Filtros client-side (Rol + búsqueda) — aplican a la tabla final
+  // Filtros client-side (Rol + búsqueda) — aplican a la tabla de empleados
   const empleadosTabla = useMemo(() => {
     let rows = data.empleados;
     if (rolFiltro) rows = rows.filter((e) => e.rol === rolFiltro);
@@ -349,9 +252,19 @@ export default function EmpleadosReport({ initialData }: Props) {
     return rows;
   }, [data.empleados, rolFiltro, searchUser]);
 
-  // "Actividad por Empleado" es un resumen simple, no un ranking
-  const empleadosConActividad = useMemo(
-    () => data.empleados.filter((e) => e.acciones > 0),
+  // Ranking y cálculo de participación de empleados en el período
+  const totalAccionesGeneral = useMemo(
+    () => data.empleados.reduce((s, e) => s + e.acciones, 0),
+    [data.empleados]
+  );
+
+  const maxEmpleadoAcciones = useMemo(
+    () => Math.max(...data.empleados.map((e) => e.acciones), 1),
+    [data.empleados]
+  );
+
+  const empleadosRanking = useMemo(
+    () => [...data.empleados].filter((e) => e.acciones > 0).sort((a, b) => b.acciones - a.acciones),
     [data.empleados]
   );
 
@@ -376,7 +289,7 @@ export default function EmpleadosReport({ initialData }: Props) {
         ))}
       </div>
 
-      {/* Barra de filtros colapsable (mismo patrón que VentasReport/CierresReport) */}
+      {/* Barra de filtros colapsable */}
       <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl overflow-hidden">
         {/* Fila superior: toggle + período */}
         <div className="flex items-center gap-4 px-4 py-3">
@@ -503,153 +416,258 @@ export default function EmpleadosReport({ initialData }: Props) {
           <hr className="my-2 border-gray-300" />
         </div>
 
+        {/* ── 1. SUBMÓDULO ANÁLISIS ── */}
         {activeSubView === "analisis" && (
           <>
-        {/* Resumen (6 tarjetas) */}
-        <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl p-4">
-          <h3 className={sectionHeaderClass + " mb-3"}>Resumen</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 text-center flex flex-col items-center justify-center">
-              <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Total Empleados</div>
-              <div className="text-sm font-bold text-[var(--text)]">{data.resumen.total}</div>
-            </div>
-            <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 text-center flex flex-col items-center justify-center">
-              <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Activos</div>
-              <div className="text-sm font-bold text-[var(--text)]">{data.resumen.activos}</div>
-            </div>
-            <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 text-center flex flex-col items-center justify-center">
-              <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Administradores</div>
-              <div className="text-sm font-bold text-[var(--text)]">{data.resumen.administradores}</div>
-            </div>
-            <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 text-center flex flex-col items-center justify-center">
-              <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Encargados de Ventas</div>
-              <div className="text-sm font-bold text-[var(--text)]">{data.resumen.encargadosVentas}</div>
-            </div>
-            <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 text-center flex flex-col items-center justify-center">
-              <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Encargados de Stock</div>
-              <div className="text-sm font-bold text-[var(--text)]">{data.resumen.encargadosStock}</div>
-            </div>
-            <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 text-center flex flex-col items-center justify-center">
-              <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Actividad del Período</div>
-              <div className="text-sm font-bold text-[var(--brand)]">{data.resumen.actividadPeriodo}</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Actividad por Día (full-width) */}
-        <div className="report-section" data-section-id="actividad-dia" data-print-active={printActive("actividad-dia")}>
-          <ChartWrapper title="Actividad por Día" height={250}>
-            {data.actividadPorDia.length === 0 ? (
-              <div className="flex items-center justify-center h-full w-full text-sm text-[var(--text-secondary)]">
-                Sin actividad en el período
-              </div>
-            ) : (
-              <AreaChart data={data.actividadPorDia}>
-                <defs>
-                  <linearGradient id="empleadosActividadGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={CHART_COLORS[0]} stopOpacity={0.3} />
-                    <stop offset="95%" stopColor={CHART_COLORS[0]} stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis dataKey="label" stroke="var(--text-muted)" tick={{ fontSize: 10 }} />
-                <YAxis stroke="var(--text-muted)" tick={{ fontSize: 10 }} allowDecimals={false} />
-                <Tooltip content={ActividadDiaTooltip} cursor={{ stroke: "var(--text-muted)", strokeDasharray: "4 4" }} />
-                <Area type="monotone" dataKey="total" stroke={CHART_COLORS[0]} strokeWidth={2} fill="url(#empleadosActividadGrad)" name="Total" />
-              </AreaChart>
-            )}
-          </ChartWrapper>
-        </div>
-
-        {/* Fila 2: Actividad por Módulo + Actividad por Empleado */}
-        <div className="report-section" data-section-id="modulos" data-print-active={printActive("modulos")}>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <ChartWrapper title="Actividad por Módulo" height={250}>
-              {data.actividadPorModulo.length === 0 ? (
-                <div className="flex items-center justify-center h-full w-full text-sm text-[var(--text-secondary)]">
-                  Sin actividad en el período
+            {/* Resumen */}
+            <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl p-4">
+              <h3 className={sectionHeaderClass + " mb-3"}>Resumen</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 text-center flex flex-col items-center justify-center">
+                  <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Total Empleados</div>
+                  <div className="text-base font-bold text-[var(--text)]">{data.resumen.total}</div>
                 </div>
-              ) : (
-                <BarChart data={data.actividadPorModulo} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis type="number" stroke="var(--text-muted)" tick={{ fontSize: 10 }} allowDecimals={false} />
-                  <YAxis dataKey="modulo" type="category" stroke="var(--text-muted)" tick={{ fontSize: 10 }} width={90} />
-                  <Tooltip
-                    formatter={(value: number) => [`${value} acciones`, "Actividad"]}
-                    cursor={{ fill: "var(--border)", fillOpacity: 0.3 }}
-                    contentStyle={tooltipStyle.contentStyle}
-                    itemStyle={tooltipStyle.itemStyle}
-                    labelStyle={tooltipStyle.labelStyle}
-                  />
-                  <Bar dataKey="acciones" fill={CHART_COLORS[1]} radius={[0, 4, 4, 0]} name="Acciones" />
-                </BarChart>
-              )}
-            </ChartWrapper>
+                <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 text-center flex flex-col items-center justify-center">
+                  <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Personal Activo</div>
+                  <div className="text-base font-bold text-[var(--success)]">{data.resumen.activos}</div>
+                </div>
+                <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 text-center flex flex-col items-center justify-center">
+                  <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Con Actividad en el Período</div>
+                  <div className="text-base font-bold text-[var(--brand)]">
+                    {data.resumen.empleadosConActividad ?? empleadosRanking.length}
+                  </div>
+                </div>
+                <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 text-center flex flex-col items-center justify-center">
+                  <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Acciones del Período</div>
+                  <div className="text-base font-bold text-[var(--text)]">{data.resumen.actividadPeriodo}</div>
+                </div>
+              </div>
+            </div>
 
-            {/* Actividad por Empleado — resumen simple, sin ranking */}
-            <div className="bg-[var(--panel)] border border-[var(--border)] rounded-xl p-4">
-              <h3 className={sectionHeaderClass + " mb-3"}>Actividad por Empleado</h3>
-              {empleadosConActividad.length === 0 ? (
-                <p className="text-sm text-[var(--text-secondary)] text-center py-6">Sin actividad en el período</p>
-              ) : (
-                <div className="space-y-2 max-h-[240px] overflow-y-auto pr-1">
-                  {empleadosConActividad.map((e) => (
-                    <div key={e.usuarioId} className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-[var(--card)] border border-[var(--border)]">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-[var(--text)] truncate">{e.nombreCompleto}</p>
-                        <p className="text-xs text-[var(--text-muted)] truncate">{e.rol}</p>
-                      </div>
-                      <span className="text-xs font-bold text-[var(--text)] shrink-0">{e.acciones} acciones</span>
+            {/* Evolución de Actividad */}
+            <div className="report-section" data-section-id="actividad-dia" data-print-active={printActive("actividad-dia")}>
+              <ChartWrapper title="Evolución de Actividad" height={280}>
+                {data.actividadPorDia.length === 0 ? (
+                  <div className="flex items-center justify-center h-full w-full text-sm text-[var(--text-secondary)]">
+                    Sin actividad en el período seleccionado
+                  </div>
+                ) : (
+                  <AreaChart data={data.actividadPorDia} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="empleadosActividadGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={CHART_COLORS[0]} stopOpacity={0.3} />
+                        <stop offset="95%" stopColor={CHART_COLORS[0]} stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis dataKey="label" stroke="var(--text-muted)" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
+                    <YAxis stroke="var(--text-muted)" tick={{ fontSize: 10 }} allowDecimals={false} />
+                    <Tooltip content={ActividadDiaTooltip} cursor={{ stroke: "var(--text-muted)", strokeDasharray: "4 4" }} />
+                    <Area
+                      type="monotone"
+                      dataKey="total"
+                      stroke={CHART_COLORS[0]}
+                      strokeWidth={2}
+                      dot={{ r: 3, fill: CHART_COLORS[0] }}
+                      activeDot={{ r: 5 }}
+                      fill="url(#empleadosActividadGrad)"
+                      name="Total"
+                    />
+                  </AreaChart>
+                )}
+              </ChartWrapper>
+            </div>
+
+            {/* Fila 2: Actividad por Módulo + Distribución por Empleado */}
+            <div className="report-section" data-section-id="modulos" data-print-active={printActive("modulos")}>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <ChartWrapper title="Carga por Módulo" height={280}>
+                  {data.actividadPorModulo.length === 0 ? (
+                    <div className="flex items-center justify-center h-full w-full text-sm text-[var(--text-secondary)]">
+                      Sin actividad en el período seleccionado
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Resumen por Empleado (TODOS, incluyendo inactivos) */}
-        <div className="report-section" data-section-id="resumen-empleados" data-print-active={printActive("resumen-empleados")}>
-          <div className="flex items-center justify-between mb-2">
-            <h3 className={sectionHeaderClass}>Resumen por Empleado</h3>
-            <button onClick={() => setPrintSection("resumen-empleados")} className={printButtonClass} title="Imprimir esta sección">
-              <Printer size={12} />
-            </button>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-            {data.empleados.map((emp) => (
-              <div key={emp.usuarioId} className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-9 h-9 rounded-full bg-[var(--brand-light)] text-[var(--brand)] flex items-center justify-center text-sm font-bold uppercase shrink-0">
-                    {emp.nombreCompleto.charAt(0)}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-[var(--text)] truncate">{emp.nombreCompleto}</p>
-                    <p className="text-xs text-[var(--text-muted)] truncate">{emp.rol}</p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  {emp.activo ? (
-                    <span className="text-xs font-semibold text-[var(--success)]">Activo</span>
                   ) : (
-                    <span className="text-xs font-semibold text-[var(--danger)]">Inactivo</span>
+                    <div className="flex items-center gap-4 h-full">
+                      <div className="w-1/2 h-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <RePie>
+                            <Tooltip
+                              formatter={(value: number, name: string) => {
+                                const total = data.actividadPorModulo.reduce((s, d) => s + d.acciones, 0);
+                                const pct = total > 0 ? ((value / total) * 100).toFixed(0) : "0";
+                                return [`${value} acciones (${pct}%)`, name];
+                              }}
+                              contentStyle={tooltipStyle.contentStyle}
+                              itemStyle={tooltipStyle.itemStyle}
+                              labelStyle={tooltipStyle.labelStyle}
+                            />
+                            <Pie
+                              data={data.actividadPorModulo}
+                              dataKey="acciones"
+                              nameKey="modulo"
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={45}
+                              outerRadius={75}
+                            >
+                              {data.actividadPorModulo.map((_, i) => (
+                                <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                              ))}
+                            </Pie>
+                          </RePie>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="w-1/2 space-y-2.5">
+                        {data.actividadPorModulo.map((entry, i) => {
+                          const total = data.actividadPorModulo.reduce((s, d) => s + d.acciones, 0);
+                          const pct = total > 0 ? ((entry.acciones / total) * 100).toFixed(0) : "0";
+                          return (
+                            <div key={entry.modulo} className="flex items-center gap-2">
+                              <span
+                                className="w-3 h-3 rounded-sm shrink-0"
+                                style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
+                              />
+                              <span className="text-xs text-[var(--text-muted)] truncate" title={entry.modulo}>
+                                {entry.modulo}
+                              </span>
+                              <span className="text-xs font-semibold text-[var(--text)] ml-auto shrink-0">
+                                {entry.acciones} <span className="text-[var(--text-muted)] font-normal">({pct}%)</span>
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   )}
-                  <span className="text-xs text-[var(--text-muted)] truncate">
-                    Última actividad: {emp.ultimaActividadLabel || "—"}
-                  </span>
+                </ChartWrapper>
+
+                {/* Distribución por Empleado (Ranking con barras y clic para abrir modal) */}
+                <div className="bg-card rounded-xl p-4 border border-border flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-text-muted mb-4 flex items-center gap-2">
+                      <User size={14} className="text-[var(--brand)]" />
+                      Distribución por Empleado
+                    </h3>
+                    {empleadosRanking.length === 0 ? (
+                      <div className="flex items-center justify-center h-[280px] text-sm text-[var(--text-secondary)]">
+                        Sin actividad en el período seleccionado
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5 max-h-[280px] overflow-y-auto pr-1.5 pb-1">
+                        {empleadosRanking.map((e, i) => {
+                          const pctTotal = totalAccionesGeneral > 0
+                            ? ((e.acciones / totalAccionesGeneral) * 100).toFixed(0)
+                            : "0";
+                          const pctBar = maxEmpleadoAcciones > 0
+                            ? (e.acciones / maxEmpleadoAcciones) * 100
+                            : 0;
+                          return (
+                            <div
+                              key={e.usuarioId}
+                              onClick={() => setSelectedEmpleado(e)}
+                              className="group flex items-center gap-3 p-2.5 rounded-lg bg-[var(--card)] border border-[var(--border)] hover:border-[var(--brand)]/50 cursor-pointer transition-all"
+                            >
+                              <span className="text-sm font-bold shrink-0 w-6 text-center text-[var(--text-muted)] group-hover:text-[var(--brand)]">
+                                {i + 1}
+                              </span>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className="text-sm font-semibold text-[var(--text)] truncate">
+                                    {e.nombreCompleto}
+                                  </p>
+                                  <span className="text-xs font-bold text-[var(--brand)] shrink-0">
+                                    {e.acciones} acc. ({pctTotal}%)
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2 mt-0.5 text-xs text-[var(--text-muted)]">
+                                  <span>{ROL_LABEL[e.rol] || e.rol}</span>
+                                  <span>·</span>
+                                  <span>Última: {e.ultimaActividadLabel || "—"}</span>
+                                </div>
+                                <div className="mt-1.5 h-1.5 rounded-full bg-[var(--border)] overflow-hidden">
+                                  <div
+                                    className="h-full rounded-full bg-[var(--brand)] transition-all duration-300"
+                                    style={{ width: `${Math.max(pctBar, 4)}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <p className="text-xs text-[var(--text-muted)] mb-2">
-                  Acciones en el período: <strong className="text-[var(--text)]">{emp.acciones}</strong>
-                </p>
-                <RoleMetrics emp={emp} />
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
           </>
         )}
 
-        {/* Historial de Actividades (con filtros contextuales y paginación) */}
+        {/* ── 2. SUBMÓDULO DETALLE DE EMPLEADOS ── */}
+        {activeSubView === "detalle" && (
+          <div className="report-section" data-section-id="tabla" data-print-active={printActive("tabla")}>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className={sectionHeaderClass}>Listado de Empleados</h3>
+              <button onClick={() => setPrintSection("tabla")} className={printButtonClass} title="Imprimir esta sección">
+                <Printer size={12} />
+              </button>
+            </div>
+            <div className="bg-[var(--card)] print:bg-white border border-[var(--border)] print:border-gray-300 rounded-xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-[var(--border)] print:border-gray-300 bg-[var(--panel)] print:bg-gray-100">
+                      <th className={"text-left " + tableCellHeader}>Empleado</th>
+                      <th className={"text-left " + tableCellHeader}>Rol</th>
+                      <th className={"text-left " + tableCellHeader}>Estado</th>
+                      <th className={"text-left " + tableCellHeader}>Última actividad</th>
+                      <th className={"text-right " + tableCellHeader}>Acciones (en el período)</th>
+                      <th className={"text-right " + tableCellHeader}>Detalle</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--border)] print:divide-gray-300">
+                    {empleadosTabla.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-8 text-center text-[var(--text-secondary)]">
+                          Sin empleados para los filtros seleccionados.
+                        </td>
+                      </tr>
+                    ) : (
+                      empleadosTabla.map((emp) => (
+                        <tr key={emp.usuarioId} className="hover:bg-[var(--border)]/40 transition-colors">
+                          <td className="px-4 py-3">
+                            <p className="font-semibold text-[var(--text)]">{emp.nombreCompleto}</p>
+                            <p className="text-xs text-[var(--text-muted)]">@{emp.username}</p>
+                          </td>
+                          <td className="px-4 py-3 text-[var(--text-muted)]">{ROL_LABEL[emp.rol] || emp.rol}</td>
+                          <td className="px-4 py-3">
+                            {emp.activo ? (
+                              <span className="text-xs font-semibold text-[var(--success)]">Activo</span>
+                            ) : (
+                              <span className="text-xs font-semibold text-[var(--danger)]">Inactivo</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-xs text-[var(--text-muted)]">{emp.ultimaActividadLabel || "—"}</td>
+                          <td className="px-4 py-3 text-right font-bold text-[var(--text)]">{emp.acciones}</td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              onClick={() => setSelectedEmpleado(emp)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--border-hover)] transition print:hidden"
+                            >
+                              <User size={12} /> Ver Detalle
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── 3. SUBMÓDULO HISTORIAL DE ACTIVIDADES ── */}
         {activeSubView === "actividad" && (
           <div className="report-section space-y-3" data-section-id="actividad-reciente" data-print-active={printActive("actividad-reciente")}>
             <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
@@ -669,7 +687,7 @@ export default function EmpleadosReport({ initialData }: Props) {
               </button>
             </div>
 
-            {/* Barra de filtros contextuales para actividades */}
+            {/* Filtros contextuales */}
             <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <div>
                 <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
@@ -873,88 +891,15 @@ export default function EmpleadosReport({ initialData }: Props) {
             </div>
           </div>
         )}
-
-        {/* Tabla Empleados (con fila expandible por empleado) */}
-        {activeSubView === "detalle" && (
-        <div className="report-section" data-section-id="tabla" data-print-active={printActive("tabla")}>
-          <div className="flex items-center justify-between mb-2">
-            <h3 className={sectionHeaderClass}>Empleados</h3>
-            <button onClick={() => setPrintSection("tabla")} className={printButtonClass} title="Imprimir esta sección">
-              <Printer size={12} />
-            </button>
-          </div>
-          <div className="bg-[var(--card)] print:bg-white border border-[var(--border)] print:border-gray-300 rounded-xl overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-[var(--border)] print:border-gray-300 bg-[var(--panel)] print:bg-gray-100">
-                    <th className={"text-left " + tableCellHeader}>Empleado</th>
-                    <th className={"text-left " + tableCellHeader}>Rol</th>
-                    <th className={"text-left " + tableCellHeader}>Estado</th>
-                    <th className={"text-left " + tableCellHeader}>Última actividad</th>
-                    <th className={"text-right " + tableCellHeader}>Acciones</th>
-                    <th className={"text-right " + tableCellHeader}>Detalle</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[var(--border)] print:divide-gray-300">
-                  {empleadosTabla.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-[var(--text-secondary)]">
-                        Sin empleados para los filtros seleccionados.
-                      </td>
-                    </tr>
-                  ) : empleadosTabla.map((emp) => (
-                    <Fragment key={emp.usuarioId}>
-                      <tr className="hover:bg-[var(--border)]/40 transition-colors">
-                        <td className="px-4 py-3">
-                          <p className="font-semibold text-[var(--text)]">{emp.nombreCompleto}</p>
-                          <p className="text-xs text-[var(--text-muted)]">{emp.username}</p>
-                        </td>
-                        <td className="px-4 py-3 text-[var(--text-muted)]">{ROL_LABEL[emp.rol] || emp.rol}</td>
-                        <td className="px-4 py-3">
-                          {emp.activo ? (
-                            <span className="text-xs font-semibold text-[var(--success)]">Activo</span>
-                          ) : (
-                            <span className="text-xs font-semibold text-[var(--danger)]">Inactivo</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-[var(--text-muted)]">{emp.ultimaActividadLabel || "—"}</td>
-                        <td className="px-4 py-3 text-right font-bold text-[var(--text)]">{emp.acciones}</td>
-                        <td className="px-4 py-3 text-right">
-                          <button
-                            onClick={() =>
-                              setExpandedUsuarioId(expandedUsuarioId === emp.usuarioId ? null : emp.usuarioId)
-                            }
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] transition print:hidden"
-                          >
-                            {expandedUsuarioId === emp.usuarioId ? (
-                              <>
-                                <ChevronUp size={12} /> Ocultar
-                              </>
-                            ) : (
-                              <>
-                                <ChevronDown size={12} /> Detalle
-                              </>
-                            )}
-                          </button>
-                        </td>
-                      </tr>
-                      {expandedUsuarioId === emp.usuarioId && (
-                        <tr className="bg-[var(--panel)]/50">
-                          <td colSpan={6} className="px-4 py-3">
-                            <EmpleadoDetalle emp={emp} />
-                          </td>
-                        </tr>
-                      )}
-                    </Fragment>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-        )}
       </div>
+
+      {/* Modal de Detalle de Empleado */}
+      {selectedEmpleado && (
+        <DetalleEmpleadoModal
+          emp={selectedEmpleado}
+          onClose={() => setSelectedEmpleado(null)}
+        />
+      )}
     </div>
   );
 }

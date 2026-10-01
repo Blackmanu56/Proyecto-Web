@@ -1,7 +1,7 @@
 "use server";
 
 import { requirePermission } from "@/lib/auth-permissions";
-import { calcularEfectivoCajaActiva } from "@/lib/caja-balance";
+import { calcularEfectivoCajaActiva, calcularEfectivoFisico } from "@/lib/caja-balance";
 import { parseRoleData } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { METODOS_PAGO_ORDEN } from "@/lib/metodosPago";
@@ -572,21 +572,30 @@ export async function getReporteCierres(
 
     const cajas = await prisma.caja.findMany({
       where,
-      include: { usuario: { select: { username: true } } },
+      include: {
+        usuario: { select: { username: true } },
+        movimientos: { select: { tipo: true, monto: true } },
+      },
       orderBy: { fechaApertura: "desc" },
     });
 
-    return cajas.map((c) => ({
-      id: c.id,
-      fechaApertura: formatDate(c.fechaApertura),
-      fechaCierre: c.fechaCierre ? formatDate(c.fechaCierre) : null,
-      usuario: c.usuario.username,
-      montoInicial: c.montoInicial,
-      totalVentas: c.totalVentas,
-      estado: c.estado,
-      totalEsperado: c.montoInicial + c.totalVentas,
-      totalContado: c.totalContado ?? null,
-    }));
+    return cajas.map((c) => {
+      const balance = c.movimientos?.length
+        ? calcularEfectivoFisico(c.movimientos).efectivoEsperado
+        : c.montoInicial + c.totalVentas - (c.gastosManuales ?? 0);
+
+      return {
+        id: c.id,
+        fechaApertura: formatDate(c.fechaApertura),
+        fechaCierre: c.fechaCierre ? formatDate(c.fechaCierre) : null,
+        usuario: c.usuario.username,
+        montoInicial: c.montoInicial,
+        totalVentas: c.totalVentas,
+        estado: c.estado,
+        totalEsperado: balance,
+        totalContado: c.totalContado ?? null,
+      };
+    });
   } catch (error) {
     console.error("Error en getReporteCierres:", error);
     return [];
@@ -603,7 +612,7 @@ export type CierreMensual = {
   cerrados: number;       // Conteo CERRADA (== totalCierres bajo el filtro; se mantiene por REQ-02)
   montoInicial: number;   // Suma de montoInicial
   totalVentas: number;    // Suma de totalVentas
-  totalEsperado: number;  // Suma de (montoInicial + totalVentas) por fila
+  totalEsperado: number;  // Suma de totalEsperado por fila
   totalContado: number;   // Suma de (totalContado ?? 0)
   diferenciaNeta: number; // Suma de ((totalContado ?? totalEsperado) - totalEsperado) → null aporta 0
   conDiferencia: number;  // Filas con diferencia ≠ 0 (null excluidas, REQ-03)
@@ -646,7 +655,10 @@ export async function getCierresMensuales(
 
     const cajas = await prisma.caja.findMany({
       where,
-      include: { usuario: { select: { username: true } } },
+      include: {
+        usuario: { select: { username: true } },
+        movimientos: { select: { tipo: true, monto: true } },
+      },
       orderBy: [{ fechaCierre: "asc" }, { fechaApertura: "asc" }],
     });
 
@@ -662,7 +674,9 @@ export async function getCierresMensuales(
       const mesNum = f.getMonth() + 1;
       const key = `${anio}-${String(mesNum).padStart(2, "0")}`;
 
-      const totalEsperado = c.montoInicial + c.totalVentas;
+      const totalEsperado = c.movimientos?.length
+        ? calcularEfectivoFisico(c.movimientos).efectivoEsperado
+        : c.montoInicial + c.totalVentas - (c.gastosManuales ?? 0);
       const contado = c.totalContado ?? 0;
       const diff = (c.totalContado ?? totalEsperado) - totalEsperado;
 
@@ -723,21 +737,30 @@ export async function getCierresDelMes(mes: string): Promise<ReporteCierre[]> {
 
     const cajas = await prisma.caja.findMany({
       where,
-      include: { usuario: { select: { username: true } } },
+      include: {
+        usuario: { select: { username: true } },
+        movimientos: { select: { tipo: true, monto: true } },
+      },
       orderBy: { fechaApertura: "desc" },
     });
 
-    return cajas.map((c) => ({
-      id: c.id,
-      fechaApertura: formatDate(c.fechaApertura),
-      fechaCierre: c.fechaCierre ? formatDate(c.fechaCierre) : null,
-      usuario: c.usuario.username,
-      montoInicial: c.montoInicial,
-      totalVentas: c.totalVentas,
-      estado: c.estado,
-      totalEsperado: c.montoInicial + c.totalVentas,
-      totalContado: c.totalContado ?? null,
-    }));
+    return cajas.map((c) => {
+      const balance = c.movimientos?.length
+        ? calcularEfectivoFisico(c.movimientos).efectivoEsperado
+        : c.montoInicial + c.totalVentas - (c.gastosManuales ?? 0);
+
+      return {
+        id: c.id,
+        fechaApertura: formatDate(c.fechaApertura),
+        fechaCierre: c.fechaCierre ? formatDate(c.fechaCierre) : null,
+        usuario: c.usuario.username,
+        montoInicial: c.montoInicial,
+        totalVentas: c.totalVentas,
+        estado: c.estado,
+        totalEsperado: balance,
+        totalContado: c.totalContado ?? null,
+      };
+    });
   } catch (error) {
     console.error("Error en getCierresDelMes:", error);
     return [];
@@ -764,14 +787,13 @@ export async function getDetalleCierre(cajaId: number): Promise<DetalleCierreCom
 
     const movimientoCierre = caja.movimientos.find((m) => m.tipo === "CIERRE");
 
-    const ingresos = caja.movimientos
-      .filter((m) => m.tipo === "INGRESO")
-      .reduce((sum, m) => sum + m.monto, 0);
-    const egresos = caja.movimientos
-      .filter((m) => m.tipo === "EGRESO")
-      .reduce((sum, m) => sum + m.monto, 0);
+    const { totalIngresos: ingresos, totalEgresos: egresos, efectivoEsperado } =
+      calcularEfectivoFisico(caja.movimientos);
 
-    const totalEsperado = caja.montoInicial + caja.totalVentas;
+    const totalEsperado = caja.movimientos.length
+      ? efectivoEsperado
+      : caja.montoInicial + caja.totalVentas - (caja.gastosManuales ?? 0);
+
     const diferencia = caja.totalContado !== null ? caja.totalContado - totalEsperado : null;
 
     return {
@@ -1029,6 +1051,8 @@ export type EmpleadosDashboard = {
     encargadosVentas: number;
     encargadosStock: number;
     actividadPeriodo: number; // total acciones en el período seleccionado
+    empleadosConActividad?: number;
+    promedioAcciones?: number;
   };
   empleados: EmpleadoDashboardRow[];
   actividadPorDia: {
@@ -1465,8 +1489,27 @@ export async function getEmpleadosDashboard(fechaDesde?: string, fechaHasta?: st
       };
     });
 
-    // Actividad por día (agrupación local yyyy-MM-dd, días asc)
+    // Actividad por día (agrupación local yyyy-MM-dd, días asc con relleno de fechas en 0)
     const porDia = new Map<string, { label: string; total: number; porEmpleado: Map<number, number> }>();
+
+    // Pre-llenar días en 0 si se proporciona un rango válido de hasta 90 días
+    if (fechaDesde && fechaHasta) {
+      const dStart = new Date(fechaDesde);
+      const dEnd = new Date(fechaHasta);
+      if (!isNaN(dStart.getTime()) && !isNaN(dEnd.getTime()) && dStart <= dEnd) {
+        const diffDays = Math.round((dEnd.getTime() - dStart.getTime()) / (24 * 60 * 60 * 1000));
+        if (diffDays <= 90) {
+          const cur = new Date(dStart.getFullYear(), dStart.getMonth(), dStart.getDate());
+          const endDay = new Date(dEnd.getFullYear(), dEnd.getMonth(), dEnd.getDate());
+          while (cur <= endDay) {
+            const key = dayKeyLocal(cur);
+            porDia.set(key, { label: dayLabelLocal(cur), total: 0, porEmpleado: new Map() });
+            cur.setDate(cur.getDate() + 1);
+          }
+        }
+      }
+    }
+
     for (const it of items) {
       const d = new Date(it.fecha);
       const key = dayKeyLocal(d);
@@ -1491,39 +1534,42 @@ export async function getEmpleadosDashboard(fechaDesde?: string, fechaHasta?: st
         })),
       }));
 
-    // Actividad por módulo (solo módulos con acciones > 0)
+    // Actividad por módulo (unificada y limpia: solo módulos con acciones > 0)
     let totalVentas = 0;
     let totalCaja = 0;
-    let totalCompras = 0;
-    let totalProductos = 0;
     let totalStock = 0;
+    let totalProductos = 0;
     for (const key of Object.keys(acc)) {
       const a = acc[Number(key)];
       totalVentas += a.ventasCount;
       totalCaja += a.movimientosCajaCount + a.cierresCount;
-      totalCompras += a.comprasCount;
+      totalStock += a.comprasCount + a.ajustesStockCount;
       totalProductos += a.cambiosEstadoProductoCount + a.ajustesPrecioCount;
-      totalStock += a.ajustesStockCount;
     }
     const actividadPorModulo = [
       { modulo: "Ventas", acciones: totalVentas },
       { modulo: "Caja", acciones: totalCaja },
-      { modulo: "Reposiciones", acciones: totalCompras },
-      { modulo: "Productos", acciones: totalProductos },
-      { modulo: "Stock", acciones: totalStock },
+      { modulo: "Stock y Reposición", acciones: totalStock },
+      { modulo: "Catálogo y Productos", acciones: totalProductos },
     ].filter((m) => m.acciones > 0);
 
     // Historial de actividad del período (ordenado de más reciente a más antiguo)
     const actividadReciente = [...items].sort((a, b) => b.fecha.localeCompare(a.fecha));
 
+    const totalActivos = usuarios.filter((u) => u.activo).length;
+    const totalAccionesPeriodo = empleados.reduce((s, e) => s + e.acciones, 0);
+    const empleadosConActividad = empleados.filter((e) => e.acciones > 0).length;
+
     return {
       resumen: {
         total: usuarios.length,
-        activos: usuarios.filter((u) => u.activo).length,
+        activos: totalActivos,
         administradores: usuarios.filter((u) => u.rol.nombre === "ADMINISTRADOR").length,
         encargadosVentas: usuarios.filter((u) => u.rol.nombre === "ENCARGADO_VENTAS").length,
         encargadosStock: usuarios.filter((u) => u.rol.nombre === "ENCARGADO_STOCK").length,
-        actividadPeriodo: empleados.reduce((s, e) => s + e.acciones, 0),
+        actividadPeriodo: totalAccionesPeriodo,
+        empleadosConActividad,
+        promedioAcciones: totalActivos > 0 ? Math.round(totalAccionesPeriodo / totalActivos) : 0,
       },
       empleados,
       actividadPorDia,
@@ -1961,7 +2007,6 @@ export async function getTopProductos(filters: ReportFilters = {}, limit: number
 
 export type VentasAnalisisBatchData = {
   resumen: { cantidad: number; total: number; productosVendidos: number; clientesAtendidos: number };
-  prevResumen: { cantidad: number; total: number; productosVendidos: number; clientesAtendidos: number } | null;
   evolucion: { periodo: string; ventas: number; ganancia: number; fechaInicio: string; fechaFin: string }[];
   categoria: { categoria: string; cantidad: number; subtotal: number; ganancia: number }[];
   metodoPago: { metodo: string; cantidadVentas: number; total: number }[];
@@ -2011,20 +2056,23 @@ function buildEvolucionVentasFromRecords(
 ) {
   const agrupado = new Map<
     string,
-    { ventas: number; costo: number; fechaInicio: Date; fechaFin: Date }
+    { periodo: string; ventas: number; costo: number; fechaInicio: Date; fechaFin: Date }
   >();
 
   for (const venta of ventas) {
     const fechaLocal = toBuenosAiresWallTime(venta.fecha);
+    let key: string;
     let periodo: string;
     let fechaInicio = fechaLocal;
     let fechaFin = fechaLocal;
 
     if (agruparPor === "anio") {
+      key = String(fechaLocal.getFullYear());
       periodo = fechaLocal.toLocaleDateString("es-AR", { year: "numeric" });
       fechaInicio = new Date(fechaLocal.getFullYear(), 0, 1);
       fechaFin = new Date(fechaLocal.getFullYear(), 11, 31, 23, 59, 59, 999);
     } else if (agruparPor === "mes") {
+      key = `${fechaLocal.getFullYear()}-${String(fechaLocal.getMonth() + 1).padStart(2, "0")}`;
       periodo = fechaLocal.toLocaleDateString("es-AR", { month: "long", year: "numeric" });
       fechaInicio = new Date(fechaLocal.getFullYear(), fechaLocal.getMonth(), 1);
       fechaFin = new Date(fechaLocal.getFullYear(), fechaLocal.getMonth() + 1, 0, 23, 59, 59, 999);
@@ -2034,7 +2082,11 @@ function buildEvolucionVentasFromRecords(
       fechaInicio = new Date(
         fechaLocal.getFullYear(),
         fechaLocal.getMonth(),
-        fechaLocal.getDate() - diffToMonday
+        fechaLocal.getDate() - diffToMonday,
+        0,
+        0,
+        0,
+        0
       );
       fechaFin = new Date(
         fechaLocal.getFullYear(),
@@ -2045,11 +2097,14 @@ function buildEvolucionVentasFromRecords(
         59,
         999
       );
-      const diaDelMes = fechaInicio.getDate();
-      const numSemana = Math.ceil(diaDelMes / 7);
-      const mesLargo = fechaInicio.toLocaleDateString("es-AR", { month: "long" });
-      periodo = `S${numSemana} ${mesLargo}`;
+      key = `${fechaInicio.getFullYear()}-${String(fechaInicio.getMonth() + 1).padStart(2, "0")}-${String(fechaInicio.getDate()).padStart(2, "0")}`;
+      const d1 = String(fechaInicio.getDate()).padStart(2, "0");
+      const m1 = String(fechaInicio.getMonth() + 1).padStart(2, "0");
+      const d2 = String(fechaFin.getDate()).padStart(2, "0");
+      const m2 = String(fechaFin.getMonth() + 1).padStart(2, "0");
+      periodo = `${d1}/${m1} - ${d2}/${m2}`;
     } else {
+      key = `${fechaLocal.getFullYear()}-${String(fechaLocal.getMonth() + 1).padStart(2, "0")}-${String(fechaLocal.getDate()).padStart(2, "0")}`;
       periodo = fechaLocal.toLocaleDateString("es-AR", {
         day: "2-digit",
         month: "short",
@@ -2076,14 +2131,15 @@ function buildEvolucionVentasFromRecords(
       0
     );
 
-    const existente = agrupado.get(periodo);
+    const existente = agrupado.get(key);
     if (existente) {
       existente.ventas += venta.total;
       existente.costo += costoVenta;
       if (fechaInicio < existente.fechaInicio) existente.fechaInicio = fechaInicio;
       if (fechaFin > existente.fechaFin) existente.fechaFin = fechaFin;
     } else {
-      agrupado.set(periodo, {
+      agrupado.set(key, {
+        periodo,
         ventas: venta.total,
         costo: costoVenta,
         fechaInicio,
@@ -2092,9 +2148,9 @@ function buildEvolucionVentasFromRecords(
     }
   }
 
-  return Array.from(agrupado.entries())
-    .map(([periodo, values]) => ({
-      periodo,
+  return Array.from(agrupado.values())
+    .map((values) => ({
+      periodo: values.periodo,
       ventas: values.ventas,
       ganancia: values.ventas - values.costo,
       fechaInicio: values.fechaInicio.toISOString(),
@@ -2237,8 +2293,6 @@ export async function getVentasAnalisisBatch(params: {
   fechaDesde?: string;
   fechaHasta?: string;
   usuarioId?: number;
-  prevFechaDesde?: string;
-  prevFechaHasta?: string;
   agruparPor?: "dia" | "semana" | "mes" | "anio";
 }): Promise<VentasAnalisisBatchData> {
   try {
@@ -2249,12 +2303,7 @@ export async function getVentasAnalisisBatch(params: {
     };
     if (params.usuarioId) whereActual.usuarioId = params.usuarioId;
 
-    const whereAnterior: Prisma.VentaWhereInput = {
-      ...buildDateFilter(params.prevFechaDesde, params.prevFechaHasta),
-    };
-    if (params.usuarioId) whereAnterior.usuarioId = params.usuarioId;
-
-    const currentVentasPromise = prisma.venta.findMany({
+    const currentVentas = await prisma.venta.findMany({
       where: whereActual,
       select: {
         id: true,
@@ -2283,36 +2332,8 @@ export async function getVentasAnalisisBatch(params: {
       orderBy: { fecha: "asc" },
     });
 
-    const prevResumenPromise =
-      params.prevFechaDesde && params.prevFechaHasta
-        ? Promise.all([
-            prisma.venta.aggregate({
-              where: whereAnterior,
-              _count: { id: true },
-              _sum: { total: true },
-            }),
-            prisma.detalleVenta.count({ where: { venta: whereAnterior } }),
-            prisma.venta.groupBy({
-              by: ["clienteId"],
-              where: whereAnterior,
-              _count: { _all: true },
-            }),
-          ]).then(([agg, lineas, clientes]) => ({
-            cantidad: agg._count.id,
-            total: agg._sum.total || 0,
-            productosVendidos: lineas,
-            clientesAtendidos: clientes.length,
-          }))
-        : Promise.resolve(null);
-
-    const [currentVentas, prevResumen] = await Promise.all([
-      currentVentasPromise,
-      prevResumenPromise,
-    ]);
-
     return {
       resumen: buildResumenVentasFromRecords(currentVentas),
-      prevResumen,
       evolucion: buildEvolucionVentasFromRecords(
         currentVentas,
         params.agruparPor ?? "dia"
@@ -2328,7 +2349,6 @@ export async function getVentasAnalisisBatch(params: {
     console.error("Error en getVentasAnalisisBatch:", error);
     return {
       resumen: { cantidad: 0, total: 0, productosVendidos: 0, clientesAtendidos: 0 },
-      prevResumen: null,
       evolucion: [],
       categoria: [],
       metodoPago: [],
@@ -2553,13 +2573,18 @@ export async function getCierresDiferencias(filters: ReportFilters = {}): Promis
 
     const cajas = await prisma.caja.findMany({
       where,
-      include: { usuario: { select: { username: true } } },
+      include: {
+        usuario: { select: { username: true } },
+        movimientos: { select: { tipo: true, monto: true } },
+      },
       orderBy: { fechaApertura: "desc" },
     });
 
     const withDiff = cajas
       .map((c) => {
-        const totalEsperado = c.montoInicial + c.totalVentas;
+        const totalEsperado = c.movimientos?.length
+          ? calcularEfectivoFisico(c.movimientos).efectivoEsperado
+          : c.montoInicial + c.totalVentas - (c.gastosManuales ?? 0);
         const diferencia = c.totalContado !== null ? c.totalContado - totalEsperado : null;
         return {
           id: c.id,
@@ -2949,62 +2974,90 @@ export async function getEvolucionVentas(
       orderBy: { fecha: "asc" },
     });
 
-    const agrupado: Record<string, { ventas: number; costo: number; fecha: Date; fechaFin: Date }> = {};
-    let lastWeekKey = "";
-    let lastMonth = -1;
-    let semanaEnMes = 0;
+    const agrupado = new Map<
+      string,
+      { periodo: string; ventas: number; costo: number; fechaInicio: Date; fechaFin: Date }
+    >();
 
     for (const v of ventas) {
+      const fechaLocal = toBuenosAiresWallTime(v.fecha);
+      let key: string;
       let periodo: string;
-      let fechaFin = v.fecha;
+      let fechaInicio = fechaLocal;
+      let fechaFin = fechaLocal;
+
       if (agruparPor === "anio") {
-        periodo = v.fecha.toLocaleDateString("es-AR", { year: "numeric" });
+        key = String(fechaLocal.getFullYear());
+        periodo = fechaLocal.toLocaleDateString("es-AR", { year: "numeric" });
+        fechaInicio = new Date(fechaLocal.getFullYear(), 0, 1);
+        fechaFin = new Date(fechaLocal.getFullYear(), 11, 31, 23, 59, 59, 999);
       } else if (agruparPor === "mes") {
-        periodo = v.fecha.toLocaleDateString("es-AR", { month: "long", year: "numeric" });
+        key = `${fechaLocal.getFullYear()}-${String(fechaLocal.getMonth() + 1).padStart(2, "0")}`;
+        periodo = fechaLocal.toLocaleDateString("es-AR", { month: "long", year: "numeric" });
+        fechaInicio = new Date(fechaLocal.getFullYear(), fechaLocal.getMonth(), 1);
+        fechaFin = new Date(fechaLocal.getFullYear(), fechaLocal.getMonth() + 1, 0, 23, 59, 59, 999);
       } else if (agruparPor === "semana") {
-        // Calcular inicio de semana (lunes) usando fecha local para evitar bug de timezone
-        const y = v.fecha.getFullYear();
-        const m = v.fecha.getMonth();
-        const d = v.fecha.getDate();
-        const dayOfWeek = v.fecha.getDay(); // 0=Dom, 1=Lun, ...
+        const dayOfWeek = fechaLocal.getDay();
         const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-        const inicioLocal = new Date(y, m, d - diffToMonday);
-        const finLocal = new Date(y, m, d - diffToMonday + 6);
-        fechaFin = finLocal;
-        const weekKey = `${inicioLocal.getFullYear()}-${String(inicioLocal.getMonth() + 1).padStart(2, "0")}-${String(inicioLocal.getDate()).padStart(2, "0")}`;
-        const mesActual = inicioLocal.getMonth();
-        if (weekKey !== lastWeekKey) {
-          if (mesActual !== lastMonth) {
-            semanaEnMes = 1;
-            lastMonth = mesActual;
-          } else {
-            semanaEnMes++;
-          }
-          lastWeekKey = weekKey;
-        }
-        // Calcular número de semana real según el día del mes del lunes
-        const diaDelMes = inicioLocal.getDate();
-        const numSemana = Math.ceil(diaDelMes / 7);
-        const mesLargo = inicioLocal.toLocaleDateString("es-AR", { month: "long" });
-        periodo = `S${numSemana} ${mesLargo}`;
+        fechaInicio = new Date(
+          fechaLocal.getFullYear(),
+          fechaLocal.getMonth(),
+          fechaLocal.getDate() - diffToMonday,
+          0,
+          0,
+          0,
+          0
+        );
+        fechaFin = new Date(
+          fechaLocal.getFullYear(),
+          fechaLocal.getMonth(),
+          fechaLocal.getDate() - diffToMonday + 6,
+          23,
+          59,
+          59,
+          999
+        );
+        key = `${fechaInicio.getFullYear()}-${String(fechaInicio.getMonth() + 1).padStart(2, "0")}-${String(fechaInicio.getDate()).padStart(2, "0")}`;
+        const d1 = String(fechaInicio.getDate()).padStart(2, "0");
+        const m1 = String(fechaInicio.getMonth() + 1).padStart(2, "0");
+        const d2 = String(fechaFin.getDate()).padStart(2, "0");
+        const m2 = String(fechaFin.getMonth() + 1).padStart(2, "0");
+        periodo = `${d1}/${m1} - ${d2}/${m2}`;
       } else {
-        periodo = v.fecha.toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "2-digit" });
+        key = `${fechaLocal.getFullYear()}-${String(fechaLocal.getMonth() + 1).padStart(2, "0")}-${String(fechaLocal.getDate()).padStart(2, "0")}`;
+        periodo = fechaLocal.toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "2-digit" });
+        fechaInicio = new Date(fechaLocal.getFullYear(), fechaLocal.getMonth(), fechaLocal.getDate());
+        fechaFin = new Date(fechaLocal.getFullYear(), fechaLocal.getMonth(), fechaLocal.getDate(), 23, 59, 59, 999);
       }
 
-      if (!agrupado[periodo]) agrupado[periodo] = { ventas: 0, costo: 0, fecha: v.fecha, fechaFin };
-      agrupado[periodo].ventas += v.total;
-      agrupado[periodo].costo += v.detalles.reduce(
+      const costoVenta = v.detalles.reduce(
         (s, d) => s + d.cantidad * d.producto.precioCompra,
         0
       );
+
+      const existente = agrupado.get(key);
+      if (existente) {
+        existente.ventas += v.total;
+        existente.costo += costoVenta;
+        if (fechaInicio < existente.fechaInicio) existente.fechaInicio = fechaInicio;
+        if (fechaFin > existente.fechaFin) existente.fechaFin = fechaFin;
+      } else {
+        agrupado.set(key, {
+          periodo,
+          ventas: v.total,
+          costo: costoVenta,
+          fechaInicio,
+          fechaFin,
+        });
+      }
     }
 
-    const data = Object.entries(agrupado)
-      .map(([periodo, vals]) => ({
-        periodo,
+    const data = Array.from(agrupado.values())
+      .map((vals) => ({
+        periodo: vals.periodo,
         ventas: vals.ventas,
         ganancia: vals.ventas - vals.costo,
-        fechaInicio: vals.fecha.toISOString(),
+        fechaInicio: vals.fechaInicio.toISOString(),
         fechaFin: vals.fechaFin.toISOString(),
       }))
       .sort((a, b) => a.fechaInicio.localeCompare(b.fechaInicio));

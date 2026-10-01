@@ -17,8 +17,6 @@ interface DetalleViewProps {
   data: VentasReportData;
   ventasFiltradas: ReporteVentaRow[]; // filtradas por búsqueda de cliente, más antiguas primero
   sortedVentas: ReporteVentaRow[]; // ordenadas según sortKey/sortDir
-  totales: { cantidad: number; total: number; productosVendidos: number };
-  clientesUnicos: number;
   fechaDesde: string;
   fechaHasta: string;
   sortKey: SortKey | null;
@@ -31,8 +29,6 @@ interface DetalleViewProps {
 export default function DetalleView({
   ventasFiltradas,
   sortedVentas,
-  totales,
-  clientesUnicos,
   fechaDesde,
   fechaHasta,
   sortKey,
@@ -66,34 +62,11 @@ export default function DetalleView({
 
   return (
     <section
-      className="report-section space-y-5"
+      className="report-section space-y-4"
       data-section-id="detalle"
       data-print-active={printSection === "detalle" || null}
     >
       <ReportPrintHeader desde={fechaDesde} hasta={fechaHasta} />
-
-      {/* Barra resumen compacta (refleja la búsqueda de cliente activa) */}
-      <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl p-4">
-        <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-3">Resumen</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3">
-            <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Ventas Totales</div>
-            <div className="text-sm font-bold text-[var(--success)]">{formatCurrency(totales.total)}</div>
-          </div>
-          <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3">
-            <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Cantidad de Ventas</div>
-            <div className="text-sm font-bold text-[var(--text)]">{totales.cantidad}</div>
-          </div>
-          <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3">
-            <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Productos Vendidos</div>
-            <div className="text-sm font-bold text-[var(--text)]">{totales.productosVendidos}</div>
-          </div>
-          <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3">
-            <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Clientes Atendidos</div>
-            <div className="text-sm font-bold text-[var(--text)]">{clientesUnicos}</div>
-          </div>
-        </div>
-      </div>
 
       {/* Tabla completa */}
       <div className="flex items-center justify-between mb-2 print:hidden">

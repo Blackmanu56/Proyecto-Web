@@ -11,7 +11,6 @@ export interface ResumenVentas {
 
 export interface AnalisisCache {
   resumen: ResumenVentas;
-  prevResumen: ResumenVentas | null;
   evolucion: {
     periodo: string;
     ventas: number;

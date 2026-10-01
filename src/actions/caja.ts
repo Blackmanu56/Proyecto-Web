@@ -276,6 +276,7 @@ export async function abrirCaja(montoInicial: number, montoInicialBanco: number)
 
     revalidatePath("/caja");
     revalidatePath("/dashboard");
+    revalidatePath("/ventas");
     return { success: true, cajaId: res.id, needsApproval: false };
   } catch (error: unknown) {
     console.error("Error en abrirCaja:", error);
@@ -539,6 +540,7 @@ export async function aprobarSolicitudCaja(solicitudId: number) {
 
     revalidatePath("/caja");
     revalidatePath("/dashboard");
+    revalidatePath("/ventas");
     return { success: true };
   } catch (error: unknown) {
     console.error("Error en aprobarSolicitudCaja:", error);
@@ -594,6 +596,7 @@ export async function rechazarSolicitudCaja(solicitudId: number, motivoRechazo?:
 
     revalidatePath("/caja");
     revalidatePath("/dashboard");
+    revalidatePath("/ventas");
     return { success: true };
   } catch (error: unknown) {
     console.error("Error en rechazarSolicitudCaja:", error);
@@ -712,6 +715,7 @@ export async function cerrarCaja(
 
     revalidatePath("/caja");
     revalidatePath("/dashboard");
+    revalidatePath("/ventas");
     return { success: true, ...cierre };
   } catch (error: unknown) {
     console.error("Error en cerrarCaja:", error);

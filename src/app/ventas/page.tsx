@@ -5,6 +5,8 @@ import VentasTerminal from "@/components/forms/VentasTerminal";
 import { ShoppingCart } from "lucide-react";
 import { validarCajaHabilitadaParaVenta } from "@/lib/caja-status";
 
+export const dynamic = "force-dynamic";
+
 export default async function VentasPage() {
   const session = await getSession();
 

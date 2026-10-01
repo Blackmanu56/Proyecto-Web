@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useSyncExternalStore } from "react";
 import { ResponsiveContainer } from "recharts";
 
 interface ChartWrapperProps {
   title: string;
-  children: React.ReactElement;
+  children: React.ReactNode;
   height?: number;
   action?: React.ReactNode;
 }
@@ -29,31 +29,34 @@ export default function ChartWrapper({
   height = 300,
   action,
 }: ChartWrapperProps) {
-  // Gateamos el montaje de los charts hasta el primer paint del cliente.
-  // Recharts mide el contenedor con getBoundingClientRect/ResizeObserver; si el
-  // componente se monta con layout 0 (montaje por tabs, animaciones, SSR), el
-  // SVG nace con tamaño 0 y, si el data nunca cambia (no hay Cargar/filtros),
-  // no hay re-render que dispare una re-medición → gráficos vacíos para siempre.
-  // Al montar el ResponsiveContainer recién acá, nace con layout real.
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
 
-  // Render children directly dentro de ResponsiveContainer.
-  // Antes usábamos React.cloneElement para inyectar margin + Tooltip + Legend,
-  // pero en React 19.2 + recharts 2.15, cloneElement produce un elemento que
-  // recharts no puede renderizar (charts vacíos). La solución limpia es renderizar
-  // children directamente — cada informe puede agregar Tooltip/Legend si lo necesita.
+  const isRechartsChild =
+    React.isValidElement(children) &&
+    typeof children.type !== "string";
+
   return (
     <div className="bg-card rounded-xl p-4 border border-border">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold text-text-muted">{title}</h3>
         {action}
       </div>
-      <div style={{ width: "100%", height }}>
-        {mounted && <ResponsiveContainer>{children}</ResponsiveContainer>}
+      <div style={{ width: "100%", height, position: "relative" }}>
+        {mounted && (
+          isRechartsChild ? (
+            <ResponsiveContainer width="100%" height="100%">
+              {children as React.ReactElement}
+            </ResponsiveContainer>
+          ) : (
+            children
+          )
+        )}
       </div>
     </div>
   );
 }
+
