@@ -11,7 +11,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { getCierresDateRange, toApiDate } from "@/lib/reportPeriods";
 import type { PeriodoPreset } from "@/lib/reportPeriods";
 import {
-  Search, Calendar, User, RefreshCw, Eye, ChevronUp, Loader2,
+  Search, Calendar, RefreshCw, Eye, ChevronUp, Loader2,
   CheckCircle, Printer,
   ChevronDown, History,
 } from "lucide-react";
@@ -129,7 +129,6 @@ export default function CierresReport({ initialData, usuarios }: Props) {
   const [fechaHasta, setFechaHasta] = useState(() => getCierresDateRange("dia").hasta.slice(0, 10));
   const [activePeriod, setActivePeriod] = useState<PeriodoSeleccion>("dia");
   const [vista, setVista] = useState<VistaCierres>("diario");
-  const [usuarioId, setUsuarioId] = useState<number | undefined>(undefined);
   const [estadoFiltro, setEstadoFiltro] = useState("");
   const [isPending, startTransition] = useTransition();
 
@@ -150,10 +149,10 @@ export default function CierresReport({ initialData, usuarios }: Props) {
   const [mesError, setMesError] = useState(false);
 
   // Búsqueda diaria. F1: las fechas cruzan el límite servidor como datetime local
-  // completo sin Z (toApiDate). Preserva filtros Usuario/Estado en cada búsqueda.
+  // completo sin Z (toApiDate). Preserva filtro Estado en cada búsqueda.
   const runSearch = (desde?: string, hasta?: string) => {
     startTransition(async () => {
-      const result = await getReporteCierres(toApiDate(desde), toApiDate(hasta), usuarioId, estadoFiltro || undefined);
+      const result = await getReporteCierres(toApiDate(desde), toApiDate(hasta), undefined, estadoFiltro || undefined);
       setData(result);
     });
   };
@@ -162,7 +161,7 @@ export default function CierresReport({ initialData, usuarios }: Props) {
     setLoadingMensual(true);
     setMensualError(false);
     try {
-      const result = await getCierresMensuales(toApiDate(desde), toApiDate(hasta), usuarioId);
+      const result = await getCierresMensuales(toApiDate(desde), toApiDate(hasta));
       setMensualData(result);
       setExpandedMes(null);
       setExpandedMesRows(null);
@@ -341,7 +340,7 @@ export default function CierresReport({ initialData, usuarios }: Props) {
         {/* Contenido colapsable */}
         {filtersOpen && (
           <div className="px-4 pb-4 space-y-3 border-t border-[var(--border)]">
-            <div className="pt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="pt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <div>
                 <label className="text-xs font-semibold text-text-muted flex items-center gap-1 mb-1">
                   <Calendar size={12} /> Desde
@@ -372,37 +371,20 @@ export default function CierresReport({ initialData, usuarios }: Props) {
               </div>
 
               {vista === "diario" && (
-                <>
-                  <div>
-                    <label className="text-xs font-semibold text-text-muted flex items-center gap-1 mb-1">
-                      <User size={12} /> Usuario
-                    </label>
-                    <select
-                      value={usuarioId ? String(usuarioId) : ""}
-                      onChange={(e) => setUsuarioId(e.target.value ? Number(e.target.value) : undefined)}
-                      className={inputClass}
-                    >
-                      <option value="">Todas las cajas</option>
-                      {usuarios.map((u) => (
-                        <option key={u.id} value={u.id}>{u.nombreCompleto || u.username}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-text-muted flex items-center gap-1 mb-1">
-                      <CheckCircle size={12} /> Estado
-                    </label>
-                    <select
-                      value={estadoFiltro}
-                      onChange={(e) => setEstadoFiltro(e.target.value)}
-                      className={inputClass}
-                    >
-                      <option value="">Todos</option>
-                      <option value="ABIERTA">Abiertos</option>
-                      <option value="CERRADA">Cerrados</option>
-                    </select>
-                  </div>
-                </>
+                <div>
+                  <label className="text-xs font-semibold text-text-muted flex items-center gap-1 mb-1">
+                    <CheckCircle size={12} /> Estado
+                  </label>
+                  <select
+                    value={estadoFiltro}
+                    onChange={(e) => setEstadoFiltro(e.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="">Todos</option>
+                    <option value="ABIERTA">Abiertos</option>
+                    <option value="CERRADA">Cerrados</option>
+                  </select>
+                </div>
               )}
             </div>
 
@@ -427,7 +409,6 @@ export default function CierresReport({ initialData, usuarios }: Props) {
           <div className="flex justify-center gap-6 text-xs text-gray-500 mt-2">
             <span>Período: {fechaDesde} al {fechaHasta}</span>
             <span>Generado: {formatDate(new Date())}</span>
-            <span>Usuario: {usuarios.find(u => u.id === usuarioId)?.nombreCompleto || "Todos"}</span>
           </div>
           <hr className="my-3 border-gray-300" />
         </div>
