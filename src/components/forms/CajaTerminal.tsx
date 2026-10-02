@@ -907,9 +907,9 @@ export default function CajaTerminal({
   return (
     <>
     <style>{`#print-overlay .cj-summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }`}</style>
-    <div className="flex flex-col gap-2 h-full min-h-0">
+    <div className="flex flex-col gap-2 h-auto desk:h-full min-h-0">
       {/* ═══ SECCIÓN PRINCIPAL ═══ */}
-      <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
+      <div className="flex flex-1 flex-col min-h-0 desk:overflow-hidden">
 
         {/* ── CASO A: Caja Cerrada ── */}
         {!cajaActiva ? (
@@ -1053,7 +1053,7 @@ export default function CajaTerminal({
 
         /* ── CASO B: Caja Abierta ── */
         ) : (
-          <div className="animate-in fade-in duration-200 flex flex-1 flex-col min-h-0 gap-2">
+          <div className="animate-in fade-in duration-200 flex flex-1 flex-col min-h-0 h-auto desk:h-full gap-2">
 
             {/* Day-change warning */}
             {dayChanged && (
@@ -1303,7 +1303,7 @@ export default function CajaTerminal({
             </div>
 
             {/* ═══ LIBRO DIARIO ═══ */}
-            <div className="flex flex-1 basis-0 flex-col min-h-0">
+            <div className="flex flex-1 desk:basis-0 flex-col min-h-[420px] desk:min-h-0">
               <TableShell
                 title="Libro Diario"
                 isEmpty={movimientosLibroDiarioFiltrados.length === 0}
@@ -1312,11 +1312,11 @@ export default function CajaTerminal({
               >
                 <table className="w-full min-w-[1720px] border-collapse text-sm text-left">
                     <thead className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--panel)] text-[11px] font-semibold uppercase tracking-wider text-[var(--text-secondary)] shadow-[0_1px_0_var(--border)]">
-                      <tr>
-                        <th className="w-[4%] bg-[var(--panel)] px-3 py-3 text-center">#</th>
-                        <th className="w-[8%] bg-[var(--panel)] px-3 py-3">Fecha</th>
-                        <th className="w-[6%] bg-[var(--panel)] px-3 py-3">Hora</th>
-                        <th className="w-[24%] bg-[var(--panel)] px-3 py-3">Descripción</th>
+                      <tr className="whitespace-nowrap">
+                        <th className="w-[4%] bg-[var(--panel)] px-3 py-3 text-center whitespace-nowrap">#</th>
+                        <th className="w-[8%] bg-[var(--panel)] px-3 py-3 whitespace-nowrap">Fecha</th>
+                        <th className="w-[6%] bg-[var(--panel)] px-3 py-3 whitespace-nowrap">Hora</th>
+                        <th className="w-[24%] bg-[var(--panel)] px-3 py-3 whitespace-nowrap min-w-[200px]">Descripción</th>
                         <th className="w-[8%] bg-[var(--panel)] px-2 py-3 text-center whitespace-nowrap">Tipo</th>
                         <th className="w-[9%] bg-[var(--panel)] px-2 py-3 whitespace-nowrap">Pago</th>
                         <th className="w-[9%] bg-[var(--panel)] px-3 py-3 text-right whitespace-nowrap">Importe</th>
@@ -1439,7 +1439,7 @@ export default function CajaTerminal({
                 Totales según filtros aplicados
               </p>
             )}
-            <div className="grid gap-2 xl:grid-cols-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2">
               <div className="rounded-xl border border-[var(--border)] hover:border-[#f59e0b]/40 bg-[var(--card)] p-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(245,158,11,0.12)]">
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#f59e0b]">Operación económica</p>
                 <div className="mt-2 space-y-2">

@@ -451,23 +451,23 @@ export default function ClientesTable({
           </colgroup>
           <thead className="bg-[#17191f]">
             <tr className="bg-[#17191f] text-[11px] uppercase tracking-[0.08em] font-extrabold text-[#9DB2D6] whitespace-nowrap">
-              <th className="sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 text-left shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors" onClick={() => handleSortCycle("nombre")} title={getSortTooltip("nombre")}>
+              <th className="sticky top-0 z-20 whitespace-nowrap bg-[#17191f] bg-clip-padding py-4 px-4 text-left shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors" onClick={() => handleSortCycle("nombre")} title={getSortTooltip("nombre")}>
                 <div className="flex items-center gap-2">Cliente {renderSortIndicator("nombre")}</div>
               </th>
-              <th className="sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 text-left shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)]">
+              <th className="sticky top-0 z-20 whitespace-nowrap bg-[#17191f] bg-clip-padding py-4 px-4 text-left shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)]">
                 <div className="flex items-center gap-2">Documentos</div>
               </th>
-              <th className="sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 text-left shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)]">Contacto</th>
-              <th className="sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 text-center shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors" onClick={() => handleSortCycle("activo")} title={getSortTooltip("activo")}>
+              <th className="sticky top-0 z-20 whitespace-nowrap bg-[#17191f] bg-clip-padding py-4 px-4 text-left shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)]">Contacto</th>
+              <th className="sticky top-0 z-20 whitespace-nowrap bg-[#17191f] bg-clip-padding py-4 px-4 text-center shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors" onClick={() => handleSortCycle("activo")} title={getSortTooltip("activo")}>
                 <div className="flex items-center justify-center gap-2">Estado {renderSortIndicator("activo")}</div>
               </th>
-              <th className="sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 text-center shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors" onClick={() => handleSortCycle("ventas")} title={getSortTooltip("ventas")}>
+              <th className="sticky top-0 z-20 whitespace-nowrap bg-[#17191f] bg-clip-padding py-4 px-4 text-center shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors" onClick={() => handleSortCycle("ventas")} title={getSortTooltip("ventas")}>
                 <div className="flex items-center justify-center gap-2">Compras {renderSortIndicator("ventas")}</div>
               </th>
-              <th className="sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 text-right shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors" onClick={() => handleSortCycle("totalGastado")} title={getSortTooltip("totalGastado")}>
+              <th className="sticky top-0 z-20 whitespace-nowrap bg-[#17191f] bg-clip-padding py-4 px-4 text-right shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors" onClick={() => handleSortCycle("totalGastado")} title={getSortTooltip("totalGastado")}>
                 <div className="flex items-center justify-end gap-2">Total Gastado {renderSortIndicator("totalGastado")}</div>
               </th>
-              <th className="sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 text-center shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)]">Acciones</th>
+              <th className="sticky top-0 z-20 whitespace-nowrap bg-[#17191f] bg-clip-padding py-4 px-4 text-center shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)]">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--border)]/60 text-[13px] text-[var(--text-muted)]">
@@ -525,18 +525,18 @@ export default function ClientesTable({
                     )}
                   </div>
                 </td>
-                <td className="py-3 px-4 text-center">
+                <td className="py-3 px-4 text-center whitespace-nowrap">
                   <Badge variant={cliente.activo ? "success" : "danger"} size="sm">
                     {cliente.activo ? "Activo" : "Baja"}
                   </Badge>
                 </td>
-                <td className="py-3 px-4 text-center font-semibold text-[var(--text)]">
+                <td className="py-3 px-4 text-center font-semibold text-[var(--text)] whitespace-nowrap">
                   {cliente._count.ventas}
                 </td>
-                <td className="py-3 px-4 text-right font-semibold text-[var(--text)] font-mono">
+                <td className="py-3 px-4 text-right font-semibold text-[var(--text)] font-mono whitespace-nowrap">
                   {formatCurrency(cliente._sum.ventas ?? 0)}
                 </td>
-                <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                <td className="py-3 px-4 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-center gap-1">
                     <Button
                       variant="ghost"
@@ -654,7 +654,7 @@ export default function ClientesTable({
               </FormField>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <FormField label="Teléfono">
                 <Input
                   type="text"
@@ -714,7 +714,7 @@ export default function ClientesTable({
 
       {/* ─── Ficha del Cliente ─── */}
       <Dialog open={isFichaOpen} onOpenChange={setIsFichaOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto">
           <DialogHeader className="pr-10">
             <DialogTitle className="flex items-center justify-between w-full">
               <span className="flex items-center gap-2">
@@ -805,7 +805,7 @@ export default function ClientesTable({
               </div>
 
               {/* Information section */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="bg-bg border border-border rounded-lg p-3 space-y-2">
                   <h4 className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-2">
                     Información Personal
@@ -887,7 +887,7 @@ export default function ClientesTable({
                     </p>
                   </div>
                 ) : (
-                  <div className="bg-bg border border-border rounded-lg overflow-hidden max-h-[200px] overflow-y-auto">
+                  <div className="bg-bg border border-border rounded-lg overflow-hidden max-h-[200px] overflow-y-auto overflow-x-auto scrollbar-thin">
                     <table className="w-full text-left border-collapse">
                       <thead className="sticky top-0 bg-[var(--bg)]">
                         <tr className="border-b border-border text-[10px] uppercase tracking-wider font-semibold text-text-secondary">

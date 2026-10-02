@@ -148,12 +148,12 @@ function EmployeePanelContent({
 
       {/* Panel */}
       <div
-        className={`fixed right-0 top-0 z-50 h-full w-full max-w-md bg-panel border-l border-border shadow-[var(--shadow-xl)] transform transition-transform duration-200 ease-in-out print:hidden ${
+        className={`fixed right-0 top-0 z-50 h-full w-full max-w-md bg-panel border-l border-border shadow-[var(--shadow-xl)] transform transition-transform duration-200 ease-in-out print:hidden flex flex-col ${
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-border">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-border shrink-0">
           <h2 className="text-lg font-bold text-text">Detalle del Empleado</h2>
           <Button
             variant="ghost"
@@ -166,7 +166,7 @@ function EmployeePanelContent({
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6 overflow-y-auto h-[calc(100%-200px)]">
+        <div className="p-4 sm:p-6 space-y-6 overflow-y-auto flex-1 min-h-0">
           {/* Large Photo */}
           <div className="flex justify-center">
             {user.fotoUrl ? (
@@ -335,7 +335,7 @@ function EmployeePanelContent({
         </div>
 
         {/* Footer Actions */}
-        <div className="absolute bottom-0 left-0 right-0 p-6 border-t border-border bg-panel">
+        <div className="shrink-0 p-4 sm:p-6 border-t border-border bg-panel">
           <div className="flex items-center gap-3">
             {onEdit && (
               <Button

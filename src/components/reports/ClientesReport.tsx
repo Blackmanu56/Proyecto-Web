@@ -356,9 +356,9 @@ export default function ClientesReport({ initialData, userRole }: Props) {
           </div>
           <div className="bg-[var(--card)] print:bg-white border border-[var(--border)] print:border-gray-300 rounded-xl overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm min-w-[500px]">
                 <thead>
-                  <tr className="border-b border-[var(--border)] print:border-gray-300 bg-[var(--panel)] print:bg-gray-100">
+                  <tr className="border-b border-[var(--border)] print:border-gray-300 bg-[var(--panel)] print:bg-gray-100 whitespace-nowrap">
                     <th className={"text-left " + tableCellHeader}>Nombre</th>
                     <th className={"text-left " + tableCellHeader}>Última compra</th>
                     <th className={"text-right " + tableCellHeader}>Días sin comprar</th>
@@ -407,10 +407,10 @@ export default function ClientesReport({ initialData, userRole }: Props) {
                 className={inputClass}
               />
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto scrollbar-thin">
+              <table className="w-full text-sm min-w-[700px]">
                 <thead>
-                  <tr className="border-b border-[var(--border)] print:border-gray-300 bg-[var(--panel)] print:bg-gray-100">
+                  <tr className="border-b border-[var(--border)] print:border-gray-300 bg-[var(--panel)] print:bg-gray-100 whitespace-nowrap">
                     <th className={"text-left " + tableCellHeader}>Nombre</th>
                     <th className={"text-left " + tableCellHeader}>DNI</th>
                     <th

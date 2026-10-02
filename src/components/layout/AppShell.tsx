@@ -35,9 +35,9 @@ export default function AppShell({ user, children }: AppShellProps) {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--bg)]">
+    <div className="min-h-screen bg-[var(--bg)] flex flex-col">
       <Navbar user={user} currentPath={pathname} />
-      <main className="p-4">{children}</main>
+      <main className="flex-1 p-2 sm:p-4 flex flex-col">{children}</main>
     </div>
   );
 }

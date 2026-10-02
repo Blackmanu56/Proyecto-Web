@@ -597,7 +597,7 @@ function CajaDetailModal({
       onClick={() => onOpenChange(false)}
     >
       <div
-        className="bg-[#111318] border border-[#232734] rounded-2xl p-6 w-full max-w-lg shadow-2xl space-y-4"
+        className="bg-[#111318] border border-[#232734] rounded-2xl p-6 w-full max-w-lg max-h-[90dvh] overflow-y-auto shadow-2xl space-y-4"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4">
@@ -1092,15 +1092,15 @@ export default function SolicitudesTable({
   }, [showActionsColumn]);
 
   return (
-    <div className="space-y-3.5 flex flex-col h-full min-h-0">
+    <div className="space-y-3.5 flex flex-col h-auto desk:h-full min-h-0">
       {/* Top Bar: Centered Filters + Search */}
       <div className="shrink-0 flex items-end justify-center gap-3 bg-[var(--card)] p-3 min-h-[76px] rounded-2xl border border-[var(--border)] flex-wrap shadow-sm">
         {/* Estado tabs */}
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1 max-w-full">
           <label className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
             Estado
           </label>
-          <div className="flex items-center justify-center gap-1 p-1 bg-[var(--bg)] rounded-xl border border-[var(--border)]">
+          <div className="flex items-center justify-start sm:justify-center gap-1 p-1 bg-[var(--bg)] rounded-xl border border-[var(--border)] overflow-x-auto max-w-full scrollbar-thin">
             {ESTADO_TABS.map((tab) => {
               const count = counts[tab.key];
               const isActive = filter === tab.key;
@@ -1204,14 +1204,14 @@ export default function SolicitudesTable({
       </div>
 
       {/* Table */}
-      <div className="flex-1 min-h-0 overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--card)]">
+      <div className="flex-1 min-h-[400px] desk:min-h-0 overflow-x-auto overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--card)] scrollbar-thin">
         <table className="w-full text-sm border-collapse min-w-[960px] table-auto">
           <thead>
-            <tr className="bg-[#17191f]">
+            <tr className="bg-[#17191f] whitespace-nowrap">
               {tableColumns.map((col) => (
                 <th
                   key={col.label}
-                  className={`sticky top-0 z-10 bg-[#17191f] py-3.5 px-4 border-b border-[var(--border)] text-[11px] uppercase tracking-[0.08em] font-extrabold text-[#9DB2D6] ${col.className}`}
+                  className={`sticky top-0 z-20 whitespace-nowrap bg-[#17191f] py-3.5 px-4 border-b border-[var(--border)] text-[11px] uppercase tracking-[0.08em] font-extrabold text-[#9DB2D6] ${col.className}`}
                 >
                   {col.label}
                 </th>
@@ -1249,7 +1249,7 @@ export default function SolicitudesTable({
                     }}
                   >
                     {/* ID */}
-                    <td className="relative px-4 py-3.5 font-mono text-xs font-bold text-[var(--text-muted)]">
+                    <td className="relative px-4 py-3.5 font-mono text-xs font-bold text-[var(--text-muted)] whitespace-nowrap">
                       {isHighlighted && (
                         <span className="absolute left-0 top-1.5 bottom-1.5 w-[4px] rounded-r-full bg-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.8)]" />
                       )}
@@ -1257,17 +1257,17 @@ export default function SolicitudesTable({
                     </td>
 
                     {/* Origen badge */}
-                    <td className="px-4 py-3.5">{origenBadge(sol.origen)}</td>
+                    <td className="px-4 py-3.5 whitespace-nowrap">{origenBadge(sol.origen)}</td>
 
                   {/* Tipo */}
-                  <td className="px-4 py-3.5">
+                  <td className="px-4 py-3.5 whitespace-nowrap">
                     <span className="text-xs font-bold text-[var(--text)]">
                       {sol.tipo}
                     </span>
                   </td>
 
                   {/* Detalle / Producto */}
-                  <td className="px-4 py-3.5">
+                  <td className="px-4 py-3.5 min-w-[200px]">
                     {sol.productoNombre ? (
                       <div className="min-w-0 max-w-[280px]">
                         <span className="font-semibold text-[var(--text)] text-xs truncate block" title={sol.productoNombre}>
@@ -1284,7 +1284,7 @@ export default function SolicitudesTable({
                   </td>
 
                   {/* Solicitante */}
-                  <td className="px-4 py-3.5 text-xs text-[var(--text-secondary)] truncate max-w-[130px]">
+                  <td className="px-4 py-3.5 text-xs text-[var(--text-secondary)] truncate max-w-[130px] min-w-[120px]">
                     <span className="font-medium text-[var(--text)] block truncate">
                       {sol.solicitanteNombre}
                     </span>
@@ -1296,7 +1296,7 @@ export default function SolicitudesTable({
                   </td>
 
                   {/* Fecha */}
-                  <td className="px-4 py-3.5">
+                  <td className="px-4 py-3.5 whitespace-nowrap">
                     <div className="text-xs text-[var(--text-secondary)] whitespace-nowrap leading-tight">
                       <span className="text-[var(--text)] block font-medium">
                         {formatDateOnly(sol.fecha)}
@@ -1308,14 +1308,14 @@ export default function SolicitudesTable({
                   </td>
 
                   {/* Estado */}
-                  <td className="px-4 py-3.5 text-center">
+                  <td className="px-4 py-3.5 text-center whitespace-nowrap">
                     {estadoBadge(sol.estado)}
                   </td>
 
                   {/* Acciones */}
                   {showActionsColumn && (
                     <td
-                      className="px-4 py-3.5 text-center"
+                      className="px-4 py-3.5 text-center whitespace-nowrap"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <div className="flex items-center justify-center gap-1.5">
@@ -1443,7 +1443,7 @@ export default function SolicitudesTable({
           onClick={() => setRejectModalSolicitud(null)}
         >
           <div
-            className="w-full max-w-md bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 shadow-2xl space-y-4"
+            className="w-full max-w-md bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 shadow-2xl space-y-4 max-h-[90dvh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-3">
@@ -1504,7 +1504,7 @@ export default function SolicitudesTable({
           onClick={() => setCancelModalSolicitud(null)}
         >
           <div
-            className="w-full max-w-md bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 shadow-2xl space-y-4"
+            className="w-full max-w-md bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 shadow-2xl space-y-4 max-h-[90dvh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-3">

@@ -461,9 +461,9 @@ export default function UsuariosTable({
   const selectedRolNombre = roles.find((r) => r.id === selectedRolId)?.nombre || "";
 
   return (
-    <div className="flex flex-col h-full min-h-0">
+    <div className="flex flex-col h-auto desk:h-full min-h-0">
       {/* 1. Stats Cards */}
-      <div className="grid grid-cols-3 gap-3 shrink-0 mb-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 shrink-0 mb-3">
         <div className="bg-[linear-gradient(135deg,rgba(59,130,246,0.10),rgba(59,130,246,0.03))] border border-[#3B82F6]/35 p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(59,130,246,0.12)]">
           <div>
             <p className="text-xs text-[#3B82F6] font-extrabold uppercase tracking-wider">Total Usuarios</p>
@@ -546,7 +546,7 @@ export default function UsuariosTable({
         }
       >
         <div className="min-w-full">
-          <table className="w-full table-fixed border-separate border-spacing-0 text-left min-w-[700px]">
+          <table className="w-full table-fixed border-separate border-spacing-0 text-left min-w-[880px]">
             <colgroup>
               <col style={{ width: "25%" }} />
               <col style={{ width: "12%" }} />
@@ -556,43 +556,43 @@ export default function UsuariosTable({
               <col style={{ width: "18%" }} />
             </colgroup>
             <thead className="bg-[#17191f]">
-              <tr className="bg-[#17191f] text-[11px] uppercase tracking-[0.08em] font-extrabold text-[#9DB2D6]">
+              <tr className="bg-[#17191f] text-[11px] uppercase tracking-[0.08em] font-extrabold text-[#9DB2D6] whitespace-nowrap">
                 <th
-                  className="sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors"
+                  className="sticky top-0 z-20 whitespace-nowrap bg-[#17191f] bg-clip-padding py-4 px-4 shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors"
                   onClick={() => handleSortCycle("nombreCompleto")}
                   title={getSortTooltip("nombreCompleto")}
                 >
                   <div className="flex items-center gap-2">Usuario {renderSortIndicator("nombreCompleto")}</div>
                 </th>
                 <th
-                  className="sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors"
+                  className="sticky top-0 z-20 whitespace-nowrap bg-[#17191f] bg-clip-padding py-4 px-4 shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors"
                   onClick={() => handleSortCycle("dni")}
                   title={getSortTooltip("dni")}
                 >
                   <div className="flex items-center gap-2">DNI {renderSortIndicator("dni")}</div>
                 </th>
                 <th
-                  className="sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors"
+                  className="sticky top-0 z-20 whitespace-nowrap bg-[#17191f] bg-clip-padding py-4 px-4 shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors"
                   onClick={() => handleSortCycle("correo")}
                   title={getSortTooltip("correo")}
                 >
                   <div className="flex items-center gap-2">Contacto {renderSortIndicator("correo")}</div>
                 </th>
                 <th
-                  className="sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors"
+                  className="sticky top-0 z-20 whitespace-nowrap bg-[#17191f] bg-clip-padding py-4 px-4 shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors"
                   onClick={() => handleSortCycle("rol")}
                   title={getSortTooltip("rol")}
                 >
                   <div className="flex items-center gap-2">Rol {renderSortIndicator("rol")}</div>
                 </th>
                 <th
-                  className="sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 text-center shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors"
+                  className="sticky top-0 z-20 whitespace-nowrap bg-[#17191f] bg-clip-padding py-4 px-4 text-center shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors"
                   onClick={() => handleSortCycle("activo")}
                   title={getSortTooltip("activo")}
                 >
                   <div className="flex items-center justify-center gap-2">Estado {renderSortIndicator("activo")}</div>
                 </th>
-                <th className="sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 text-center shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)]">Acciones</th>
+                <th className="sticky top-0 z-20 whitespace-nowrap bg-[#17191f] bg-clip-padding py-4 px-4 text-center shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)]">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border)]/60 text-sm text-[var(--text-muted)]">
@@ -604,7 +604,7 @@ export default function UsuariosTable({
                     !user.activo ? "opacity-60" : ""
                   }`}
                 >
-                  <td className="py-2.5 px-4">
+                  <td className="py-2.5 px-4 min-w-[200px]">
                     <div className="flex items-center gap-2">
                       <Avatar
                         fotoUrl={user.fotoUrl}
@@ -622,10 +622,10 @@ export default function UsuariosTable({
                       </div>
                     </div>
                   </td>
-                  <td className="py-2.5 px-4">
+                  <td className="py-2.5 px-4 whitespace-nowrap">
                     <span className="font-mono text-sm text-[var(--text-muted)]">{user.dni}</span>
                   </td>
-                  <td className="py-2.5 px-4">
+                  <td className="py-2.5 px-4 min-w-[160px]">
                     <div className="space-y-1">
                       {user.correo && (
                         <p className="text-sm text-[var(--text-muted)] flex items-center gap-1.5">
@@ -644,7 +644,7 @@ export default function UsuariosTable({
                       )}
                     </div>
                   </td>
-                  <td className="py-2.5 px-4">
+                  <td className="py-2.5 px-4 whitespace-nowrap">
                     <div className="flex items-center gap-1.5">
                       <RolBadge rolNombre={user.rol.nombre} />
                       {user.id === primaryAdminId && (
@@ -657,10 +657,10 @@ export default function UsuariosTable({
                       )}
                     </div>
                   </td>
-                  <td className="py-2.5 px-4 text-center">
+                  <td className="py-2.5 px-4 text-center whitespace-nowrap">
                     <EstadoBadge activo={user.activo} />
                   </td>
-                  <td className="py-2.5 px-4 text-center">
+                  <td className="py-2.5 px-4 text-center whitespace-nowrap">
                     <div className="flex items-center justify-center gap-1">
                       <Button
                         variant="ghost"
@@ -708,7 +708,7 @@ export default function UsuariosTable({
 
       {/* 3. Create/Edit Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <div className="p-2 bg-brand-light rounded-[var(--radius-md)] text-brand border border-brand/10">

@@ -120,14 +120,15 @@ const COLUMNS: ColumnDef[] = [
 ];
 
 const COLUMN_WIDTH_CLASSES: Record<string, string> = {
-  nombre: "w-[36%]",
-  marca: "w-[7%]",
-  categoria: "w-[8%]",
-  precioCompra: "w-[8%]",
-  precioVenta: "w-[8%]",
-  stock: "w-[6%]",
-  proveedor: "w-[10%]",
-  estado: "w-[5%]",
+  nombre: "w-[30%] min-w-[240px]",
+  marca: "w-[8%] min-w-[90px]",
+  categoria: "w-[10%] min-w-[110px]",
+  precioCompra: "w-[10%] min-w-[115px]",
+  precioVenta: "w-[10%] min-w-[115px]",
+  stock: "w-[8%] min-w-[85px]",
+  stockMinimo: "w-[8%] min-w-[85px]",
+  proveedor: "w-[12%] min-w-[130px]",
+  estado: "w-[8%] min-w-[90px]",
 };
 
 const COLUMN_VISIBILITY_KEY = "productos-column-visibility";
@@ -871,9 +872,9 @@ export default function ProductosTable({
   };
 
   return (
-    <div className="flex flex-col h-full min-h-0">
+    <div className="flex flex-col h-auto desk:h-full min-h-0">
       {/* ═══════════════ Header: stat cards ═══════════════ */}
-      <div className="grid grid-cols-4 gap-3 shrink-0 mb-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 shrink-0 mb-3">
         {/* Total Productos */}
         <div className="bg-[linear-gradient(135deg,rgba(59,130,246,0.10),rgba(59,130,246,0.03))] border border-[#3B82F6]/35 p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(59,130,246,0.12)]">
           <div>
@@ -1178,15 +1179,15 @@ export default function ProductosTable({
         }
       >
         <div className="min-w-full">
-          <table className="w-full table-fixed border-separate border-spacing-0 text-left">
+          <table className="w-full table-fixed border-separate border-spacing-0 text-left min-w-[1020px]">
             <thead className="bg-[#17191f]">
-              <tr className="bg-[#17191f] text-[11px] uppercase tracking-[0.08em] font-extrabold text-[#9DB2D6]">
+              <tr className="bg-[#17191f] text-[11px] uppercase tracking-[0.08em] font-extrabold text-[#9DB2D6] whitespace-nowrap">
                 {COLUMNS.map(col => {
                   if (!vis(col.key)) return null;
                   return (
                     <th
                       key={col.key}
-                      className={`sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] ${COLUMN_WIDTH_CLASSES[col.key] ?? ""} ${col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : ""} ${col.sortable ? "cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors" : ""}`}
+                      className={`sticky top-0 z-20 whitespace-nowrap bg-[#17191f] bg-clip-padding py-4 px-4 shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] ${COLUMN_WIDTH_CLASSES[col.key] ?? ""} ${col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : ""} ${col.sortable ? "cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors" : ""}`}
                       onClick={col.sortable && col.sortField ? () => handleSort(col.sortField!) : undefined}
                       title={col.sortable && col.sortField ? getSortTooltip(col.sortField) : undefined}
                     >
@@ -1234,7 +1235,7 @@ export default function ProductosTable({
                     }`}
                   >
                     {vis("nombre") && (
-                      <td className="relative py-3 px-4 align-middle">
+                      <td className="relative py-3 px-4 align-middle min-w-[240px]">
                         {isHighlighted && (
                           <span className="absolute left-0 top-1.5 bottom-1.5 w-[4px] rounded-r-full bg-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.8)]" />
                         )}
@@ -1260,27 +1261,27 @@ export default function ProductosTable({
                       </td>
                     )}
                     {vis("marca") && (
-                      <td className="py-3 px-4 text-sm text-[var(--text-muted)] whitespace-normal break-words [overflow-wrap:anywhere]">
+                      <td className="py-3 px-4 text-sm text-[var(--text-muted)] min-w-[90px] whitespace-normal break-words [overflow-wrap:anywhere]">
                         {p.marca || <span className="italic text-[var(--text-secondary)]">—</span>}
                       </td>
                     )}
                     {vis("categoria") && (
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-4 whitespace-nowrap">
                         <Badge variant="default" size="sm" className="border-[#3B82F6]/20 bg-[#3B82F6]/8 px-2.5 py-1 text-[11px] font-semibold leading-none text-[#C7D2FE] shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">{p.categoria.nombre}</Badge>
                       </td>
                     )}
                     {vis("precioCompra") && (
-                      <td className="py-3 px-4 text-right text-sm font-mono font-medium text-[#60A5FA]">
+                      <td className="py-3 px-4 text-right text-sm font-mono font-medium text-[#60A5FA] whitespace-nowrap">
                         {formatCurrency(p.precioCompra)}
                       </td>
                     )}
                     {vis("precioVenta") && (
-                      <td className="py-3 px-4 text-right font-mono font-semibold text-[#22D3EE] text-sm">
+                      <td className="py-3 px-4 text-right font-mono font-semibold text-[#22D3EE] text-sm whitespace-nowrap">
                         {formatCurrency(p.precioVenta)}
                       </td>
                     )}
                     {vis("stock") && (
-                      <td className="py-3 px-4 text-center">
+                      <td className="py-3 px-4 text-center whitespace-nowrap">
                         <span
                           className={cn(
                             "inline-flex items-center justify-center min-w-[52px] px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold border transition-colors shadow-sm",
@@ -1294,17 +1295,17 @@ export default function ProductosTable({
                       </td>
                     )}
                     {vis("stockMinimo") && (
-                      <td className="py-3 px-4 text-center">
+                      <td className="py-3 px-4 text-center whitespace-nowrap">
                         <span className="inline-flex items-center rounded-full border border-slate-500/20 bg-slate-400/8 px-2.5 py-1 text-[11px] font-mono font-semibold leading-none text-slate-300">
                           {p.stockMinimo} u
                         </span>
                       </td>
                     )}
                     {vis("proveedor") && (
-                      <td className="py-3 px-4 text-sm text-[var(--text-muted)] whitespace-normal break-words [overflow-wrap:anywhere]">{p.proveedor.nombre}</td>
+                      <td className="py-3 px-4 text-sm text-[var(--text-muted)] min-w-[130px] whitespace-normal break-words [overflow-wrap:anywhere]">{p.proveedor.nombre}</td>
                     )}
                     {vis("estado") && (
-                      <td className="py-3 px-4 text-center">
+                      <td className="py-3 px-4 text-center whitespace-nowrap">
                         <Badge variant={p.activo ? "success" : "danger"} size="sm">
                           {p.activo ? "Activo" : "Inactivo"}
                         </Badge>

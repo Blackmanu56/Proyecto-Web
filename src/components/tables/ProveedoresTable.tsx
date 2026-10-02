@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -316,9 +316,9 @@ export default function ProveedoresTable({
   };
 
   return (
-    <div className="flex flex-col h-full min-h-0">
+    <div className="flex flex-col h-auto desk:h-full min-h-0">
       {/* 1. Stats Cards */}
-      <div className="grid grid-cols-3 gap-3 shrink-0 mb-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 shrink-0 mb-3">
         <div className="bg-[linear-gradient(135deg,rgba(59,130,246,0.10),rgba(59,130,246,0.03))] border border-[#3B82F6]/35 p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(59,130,246,0.12)]">
           <div>
             <p className="text-xs text-[#3B82F6] font-extrabold uppercase tracking-wider">Total Proveedores</p>
@@ -402,7 +402,7 @@ export default function ProveedoresTable({
         }
       >
         <div className="min-w-full">
-          <table className="w-full table-fixed border-separate border-spacing-0 text-left min-w-[700px]">
+          <table className="w-full table-fixed border-separate border-spacing-0 text-left min-w-[880px]">
             <colgroup>
               <col style={{ width: "25%" }} />
               <col style={{ width: "12%" }} />
@@ -412,37 +412,37 @@ export default function ProveedoresTable({
               <col style={{ width: "13%" }} />
             </colgroup>
             <thead className="bg-[#17191f]">
-              <tr className="bg-[#17191f] text-[11px] uppercase tracking-[0.08em] font-extrabold text-[#9DB2D6]">
+              <tr className="bg-[#17191f] text-[11px] uppercase tracking-[0.08em] font-extrabold text-[#9DB2D6] whitespace-nowrap">
                 <th
-                  className="sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors"
+                  className="sticky top-0 z-20 whitespace-nowrap bg-[#17191f] bg-clip-padding py-4 px-4 shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors"
                   onClick={() => handleSortCycle("nombre")}
                   title={getSortTooltip("nombre")}
                 >
                   <div className="flex items-center gap-2">Proveedor {renderSortIndicator("nombre")}</div>
                 </th>
                 <th
-                  className="sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors"
+                  className="sticky top-0 z-20 whitespace-nowrap bg-[#17191f] bg-clip-padding py-4 px-4 shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors"
                   onClick={() => handleSortCycle("cuit")}
                   title={getSortTooltip("cuit")}
                 >
                   <div className="flex items-center gap-2">CUIT {renderSortIndicator("cuit")}</div>
                 </th>
-                <th className="sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] hidden md:table-cell">Contacto</th>
+                <th className="sticky top-0 z-20 whitespace-nowrap bg-[#17191f] bg-clip-padding py-4 px-4 shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] hidden md:table-cell">Contacto</th>
                 <th
-                  className="sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 text-center shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors"
+                  className="sticky top-0 z-20 whitespace-nowrap bg-[#17191f] bg-clip-padding py-4 px-4 text-center shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors"
                   onClick={() => handleSortCycle("productos")}
                   title={getSortTooltip("productos")}
                 >
                   <div className="flex items-center justify-center gap-2">Artículos {renderSortIndicator("productos")}</div>
                 </th>
                 <th
-                  className="sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 text-center shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors"
+                  className="sticky top-0 z-20 whitespace-nowrap bg-[#17191f] bg-clip-padding py-4 px-4 text-center shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] cursor-pointer select-none hover:text-white hover:bg-[#1b1e26] transition-colors"
                   onClick={() => handleSortCycle("activo")}
                   title={getSortTooltip("activo")}
                 >
                   <div className="flex items-center justify-center gap-2">Estado {renderSortIndicator("activo")}</div>
                 </th>
-                <th className="sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 text-center shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)]">Acciones</th>
+                <th className="sticky top-0 z-20 whitespace-nowrap bg-[#17191f] bg-clip-padding py-4 px-4 text-center shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)]">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border)]/60 text-[13px] text-[var(--text-muted)]">
@@ -454,7 +454,7 @@ export default function ProveedoresTable({
                     !prov.activo ? "opacity-60" : ""
                   }`}
                 >
-                  <td className="py-3 px-4">
+                  <td className="py-3 px-4 min-w-[200px]">
                     <div className="flex items-center gap-2">
                       <div
                         className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0 ${
@@ -478,10 +478,10 @@ export default function ProveedoresTable({
                       </div>
                     </div>
                   </td>
-                  <td className="py-3 px-4">
+                  <td className="py-3 px-4 whitespace-nowrap">
                     <span className="font-mono text-sm text-[var(--text-muted)]">{prov.cuit}</span>
                   </td>
-                  <td className="py-3 px-4 hidden md:table-cell">
+                  <td className="py-3 px-4 hidden md:table-cell min-w-[160px]">
                     <div className="space-y-0.5">
                       {prov.email && (
                         <p className="text-sm text-[var(--text-muted)] flex items-center gap-1">
@@ -500,15 +500,15 @@ export default function ProveedoresTable({
                       )}
                     </div>
                   </td>
-                  <td className="py-3 px-4 text-center font-semibold text-[var(--text)]">
+                  <td className="py-3 px-4 text-center font-semibold text-[var(--text)] whitespace-nowrap">
                     {prov._count.productos}
                   </td>
-                  <td className="py-3 px-4 text-center">
+                  <td className="py-3 px-4 text-center whitespace-nowrap">
                     <Badge variant={prov.activo ? "success" : "danger"} size="sm">
                       {prov.activo ? "Activo" : "Baja"}
                     </Badge>
                   </td>
-                  <td className="py-3 px-4 text-center">
+                  <td className="py-3 px-4 text-center whitespace-nowrap">
                     <div className="flex items-center justify-center gap-1">
                       <Button
                         variant="ghost"
@@ -582,7 +582,7 @@ export default function ProveedoresTable({
               />
             </FormField>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="CUIT" required>
                 <Input
                   id="input-prov-cuit"
@@ -604,7 +604,7 @@ export default function ProveedoresTable({
               </FormField>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="Correo Electrónico">
                 <Input
                   id="input-prov-correo"
@@ -684,7 +684,7 @@ export default function ProveedoresTable({
                 </div>
               </div>
 
-              <div className="flex border-b border-[var(--border)] bg-[#17191f] px-4">
+              <div className="flex border-b border-[var(--border)] bg-[#17191f] px-4 overflow-x-auto max-w-full scrollbar-thin">
                 {[
                   { id: "info", label: "Ficha Técnica", icon: <Info size={14} /> },
                   { id: "productos", label: "Productos del Catálogo", icon: <Package size={14} /> },
@@ -693,7 +693,7 @@ export default function ProveedoresTable({
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                    className={`flex items-center gap-2 px-4 py-3.5 text-xs font-semibold tracking-wide border-b-2 transition-all ${
+                    className={`flex items-center gap-2 px-4 py-3.5 text-xs font-semibold tracking-wide border-b-2 shrink-0 transition-all ${
                       activeTab === tab.id
                         ? "border-[var(--brand)] text-[var(--brand)] bg-[var(--brand-light)]/5"
                         : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text-muted)] hover:bg-[var(--border)]/20"
@@ -705,7 +705,7 @@ export default function ProveedoresTable({
                 ))}
               </div>
 
-              <div className="p-6 max-h-[62vh] overflow-y-auto min-h-[420px]">
+              <div className="p-4 sm:p-6 max-h-[62vh] overflow-y-auto min-h-[300px] desk:min-h-[420px]">
                 {loadingDetails ? (
                   <div className="flex flex-col items-center justify-center py-20 text-[var(--text-secondary)] gap-3">
                     <Loader2 size={32} className="text-[var(--brand)] animate-spin" />
@@ -784,8 +784,8 @@ export default function ProveedoresTable({
                             <p className="text-xs">No hay productos en inventario vinculados a este proveedor.</p>
                           </div>
                         ) : (
-                          <div className="overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--bg)]/30">
-                            <table className="w-full text-xs text-left">
+                          <div className="overflow-x-auto rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--bg)]/30 scrollbar-thin">
+                            <table className="w-full text-xs text-left min-w-[480px]">
                               <thead className="bg-[var(--bg)]/60 text-[var(--text-secondary)] uppercase font-semibold text-[10px] tracking-wider border-b border-[var(--border)]">
                                 <tr>
                                   <th className="py-2.5 px-4">Producto</th>

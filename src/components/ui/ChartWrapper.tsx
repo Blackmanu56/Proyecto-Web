@@ -40,12 +40,12 @@ export default function ChartWrapper({
     typeof children.type !== "string";
 
   return (
-    <div className="bg-card rounded-xl p-4 border border-border">
-      <div className="flex items-center justify-between mb-4">
+    <div className="bg-card rounded-xl p-4 border border-border min-w-0 w-full">
+      <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
         <h3 className="text-sm font-semibold text-text-muted">{title}</h3>
         {action}
       </div>
-      <div style={{ width: "100%", height, position: "relative" }}>
+      <div style={{ width: "100%", height, position: "relative" }} className="min-w-0">
         {mounted && (
           isRechartsChild ? (
             <ResponsiveContainer width="100%" height="100%">

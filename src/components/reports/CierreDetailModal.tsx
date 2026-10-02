@@ -31,9 +31,9 @@ export default function CierreDetailModal({ cajaId, onClose, onPrint }: CierreDe
 
   return (
     <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4 print:hidden">
-      <div className="bg-panel border border-border w-full max-w-4xl rounded-2xl shadow-2xl relative animate-in zoom-in-95 duration-200">
+      <div className="bg-panel border border-border w-full max-w-4xl max-h-[90dvh] flex flex-col rounded-2xl shadow-2xl relative animate-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             <Wallet size={18} className="text-sky-400" />
             Detalle de Cierre
@@ -47,7 +47,7 @@ export default function CierreDetailModal({ cajaId, onClose, onPrint }: CierreDe
         </div>
 
         {/* Body */}
-        <div className="px-6 py-4 space-y-4 max-h-[75vh] overflow-y-auto">
+        <div className="px-6 py-4 space-y-4 flex-1 min-h-0 overflow-y-auto">
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 size={24} className="animate-spin text-text-muted" />

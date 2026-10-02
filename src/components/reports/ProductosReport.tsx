@@ -226,7 +226,7 @@ export default function ProductosReport({ initialData, categorias, proveedores }
               <Printer size={12} />
             </button>
           </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 min-w-0">
             <ChartWrapper title="Stock por Categoría" height={250}>
               <RePie>
                 <Pie data={[]} dataKey="value" cx="50%" cy="50%" outerRadius={80} label>
@@ -244,7 +244,7 @@ export default function ProductosReport({ initialData, categorias, proveedores }
             </ChartWrapper>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 min-w-0">
             <ChartWrapper title="Rentabilidad por Producto" height={250}>
               <BarChart data={topList.slice(0, 10)}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
@@ -275,10 +275,10 @@ export default function ProductosReport({ initialData, categorias, proveedores }
             </button>
           </div>
           <div className="bg-panel print:bg-white border border-border print:border-gray-300 rounded-xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto scrollbar-thin">
+            <table className="w-full text-sm min-w-[760px]">
               <thead>
-                <tr className="border-b border-border print:border-gray-300 bg-panel print:bg-gray-100">
+                <tr className="border-b border-border print:border-gray-300 bg-panel print:bg-gray-100 whitespace-nowrap">
                   {viewMode === "todos" && (
                     <><th className="text-left px-4 py-3 text-xs font-bold text-text-muted uppercase">Producto</th><th className="text-left px-4 py-3 text-xs font-bold text-text-muted uppercase">Categoría</th><th className="text-left px-4 py-3 text-xs font-bold text-text-muted uppercase">Proveedor</th><th className="text-right px-4 py-3 text-xs font-bold text-text-muted uppercase">P.Compra</th><th className="text-right px-4 py-3 text-xs font-bold text-text-muted uppercase">P.Venta</th><th className="text-right px-4 py-3 text-xs font-bold text-text-muted uppercase">Stock</th><th className="text-right px-4 py-3 text-xs font-bold text-text-muted uppercase">St.Min</th><th className="text-right px-4 py-3 text-xs font-bold text-text-muted uppercase">Vendido</th><th className="text-right px-4 py-3 text-xs font-bold text-text-muted uppercase">Ingreso</th></>
                   )}

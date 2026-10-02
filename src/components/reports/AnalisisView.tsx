@@ -212,7 +212,7 @@ export default function AnalisisView({
   const maxVendedorTotal = useMemo(() => Math.max(...topVendedores.map((s) => s.totalVendido), 1), [topVendedores]);
 
   const granularityButtons = (
-    <div className="flex items-center gap-1">
+    <div className="flex flex-wrap items-center gap-1">
       {(["dia", "semana", "mes", "anio"] as ChartGranularity[]).map((g) => (
         <button
           key={g}

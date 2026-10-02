@@ -134,9 +134,9 @@ function ReposicionSection({
         </span>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm min-w-[650px]">
           <thead>
-            <tr className="border-b border-[var(--border)]">
+            <tr className="border-b border-[var(--border)] whitespace-nowrap">
               <th className={tableCellHeader + " text-left"}>Proveedor</th>
               <th className={tableCellHeader + " text-right"}>Productos a reponer</th>
               <th className={tableCellHeader + " text-right"}>Sin stock</th>
@@ -275,10 +275,10 @@ function TablaProveedoresSection({
           className={inputClass}
         />
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto scrollbar-thin">
+        <table className="w-full text-sm min-w-[780px]">
           <thead>
-            <tr className="border-b border-[var(--border)]">
+            <tr className="border-b border-[var(--border)] whitespace-nowrap">
               <th className={tableCellHeader + " text-left"}>Proveedor</th>
               <th className={tableCellHeader + " text-left"}>Contacto</th>
               <th className={tableCellHeader + " text-right"}>Productos</th>
@@ -625,7 +625,7 @@ export default function ProveedoresReport({ initialData, userRole }: Props) {
               <Printer size={14} />
             </button>
           </div>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 min-w-0">
             <ChartWrapper title="Productos por Proveedor" height={260}>
               {data.productosPorProveedor.length > 0 ? (
                 <BarChart data={data.productosPorProveedor} layout="vertical" margin={{ left: 24, right: 16 }}>

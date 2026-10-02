@@ -95,7 +95,7 @@ function TableShell({
   );
 
   return (
-    <div className="bg-card border border-border rounded-lg shadow-[var(--shadow-sm)] overflow-hidden flex flex-col h-full min-h-0">
+    <div className="bg-card border border-border rounded-lg shadow-[var(--shadow-sm)] overflow-hidden flex flex-col h-auto desk:h-full min-h-0">
       {/* Header */}
       <div className={`flex flex-col border-b border-border/60 shrink-0 ${centeredHeaderControls ? hideHeaderTitle ? "gap-2 px-4 py-3" : "gap-3 px-4 pb-4 pt-4" : "gap-2 p-3"}`}>
         {centeredHeaderControls ? (
@@ -108,7 +108,7 @@ function TableShell({
                 )}
               </div>
             )}
-            <div className={`${hideHeaderTitle ? "mt-0" : "mt-4"} flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between`}>
+            <div className={`${hideHeaderTitle ? "mt-0" : "mt-4"} flex flex-col gap-4 2xl:flex-row 2xl:items-end 2xl:justify-between`}>
               <div className="flex flex-wrap items-end gap-2.5">
                 {searchControl && (
                   <div className="flex flex-col gap-1">
@@ -126,7 +126,7 @@ function TableShell({
                 )}
               </div>
               {actions && (
-                <div className="flex shrink-0 justify-start xl:justify-end">
+                <div className="flex flex-wrap shrink-0 justify-start 2xl:justify-end gap-2.5">
                   {actions}
                 </div>
               )}
@@ -149,7 +149,7 @@ function TableShell({
       </div>
 
       {/* Content */}
-      <div className={`flex flex-1 min-h-0 flex-col overflow-hidden ${centeredHeaderControls ? hideHeaderTitle ? "p-3 pt-2" : "p-4 pt-3" : "p-3"}`}>
+      <div className={`flex flex-1 min-h-[360px] desk:min-h-0 flex-col overflow-hidden ${centeredHeaderControls ? hideHeaderTitle ? "p-3 pt-2" : "p-4 pt-3" : "p-3"}`}>
         {isLoading ? (
           <LoadingSkeleton />
         ) : isEmpty ? (
@@ -158,7 +158,7 @@ function TableShell({
             <p>{emptyMessage}</p>
           </div>
         ) : (
-          <div className="flex-1 min-h-0 overflow-x-auto overflow-y-auto pr-1">
+          <div className="flex-1 min-h-0 overflow-x-auto overflow-y-auto pr-1 w-full scrollbar-thin">
             {children}
           </div>
         )}

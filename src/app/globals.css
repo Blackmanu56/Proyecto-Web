@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant desk (@media (min-width: 1280px) and (min-height: 800px));
+
 /* ============================================================
    Chopper Repuestos — Design Tokens (Dark-only)
    ============================================================ */
@@ -158,8 +160,30 @@ body {
 }
 
 
+/* ── Unified Module Shell (Responsive Fullscreen vs Normal Flow) ── */
+.module-shell {
+  position: relative;
+  width: 100%;
+  min-height: calc(100dvh - 4rem);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Solo en pantallas de escritorio grandes con suficiente altura (1080p, 24-27 pulgadas)
+   se mantiene el comportamiento de app fija sin scroll de ventana */
+@media (min-width: 1280px) and (min-height: 800px) {
+  .module-shell {
+    position: fixed;
+    inset: 0;
+    top: 5.5rem;
+    min-height: calc(100dvh - 5.5rem);
+    overflow: hidden;
+    z-index: 10;
+  }
+}
+
 /* ── Terminal Ventas Layout ── */
-@media (min-width: 1024px) {
+@media (min-width: 1280px) and (min-height: 800px) {
   body.ventas-active {
     overflow: hidden !important;
   }

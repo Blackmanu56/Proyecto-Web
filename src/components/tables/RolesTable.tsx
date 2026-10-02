@@ -267,9 +267,9 @@ export default function RolesTable({
   };
 
   return (
-    <div className="flex flex-col h-full min-h-0">
+    <div className="flex flex-col h-auto desk:h-full min-h-0">
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3 shrink-0 mb-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 shrink-0 mb-3">
         <div className="bg-[linear-gradient(135deg,rgba(59,130,246,0.10),rgba(59,130,246,0.03))] border border-[#3B82F6]/35 p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(59,130,246,0.12)]">
           <div>
             <p className="text-xs text-[#3B82F6] font-extrabold uppercase tracking-wider">Total Roles</p>
@@ -355,7 +355,7 @@ export default function RolesTable({
         }
       >
         <div className="min-w-full">
-          <table className="w-full table-fixed border-separate border-spacing-0 text-left min-w-[760px]">
+          <table className="w-full table-fixed border-separate border-spacing-0 text-left min-w-[840px]">
             <colgroup>
               <col style={{ width: "22%" }} />
               <col style={{ width: "30%" }} />
@@ -365,7 +365,7 @@ export default function RolesTable({
               <col style={{ width: "12%" }} />
             </colgroup>
             <thead className="bg-[#17191f]">
-              <tr className="bg-[#17191f] text-[11px] uppercase tracking-[0.08em] font-extrabold text-[#9DB2D6]">
+              <tr className="bg-[#17191f] text-[11px] uppercase tracking-[0.08em] font-extrabold text-[#9DB2D6] whitespace-nowrap">
                 {[
                   "Rol",
                   "Descripcion",
@@ -376,7 +376,7 @@ export default function RolesTable({
                 ].map((heading, index) => (
                   <th
                     key={heading}
-                    className={`sticky top-0 z-40 bg-[#17191f] bg-clip-padding py-4 px-4 shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] ${index >= 2 ? "text-center" : ""}`}
+                    className={`sticky top-0 z-20 whitespace-nowrap bg-[#17191f] bg-clip-padding py-4 px-4 shadow-[inset_0_-1px_0_rgba(42,46,56,0.95),0_6px_12px_rgba(0,0,0,0.16)] ${index >= 2 ? "text-center" : ""}`}
                   >
                     {heading}
                   </th>
@@ -391,7 +391,7 @@ export default function RolesTable({
                     !role.activo ? "opacity-60" : ""
                   }`}
                 >
-                  <td className="py-3 px-4">
+                  <td className="py-3 px-4 min-w-[180px]">
                     <div className="flex items-center gap-2">
                       <div className={`p-2 rounded-lg ring-1 ${
                         role.nombre === "ADMINISTRADOR"
@@ -414,7 +414,7 @@ export default function RolesTable({
                       {role.descripcion || "-"}
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-center">
+                  <td className="py-3 px-4 text-center whitespace-nowrap">
                     <button
                       onClick={() => setDetailModal({ open: true, role })}
                       className="rounded-full border border-[var(--brand)]/25 bg-[var(--brand-light)]/20 px-2.5 py-1 text-xs font-mono font-bold text-[var(--brand)] transition hover:border-[var(--brand)]/60 hover:bg-[var(--brand-light)]/35"
@@ -423,16 +423,16 @@ export default function RolesTable({
                       {role.permisos.length}/{totalPerms}
                     </button>
                   </td>
-                  <td className="py-3 px-4 text-center">
+                  <td className="py-3 px-4 text-center whitespace-nowrap">
                     <div className="flex items-center justify-center gap-1.5">
                       <Users size={12} className="text-[var(--text-secondary)]" />
                       <span className="text-xs font-semibold text-[var(--text-muted)]">{role._count.usuarios}</span>
                     </div>
                   </td>
-                  <td className="py-3 px-4 text-center">
+                  <td className="py-3 px-4 text-center whitespace-nowrap">
                     <RolBadge activo={role.activo} />
                   </td>
-                  <td className="py-3 px-4 text-center">
+                  <td className="py-3 px-4 text-center whitespace-nowrap">
                     <div className="flex items-center justify-center gap-1">
                       {role.nombre !== "ADMINISTRADOR" && (
                         <Button
@@ -466,7 +466,7 @@ export default function RolesTable({
       </TableShell>
 
       <Dialog open={isModalOpen} onOpenChange={(open) => { if (!open) closeModal(); }}>
-        <DialogContent className="w-[90vw] max-w-[1400px] p-0 gap-0 overflow-hidden">
+        <DialogContent className="w-[95vw] max-w-[1400px] max-h-[90dvh] flex flex-col p-0 gap-0 overflow-hidden">
           {/* ── Fixed Header ── */}
           <div className="px-6 pt-5 pb-4 border-b border-[var(--border)] shrink-0">
             <DialogHeader className="space-y-1">
@@ -485,8 +485,8 @@ export default function RolesTable({
           </div>
 
           {/* ── Scrollable Body ── */}
-          <form onSubmit={handleSubmit} className="flex flex-col min-h-0" style={{ maxHeight: "calc(90vh - 8rem)" }}>
-            <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4">
+          <form onSubmit={handleSubmit} className="flex flex-col min-h-0 max-h-[calc(90dvh-8rem)]">
+            <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-4">
               {formError && (
                 <div className="flex items-center gap-2 p-3 mb-4 rounded-[var(--radius-md)] bg-danger-light border border-danger/20 text-danger text-sm">
                   <AlertTriangle size={14} className="shrink-0" />
@@ -500,9 +500,9 @@ export default function RolesTable({
                 </div>
               )}
 
-              <div className="flex gap-6">
+              <div className="flex flex-col lg:flex-row gap-6">
                 {/* ── Left Column (~30%): Role info ── */}
-                <div className="w-[30%] shrink-0 space-y-4">
+                <div className="w-full lg:w-[30%] shrink-0 space-y-4">
                   <FormField label="Nombre del Rol" required>
                     <Input
                       value={formNombre}
@@ -783,7 +783,7 @@ export default function RolesTable({
         open={detailModal.open}
         onOpenChange={(open) => setDetailModal({ ...detailModal, open })}
       >
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col p-0 gap-0">
+        <DialogContent className="max-w-3xl max-h-[90dvh] overflow-hidden flex flex-col p-0 gap-0">
           <div className="bg-gradient-to-r from-[#111827] via-[#151923] to-[#10131a] px-6 py-5 border-b border-[var(--border)] shrink-0">
             <DialogHeader className="space-y-1">
               <DialogTitle className="flex items-center gap-2.5 text-lg">
@@ -799,7 +799,7 @@ export default function RolesTable({
           </div>
 
           {detailModal.role && (
-            <div className="space-y-3 overflow-y-auto p-6">
+            <div className="space-y-3 overflow-y-auto p-4 sm:p-6">
               {Object.entries(PERMISSIONS).map(([moduleKey, module]) => {
                 const modulePerms = module.permissions.filter(p =>
                   detailModal.role!.permisos.includes(p.key)
@@ -816,7 +816,7 @@ export default function RolesTable({
                       <span className="text-xs font-bold text-[var(--text)]">{module.label}</span>
                       <Badge variant="info" size="sm">{modulePerms.length}</Badge>
                     </div>
-                    <div className="px-3 py-3 grid grid-cols-2 gap-2">
+                    <div className="px-3 py-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {modulePerms.map(perm => (
                         <div
                           key={perm.key}

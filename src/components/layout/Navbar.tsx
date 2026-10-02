@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
@@ -66,6 +66,16 @@ export default function Navbar({ user }: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
 
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [mobileMenuOpen]);
+
   const handleLogout = async () => {
     await fetch("/api/logout", { method: "POST" });
     router.push("/login");
@@ -96,12 +106,12 @@ export default function Navbar({ user }: NavbarProps) {
 
   return (
     <>
-      <header className="sticky top-0 z-50 h-[5.5rem] px-6 bg-gradient-to-r from-[var(--panel)] via-[#1a1e27] to-[var(--panel)] border-b border-[var(--border)]/40 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.35)]">
+      <header className="sticky top-0 z-50 h-16 desk:h-[5.5rem] px-4 sm:px-6 bg-gradient-to-r from-[var(--panel)] via-[#1a1e27] to-[var(--panel)] border-b border-[var(--border)]/40 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.35)]">
         <div className="flex h-full items-center justify-between gap-6">
           <div className="flex min-w-0 items-center gap-5">
             <Link
               href="/dashboard"
-              className="hidden xl:flex items-center shrink-0 group"
+              className="flex items-center shrink-0 group"
             >
               <Image
                 src="/logo.png"
@@ -109,13 +119,13 @@ export default function Navbar({ user }: NavbarProps) {
                 width={148}
                 height={66}
                 priority
-                className="h-[3.9rem] w-auto object-contain rounded-lg drop-shadow-[0_2px_12px_rgba(0,0,0,0.5)] transition-all duration-300 group-hover:scale-105 group-hover:brightness-110 group-hover:drop-shadow-[0_4px_16px_rgba(0,0,0,0.6)]"
+                className="h-8 sm:h-10 2xl:h-[3.9rem] w-auto object-contain rounded-lg drop-shadow-[0_2px_12px_rgba(0,0,0,0.5)] transition-all duration-300 group-hover:scale-105 group-hover:brightness-110 group-hover:drop-shadow-[0_4px_16px_rgba(0,0,0,0.6)]"
               />
             </Link>
 
-            <div className="hidden xl:block w-px h-10 bg-gradient-to-b from-transparent via-white/18 to-transparent shadow-[0_0_8px_rgba(255,255,255,0.08)]" />
+            <div className="hidden 2xl:block w-px h-10 bg-gradient-to-b from-transparent via-white/18 to-transparent shadow-[0_0_8px_rgba(255,255,255,0.08)]" />
 
-            <nav className="hidden xl:flex items-center gap-1.5 shrink-0">
+            <nav className="hidden 2xl:flex items-center gap-1 min-[1680px]:gap-1.5 shrink-0">
               {leftItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = pathname.startsWith(item.path);
@@ -123,7 +133,7 @@ export default function Navbar({ user }: NavbarProps) {
                   <Link
                     key={item.name}
                     href={item.path}
-                    className={`relative flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all duration-200 ${
+                    className={`relative flex items-center gap-1.5 min-[1680px]:gap-2 px-2.5 min-[1680px]:px-3.5 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all duration-200 ${
                       isActive
                         ? "bg-[rgba(214,40,40,0.12)] text-white border border-[rgba(214,40,40,0.30)] shadow-[0_0_14px_rgba(214,40,40,0.20)] font-bold"
                         : "text-[var(--text-secondary)] hover:text-white hover:bg-[var(--card)]/60 border border-transparent"
@@ -141,7 +151,7 @@ export default function Navbar({ user }: NavbarProps) {
           </div>
 
           <div className="flex items-center gap-4 shrink-0">
-            <nav className="hidden xl:flex items-center gap-1.5">
+            <nav className="hidden 2xl:flex items-center gap-1 min-[1680px]:gap-1.5">
             {rightItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname.startsWith(item.path);
@@ -149,7 +159,7 @@ export default function Navbar({ user }: NavbarProps) {
                 <Link
                   key={item.name}
                   href={item.path}
-                  className={`relative flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all duration-200 ${
+                  className={`relative flex items-center gap-1.5 min-[1680px]:gap-2 px-2.5 min-[1680px]:px-3.5 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all duration-200 ${
                     isActive
                       ? "bg-[rgba(214,40,40,0.12)] text-white border border-[rgba(214,40,40,0.30)] shadow-[0_0_14px_rgba(214,40,40,0.20)] font-bold"
                       : "text-[var(--text-secondary)] hover:text-white hover:bg-[var(--card)]/60 border border-transparent"
@@ -166,7 +176,7 @@ export default function Navbar({ user }: NavbarProps) {
             </nav>
 
             {/* Separator */}
-            <div className="hidden xl:block w-px h-10 bg-gradient-to-b from-transparent via-white/18 to-transparent shadow-[0_0_8px_rgba(255,255,255,0.08)]" />
+            <div className="hidden 2xl:block w-px h-10 bg-gradient-to-b from-transparent via-white/18 to-transparent shadow-[0_0_8px_rgba(255,255,255,0.08)]" />
 
             {/* Notification Bell */}
             <NotificationBell />
@@ -176,7 +186,8 @@ export default function Navbar({ user }: NavbarProps) {
               <>
                 <button
                   onClick={() => setShowProfile(true)}
-                className="hidden xl:flex items-center gap-3 hover:bg-[var(--card)]/80 border border-[var(--border)]/20 hover:border-[var(--border)]/40 rounded-xl px-3 py-2 transition-all duration-300 cursor-pointer"
+                  className="flex items-center gap-2 sm:gap-3 hover:bg-[var(--card)]/80 border border-[var(--border)]/20 hover:border-[var(--border)]/40 rounded-xl px-2.5 sm:px-3 py-1.5 sm:py-2 transition-all duration-300 cursor-pointer"
+                  title="Ver perfil de usuario"
                 >
                   <Avatar
                     fotoUrl={user.fotoUrl ?? null}
@@ -184,7 +195,7 @@ export default function Navbar({ user }: NavbarProps) {
                     size="sm"
                     activo={true}
                   />
-                  <div className="flex flex-col items-start leading-none gap-0.5">
+                  <div className="hidden sm:flex flex-col items-start leading-none gap-0.5">
                     <span className="text-xs font-bold text-[var(--text)] max-w-[120px] truncate">
                       {user.username}
                     </span>
@@ -197,7 +208,7 @@ export default function Navbar({ user }: NavbarProps) {
                 <button
                   onClick={handleLogout}
                   title="Cerrar sesión"
-                className="hidden xl:flex items-center justify-center p-2.5 rounded-xl text-[var(--text-secondary)] hover:text-[var(--danger)] hover:bg-[var(--danger-light)] border border-transparent hover:border-[var(--danger)]/10 transition-all duration-300"
+                  className="hidden 2xl:flex items-center justify-center p-2.5 rounded-xl text-[var(--text-secondary)] hover:text-[var(--danger)] hover:bg-[var(--danger-light)] border border-transparent hover:border-[var(--danger)]/10 transition-all duration-300"
                 >
                   <LogOut size={16} />
                 </button>
@@ -205,7 +216,8 @@ export default function Navbar({ user }: NavbarProps) {
                 {/* Mobile menu button */}
                 <button
                   onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                  className="xl:hidden p-2.5 rounded-xl text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--card)] transition-all duration-300 border border-transparent hover:border-[var(--border)]/40"
+                  aria-label={mobileMenuOpen ? "Cerrar menú" : "Abrir menú de navegación"}
+                  className="2xl:hidden p-2.5 rounded-xl text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--card)] transition-all duration-300 border border-transparent hover:border-[var(--border)]/40"
                 >
                   {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
                 </button>
@@ -217,27 +229,7 @@ export default function Navbar({ user }: NavbarProps) {
 
       {/* Mobile menu dropdown */}
       {mobileMenuOpen && (
-        <div className="xl:hidden fixed inset-x-0 top-[5.5rem] z-40 bg-gradient-to-b from-[var(--panel)] to-[#1a1e27] border-b border-[var(--border)]/40 shadow-[0_8px_30px_-4px_rgba(0,0,0,0.4)] animate-in fade-in slide-in-from-top-2 duration-200">
-          {/* User info (mobile) */}
-          {user && (
-            <div className="px-5 py-4 border-b border-[var(--border)]/40 flex items-center gap-3">
-              <Avatar
-                fotoUrl={user.fotoUrl ?? null}
-                nombreCompleto={user.username}
-                size="sm"
-                activo={true}
-              />
-              <div className="flex flex-col leading-none gap-0.5">
-                <span className="text-sm font-bold text-[var(--text)]">
-                  {user.username}
-                </span>
-                <span className="text-[9px] text-[var(--text-muted)] font-black uppercase tracking-wider">
-                  {user.role.replace("_", " ")}
-                </span>
-              </div>
-            </div>
-          )}
-
+        <div className="2xl:hidden fixed inset-x-0 top-16 desk:top-[5.5rem] z-[70] max-h-[calc(100dvh-4rem)] desk:max-h-[calc(100dvh-5.5rem)] overflow-y-auto bg-[#13151b] border-b border-[var(--border)] shadow-[0_12px_40px_rgba(0,0,0,0.7)] animate-in fade-in slide-in-from-top-2 duration-200">
           {/* Navigation items (mobile) */}
           <nav className="p-3 space-y-1">
             {allowedItems.map((item) => {
@@ -278,7 +270,7 @@ export default function Navbar({ user }: NavbarProps) {
       {/* Overlay for mobile menu */}
       {mobileMenuOpen && (
         <div
-          className="xl:hidden fixed inset-0 z-30 bg-black/50"
+          className="2xl:hidden fixed inset-0 z-[60] bg-black/70 backdrop-blur-[2px]"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
