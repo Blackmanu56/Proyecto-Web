@@ -282,7 +282,7 @@ export default function VentasReport({ initialData, usuarios }: Props) {
 
       {/* Filtros + Período */}
       <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl overflow-hidden">
-        <div className="flex items-center gap-4 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4 px-4 py-3">
           <button
             onClick={() => setFiltersOpen(!filtersOpen)}
             className="flex items-center gap-2 hover:text-[var(--text)] transition-colors shrink-0"

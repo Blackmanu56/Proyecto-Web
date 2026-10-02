@@ -196,7 +196,7 @@ function StatCard({ title, value, sub, icon, colorClass, borderColor, valueColor
     <div
       className={`bg-[var(--card)] border border-[var(--border)] rounded-xl px-5 py-4 flex flex-col items-center text-center justify-center
         shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] transition-all duration-200 hover:scale-[1.02]
-        h-[150px] border-l-[5px] ${borderColor}`}
+        min-h-[150px] border-l-[5px] ${borderColor} min-w-0`}
     >
       <div className={`p-3 rounded-full ${colorClass} mb-2.5`}>{icon}</div>
       <p className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider leading-tight">{title}</p>
@@ -239,19 +239,19 @@ function PeriodFilter({
   ];
 
   const btnBase =
-    "font-semibold rounded-lg transition-all duration-200 whitespace-nowrap px-4 py-2 text-[13px]";
+    "font-semibold rounded-lg transition-all duration-200 whitespace-nowrap px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-[13px]";
   const active = `${btnBase} bg-[#d62828] text-white shadow-[0_0_12px_rgba(214,40,40,0.35)]`;
   const inactive = `${btnBase} text-[#94a3b8] hover:text-white hover:bg-[#2a2e38]`;
 
   return (
-    <div className="flex justify-center">
-      <div className="inline-flex items-center bg-[#101114] border border-[#2a2e38] rounded-xl p-1 gap-1">
+    <div className="flex justify-center w-full min-w-0">
+      <div className="inline-flex flex-wrap items-center justify-center bg-[#101114] border border-[#2a2e38] rounded-xl p-1 gap-1 max-w-full">
         {general.map((opt) => (
           <button key={opt.value} onClick={() => onChange(opt.value)} className={value === opt.value ? active : inactive}>
             {opt.label}
           </button>
         ))}
-        <div className="w-px h-5 bg-[#2a2e38] mx-0.5 shrink-0" />
+        <div className="hidden sm:block w-px h-5 bg-[#2a2e38] mx-0.5 shrink-0" />
         {ranges.map((opt) => (
           <button key={opt.value} onClick={() => onChange(opt.value)} className={value === opt.value ? active : inactive}>
             {opt.label}
@@ -272,13 +272,13 @@ function ChartTypeFilter({
   onChange: (v: DashboardChartType) => void;
 }) {
   return (
-    <div className="flex justify-center">
-      <div className="inline-flex items-center bg-[#101114] border border-[#2a2e38] rounded-xl p-1 gap-1">
+    <div className="flex justify-center w-full min-w-0">
+      <div className="inline-flex flex-wrap items-center justify-center bg-[#101114] border border-[#2a2e38] rounded-xl p-1 gap-1 max-w-full">
         {options.map((opt) => (
           <button
             key={opt.value}
             onClick={() => onChange(opt.value)}
-            className={`font-semibold rounded-lg transition-all duration-200 whitespace-nowrap px-4 py-2 text-[13px]
+            className={`font-semibold rounded-lg transition-all duration-200 whitespace-nowrap px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-[13px]
               ${
                 value === opt.value
                   ? "bg-[#d62828] text-white shadow-[0_0_12px_rgba(214,40,40,0.35)]"
@@ -439,18 +439,18 @@ export default function DashboardClient({ data, userName, role, formattedDate, c
   return (
     <div className="space-y-4" style={{ animation: "dashboard-fadeIn 0.3s ease-out" }}>
       {/* ═══ HEADER ═══ */}
-      <div className="text-center py-1">
-        <h1 className="text-3xl lg:text-4xl font-extrabold text-[var(--text)] tracking-tight">
+      <div className="text-center py-2 sm:py-3 pt-1 scroll-mt-28">
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[var(--text)] tracking-tight">
           {greeting}
         </h1>
-        <p className="text-[var(--text-muted)] text-sm mt-1 capitalize">{formattedDate}</p>
+        <p className="text-[var(--text-muted)] text-xs sm:text-sm mt-1 capitalize">{formattedDate}</p>
       </div>
 
       {/* ═══ MAIN GRID ═══ */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start min-w-0">
 
-        {/* ═══ LEFT: Actividad Reciente ═══ */}
-        <div className="lg:col-span-3 bg-[var(--card)] border border-[var(--border)] rounded-xl shadow-[var(--shadow-sm)] overflow-hidden flex flex-col max-h-[560px]">
+        {/* ═══ LEFT: Actividad Reciente (order-2 on mobile, order-1 on lg) ═══ */}
+        <div className="order-2 lg:order-1 lg:col-span-3 min-w-0 bg-[var(--card)] border border-[var(--border)] rounded-xl shadow-[var(--shadow-sm)] overflow-hidden flex flex-col max-h-[560px]">
           <div className="flex items-center justify-between p-4 border-b border-[var(--border)]/60 shrink-0">
             <div className="flex items-center space-x-2.5">
               <div className="p-2 rounded-lg bg-[var(--brand-light)]">
@@ -526,8 +526,8 @@ export default function DashboardClient({ data, userName, role, formattedDate, c
           </div>
         </div>
 
-        {/* ═══ RIGHT: Stats + Charts ═══ */}
-        <div className="lg:col-span-9 flex flex-col gap-4">
+        {/* ═══ RIGHT: Stats + Charts (order-1 on mobile, order-2 on lg) ═══ */}
+        <div className="order-1 lg:order-2 lg:col-span-9 flex flex-col gap-4 min-w-0">
 
           {/* ── Stat Cards ── */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -547,11 +547,11 @@ export default function DashboardClient({ data, userName, role, formattedDate, c
           </div>
 
           {/* ── Charts Row ── */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 min-w-0">
 
             {/* ── EVOLUTION CHART (8 cols) ── */}
-            <div className="lg:col-span-8 bg-[var(--card)] border border-[var(--border)] p-5 rounded-xl shadow-[var(--shadow-sm)]">
-              <div className="flex flex-col gap-3 mb-4">
+            <div className="lg:col-span-8 min-w-0 bg-[var(--card)] border border-[var(--border)] p-4 sm:p-5 rounded-xl shadow-[var(--shadow-sm)]">
+              <div className="flex flex-col gap-3 mb-4 min-w-0">
                 <div className="flex items-center space-x-2.5">
                   <div className="p-2 rounded-lg bg-[var(--brand-light)]">
                     <TrendingUp size={16} className="text-[var(--brand)]" />
@@ -561,7 +561,7 @@ export default function DashboardClient({ data, userName, role, formattedDate, c
                 <PeriodFilter value={period} onChange={handlePeriodChange} />
               </div>
 
-              <div className="h-80 w-full font-mono text-xs">
+              <div className="h-80 w-full min-w-0 font-mono text-xs">
                 {isPending ? (
                   <ChartSkeleton />
                 ) : evolutionData.length === 0 || evolutionData.every((d) => d.total === 0) ? (
@@ -611,9 +611,9 @@ export default function DashboardClient({ data, userName, role, formattedDate, c
             </div>
 
             {/* ── PIE CHART (4 cols) ── */}
-            <div className="lg:col-span-4 bg-[var(--card)] border border-[var(--border)] p-5 rounded-xl shadow-[var(--shadow-sm)] flex flex-col">
+            <div className="lg:col-span-4 min-w-0 bg-[var(--card)] border border-[var(--border)] p-4 sm:p-5 rounded-xl shadow-[var(--shadow-sm)] flex flex-col">
               {/* Header */}
-              <div className="mb-4">
+              <div className="mb-4 min-w-0">
                 <div className="flex items-center justify-center space-x-2.5 mb-3">
                   <div className="p-2 rounded-lg bg-[var(--brand-light)]">
                     <Package size={16} className="text-[var(--brand)]" />
@@ -624,7 +624,7 @@ export default function DashboardClient({ data, userName, role, formattedDate, c
               </div>
 
               {/* Chart area */}
-              <div className="flex-1 flex items-center justify-center min-h-[170px]">
+              <div className="flex-1 flex items-center justify-center min-h-[170px] min-w-0 w-full">
                 {isPending ? (
                   <ChartSkeleton />
                 ) : pieData.length === 0 ? (

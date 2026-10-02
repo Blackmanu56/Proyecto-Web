@@ -81,7 +81,7 @@ export default function LoginPage() {
   return (
     <>
       <div
-        className="relative min-h-screen flex items-center justify-center overflow-hidden"
+        className="relative min-h-screen flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
         style={{ background: "#101114", colorScheme: "dark" }}
       >
         {/* ── Background: Subtle Grid ── */}
@@ -154,24 +154,22 @@ export default function LoginPage() {
             MAIN CARD
             ═══════════════════════════════════════ */}
         <div
-          className="relative z-10 w-full max-w-6xl mx-4 md:mx-6"
+          className="relative z-10 w-full max-w-6xl my-auto"
           style={{
             animation: "login-fadeIn 400ms ease forwards",
           }}
         >
           <div
-            className="overflow-hidden"
+            className="overflow-hidden rounded-[20px]"
             style={{
               background: "#1E2129",
               border: "1px solid #2A2E38",
-              borderRadius: "20px",
               boxShadow:
                 "0 25px 50px -12px rgba(0,0,0,0.5), 0 0 80px rgba(214,40,40,0.04)",
             }}
           >
             <div
-              className="flex flex-col md:flex-row"
-              style={{ minHeight: "620px" }}
+              className="flex flex-col md:flex-row min-h-[520px] desk:min-h-[620px]"
             >
               {/* ═══════════════════════════════════════
                   LEFT PANEL — Company Presentation
@@ -320,9 +318,8 @@ export default function LoginPage() {
                   RIGHT PANEL — Login Form
                   ═══════════════════════════════════════ */}
               <div
-                className="md:w-1/2 flex flex-col items-center justify-center"
+                className="md:w-1/2 flex flex-col items-center justify-center p-6 sm:p-10 lg:p-12"
                 style={{
-                  padding: "48px 48px 32px",
                   animation: "login-fadeInUp 500ms ease 200ms both",
                 }}
               >

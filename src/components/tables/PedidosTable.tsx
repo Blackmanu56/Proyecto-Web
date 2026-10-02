@@ -356,10 +356,10 @@ export default function PedidosTable({
   }, [router]);
 
   /* ── Thead styles ── */
-  const thBase = "sticky top-0 z-10 bg-[#17191f] py-3.5 px-4 border-b border-[var(--border)] text-[11px] uppercase tracking-[0.08em] font-extrabold text-[#9DB2D6]";
+  const thBase = "sticky top-0 z-20 bg-[#17191f] py-3.5 px-4 border-b border-[var(--border)] text-[11px] uppercase tracking-[0.08em] font-extrabold text-[#9DB2D6] whitespace-nowrap";
 
   return (
-    <div className="space-y-3.5 flex flex-col h-full min-h-0">
+    <div className="space-y-3.5 flex flex-col h-auto desk:h-full min-h-0 min-w-0 w-full">
       {/* Top Bar: Centered Search + Filters */}
       <div className="shrink-0 flex items-end justify-center gap-3.5 bg-[var(--card)] p-3 min-h-[76px] rounded-2xl border border-[var(--border)] flex-wrap shadow-sm">
         {/* Search input */}
@@ -418,15 +418,15 @@ export default function PedidosTable({
       </div>
 
       {/* Table */}
-      <div className="flex-1 min-h-0 overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--card)]">
-        <table className="w-full text-sm border-collapse min-w-[760px] table-auto">
+      <div className="flex-1 min-h-[400px] desk:min-h-0 overflow-x-auto overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--card)] scrollbar-thin min-w-0 w-full">
+        <table className="w-full text-sm border-collapse min-w-[880px] table-auto">
           <thead>
-            <tr>
-              <th className={`${thBase} w-[36%] text-left`}>PRODUCTO</th>
-              <th className={`${thBase} w-[12%] text-center`}>STOCK ACTUAL</th>
-              <th className={`${thBase} w-[22%] text-left`}>PROVEEDOR</th>
-              <th className={`${thBase} w-[15%] text-right`}>PRECIO DE COMPRA</th>
-              <th className={`${thBase} w-[15%] text-center`}>ACCIÓN</th>
+            <tr className="whitespace-nowrap">
+              <th className={`${thBase} w-[36%] min-w-[260px] text-left`}>PRODUCTO</th>
+              <th className={`${thBase} w-[12%] min-w-[110px] text-center`}>STOCK ACTUAL</th>
+              <th className={`${thBase} w-[22%] min-w-[160px] text-left`}>PROVEEDOR</th>
+              <th className={`${thBase} w-[15%] min-w-[140px] text-right`}>PRECIO DE COMPRA</th>
+              <th className={`${thBase} w-[15%] min-w-[120px] text-center`}>ACCIÓN</th>
             </tr>
           </thead>
           <tbody>
@@ -442,7 +442,7 @@ export default function PedidosTable({
                   key={product.id}
                   className="border-b border-[var(--border)]/40 hover:bg-white/[0.02] transition-colors"
                 >
-                  <td className="py-3 px-4">
+                  <td className="py-3 px-4 min-w-[260px]">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="relative h-9 w-9 shrink-0 rounded-lg border border-[var(--border)] bg-[var(--panel)] flex items-center justify-center overflow-hidden">
                         {product.imagen ? (
@@ -460,16 +460,16 @@ export default function PedidosTable({
                       </div>
                     </div>
                   </td>
-                  <td className="py-3 px-4 text-center">
+                  <td className="py-3 px-4 text-center whitespace-nowrap min-w-[110px]">
                     {stockBadge(product.cantidad, product.stockMinimo)}
                   </td>
-                  <td className="py-3 px-4">
+                  <td className="py-3 px-4 min-w-[160px]">
                     <span className="text-[var(--text-secondary)] truncate block">{product.proveedor.nombre}</span>
                   </td>
-                  <td className="py-3 px-4 text-right font-mono text-[var(--text)]">
+                  <td className="py-3 px-4 text-right font-mono text-[var(--text)] whitespace-nowrap min-w-[140px]">
                     {formatCurrency(product.precioCompra)}
                   </td>
-                  <td className="py-3 px-4 text-center">
+                  <td className="py-3 px-4 text-center whitespace-nowrap min-w-[120px]">
                     <button
                       type="button"
                       onClick={() => handleCrearPedido(product)}

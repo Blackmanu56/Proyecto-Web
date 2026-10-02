@@ -452,9 +452,9 @@ export default function VentasTerminal({
   const getPaymentLabel = (m: string) => PAYMENT_METHODS.find(p => p.value === m)?.label || m;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch h-full">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch min-h-0 h-auto desk:h-full">
       {/* ═══ SECCIÓN IZQUIERDA: Productos (7/12 cols) ═══ */}
-      <div className="lg:col-span-7 flex flex-col gap-1 min-h-0 h-full">
+      <div className="lg:col-span-7 flex flex-col gap-1 min-h-0 h-auto desk:h-full">
         {/* 1. Panel de Selección de Clientes */}
         <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-2 py-2 space-y-1 shadow-[var(--shadow-sm)] shrink-0">
           <div className="flex items-center justify-between gap-2">
@@ -517,7 +517,7 @@ export default function VentasTerminal({
         </div>
 
         {/* 2. Panel de Búsqueda de Repuestos */}
-        <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-2 py-2 space-y-0.5 shadow-[var(--shadow-sm)] flex-1 flex flex-col min-h-0">
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-2 py-2 space-y-0.5 shadow-[var(--shadow-sm)] flex-1 flex flex-col min-h-[460px] desk:min-h-0">
           {/* Encabezado, buscador y filtros del catalogo */}
           <div className="grid grid-cols-1 gap-x-2 gap-y-0.5 xl:grid-cols-[minmax(260px,1fr)_150px_150px]">
             <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-0.5 xl:col-start-1 xl:row-start-1">
@@ -628,9 +628,9 @@ export default function VentasTerminal({
           </div>
 
           {/* Product Grid — 2 filas visibles, scroll interno */}
-          <div className={`grid grid-cols-4 gap-2 flex-1 overflow-y-auto pr-1 ${filteredProducts.length > 0 ? "content-start" : ""}`}>
+          <div className={`grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 flex-1 overflow-y-auto pr-1 max-h-[520px] desk:max-h-none ${filteredProducts.length > 0 ? "content-start" : ""}`}>
             {filteredProducts.length === 0 ? (
-              <div className="col-span-4 h-full flex flex-col items-center justify-center text-[var(--text-secondary)]">
+              <div className="col-span-2 sm:col-span-3 xl:col-span-4 h-full flex flex-col items-center justify-center text-[var(--text-secondary)] py-8">
                 {activeFilter === "favoritos" ? (
                   <>
                     <Star size={24} className="opacity-30 mb-1.5" />
@@ -715,7 +715,7 @@ export default function VentasTerminal({
       </div>
 
       {/* ═══ SECCIÓN DERECHA: Carrito + Pago (5/12 cols) ═══ */}
-      <div className="lg:col-span-5 h-full flex flex-col min-h-0">
+      <div className="lg:col-span-5 h-auto desk:h-full flex flex-col min-h-0">
         <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-2 space-y-1.5 flex flex-col flex-1 min-h-0 shadow-[var(--shadow-sm)]">
           {/* Header Carrito */}
           <div className="flex items-center justify-between border-b border-[var(--border)] pb-1.5">
@@ -729,7 +729,7 @@ export default function VentasTerminal({
           </div>
 
           {/* Listado de ítems del Carrito — fill remaining space, scroll interno */}
-          <div className="flex-1 min-h-0 overflow-y-auto space-y-1 pr-1">
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-1 pr-1 max-h-[360px] desk:max-h-none">
             {cart.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-[var(--text-secondary)] py-6 space-y-1.5">
                 <ShoppingCart size={24} className="opacity-40" />
@@ -1000,7 +1000,7 @@ export default function VentasTerminal({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-[var(--card)] border border-[var(--border)] w-full max-w-sm rounded-[var(--radius-xl)] p-6 shadow-2xl relative animate-in zoom-in-95 duration-200"
+            className="bg-[var(--card)] border border-[var(--border)] w-full max-w-sm max-h-[90dvh] overflow-y-auto rounded-[var(--radius-xl)] p-6 shadow-2xl relative animate-in zoom-in-95 duration-200"
           >
             <button
               onClick={() => setShowNewClientModal(false)}

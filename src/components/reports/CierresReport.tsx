@@ -59,9 +59,9 @@ function CierresTable({
 }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+      <table className="w-full text-sm min-w-[850px]">
         <thead>
-          <tr className="border-b border-border print:border-gray-300 bg-panel print:bg-gray-100">
+          <tr className="border-b border-border print:border-gray-300 bg-panel print:bg-gray-100 whitespace-nowrap">
             <th className="text-left px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider">#</th>
             <th className="text-left px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider">Apertura</th>
             <th className="text-left px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider">Cierre</th>
@@ -276,7 +276,7 @@ export default function CierresReport({ initialData, usuarios }: Props) {
       {/* ─── Barra de filtros colapsable (mismo patrón que VentasReport) ─── */}
       <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl overflow-hidden mb-4">
         {/* Fila superior: toggle + período + vista */}
-        <div className="flex items-center gap-4 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4 px-4 py-3">
           <button
             onClick={() => setFiltersOpen(!filtersOpen)}
             className="flex items-center gap-2 hover:text-[var(--text)] transition-colors shrink-0"
@@ -481,9 +481,9 @@ export default function CierresReport({ initialData, usuarios }: Props) {
             ) : (
               <div className="bg-[var(--card)] print:bg-white border border-[var(--border)] print:border-gray-300 rounded-xl overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-sm min-w-[750px]">
                     <thead>
-                      <tr className="border-b border-[var(--border)] print:border-gray-300 bg-[var(--panel)] print:bg-gray-100">
+                      <tr className="border-b border-[var(--border)] print:border-gray-300 bg-[var(--panel)] print:bg-gray-100 whitespace-nowrap">
                         <th className="text-left px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Mes</th>
                         <th className="text-center px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Arqueos</th>
                         <th className="text-right px-4 py-3 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Inicial</th>

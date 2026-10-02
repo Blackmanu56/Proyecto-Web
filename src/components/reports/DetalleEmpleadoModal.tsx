@@ -62,7 +62,7 @@ export default function DetalleEmpleadoModal({ emp, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4 print:hidden">
-      <div className="bg-[var(--panel)] border border-[var(--border)] w-full max-w-2xl rounded-2xl shadow-2xl relative animate-in zoom-in-95 duration-200 overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-[var(--panel)] border border-[var(--border)] w-full max-w-2xl rounded-2xl shadow-2xl relative animate-in zoom-in-95 duration-200 overflow-hidden flex flex-col max-h-[90dvh]">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border)] bg-[var(--card)]">
           <div className="flex items-center gap-3">

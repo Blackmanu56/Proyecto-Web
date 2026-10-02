@@ -55,7 +55,7 @@ export default async function VentasPage() {
   }
 
   return (
-    <div className="fixed inset-0 top-[5.5rem] bg-[var(--bg)] flex flex-col overflow-hidden z-10">
+    <div className="module-shell bg-[var(--bg)]">
       <div className="flex-1 flex flex-col min-h-0 p-2 lg:p-3">
         {/* Encabezado */}
         <div className="flex items-center justify-center gap-3 shrink-0 mb-2 text-center">
