@@ -265,9 +265,10 @@ describe("Parte 7.4 — impresión Caja y Banco", () => {
     expect(component).not.toContain(">Saldo Por Acreditar</th>");
 
     for (const label of [
-      "Efectivo Inicial", "Efectivo Esperado", "Banco Disponible", "Por Acreditar",
+      "Efectivo Inicial", "Efectivo Esperado", "Banco Disponible",
       "Total Disponible", "Ingresos Caja", "Egresos Caja", "Ingresos Banco", "Egresos Banco",
     ]) expect(component).toContain(`>${label}</div>`);
+    expect(component).not.toContain(">Por Acreditar</div>");
 
     expect(css).toContain("@page caja-report { size: A4 landscape;");
     expect(css).toContain("display: table-header-group");

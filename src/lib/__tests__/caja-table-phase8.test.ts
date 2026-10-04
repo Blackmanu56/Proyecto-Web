@@ -45,13 +45,13 @@ describe("Parte 8 — tabla Libro Diario Caja/Banco", () => {
       "Ing. Banco",
       "Egr. Banco",
       "Saldo Banco",
-      "Ing. Pend.",
-      "Saldo Pend.",
     ]) {
       expect(source).toContain(label);
     }
 
-    expect(source).toContain('min-w-[1720px]');
+    expect(source).not.toContain("Ing. Pend.");
+    expect(source).not.toContain("Saldo Pend.");
+    expect(source).toContain('min-w-[1400px]');
     expect(source).toContain('movimientosLibroDiarioFiltrados.map');
   });
 
