@@ -167,7 +167,6 @@ export default function MovimientoDetalleModal({
             if (tl.includes("venta")) colorStyle = "border-blue-500/30 bg-blue-500/10 text-blue-400";
             else if (tl.includes("reposici")) colorStyle = "border-amber-500/30 bg-amber-500/10 text-amber-400";
             else if (tl.includes("gasto") || tl.includes("egreso")) colorStyle = "border-orange-500/30 bg-orange-500/10 text-orange-400";
-            else if (tl.includes("acreditac")) colorStyle = "border-purple-500/30 bg-purple-500/10 text-purple-400";
             else if (tl.includes("apertura")) colorStyle = "border-indigo-500/30 bg-indigo-500/10 text-indigo-400";
             else if (tl.includes("ajuste")) colorStyle = "border-cyan-500/30 bg-cyan-500/10 text-cyan-400";
             else if (tl.includes("cierre")) colorStyle = "border-slate-500/30 bg-slate-500/10 text-slate-400";
