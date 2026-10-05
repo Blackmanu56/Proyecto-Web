@@ -26,6 +26,7 @@ export function formatMovimientoDescripcion(descripcion: string): string {
   if (!descripcion) return descripcion;
 
   return descripcion
+    .replace(/^\[AJUSTE[_ ](?:EFECTIVO|BANCO)\]\s*/i, "")
     .replace(/_/g, " ")
     .replace(/N\s*\?/gi, "N°")
     .replace(/(\S)-(\s)/g, "$1 -$2")

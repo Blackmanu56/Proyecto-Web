@@ -20,8 +20,11 @@ interface MovimientoDetalle {
   compra?: MovimientoCompra | null;
   esNoEfectivo?: boolean;
   impactaCaja?: boolean;
+  esAjusteBanco?: boolean;
+  esAjusteEfectivo?: boolean;
   itemNumber?: number;
   saldoAcumulado?: number;
+  saldoBanco?: number;
 }
 
 interface PagoCompraDetalle {
@@ -75,22 +78,39 @@ export default function MovimientoDetalleModal({
   const fechaStr = formatDateShort(d);
   const horaStr = formatTime24(d);
 
-  const desc = movimiento.descripcion;
-  const esAjuste = (desc || "").toLowerCase().includes("ajuste");
-  const esReposicion =
-    !esAjuste &&
-    (!!movimiento.compraId || (desc || "").toLowerCase().includes("reposici"));
-  const compra = (movimiento.compra as MovimientoCompraConPagos | null) ?? null;
-  const compraDetalles = compra?.detalles ?? [];
-  const compraPagos = compra?.pagos ?? [];
-  const paymentSummary = compra
-    ? getProductPurchasePaymentSummary(compra.total, compraPagos)
-    : null;
-  const detalleUnico = compraDetalles.length === 1 ? compraDetalles[0] : null;
+  const desc = movimiento.descripcion || "";
+  const descLower = desc.toLowerCase().trim();
 
   // Venta detection: either from venta relation or ventaId on a physical movement
   const venta = movimiento.venta ?? null;
   const esVenta = !!venta && !!movimiento.ventaId;
+
+  const esAjusteBanco =
+    movimiento.esAjusteBanco === true ||
+    descLower.includes("[ajuste_banco]") ||
+    descLower.startsWith("ajuste banco") ||
+    (!esVenta &&
+      !movimiento.compraId &&
+      !movimiento.compra &&
+      movimiento.impactaCaja === false &&
+      !descLower.startsWith("saldo inicial") &&
+      !descLower.includes("acreditac"));
+
+  const esAjusteEfectivo =
+    movimiento.esAjusteEfectivo === true ||
+    descLower.includes("[ajuste_efectivo]") ||
+    descLower.startsWith("ajuste efectivo") ||
+    (!esAjusteBanco && descLower.includes("ajuste"));
+
+  const esAjuste = esAjusteBanco || esAjusteEfectivo;
+  const esReposicion =
+    !esAjuste &&
+    (!!movimiento.compraId || descLower.includes("reposici"));
+  const compra = (movimiento.compra as MovimientoCompraConPagos | null) ?? null;
+  const compraDetalles = compra?.detalles ?? [];
+  const compraPagos = compra?.pagos ?? [];
+  const detalleUnico = compraDetalles.length === 1 ? compraDetalles[0] : null;
+
   const ventaDetalles = venta?.detalles ?? [];
   const ventaCliente = venta?.cliente ?? null;
   const esNoEfectivo = movimiento.esNoEfectivo === true;
@@ -98,34 +118,23 @@ export default function MovimientoDetalleModal({
   const afectoCaja = esNoEfectivo ? 0 : movimiento.monto;
 
   let tipoLabel = "Movimiento";
-  let badgeVariant: "success" | "danger" | "info" | "warning" | "default" = "default";
 
   if (esVenta) {
-    badgeVariant = "success";
     tipoLabel = "Venta";
+  } else if (esAjusteBanco) {
+    tipoLabel = "Ajuste Bancario";
+  } else if (esAjusteEfectivo) {
+    tipoLabel = "Ajuste de Efectivo";
   } else if (isIncome) {
-    badgeVariant = "success";
-    if (desc.toLowerCase().includes("ajuste")) tipoLabel = "Ajuste";
-    else if (desc.toLowerCase().includes("venta")) tipoLabel = "Venta";
-    else if (desc.toLowerCase().includes("apertura")) tipoLabel = "Apertura";
+    if (descLower.includes("venta")) tipoLabel = "Venta";
+    else if (descLower.includes("apertura")) tipoLabel = "Apertura";
     else tipoLabel = "Ingreso";
   } else {
-    badgeVariant = "danger";
-    if (desc.toLowerCase().includes("gasto")) tipoLabel = "Gasto";
-    else if (desc.toLowerCase().includes("reposici")) tipoLabel = "Reposición";
-    else if (desc.toLowerCase().includes("stock inicial")) tipoLabel = "Reposición";
-    else if (desc.toLowerCase().includes("cierre")) tipoLabel = "Cierre";
-    else if (desc.toLowerCase().includes("ajuste")) tipoLabel = "Ajuste";
+    if (descLower.includes("gasto")) tipoLabel = "Gasto";
+    else if (descLower.includes("reposici") || descLower.includes("stock inicial")) tipoLabel = "Reposición";
+    else if (descLower.includes("cierre")) tipoLabel = "Cierre";
     else tipoLabel = "Gasto";
   }
-
-  const badgeColorMap: Record<string, string> = {
-    success: "bg-[var(--success-light)] text-[var(--success)] border-[var(--success)]/20",
-    danger: "bg-[var(--danger-light)] text-[var(--danger)] border-[var(--danger)]/20",
-    info: "bg-[var(--info-light)] text-[var(--info)] border-[var(--info)]/20",
-    warning: "bg-[var(--warning-light)] text-[var(--warning)] border-[var(--warning)]/20",
-    default: "bg-[var(--card)] text-[var(--text-muted)] border-[var(--border)]",
-  };
 
   // Build reference string for sale
   const ventaReferencia = esVenta
@@ -145,10 +154,20 @@ export default function MovimientoDetalleModal({
           <h2 className="text-base font-bold text-[var(--text)] flex items-center gap-2">
             {esVenta ? (
               <ShoppingCart size={18} className="text-[var(--success)]" />
+            ) : esAjusteBanco ? (
+              <FileText size={18} className="text-cyan-400" />
+            ) : esAjuste ? (
+              <FileText size={18} className="text-cyan-400" />
             ) : (
               <FileText size={18} className="text-[var(--info)]" />
             )}
-            {esVenta ? "Detalle de la Venta" : "Detalle del Movimiento"}
+            {esVenta
+              ? "Detalle de la Venta"
+              : esAjusteBanco
+              ? "Ajuste Bancario"
+              : esAjuste
+              ? "Ajuste de Efectivo"
+              : "Detalle del Movimiento"}
           </h2>
           <button
             onClick={onClose}
@@ -201,7 +220,15 @@ export default function MovimientoDetalleModal({
             </div>
           ) : (
             <div className={`flex items-center justify-between px-4 py-2 rounded-xl border ${isIncome ? "bg-[var(--success-light)] border-[var(--success)]/20" : "bg-[var(--danger-light)] border-[var(--danger)]/20"}`}>
-              <p className={`text-xs font-semibold ${isIncome ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>{esReposicion ? "Afectó Caja" : "Monto"}</p>
+              <p className={`text-xs font-semibold ${isIncome ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
+                {esAjusteBanco
+                  ? (isIncome ? "Ingreso Banco" : "Egreso Banco")
+                  : esAjusteEfectivo
+                  ? (isIncome ? "Ingreso Efectivo" : "Egreso Efectivo")
+                  : esReposicion
+                  ? "Afectó Caja"
+                  : "Monto"}
+              </p>
               <p className={`text-base font-black font-mono ${isIncome ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
                 {isIncome ? "+" : "-"}{formatCurrency(movimiento.monto)}
               </p>
@@ -292,7 +319,16 @@ export default function MovimientoDetalleModal({
           )}
 
           {/* Saldo acumulado */}
-          {movimiento.saldoAcumulado !== undefined && (
+          {esAjusteBanco && movimiento.saldoBanco !== undefined ? (
+            <div className="pt-2.5 border-t border-[var(--border)]">
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-[var(--text-muted)] font-semibold">Saldo Banco tras este movimiento</span>
+                <span className="text-sm font-black font-mono text-[var(--text)]">
+                  {formatCurrency(movimiento.saldoBanco)}
+                </span>
+              </div>
+            </div>
+          ) : movimiento.saldoAcumulado !== undefined ? (
             <div className="pt-2.5 border-t border-[var(--border)]">
               <div className="flex justify-between items-center">
                 <span className="text-xs text-[var(--text-muted)] font-semibold">Saldo acumulado tras este movimiento</span>
@@ -301,7 +337,7 @@ export default function MovimientoDetalleModal({
                 </span>
               </div>
             </div>
-          )}
+          ) : null}
 
           {/* ─── Venta: Productos vendidos ─── */}
           {esVenta && ventaDetalles.length > 0 && (
