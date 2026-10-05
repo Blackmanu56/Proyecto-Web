@@ -305,6 +305,8 @@ export interface MovimientoImpactoInput {
     pagos?: { medio: string; monto: number }[] | null;
   } | null;
   descripcion?: string;
+  esAjusteBanco?: boolean;
+  esAjusteEfectivo?: boolean;
 }
 
 /**
@@ -319,6 +321,8 @@ export interface MovimientoImpactoInput {
  * - REPOSICIÓN MIXTA → Caja + Banco (egreso split)
  * - APERTURA → Caja
  * - GASTO EFECTIVO → Caja (egreso)
+ * - AJUSTE EFECTIVO → Caja (ingreso o egreso)
+ * - AJUSTE BANCO → Banco (ingreso o egreso)
  * - Históricos sin impacto conocido → 0 en todos
  */
 export function calcularImpactoFinanciero(
@@ -356,8 +360,31 @@ export function calcularImpactoFinanciero(
     };
   }
 
+  // ── AJUSTES DE EFECTIVO ───────────────────────────────────────────────
+  const esAjusteEfectivo =
+    mov.esAjusteEfectivo === true ||
+    desc.includes("[ajuste_efectivo]") ||
+    desc.startsWith("ajuste efectivo");
+
+  if (esAjusteEfectivo) {
+    if (esIngreso) {
+      return { ingresoCaja: monto, egresoCaja: 0, ingresoBanco: 0, egresoBanco: 0, ingresoPorAcreditar: 0, egresoPorAcreditar: 0 };
+    }
+    return { ingresoCaja: 0, egresoCaja: monto, ingresoBanco: 0, egresoBanco: 0, ingresoPorAcreditar: 0, egresoPorAcreditar: 0 };
+  }
+
   // ── AJUSTES DE BANCO ──────────────────────────────────────────────────
-  if (desc.includes("[ajuste_banco]")) {
+  const esAjusteBanco =
+    mov.esAjusteBanco === true ||
+    desc.includes("[ajuste_banco]") ||
+    desc.startsWith("ajuste banco") ||
+    (!desc.includes("acreditac") &&
+      !desc.startsWith("saldo inicial") &&
+      mov.impactaCaja === false &&
+      mov.venta == null &&
+      mov.compra == null);
+
+  if (esAjusteBanco) {
     if (esIngreso) {
       return { ingresoCaja: 0, egresoCaja: 0, ingresoBanco: monto, egresoBanco: 0, ingresoPorAcreditar: 0, egresoPorAcreditar: 0 };
     }

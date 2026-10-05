@@ -31,6 +31,7 @@ calcularTotales,
 enrichMovimientos,
 filtrarMovimientos,
 getConcepto,
+getMetodoPago,
 getTipoVisual,
 getUsuariosUnicos,
 type MovimientoCompra,
@@ -701,26 +702,134 @@ export default function CajaTerminal({
 
   const saldoFinalFiltrado = totalesFiltrado.saldoFinal;
 
-  // "Ventas" = ingresos por ventas reales (excluye el saldo inicial de apertura)
-  const totalVentasTurno = movimientosConSaldo
-    .filter((m) => m.tipo === "INGRESO" && getConcepto(m) === "VENTA")
-    .reduce((sum, m) => sum + m.monto, 0);
-  const totalVentasFiltrado = movimientosFiltrados
-    .filter((m) => m.tipo === "INGRESO" && getConcepto(m) === "VENTA")
-    .reduce((sum, m) => sum + m.monto, 0);
+  // ─── Resumen por operación (ventas, reposiciones, gastos, ajustes) ─────────
+  const ventasTurno = useMemo(
+    () => movimientosImpresion.filter((m) => m.tipo === "INGRESO" && getConcepto(m) === "VENTA"),
+    [movimientosImpresion]
+  );
+  const totalVentasTurno = useMemo(
+    () => ventasTurno.reduce((sum, m) => sum + (m.venta?.total ?? m.monto), 0),
+    [ventasTurno]
+  );
+  const cantVentasTurno = ventasTurno.length;
 
-  const totalReposicionesTurno = movimientosImpresion
-    .filter((m) => m.tipo === "EGRESO" && m.compraId != null)
-    .reduce((total, m) => total + crearFilaImpresionLibroDiario(m).importe, 0);
-  const totalReposicionesFiltrado = movimientosImpresionFiltrados
-    .filter((m) => m.tipo === "EGRESO" && m.compraId != null)
-    .reduce((total, m) => total + crearFilaImpresionLibroDiario(m).importe, 0);
-  const totalGastosTurno = movimientosConSaldo
-    .filter(m => m.tipo === "EGRESO" && m.descripcion.toLowerCase().startsWith("gasto:"))
-    .reduce((sum, m) => sum + m.monto, 0);
-  const totalGastosFiltrado = movimientosFiltrados
-    .filter(m => m.tipo === "EGRESO" && m.descripcion.toLowerCase().startsWith("gasto:"))
-    .reduce((sum, m) => sum + m.monto, 0);
+  const ventasFiltrado = useMemo(
+    () => movimientosImpresionFiltrados.filter((m) => m.tipo === "INGRESO" && getConcepto(m) === "VENTA"),
+    [movimientosImpresionFiltrados]
+  );
+  const totalVentasFiltrado = useMemo(
+    () => ventasFiltrado.reduce((sum, m) => sum + (m.venta?.total ?? m.monto), 0),
+    [ventasFiltrado]
+  );
+  const cantVentasFiltrado = ventasFiltrado.length;
+
+  const reposicionesTurno = useMemo(
+    () => movimientosImpresion.filter((m) => m.tipo === "EGRESO" && (m.compraId != null || getConcepto(m) === "REPOSICION")),
+    [movimientosImpresion]
+  );
+  const totalReposicionesTurno = useMemo(
+    () => reposicionesTurno.reduce((total, m) => total + crearFilaImpresionLibroDiario(m).importe, 0),
+    [reposicionesTurno]
+  );
+  const cantReposicionesTurno = reposicionesTurno.length;
+
+  const reposicionesFiltrado = useMemo(
+    () => movimientosImpresionFiltrados.filter((m) => m.tipo === "EGRESO" && (m.compraId != null || getConcepto(m) === "REPOSICION")),
+    [movimientosImpresionFiltrados]
+  );
+  const totalReposicionesFiltrado = useMemo(
+    () => reposicionesFiltrado.reduce((total, m) => total + crearFilaImpresionLibroDiario(m).importe, 0),
+    [reposicionesFiltrado]
+  );
+  const cantReposicionesFiltrado = reposicionesFiltrado.length;
+
+  const gastosTurno = useMemo(
+    () => movimientosImpresion.filter((m) => m.tipo === "EGRESO" && (getConcepto(m) === "GASTO" || m.descripcion.toLowerCase().startsWith("gasto:"))),
+    [movimientosImpresion]
+  );
+  const totalGastosTurno = useMemo(
+    () => gastosTurno.reduce((sum, m) => sum + m.monto, 0),
+    [gastosTurno]
+  );
+  const cantGastosTurno = gastosTurno.length;
+
+  const gastosFiltrado = useMemo(
+    () => movimientosImpresionFiltrados.filter((m) => m.tipo === "EGRESO" && (getConcepto(m) === "GASTO" || m.descripcion.toLowerCase().startsWith("gasto:"))),
+    [movimientosImpresionFiltrados]
+  );
+  const totalGastosFiltrado = useMemo(
+    () => gastosFiltrado.reduce((sum, m) => sum + m.monto, 0),
+    [gastosFiltrado]
+  );
+  const cantGastosFiltrado = gastosFiltrado.length;
+
+  const ajustesTurno = useMemo(
+    () => movimientosImpresion.filter((m) => getConcepto(m) === "AJUSTE"),
+    [movimientosImpresion]
+  );
+  const cantAjustesTurno = ajustesTurno.length;
+
+  const ajustesEfectivoTurno = useMemo(
+    () => ajustesTurno.filter((m) => getMetodoPago(m) === "EFECTIVO"),
+    [ajustesTurno]
+  );
+  const cantAjustesEfectivoTurno = ajustesEfectivoTurno.length;
+  const ajustesEfectivoIngresoTurno = useMemo(
+    () => ajustesEfectivoTurno.filter((m) => m.tipo === "INGRESO").reduce((sum, m) => sum + m.monto, 0),
+    [ajustesEfectivoTurno]
+  );
+  const ajustesEfectivoEgresoTurno = useMemo(
+    () => ajustesEfectivoTurno.filter((m) => m.tipo === "EGRESO").reduce((sum, m) => sum + m.monto, 0),
+    [ajustesEfectivoTurno]
+  );
+
+  const ajustesBancoTurno = useMemo(
+    () => ajustesTurno.filter((m) => getMetodoPago(m) === "BANCO"),
+    [ajustesTurno]
+  );
+  const cantAjustesBancoTurno = ajustesBancoTurno.length;
+  const ajustesBancoIngresoTurno = useMemo(
+    () => ajustesBancoTurno.filter((m) => m.tipo === "INGRESO").reduce((sum, m) => sum + m.monto, 0),
+    [ajustesBancoTurno]
+  );
+  const ajustesBancoEgresoTurno = useMemo(
+    () => ajustesBancoTurno.filter((m) => m.tipo === "EGRESO").reduce((sum, m) => sum + m.monto, 0),
+    [ajustesBancoTurno]
+  );
+
+  const ajustesFiltrado = useMemo(
+    () => movimientosImpresionFiltrados.filter((m) => getConcepto(m) === "AJUSTE"),
+    [movimientosImpresionFiltrados]
+  );
+  const cantAjustesFiltrado = ajustesFiltrado.length;
+
+  const ajustesEfectivoFiltrado = useMemo(
+    () => ajustesFiltrado.filter((m) => getMetodoPago(m) === "EFECTIVO"),
+    [ajustesFiltrado]
+  );
+  const cantAjustesEfectivoFiltrado = ajustesEfectivoFiltrado.length;
+  const ajustesEfectivoIngresoFiltrado = useMemo(
+    () => ajustesEfectivoFiltrado.filter((m) => m.tipo === "INGRESO").reduce((sum, m) => sum + m.monto, 0),
+    [ajustesEfectivoFiltrado]
+  );
+  const ajustesEfectivoEgresoFiltrado = useMemo(
+    () => ajustesEfectivoFiltrado.filter((m) => m.tipo === "EGRESO").reduce((sum, m) => sum + m.monto, 0),
+    [ajustesEfectivoFiltrado]
+  );
+
+  const ajustesBancoFiltrado = useMemo(
+    () => ajustesFiltrado.filter((m) => getMetodoPago(m) === "BANCO"),
+    [ajustesFiltrado]
+  );
+  const cantAjustesBancoFiltrado = ajustesBancoFiltrado.length;
+  const ajustesBancoIngresoFiltrado = useMemo(
+    () => ajustesBancoFiltrado.filter((m) => m.tipo === "INGRESO").reduce((sum, m) => sum + m.monto, 0),
+    [ajustesBancoFiltrado]
+  );
+  const ajustesBancoEgresoFiltrado = useMemo(
+    () => ajustesBancoFiltrado.filter((m) => m.tipo === "EGRESO").reduce((sum, m) => sum + m.monto, 0),
+    [ajustesBancoFiltrado]
+  );
 
   // ─── Totales de flujo por fondo (Parte 7.4 — impresión) ──────────
   const flujosTurno = useMemo(
@@ -737,10 +846,21 @@ export default function CajaTerminal({
 
   const resumenInferior = hayFiltrosActivos
     ? {
-        movimientos: movimientosFiltrados.length,
+        movimientos: movimientosImpresionFiltrados.length,
+        totalMovimientosTurno: movimientosImpresion.length,
         ventas: totalVentasFiltrado,
+        cantVentas: cantVentasFiltrado,
         reposiciones: totalReposicionesFiltrado,
+        cantReposiciones: cantReposicionesFiltrado,
         gastos: totalGastosFiltrado,
+        cantGastos: cantGastosFiltrado,
+        cantAjustes: cantAjustesFiltrado,
+        cantAjustesEfectivo: cantAjustesEfectivoFiltrado,
+        ajustesEfectivoIngreso: ajustesEfectivoIngresoFiltrado,
+        ajustesEfectivoEgreso: ajustesEfectivoEgresoFiltrado,
+        cantAjustesBanco: cantAjustesBancoFiltrado,
+        ajustesBancoIngreso: ajustesBancoIngresoFiltrado,
+        ajustesBancoEgreso: ajustesBancoEgresoFiltrado,
         cajaInicial: cajaActiva?.montoInicial ?? 0,
         cajaIngresos: flujosFiltrado.ingresosCaja,
         cajaEgresos: flujosFiltrado.egresosCaja,
@@ -751,10 +871,21 @@ export default function CajaTerminal({
         bancoSaldo: saldoRealBanco,
       }
     : {
-        movimientos: movimientosConSaldo.length,
+        movimientos: movimientosImpresion.length,
+        totalMovimientosTurno: movimientosImpresion.length,
         ventas: totalVentasTurno,
+        cantVentas: cantVentasTurno,
         reposiciones: totalReposicionesTurno,
+        cantReposiciones: cantReposicionesTurno,
         gastos: totalGastosTurno,
+        cantGastos: cantGastosTurno,
+        cantAjustes: cantAjustesTurno,
+        cantAjustesEfectivo: cantAjustesEfectivoTurno,
+        ajustesEfectivoIngreso: ajustesEfectivoIngresoTurno,
+        ajustesEfectivoEgreso: ajustesEfectivoEgresoTurno,
+        cantAjustesBanco: cantAjustesBancoTurno,
+        ajustesBancoIngreso: ajustesBancoIngresoTurno,
+        ajustesBancoEgreso: ajustesBancoEgresoTurno,
         cajaInicial: cajaActiva?.montoInicial ?? 0,
         cajaIngresos: flujosTurno.ingresosCaja,
         cajaEgresos: flujosTurno.egresosCaja,
@@ -772,6 +903,13 @@ export default function CajaTerminal({
 
     const old = document.getElementById("print-overlay");
     if (old) old.remove();
+    const oldStyle = document.getElementById("print-landscape-style");
+    if (oldStyle) oldStyle.remove();
+
+    const landscapeStyle = document.createElement("style");
+    landscapeStyle.id = "print-landscape-style";
+    landscapeStyle.innerHTML = "@page { size: A4 landscape !important; margin: 8mm !important; }";
+    document.head.appendChild(landscapeStyle);
 
     const overlay = document.createElement("div");
     overlay.id = "print-overlay";
@@ -784,6 +922,7 @@ export default function CajaTerminal({
       window.print();
       setTimeout(() => {
         overlay.remove();
+        landscapeStyle.remove();
         document.body.classList.remove("print-active");
       }, 500);
     }, 300);
@@ -823,10 +962,11 @@ export default function CajaTerminal({
       const fechaStr = formatDateShort(d);
       const horaStr = formatTime24(d);
       const fila = crearFilaImpresionLibroDiario(mov);
+      const visual = getTipoVisual(mov);
       const desc = construirDescripcionImpresion(mov).replace(/"/g, '""');
 
       lines.push(
-        `${mov.itemNumber};${fechaStr};${horaStr};"${desc}";${mov.tipo};${fila.pago};${fila.importe};@${mov.usuario.username};${fila.ingresoCaja};${fila.egresoCaja};${fila.saldoCaja};${fila.ingresoBanco};${fila.egresoBanco};${fila.saldoBanco}`
+        `${mov.itemNumber};${fechaStr};${horaStr};"${desc}";${visual.label};${fila.pago};${fila.importe};@${mov.usuario.username};${fila.ingresoCaja};${fila.egresoCaja};${fila.saldoCaja};${fila.ingresoBanco};${fila.egresoBanco};${fila.saldoBanco}`
       );
     }
 
@@ -1393,26 +1533,60 @@ export default function CajaTerminal({
                 Totales según filtros aplicados
               </p>
             )}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2">
               <div className="rounded-xl border border-[var(--border)] hover:border-[#f59e0b]/40 bg-[var(--card)] p-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(245,158,11,0.12)]">
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#f59e0b]">Operación económica</p>
                 <div className="mt-2 space-y-2">
                   <div className="flex items-center justify-between gap-3 text-sm">
                     <span className="text-[var(--text-secondary)]">Movimientos</span>
-                    <span className="font-bold text-[var(--text)]">{resumenInferior.movimientos}{hayFiltrosActivos ? `/${movimientosConSaldo.length}` : ""}</span>
+                    <span className="font-bold text-[var(--text)]">
+                      {resumenInferior.movimientos}{hayFiltrosActivos ? `/${resumenInferior.totalMovimientosTurno}` : ""}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-[var(--text-secondary)]">Ventas</span>
+                    <span className="text-[var(--text-secondary)]">Ventas ({resumenInferior.cantVentas})</span>
                     <span className="font-mono font-bold text-[var(--success)]">{formatCurrency(resumenInferior.ventas)}</span>
                   </div>
                   <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-[var(--text-secondary)]">Reposiciones</span>
+                    <span className="text-[var(--text-secondary)]">Reposiciones ({resumenInferior.cantReposiciones})</span>
                     <span className="font-mono font-bold text-[var(--danger)]">{formatCurrency(resumenInferior.reposiciones)}</span>
                   </div>
                   <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-[var(--text-secondary)]">Gastos</span>
+                    <span className="text-[var(--text-secondary)]">Gastos ({resumenInferior.cantGastos})</span>
                     <span className="font-mono font-bold text-[var(--danger)]">{formatCurrency(resumenInferior.gastos)}</span>
                   </div>
+                  {resumenInferior.cantAjustesEfectivo > 0 && (
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="text-[var(--text-secondary)]">Aj. Efectivo ({resumenInferior.cantAjustesEfectivo})</span>
+                      <div className="flex items-center gap-1.5 font-mono text-xs">
+                        {resumenInferior.ajustesEfectivoIngreso > 0 && (
+                          <span className="text-[var(--success)] font-bold">+{formatCurrency(resumenInferior.ajustesEfectivoIngreso)}</span>
+                        )}
+                        {resumenInferior.ajustesEfectivoEgreso > 0 && (
+                          <span className="text-[var(--danger)] font-bold">-{formatCurrency(resumenInferior.ajustesEfectivoEgreso)}</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {resumenInferior.cantAjustesBanco > 0 && (
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="text-[var(--text-secondary)]">Aj. Banco ({resumenInferior.cantAjustesBanco})</span>
+                      <div className="flex items-center gap-1.5 font-mono text-xs">
+                        {resumenInferior.ajustesBancoIngreso > 0 && (
+                          <span className="text-[var(--success)] font-bold">+{formatCurrency(resumenInferior.ajustesBancoIngreso)}</span>
+                        )}
+                        {resumenInferior.ajustesBancoEgreso > 0 && (
+                          <span className="text-[var(--danger)] font-bold">-{formatCurrency(resumenInferior.ajustesBancoEgreso)}</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {resumenInferior.cantAjustes === 0 && (
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="text-[var(--text-secondary)]">Ajustes (0)</span>
+                      <span className="font-mono font-bold text-[var(--text-secondary)]">{formatCurrency(0)}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1468,6 +1642,24 @@ export default function CajaTerminal({
                     <span className="font-mono text-base font-black text-[var(--text)]">
                       {formatCurrency(resumenInferior.bancoSaldo)}
                     </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-[var(--border)] hover:border-[var(--brand)]/60 bg-[var(--card)] p-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(214,40,40,0.12)] flex flex-col justify-center">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--brand)]">Total Disponible</p>
+                <div className="mt-2 space-y-2">
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-[var(--text-secondary)]">Efectivo Caja</span>
+                    <span className="font-mono font-bold text-[var(--text)]">{formatCurrency(resumenInferior.cajaSaldo)}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-[var(--text-secondary)]">Banco</span>
+                    <span className="font-mono font-bold text-[var(--text)]">{formatCurrency(resumenInferior.bancoSaldo)}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 text-sm pt-2 border-t border-[var(--brand)]/30">
+                    <span className="text-[var(--text-secondary)] font-semibold">Total</span>
+                    <span className="font-mono text-base font-black text-[var(--brand)]">{formatCurrency(totalDisponibleResumen)}</span>
                   </div>
                 </div>
               </div>
@@ -1738,20 +1930,20 @@ export default function CajaTerminal({
       <table className="cj-table">
         <thead>
           <tr>
-            <th className="col-num">#</th>
+            <th className="col-num text-center">#</th>
             <th className="col-fecha">Fecha</th>
             <th className="col-hora">Hora</th>
             <th className="col-desc">Descripción</th>
-            <th className="col-tipo">Tipo</th>
-            <th className="col-pago">Pago</th>
-            <th className="col-importe">Importe</th>
+            <th className="col-tipo text-center">Tipo</th>
+            <th className="col-pago text-center">Pago</th>
+            <th className="col-importe text-right">Importe</th>
             <th className="col-user">Usuario</th>
-            <th className="col-ing-caja">Ing. Caja</th>
-            <th className="col-egr-caja">Egr. Caja</th>
-            <th className="col-saldo-caja">Saldo Caja</th>
-            <th className="col-ing-banco">Ing. Banco</th>
-            <th className="col-egr-banco">Egr. Banco</th>
-            <th className="col-saldo-banco">Saldo Banco</th>
+            <th className="col-ing-caja text-right">Ing. Caja</th>
+            <th className="col-egr-caja text-right">Egr. Caja</th>
+            <th className="col-saldo-caja text-right">Saldo Caja</th>
+            <th className="col-ing-banco text-right">Ing. Banco</th>
+            <th className="col-egr-banco text-right">Egr. Banco</th>
+            <th className="col-saldo-banco text-right">Saldo Banco</th>
           </tr>
         </thead>
         <tbody>
