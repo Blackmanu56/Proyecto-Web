@@ -237,13 +237,13 @@ export default function NotificationPanel({
     let cancelled = false;
     (async () => {
       try {
-        // First, ensure stock alerts exist for current stock levels
-        await verificarStockAlertas();
-        // Then fetch all notifications
+        // 1. Fetch user notifications immediately for instant UI response
         const res = await getNotificaciones();
         if (!cancelled && !("error" in res)) {
           setNotificaciones(res.notificaciones as Notificacion[]);
         }
+        // 2. Background non-blocking sync for stock alerts
+        verificarStockAlertas().catch(() => {});
       } finally {
         if (!cancelled) setLoading(false);
       }

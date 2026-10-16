@@ -356,7 +356,8 @@ export default function NotificacionesPage() {
     (async () => {
       setLoading(true);
       try {
-        await verificarStockAlertas();
+        // Run stock verification non-blockingly in the background
+        verificarStockAlertas().catch(() => {});
         const res = await getNotificacionesPaginadas({
           busqueda: busqueda || undefined,
           tipo: tipoFilter || undefined,

@@ -968,143 +968,164 @@ export async function ajustarPreciosMasivo(inputData: unknown) {
   const valorVentaFinal = data.valorVenta ?? data.valorAjuste ?? 0;
 
   try {
-    const result = await prisma.$transaction(async (tx) => {
-      const whereClause: Prisma.ProductoWhereInput = {};
+    const result = await prisma.$transaction(
+      async (tx) => {
+        const whereClause: Prisma.ProductoWhereInput = {};
 
-      if (filtros.estado === "activos") {
-        whereClause.activo = true;
-      } else if (filtros.estado === "inactivos") {
-        whereClause.activo = false;
-      }
-
-      if (filtros.categoriaId && filtros.categoriaId !== "all") {
-        whereClause.categoriaId = filtros.categoriaId;
-      }
-
-      if (filtros.proveedorId && filtros.proveedorId !== "all") {
-        whereClause.proveedorId = filtros.proveedorId;
-      }
-
-      if (filtros.marca && filtros.marca !== "all") {
-        whereClause.marca = { equals: filtros.marca, mode: "insensitive" };
-      }
-
-      if (filtros.productoIds && filtros.productoIds.length > 0) {
-        whereClause.id = { in: filtros.productoIds };
-      }
-
-      // 1. Obtener productos frescos desde la base de datos
-      const productos = await tx.producto.findMany({
-        where: whereClause,
-      });
-
-      if (productos.length === 0) {
-        throw new Error("No se encontraron productos que coincidan con los filtros seleccionados.");
-      }
-
-      // 2. Validar y calcular precios para todos los productos
-      const detallesAjuste: Array<{
-        productoId: number;
-        precioCompraAnterior: number;
-        precioCompraNuevo: number;
-        precioVentaAnterior: number;
-        precioVentaNuevo: number;
-      }> = [];
-
-      for (const p of productos) {
-        let nuevoPrecioCompra = p.precioCompra;
-        let nuevoPrecioVenta = p.precioVenta;
-
-        if (ajustarCompraFinal && valorCompraFinal !== 0) {
-          nuevoPrecioCompra = calcularNuevoPrecio(p.precioCompra, metodoCompraFinal, valorCompraFinal, redondeo);
+        if (filtros.estado === "activos") {
+          whereClause.activo = true;
+        } else if (filtros.estado === "inactivos") {
+          whereClause.activo = false;
         }
 
-        if (ajustarVentaFinal && valorVentaFinal !== 0) {
-          nuevoPrecioVenta = calcularNuevoPrecio(p.precioVenta, metodoVentaFinal, valorVentaFinal, redondeo);
+        if (filtros.categoriaId && filtros.categoriaId !== "all") {
+          whereClause.categoriaId = filtros.categoriaId;
         }
 
-        if (nuevoPrecioCompra <= 0) {
-          throw new Error(
-            `El ajuste genera un precio de compra inválido ($${nuevoPrecioCompra}) para '${p.nombre}' (ID: ${p.id}).`
-          );
-        }
-        if (nuevoPrecioVenta <= 0) {
-          throw new Error(
-            `El ajuste genera un precio de venta inválido ($${nuevoPrecioVenta}) para '${p.nombre}' (ID: ${p.id}).`
-          );
+        if (filtros.proveedorId && filtros.proveedorId !== "all") {
+          whereClause.proveedorId = filtros.proveedorId;
         }
 
-        detallesAjuste.push({
-          productoId: p.id,
-          precioCompraAnterior: p.precioCompra,
-          precioCompraNuevo: nuevoPrecioCompra,
-          precioVentaAnterior: p.precioVenta,
-          precioVentaNuevo: nuevoPrecioVenta,
+        if (filtros.marca && filtros.marca !== "all") {
+          whereClause.marca = { equals: filtros.marca, mode: "insensitive" };
+        }
+
+        if (filtros.productoIds && filtros.productoIds.length > 0) {
+          whereClause.id = { in: filtros.productoIds };
+        }
+
+        // 1. Obtener productos frescos desde la base de datos
+        const productos = await tx.producto.findMany({
+          where: whereClause,
         });
-      }
 
-      // 3. Crear cabecera de AjustePrecio
-      const tipoAjusteHeader = data.tipoAjuste ?? (ajustarCompraFinal && ajustarVentaFinal ? `${metodoCompraFinal}_Y_${metodoVentaFinal}` : ajustarCompraFinal ? metodoCompraFinal : metodoVentaFinal);
-      const valorHeader = data.valorAjuste ?? (ajustarVentaFinal ? valorVentaFinal : valorCompraFinal);
-      const preciosAfectadosHeader = data.preciosAfectados ?? (ajustarCompraFinal && ajustarVentaFinal ? "AMBOS" : ajustarCompraFinal ? "SOLO_COMPRA" : "SOLO_VENTA");
+        if (productos.length === 0) {
+          throw new Error("No se encontraron productos que coincidan con los filtros seleccionados.");
+        }
 
-      const ajuste = await tx.ajustePrecio.create({
-        data: {
-          tipoAjuste: tipoAjusteHeader,
-          valor: valorHeader,
-          preciosAfectados: preciosAfectadosHeader,
-          filtros: filtros as unknown as Prisma.InputJsonValue,
-          redondeo,
-          motivo,
-          usuarioId: session.userId,
-          cantidadProductos: productos.length,
-          esMasivo: true,
-          detalles: {
-            create: detallesAjuste,
-          },
-        },
-      });
+        // 2. Validar y calcular precios para todos los productos
+        const detallesAjuste: Array<{
+          productoId: number;
+          precioCompraAnterior: number;
+          precioCompraNuevo: number;
+          precioVentaAnterior: number;
+          precioVentaNuevo: number;
+        }> = [];
 
-      // 4. Actualizar productos y registrar movimientos individuales
-      for (const d of detallesAjuste) {
-        await tx.producto.update({
-          where: { id: d.productoId },
+        for (const p of productos) {
+          let nuevoPrecioCompra = p.precioCompra;
+          let nuevoPrecioVenta = p.precioVenta;
+
+          if (ajustarCompraFinal && valorCompraFinal !== 0) {
+            nuevoPrecioCompra = calcularNuevoPrecio(p.precioCompra, metodoCompraFinal, valorCompraFinal, redondeo);
+          }
+
+          if (ajustarVentaFinal && valorVentaFinal !== 0) {
+            nuevoPrecioVenta = calcularNuevoPrecio(p.precioVenta, metodoVentaFinal, valorVentaFinal, redondeo);
+          }
+
+          if (nuevoPrecioCompra <= 0) {
+            throw new Error(
+              `El ajuste genera un precio de compra inválido ($${nuevoPrecioCompra}) para '${p.nombre}' (ID: ${p.id}).`
+            );
+          }
+          if (nuevoPrecioVenta <= 0) {
+            throw new Error(
+              `El ajuste genera un precio de venta inválido ($${nuevoPrecioVenta}) para '${p.nombre}' (ID: ${p.id}).`
+            );
+          }
+
+          detallesAjuste.push({
+            productoId: p.id,
+            precioCompraAnterior: p.precioCompra,
+            precioCompraNuevo: nuevoPrecioCompra,
+            precioVentaAnterior: p.precioVenta,
+            precioVentaNuevo: nuevoPrecioVenta,
+          });
+        }
+
+        // 3. Crear cabecera de AjustePrecio
+        const tipoAjusteHeader = data.tipoAjuste ?? (ajustarCompraFinal && ajustarVentaFinal ? `${metodoCompraFinal}_Y_${metodoVentaFinal}` : ajustarCompraFinal ? metodoCompraFinal : metodoVentaFinal);
+        const valorHeader = data.valorAjuste ?? (ajustarVentaFinal ? valorVentaFinal : valorCompraFinal);
+        const preciosAfectadosHeader = data.preciosAfectados ?? (ajustarCompraFinal && ajustarVentaFinal ? "AMBOS" : ajustarCompraFinal ? "SOLO_COMPRA" : "SOLO_VENTA");
+
+        const ajuste = await tx.ajustePrecio.create({
           data: {
-            precioCompra: d.precioCompraNuevo,
-            precioVenta: d.precioVentaNuevo,
+            tipoAjuste: tipoAjusteHeader,
+            valor: valorHeader,
+            preciosAfectados: preciosAfectadosHeader,
+            filtros: filtros as unknown as Prisma.InputJsonValue,
+            redondeo,
+            motivo,
+            usuarioId: session.userId,
+            cantidadProductos: productos.length,
+            esMasivo: true,
+            detalles: {
+              create: detallesAjuste,
+            },
           },
         });
 
-        const cambios: Array<{ campo: string; anterior: unknown; nuevo: unknown }> = [];
-        if (d.precioCompraAnterior !== d.precioCompraNuevo) {
-          cambios.push({
-            campo: "precioCompra",
-            anterior: d.precioCompraAnterior,
-            nuevo: d.precioCompraNuevo,
-          });
+        // 4. Actualizar productos concurrentemente en la BD
+        await Promise.all(
+          detallesAjuste.map((d) =>
+            tx.producto.update({
+              where: { id: d.productoId },
+              data: {
+                precioCompra: d.precioCompraNuevo,
+                precioVenta: d.precioVentaNuevo,
+              },
+            })
+          )
+        );
+
+        // 5. Construir registros de auditoría y guardarlos en una sola operación en lote (createMany)
+        const movimientosData: Prisma.MovimientoProductoCreateManyInput[] = [];
+
+        for (const d of detallesAjuste) {
+          const cambios: Array<{ campo: string; anterior: unknown; nuevo: unknown }> = [];
+          if (d.precioCompraAnterior !== d.precioCompraNuevo) {
+            cambios.push({
+              campo: "precioCompra",
+              anterior: d.precioCompraAnterior,
+              nuevo: d.precioCompraNuevo,
+            });
+          }
+          if (d.precioVentaAnterior !== d.precioVentaNuevo) {
+            cambios.push({
+              campo: "precioVenta",
+              anterior: d.precioVentaAnterior,
+              nuevo: d.precioVentaNuevo,
+            });
+          }
+
+          if (cambios.length > 0) {
+            const prod = productos.find((p) => p.id === d.productoId);
+            movimientosData.push({
+              productoId: d.productoId,
+              usuarioId: session.userId,
+              tipo: "EDICION",
+              cantidadAnterior: prod?.cantidad ?? 0,
+              cantidadNueva: prod?.cantidad ?? 0,
+              motivo: `Ajuste masivo #${ajuste.id}: ${motivo}`,
+              cambios: (cambios as unknown as Prisma.InputJsonValue) ?? undefined,
+            });
+          }
         }
-        if (d.precioVentaAnterior !== d.precioVentaNuevo) {
-          cambios.push({
-            campo: "precioVenta",
-            anterior: d.precioVentaAnterior,
-            nuevo: d.precioVentaNuevo,
+
+        if (movimientosData.length > 0) {
+          await tx.movimientoProducto.createMany({
+            data: movimientosData,
           });
         }
 
-        const prod = productos.find((p) => p.id === d.productoId);
-        await registrarMovimiento(tx, {
-          productoId: d.productoId,
-          tipo: "EDICION",
-          cantidadAnterior: prod?.cantidad ?? 0,
-          cantidadNueva: prod?.cantidad ?? 0,
-          motivo: `Ajuste masivo #${ajuste.id}: ${motivo}`,
-          cambios,
-          usuarioId: session.userId,
-        });
+        return { totalModificados: productos.length, ajusteId: ajuste.id };
+      },
+      {
+        timeout: 30000,
+        maxWait: 5000,
       }
-
-      return { totalModificados: productos.length, ajusteId: ajuste.id };
-    });
+    );
 
     revalidatePath("/productos");
     return {

@@ -2,20 +2,10 @@
 
 import React from "react";
 import type { EmpleadoDashboardRow } from "@/actions/informes";
-import { formatCurrency } from "@/lib/utils";
 import {
   X,
-  User,
-  Activity,
   Layers,
   Clock,
-  ShoppingCart,
-  DollarSign,
-  Package,
-  Boxes,
-  KeyRound,
-  FileSpreadsheet,
-  Coins,
 } from "lucide-react";
 
 interface Props {
@@ -121,77 +111,7 @@ export default function DetalleEmpleadoModal({ emp, onClose }: Props) {
             </div>
           </div>
 
-          {/* Métricas específicas según el Rol */}
-          <div>
-            <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-3 flex items-center gap-1.5">
-              <Activity size={14} className="text-[var(--brand)]" />
-              Métricas de Desempeño
-            </h3>
-            {emp.rol === "ENCARGADO_VENTAS" && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3.5 flex items-center gap-3">
-                  <div className="p-2.5 rounded-lg bg-indigo-500/10 text-indigo-400">
-                    <ShoppingCart size={18} />
-                  </div>
-                  <div>
-                    <p className="text-xs text-[var(--text-muted)] font-medium">Ventas Realizadas</p>
-                    <p className="text-base font-bold text-[var(--text)]">{emp.ventasCount}</p>
-                  </div>
-                </div>
-                <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3.5 flex items-center gap-3">
-                  <div className="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-400">
-                    <DollarSign size={18} />
-                  </div>
-                  <div>
-                    <p className="text-xs text-[var(--text-muted)] font-medium">Monto Facturado</p>
-                    <p className="text-base font-bold text-[var(--success)]">{formatCurrency(emp.totalVendido)}</p>
-                  </div>
-                </div>
-              </div>
-            )}
 
-            {emp.rol === "ENCARGADO_STOCK" && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3">
-                  <p className="text-xs text-[var(--text-muted)] font-medium mb-1">Reposiciones</p>
-                  <p className="text-sm font-bold text-[var(--text)]">{emp.comprasCount}</p>
-                </div>
-                <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3">
-                  <p className="text-xs text-[var(--text-muted)] font-medium mb-1">Total Compras</p>
-                  <p className="text-sm font-bold text-[var(--text)]">{formatCurrency(emp.totalCompras)}</p>
-                </div>
-                <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3">
-                  <p className="text-xs text-[var(--text-muted)] font-medium mb-1">Ajustes de Stock</p>
-                  <p className="text-sm font-bold text-[var(--text)]">{emp.ajustesStockCount}</p>
-                </div>
-                <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3">
-                  <p className="text-xs text-[var(--text-muted)] font-medium mb-1">Cambios Estado</p>
-                  <p className="text-sm font-bold text-[var(--text)]">{emp.cambiosEstadoProductoCount}</p>
-                </div>
-              </div>
-            )}
-
-            {emp.rol === "ADMINISTRADOR" && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3">
-                  <p className="text-xs text-[var(--text-muted)] font-medium mb-1">Cajas Abiertas</p>
-                  <p className="text-sm font-bold text-[var(--text)]">{emp.cajasAbiertasCount}</p>
-                </div>
-                <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3">
-                  <p className="text-xs text-[var(--text-muted)] font-medium mb-1">Cierres de Caja</p>
-                  <p className="text-sm font-bold text-[var(--text)]">{emp.cierresCount}</p>
-                </div>
-                <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3">
-                  <p className="text-xs text-[var(--text-muted)] font-medium mb-1">Movimientos Caja</p>
-                  <p className="text-sm font-bold text-[var(--text)]">{emp.movimientosCajaCount}</p>
-                </div>
-                <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3">
-                  <p className="text-xs text-[var(--text-muted)] font-medium mb-1">Ajustes Precios</p>
-                  <p className="text-sm font-bold text-[var(--text)]">{emp.ajustesPrecioCount}</p>
-                </div>
-              </div>
-            )}
-          </div>
 
           {/* Distribución por Módulo */}
           <div>

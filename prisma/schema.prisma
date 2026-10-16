@@ -215,6 +215,8 @@ model Producto {
   solicitudesPrecio     SolicitudPrecio[]
   notificaciones        Notificacion[]
   ajustesPrecioDetalle  AjustePrecioDetalle[]
+  ecommerce             ProductoEcommerce?
+  comboItems            ComboItemEcommerce[]
 
   @@map("productos")
 }
@@ -605,3 +607,51 @@ model AjustePrecioDetalle {
   @@index([productoId])
   @@map("ajuste_precio_detalles")
 }
+
+model ComboEcommerce {
+  id            Int                  @id @default(autoincrement())
+  nombre        String
+  slug          String?
+  descripcion   String?
+  badge         String?
+  precio        Float
+  precioRegular Float?               @map("precio_regular")
+  imagen        String?
+  activo        Boolean              @default(true)
+  destacado     Boolean              @default(false)
+  orden         Int                  @default(0)
+  creadoEn      DateTime             @default(now()) @map("creado_en")
+  actualizadoEn DateTime             @updatedAt @map("actualizado_en")
+  items         ComboItemEcommerce[]
+
+  @@map("combos_ecommerce")
+}
+
+model ComboItemEcommerce {
+  id         Int            @id @default(autoincrement())
+  comboId    Int            @map("combo_id")
+  productoId Int            @map("producto_id")
+  cantidad   Int            @default(1)
+  combo      ComboEcommerce @relation(fields: [comboId], references: [id], onDelete: Cascade)
+  producto   Producto       @relation(fields: [productoId], references: [id], onDelete: Cascade)
+
+  @@map("combo_items_ecommerce")
+}
+
+model ProductoEcommerce {
+  id              Int      @id @default(autoincrement())
+  productoId      Int      @unique @map("producto_id")
+  publicadoOnline Boolean  @default(false) @map("publicado_online")
+  enOferta        Boolean  @default(false) @map("en_oferta")
+  precioOferta    Float?   @map("precio_oferta")
+  destacado       Boolean  @default(false)
+  recomendado     Boolean  @default(false)
+  badgePromo      String?  @map("badge_promo")
+  ordenOferta     Int?     @map("orden_oferta")
+  actualizadoEn   DateTime @updatedAt @map("actualizado_en")
+  producto        Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
+
+  @@index([publicadoOnline, enOferta])
+  @@map("productos_ecommerce")
+}
+
