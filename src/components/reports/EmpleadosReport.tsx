@@ -579,96 +579,111 @@ export default function EmpleadosReport({ initialData }: Props) {
 
         {/* ── 2. SUBMÓDULO DETALLE DE EMPLEADOS ── */}
         {activeSubView === "detalle" && (
-          <div className="report-section space-y-3" data-section-id="tabla" data-print-active={printActive("tabla")}>
-            <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
-              <div>
-                <h3 className={sectionHeaderClass}>Listado de Empleados</h3>
-                <p className="text-xs text-[var(--text-muted)]">
-                  {empleadosTabla.length === 1
-                    ? "1 empleado registrado"
-                    : `${empleadosTabla.length} empleados registrados`}
-                  {data.empleados.length !== empleadosTabla.length && (
-                    <span> (filtrados de un total de {data.empleados.length})</span>
-                  )}
-                </p>
-              </div>
+          <div className="report-section" data-section-id="tabla" data-print-active={printActive("tabla")}>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className={sectionHeaderClass}>Detalle de Empleados</h3>
               <button onClick={() => setPrintSection("tabla")} className={printButtonClass} title="Imprimir esta sección">
                 <Printer size={12} />
               </button>
             </div>
 
-            {/* Filtros contextuales del Listado de Empleados */}
-            <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl p-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
-                  <UserCheck size={12} /> Rol
-                </label>
-                <select value={rolFiltro} onChange={(e) => setRolFiltro(e.target.value)} className={inputClass}>
-                  <option value="">Todos los roles</option>
-                  <option value="ADMINISTRADOR">Administrador</option>
-                  <option value="ENCARGADO_VENTAS">Encargado de Ventas</option>
-                  <option value="ENCARGADO_STOCK">Encargado de Stock</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
-                  <User size={12} /> Usuario
-                </label>
-                <input
-                  type="text"
-                  placeholder="Buscar por nombre o usuario..."
-                  value={searchUser}
-                  onChange={(e) => setSearchUser(e.target.value)}
-                  className={inputClass}
-                />
-              </div>
-            </div>
-
             <div className="bg-[var(--card)] print:bg-white border border-[var(--border)] print:border-gray-300 rounded-xl overflow-hidden">
-              <div className="overflow-x-auto">
+              {/* Filtros contextuales integrados */}
+              <div className="print:hidden p-4 border-b border-[var(--border)] print:border-gray-300 bg-[var(--panel)]/40 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">
+                      Rol
+                    </label>
+                    <select value={rolFiltro} onChange={(e) => setRolFiltro(e.target.value)} className={inputClass}>
+                      <option value="">Todos los roles</option>
+                      <option value="ADMINISTRADOR">Administrador</option>
+                      <option value="ENCARGADO_VENTAS">Encargado de Ventas</option>
+                      <option value="ENCARGADO_STOCK">Encargado de Stock</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">
+                      Usuario
+                    </label>
+                    <div className="relative">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                      <input
+                        type="text"
+                        placeholder="Buscar por nombre o usuario..."
+                        value={searchUser}
+                        onChange={(e) => setSearchUser(e.target.value)}
+                        className={inputClass + " pl-9"}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Contador de empleados registrados */}
+                <div className="flex items-center justify-between text-xs text-[var(--text-muted)] pt-1">
+                  <span>
+                    Mostrando <strong>{empleadosTabla.length}</strong> de <strong>{data.empleados.length}</strong> empleados
+                  </span>
+                  {(rolFiltro || searchUser) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRolFiltro("");
+                        setSearchUser("");
+                      }}
+                      className="text-[var(--brand)] hover:underline font-semibold"
+                    >
+                      Limpiar filtros
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Tabla de Empleados */}
+              <div className="overflow-x-auto scrollbar-thin">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-[var(--border)] print:border-gray-300 bg-[var(--panel)] print:bg-gray-100">
+                    <tr className="border-b border-[var(--border)] print:border-gray-300 bg-[var(--panel)] print:bg-gray-100 whitespace-nowrap">
                       <th className={"text-left " + tableCellHeader}>Empleado</th>
                       <th className={"text-left " + tableCellHeader}>Rol</th>
                       <th className={"text-left " + tableCellHeader}>Estado</th>
                       <th className={"text-left " + tableCellHeader}>Última actividad</th>
                       <th className={"text-right " + tableCellHeader}>Acciones (en el período)</th>
-                      <th className={"text-right " + tableCellHeader}>Detalle</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--border)] print:divide-gray-300">
                     {empleadosTabla.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="px-4 py-8 text-center text-[var(--text-secondary)]">
+                        <td colSpan={5} className="px-4 py-8 text-center text-[var(--text-secondary)]">
                           Sin empleados para los filtros seleccionados.
                         </td>
                       </tr>
                     ) : (
                       empleadosTabla.map((emp) => (
-                        <tr key={emp.usuarioId} className="hover:bg-[var(--border)]/40 transition-colors">
-                          <td className="px-4 py-3">
-                            <p className="font-semibold text-[var(--text)]">{emp.nombreCompleto}</p>
-                            <p className="text-xs text-[var(--text-muted)]">@{emp.username}</p>
+                        <tr
+                          key={emp.usuarioId}
+                          onClick={() => setSelectedEmpleado(emp)}
+                          className="hover:bg-[var(--border)]/40 transition-colors cursor-pointer group"
+                          title="Haz clic para ver el detalle de actividades del empleado"
+                        >
+                          <td className="px-4 py-3 font-semibold text-[var(--text)]">
+                            <p className="font-semibold text-[var(--text)] group-hover:text-[var(--brand)] transition-colors">{emp.nombreCompleto}</p>
+                            <p className="text-xs text-[var(--text-muted)] font-normal">@{emp.username}</p>
                           </td>
                           <td className="px-4 py-3 text-[var(--text-muted)]">{ROL_LABEL[emp.rol] || emp.rol}</td>
                           <td className="px-4 py-3">
-                            {emp.activo ? (
-                              <span className="text-xs font-semibold text-[var(--success)]">Activo</span>
-                            ) : (
-                              <span className="text-xs font-semibold text-[var(--danger)]">Inactivo</span>
-                            )}
+                            <span
+                              className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                emp.activo
+                                  ? "bg-emerald-500/10 text-emerald-400"
+                                  : "bg-rose-500/10 text-rose-400"
+                              }`}
+                            >
+                              {emp.activo ? "Activo" : "Inactivo"}
+                            </span>
                           </td>
                           <td className="px-4 py-3 text-xs text-[var(--text-muted)]">{emp.ultimaActividadLabel || "—"}</td>
                           <td className="px-4 py-3 text-right font-bold text-[var(--text)]">{emp.acciones}</td>
-                          <td className="px-4 py-3 text-right">
-                            <button
-                              onClick={() => setSelectedEmpleado(emp)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--border-hover)] transition print:hidden"
-                            >
-                              <User size={12} /> Ver Detalle
-                            </button>
-                          </td>
                         </tr>
                       ))
                     )}
@@ -681,113 +696,127 @@ export default function EmpleadosReport({ initialData }: Props) {
 
         {/* ── 3. SUBMÓDULO HISTORIAL DE ACTIVIDADES ── */}
         {activeSubView === "actividad" && (
-          <div className="report-section space-y-3" data-section-id="actividad-reciente" data-print-active={printActive("actividad-reciente")}>
-            <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
-              <div>
-                <h3 className={sectionHeaderClass}>Historial de Actividades</h3>
-                <p className="text-xs text-[var(--text-muted)]">
-                  {totalActividades === 1
-                    ? "1 actividad registrada"
-                    : `${totalActividades} actividades registradas en el período`}
-                  {data.actividadReciente.length !== totalActividades && (
-                    <span> (filtradas de un total de {data.actividadReciente.length})</span>
-                  )}
-                </p>
-              </div>
-              <button onClick={() => setPrintSection("actividad-reciente")} className={printButtonClass} title="Imprimir esta sección">
-                <Printer size={12} />
-              </button>
+          <div>
+            <div className="mb-2">
+              <h3 className={sectionHeaderClass}>Historial de Actividades</h3>
             </div>
 
-            {/* Filtros contextuales */}
-            <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <div>
-                <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
-                  <Search size={12} /> Búsqueda
-                </label>
-                <input
-                  type="text"
-                  placeholder="Buscar en descripción, producto..."
-                  value={actividadSearch}
-                  onChange={(e) => {
-                    setActividadSearch(e.target.value);
-                    setActividadPage(1);
-                  }}
-                  className={inputClass}
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
-                  <User size={12} /> Empleado
-                </label>
-                <select
-                  value={actividadUsuarioId}
-                  onChange={(e) => {
-                    setActividadUsuarioId(e.target.value);
-                    setActividadPage(1);
-                  }}
-                  className={inputClass}
-                >
-                  <option value="">Todos los empleados</option>
-                  {data.empleados.map((u) => (
-                    <option key={u.usuarioId} value={u.usuarioId}>
-                      {u.nombreCompleto} ({ROL_LABEL[u.rol] || u.rol})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
-                  <Layers size={12} /> Módulo
-                </label>
-                <select
-                  value={actividadModulo}
-                  onChange={(e) => {
-                    setActividadModulo(e.target.value);
-                    setActividadTipo("");
-                    setActividadPage(1);
-                  }}
-                  className={inputClass}
-                >
-                  <option value="">Todos los módulos</option>
-                  {availableModulos.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
-                  <Filter size={12} /> Tipo de Acción
-                </label>
-                <select
-                  value={actividadTipo}
-                  onChange={(e) => {
-                    setActividadTipo(e.target.value);
-                    setActividadPage(1);
-                  }}
-                  className={inputClass}
-                >
-                  <option value="">Todas las acciones</option>
-                  {availableTipos.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Tabla de Actividades */}
             <div className="bg-[var(--card)] print:bg-white border border-[var(--border)] print:border-gray-300 rounded-xl overflow-hidden">
-              <div className="overflow-x-auto">
+              {/* Filtros contextuales integrados */}
+              <div className="print:hidden p-4 border-b border-[var(--border)] print:border-gray-300 bg-[var(--panel)]/40 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">
+                      Búsqueda
+                    </label>
+                    <div className="relative">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                      <input
+                        type="text"
+                        placeholder="Buscar en descripción, producto..."
+                        value={actividadSearch}
+                        onChange={(e) => {
+                          setActividadSearch(e.target.value);
+                          setActividadPage(1);
+                        }}
+                        className={inputClass + " pl-9"}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">
+                      Empleado
+                    </label>
+                    <select
+                      value={actividadUsuarioId}
+                      onChange={(e) => {
+                        setActividadUsuarioId(e.target.value);
+                        setActividadPage(1);
+                      }}
+                      className={inputClass}
+                    >
+                      <option value="">Todos los empleados</option>
+                      {data.empleados.map((u) => (
+                        <option key={u.usuarioId} value={u.usuarioId}>
+                          {u.nombreCompleto} ({ROL_LABEL[u.rol] || u.rol})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">
+                      Módulo
+                    </label>
+                    <select
+                      value={actividadModulo}
+                      onChange={(e) => {
+                        setActividadModulo(e.target.value);
+                        setActividadTipo("");
+                        setActividadPage(1);
+                      }}
+                      className={inputClass}
+                    >
+                      <option value="">Todos los módulos</option>
+                      {availableModulos.map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">
+                      Tipo de Acción
+                    </label>
+                    <select
+                      value={actividadTipo}
+                      onChange={(e) => {
+                        setActividadTipo(e.target.value);
+                        setActividadPage(1);
+                      }}
+                      className={inputClass}
+                    >
+                      <option value="">Todas las acciones</option>
+                      {availableTipos.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Contador de actividades */}
+                <div className="flex items-center justify-between text-xs text-[var(--text-muted)] pt-1">
+                  <span>
+                    Mostrando <strong>{totalActividades}</strong> de <strong>{data.actividadReciente.length}</strong> actividades
+                  </span>
+                  {(actividadSearch || actividadUsuarioId || actividadModulo || actividadTipo) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActividadSearch("");
+                        setActividadUsuarioId("");
+                        setActividadModulo("");
+                        setActividadTipo("");
+                        setActividadPage(1);
+                      }}
+                      className="text-[var(--brand)] hover:underline font-semibold"
+                    >
+                      Limpiar filtros
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Tabla de Actividades */}
+              <div className="overflow-x-auto scrollbar-thin">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-[var(--border)] print:border-gray-300 bg-[var(--panel)] print:bg-gray-100">
+                    <tr className="border-b border-[var(--border)] print:border-gray-300 bg-[var(--panel)] print:bg-gray-100 whitespace-nowrap">
                       <th className={"text-left " + tableCellHeader}>Fecha y hora</th>
                       <th className={"text-left " + tableCellHeader}>Empleado</th>
                       <th className={"text-left " + tableCellHeader}>Rol</th>
@@ -905,7 +934,7 @@ export default function EmpleadosReport({ initialData }: Props) {
         )}
       </div>
 
-      {/* Modal de Detalle de Empleado */}
+      {/* Modal de detalle de empleado */}
       {selectedEmpleado && (
         <DetalleEmpleadoModal
           emp={selectedEmpleado}

@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select";
 import { formatCurrency, formatDate, formatDateShort } from "@/lib/utils";
 import {
-  ChevronDown, ChevronUp, Eye, Printer, RefreshCw, Search,
+  ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronUp, Eye, Printer, RefreshCw, Search,
 } from "lucide-react";
 import {
   Bar,
@@ -25,7 +25,6 @@ import {
   YAxis,
 } from "recharts";
 import DetalleProveedorModal from "./DetalleProveedorModal";
-import DetalleReposicionModal from "./DetalleReposicionModal";
 
 const inputClass =
   "w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/40 focus:border-[var(--brand)] transition";
@@ -59,9 +58,7 @@ const DEFAULT_FILTERS: ProveedoresDashboardFilters = {
   search: "",
 };
 
-type SubViewId = "analisis" | "detalle" | "reposicion";
-
-const PAGE_SIZE = 10;
+type SubViewId = "analisis" | "detalle";
 
 interface Props {
   initialData: ProveedoresDashboard;
@@ -109,77 +106,6 @@ function PieTooltip({ active, payload }: any) {
   );
 }
 
-// ── Vista: sección de reposición por proveedor ─────────────────────────
-function ReposicionSection({
-  data,
-  onViewDetail,
-}: {
-  data: ProveedoresDashboard;
-  onViewDetail: (r: ProveedoresDashboard["reposicionResumen"][number]) => void;
-}) {
-  if (data.reposicionResumen.length === 0) {
-    return (
-      <div className="bg-[var(--panel)] border border-[var(--border)] rounded-xl p-4">
-        <h3 className={sectionHeaderClass + " mb-3"}>Reposición por Proveedor</h3>
-        <p className="text-sm text-[var(--text-secondary)]">
-          No hay productos por debajo del stock mínimo. La reposición está al día.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="bg-[var(--panel)] border border-[var(--border)] rounded-xl overflow-hidden">
-      <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
-        <h3 className={sectionHeaderClass}>Reposición por Proveedor</h3>
-        <span className="text-xs text-[var(--text-secondary)]">
-          {data.reposicionResumen.length} proveedor(es) con pendientes
-        </span>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm min-w-[650px]">
-          <thead>
-            <tr className="border-b border-[var(--border)] whitespace-nowrap bg-[var(--card)]">
-              <th className={tableCellHeader + " text-left"}>Proveedor</th>
-              <th className={tableCellHeader + " text-right"}>Productos a reponer</th>
-              <th className={tableCellHeader + " text-right"}>Sin stock</th>
-              <th className={tableCellHeader + " text-right"}>Stock bajo</th>
-              <th className={tableCellHeader + " text-center print:hidden"}>Det.</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[var(--border)]">
-            {data.reposicionResumen.map((r) => (
-              <tr
-                key={r.proveedorId}
-                className="hover:bg-[var(--card)] cursor-pointer transition-colors"
-                onClick={() => onViewDetail(r)}
-              >
-                <td className="px-4 py-3 font-semibold text-[var(--text)]">{r.proveedor}</td>
-                <td className="px-4 py-3 text-right font-bold text-[var(--brand)]">{r.aReponer}</td>
-                <td className="px-4 py-3 text-right font-bold text-[var(--danger)]">{r.sinStock}</td>
-                <td className="px-4 py-3 text-right font-bold text-amber-400">{r.stockBajo}</td>
-                <td className="px-4 py-3 text-center print:hidden">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onViewDetail(r);
-                    }}
-                    className="h-8 w-8 p-0 hover:bg-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)]"
-                    title="Ver detalle de reposición"
-                  >
-                    <Eye size={14} />
-                  </Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
 
 // ── Vista: tabla de proveedores con detalle en modal ───────────────────
 function TablaProveedoresSection({
@@ -194,6 +120,7 @@ function TablaProveedoresSection({
   onViewDetail: (r: ProveedorTablaRow) => void;
 }) {
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   // Búsqueda client-side adicional (nombre, CUIT o email); el estado y la
   // búsqueda principal ya vienen filtrados server-side.
@@ -218,9 +145,9 @@ function TablaProveedoresSection({
     [data]
   );
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const paginaActual = Math.min(page, totalPages);
-  const filas = filtered.slice((paginaActual - 1) * PAGE_SIZE, paginaActual * PAGE_SIZE);
+  const filas = filtered.slice((paginaActual - 1) * pageSize, paginaActual * pageSize);
 
   if (data.proveedores.length === 0) {
     return (
@@ -303,29 +230,77 @@ function TablaProveedoresSection({
           </tbody>
         </table>
       </div>
-      {/* Paginación client-side */}
-      {totalPages > 1 && (
-        <div className="print:hidden flex items-center justify-between px-4 py-3 border-t border-[var(--border)]">
-          <span className="text-xs text-[var(--text-muted)]">
-            Página {paginaActual} de {totalPages} — {filtered.length} proveedor(es)
-          </span>
+      {/* Barra de Paginación */}
+      {filtered.length > 0 && (
+        <div className="print:hidden flex items-center justify-between px-4 py-3 border-t border-[var(--border)] bg-[var(--card)]/50 gap-4 flex-wrap text-xs text-[var(--text-muted)]">
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              disabled={paginaActual <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="px-3 py-1.5 rounded-lg bg-[var(--border)] text-xs font-semibold text-[var(--text)] disabled:opacity-40 hover:bg-[var(--brand)]/20 transition"
-            >
-              Anterior
-            </button>
-            <button
-              type="button"
-              disabled={paginaActual >= totalPages}
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              className="px-3 py-1.5 rounded-lg bg-[var(--border)] text-xs font-semibold text-[var(--text)] disabled:opacity-40 hover:bg-[var(--brand)]/20 transition"
-            >
-              Siguiente
-            </button>
+            <span>
+              Mostrando{" "}
+              <strong className="text-[var(--text)]">
+                {Math.min((paginaActual - 1) * pageSize + 1, filtered.length)}
+              </strong>{" "}
+              a{" "}
+              <strong className="text-[var(--text)]">
+                {Math.min(paginaActual * pageSize, filtered.length)}
+              </strong>{" "}
+              de <strong className="text-[var(--text)]">{filtered.length}</strong> proveedores
+            </span>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span>Filas por página:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setPage(1);
+                }}
+                className="bg-[var(--card)] border border-[var(--border)] rounded px-2 py-1 text-xs text-[var(--text)] focus:outline-none"
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPage(1)}
+                disabled={paginaActual <= 1}
+                className="p-1.5 rounded bg-[var(--card)] border border-[var(--border)] text-[var(--text)] hover:bg-[var(--panel)] disabled:opacity-40 disabled:cursor-not-allowed transition"
+                title="Primera página"
+              >
+                <ChevronsLeft size={14} />
+              </button>
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={paginaActual <= 1}
+                className="p-1.5 rounded bg-[var(--card)] border border-[var(--border)] text-[var(--text)] hover:bg-[var(--panel)] disabled:opacity-40 disabled:cursor-not-allowed transition"
+                title="Página anterior"
+              >
+                <ChevronLeft size={14} />
+              </button>
+              <span className="px-2">
+                Página <strong>{paginaActual}</strong> de <strong>{totalPages}</strong>
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={paginaActual >= totalPages}
+                className="p-1.5 rounded bg-[var(--card)] border border-[var(--border)] text-[var(--text)] hover:bg-[var(--panel)] disabled:opacity-40 disabled:cursor-not-allowed transition"
+                title="Página siguiente"
+              >
+                <ChevronRight size={14} />
+              </button>
+              <button
+                onClick={() => setPage(totalPages)}
+                disabled={paginaActual >= totalPages}
+                className="p-1.5 rounded bg-[var(--card)] border border-[var(--border)] text-[var(--text)] hover:bg-[var(--panel)] disabled:opacity-40 disabled:cursor-not-allowed transition"
+                title="Última página"
+              >
+                <ChevronsRight size={14} />
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -344,8 +319,7 @@ export default function ProveedoresReport({ initialData, userRole }: Props) {
   const [filtros, setFiltros] = useState<ProveedoresDashboardFilters>(DEFAULT_FILTERS);
   const [showFilters, setShowFilters] = useState(false);
   const [selectedProveedor, setSelectedProveedor] = useState<ProveedorTablaRow | null>(null);
-  const [selectedReposicion, setSelectedReposicion] = useState<ProveedoresDashboard["reposicionResumen"][number] | null>(null);
-  const [printSection, setPrintSection] = useState<string | null>(null);
+    const [printSection, setPrintSection] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -374,7 +348,7 @@ export default function ProveedoresReport({ initialData, userRole }: Props) {
     <div className="space-y-4">
       {/* Selector de sub-vista */}
       <div className="print:hidden flex flex-wrap gap-1 bg-[var(--panel)] border border-[var(--border)] rounded-xl p-1">
-        {(["analisis", "detalle", "reposicion"] as SubViewId[]).map((v) => (
+        {(["analisis", "detalle"] as SubViewId[]).map((v) => (
           <button
             key={v}
             onClick={() => setActiveSubView(v)}
@@ -386,9 +360,7 @@ export default function ProveedoresReport({ initialData, userRole }: Props) {
           >
             {v === "analisis"
               ? "Análisis"
-              : v === "detalle"
-              ? "Detalle de proveedores"
-              : "Reposición"}
+              : "Detalle de proveedores"}
           </button>
         ))}
       </div>
@@ -499,9 +471,7 @@ export default function ProveedoresReport({ initialData, userRole }: Props) {
             Informe de Proveedores —{" "}
             {activeSubView === "analisis"
               ? "Análisis"
-              : activeSubView === "detalle"
-              ? "Detalle de Proveedores"
-              : "Reposición por Proveedor"}
+              : "Detalle de Proveedores"}
           </p>
           <p className="text-xs text-gray-500">Generado: {formatDate(new Date())}</p>
           <hr className="my-2 border-gray-300" />
@@ -544,17 +514,9 @@ export default function ProveedoresReport({ initialData, userRole }: Props) {
             </div>
 
             {/* Fila de gráficos */}
-            <div className="report-section" data-section-id="charts" data-print-active={printActive("charts")}>
-              <div className="flex items-center justify-between mb-2">
+            <div>
+              <div className="mb-2">
                 <h3 className={sectionHeaderClass}>Análisis Gráfico</h3>
-                <button
-                  type="button"
-                  className={printButtonClass}
-                  onClick={() => setPrintSection("charts")}
-                  title="Imprimir esta sección"
-                >
-                  <Printer size={14} />
-                </button>
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 min-w-0">
                 <ChartWrapper title="Productos por Proveedor" height={260}>
@@ -640,26 +602,7 @@ export default function ProveedoresReport({ initialData, userRole }: Props) {
           </div>
         )}
 
-        {/* ── 3. SUBMÓDULO REPOSICIÓN ── */}
-        {activeSubView === "reposicion" && (
-          <div className="report-section" data-section-id="reposicion" data-print-active={printActive("reposicion")}>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className={sectionHeaderClass}>Reposición por Proveedor</h3>
-              <button
-                type="button"
-                className={printButtonClass}
-                onClick={() => setPrintSection("reposicion")}
-                title="Imprimir esta sección"
-              >
-                <Printer size={14} />
-              </button>
-            </div>
-            <ReposicionSection
-              data={data}
-              onViewDetail={(r) => setSelectedReposicion(r)}
-            />
-          </div>
-        )}
+        
       </div>
 
       {/* Modal de Detalle de Proveedor */}
@@ -672,17 +615,7 @@ export default function ProveedoresReport({ initialData, userRole }: Props) {
         />
       )}
 
-      {/* Modal de Detalle de Reposición */}
-      {selectedReposicion && (
-        <DetalleReposicionModal
-          proveedorNombre={selectedReposicion.proveedor}
-          productos={data.reposicionDetalle.filter((rd) => rd.proveedorId === selectedReposicion.proveedorId)}
-          aReponer={selectedReposicion.aReponer}
-          sinStock={selectedReposicion.sinStock}
-          stockBajo={selectedReposicion.stockBajo}
-          onClose={() => setSelectedReposicion(null)}
-        />
-      )}
+      
     </div>
   );
 }

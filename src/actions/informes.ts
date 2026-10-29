@@ -395,6 +395,10 @@ export type DetalleCierreCompleto = ReporteCierre & {
 export type ReporteProducto = {
   id: number;
   nombre: string;
+  codigo?: string | null;
+  categoriaId?: number;
+  proveedorId?: number;
+  marca?: string | null;
   categoria: string;
   proveedor: string;
   precioCompra: number;
@@ -404,6 +408,63 @@ export type ReporteProducto = {
   activo: boolean;
   totalVendido: number;
   totalIngresado: number;
+};
+
+export type ProductoSinVentaRow = {
+  id: number;
+  nombre: string;
+  codigo: string | null;
+  categoria: string;
+  proveedor: string;
+  stockActual: number;
+  precioVenta: number;
+  ultimaVentaIso: string | null;
+  ultimaVentaFormateada: string | null;
+  diasSinVenta: number;
+};
+
+export type ProductoNuncaVendidoRow = {
+  id: number;
+  nombre: string;
+  codigo: string | null;
+  categoria: string;
+  proveedor: string;
+  stockActual: number;
+  precioVenta: number;
+  primerMovimientoIso: string | null;
+  primerMovimientoFormateado: string | null;
+};
+
+export type ProductosSinMovimientoStats = {
+  dias: number;
+  totalActivos: number;
+  sinMovimientoTotal: number;
+  nuncaVendidos: number;
+  sinVentasRecientes: number;
+  conVentasRecientes: number;
+  creadosRecientemente: number;
+  productosSinVentas: ProductoSinVentaRow[];
+  productosNuncaVendidos: ProductoNuncaVendidoRow[];
+  dataGrafico: {
+    categoria: string;
+    sinVentasRecientes: number;
+    nuncaVendidos: number;
+    totalSinMovimiento: number;
+  }[];
+  advertenciaAlta: string;
+};
+
+export type ReposicionProductosData = {
+  resumenProveedores: {
+    proveedorId: number;
+    proveedor: string;
+    aReponer: number;
+    sinStock: number;
+    stockBajo: number;
+  }[];
+  productos: ProveedorReposicionRow[];
+  totalProductosAReponer: number;
+  totalProveedoresPendientes: number;
 };
 
 // ─── Tipos compartidos para las nuevas server actions ─────────────────
@@ -856,6 +917,10 @@ export async function getReporteProductos(
     return productos.map((p) => ({
       id: p.id,
       nombre: p.nombre,
+      codigo: p.codigo ?? null,
+      categoriaId: p.categoriaId,
+      proveedorId: p.proveedorId,
+      marca: p.marca ?? null,
       categoria: p.categoria.nombre,
       proveedor: p.proveedor.nombre,
       precioCompra: p.precioCompra,
@@ -3163,12 +3228,15 @@ export type ClientesDashboard = {
     activos: number;
     inactivos: number;
     nuevos30d: number;
+    conCompras: number;
     topCliente: { nombre: string; total: number } | null;
     totalFacturado: number;
   };
   activosInactivos: { name: string; value: number }[];
   nuevosPorMes: { mes: string; label: string; cantidad: number }[];
   distribucionGasto: { rango: string; clientes: number }[];
+  distribucionCompras: { rango: string; clientes: number }[];
+  nuevosVsRecurrentes: { mes: string; label: string; nuevos: number; recurrentes: number }[];
   top10: { clienteId: number; nombre: string; total: number }[];
   frecuencia: { clienteId: number; nombre: string; cantidad: number }[];
   sinComprar90d: { clienteId: number; nombre: string; ultimaCompra: string; dias: number }[];
@@ -3176,10 +3244,12 @@ export type ClientesDashboard = {
 };
 
 const EMPTY_CLIENTES_DASHBOARD: ClientesDashboard = {
-  resumen: { total: 0, activos: 0, inactivos: 0, nuevos30d: 0, topCliente: null, totalFacturado: 0 },
+  resumen: { total: 0, activos: 0, inactivos: 0, nuevos30d: 0, conCompras: 0, topCliente: null, totalFacturado: 0 },
   activosInactivos: [],
   nuevosPorMes: [],
   distribucionGasto: [],
+  distribucionCompras: [],
+  nuevosVsRecurrentes: [],
   top10: [],
   frecuencia: [],
   sinComprar90d: [],
@@ -3191,8 +3261,8 @@ export async function getClientesDashboard(): Promise<ClientesDashboard> {
     await requirePermission("informes.clientes");
     const ahora = new Date();
 
-    // 1. Conteos base + total facturado + agregados por cliente + todos los clientes (una sola pasada)
-    const [total, activos, inactivos, nuevos30d, totalFacturadoDb, ventasGroup, clientes] = await Promise.all([
+    // 1. Conteos base + total facturado + agregados por cliente + todos los clientes + ventas para nuevos vs recurrentes
+    const [total, activos, inactivos, nuevos30d, totalFacturadoDb, ventasGroup, clientes, ventasFechas] = await Promise.all([
       prisma.cliente.count(),
       prisma.cliente.count({ where: { activo: true } }),
       prisma.cliente.count({ where: { activo: false } }),
@@ -3208,19 +3278,25 @@ export async function getClientesDashboard(): Promise<ClientesDashboard> {
         where: { estado: "COMPLETADA" },
         _count: { id: true },
         _sum: { total: true },
+        _min: { fecha: true },
         _max: { fecha: true },
       }),
       prisma.cliente.findMany({
         select: { id: true, nombre: true, dni: true, activo: true, creadoEn: true },
       }),
+      prisma.venta.findMany({
+        where: { estado: "COMPLETADA" },
+        select: { clienteId: true, fecha: true },
+      }),
     ]);
 
     // 2. Merge en JS: agregados por cliente + nombres
-    const aggMap = new Map<number, { cantidad: number; total: number; ultima: Date | null }>();
+    const aggMap = new Map<number, { cantidad: number; total: number; primera: Date | null; ultima: Date | null }>();
     for (const g of ventasGroup) {
       aggMap.set(g.clienteId, {
         cantidad: g._count.id,
         total: g._sum.total ?? 0,
+        primera: g._min.fecha ?? null,
         ultima: g._max.fecha ?? null,
       });
     }
@@ -3264,7 +3340,7 @@ export async function getClientesDashboard(): Promise<ClientesDashboard> {
       total: c.total,
     }));
 
-    // 6. Frecuencia de compra (top 10 por cantidad de compras)
+    // 6. Frecuencia de compra (top 10 por cantidad de compras - retrocompatibilidad)
     const frecuencia = [...clientesPorGasto]
       .sort((a, b) => b.cantidad - a.cantidad)
       .slice(0, 10)
@@ -3288,8 +3364,7 @@ export async function getClientesDashboard(): Promise<ClientesDashboard> {
       { name: "Inactivos", value: inactivos },
     ];
 
-    // 9. Nuevos por mes — every month with new clients across all years (F1: year/month local).
-    // Reuses `clientes` from the Promise.all above (it already includes creadoEn).
+    // 9. Nuevos por mes — altas de clientes registrados por mes
     const porMes = new Map<string, number>();
     for (const c of clientes) {
       const key = `${c.creadoEn.getFullYear()}-${String(c.creadoEn.getMonth() + 1).padStart(2, "0")}`;
@@ -3307,11 +3382,11 @@ export async function getClientesDashboard(): Promise<ClientesDashboard> {
         };
       });
 
-    // 10. Distribución por nivel de gasto (4 buckets; clientes sin ventas van al bucket 0)
+    // 10. Distribución por nivel de gasto (rangos claros y legibles sin superposiciones)
     const BUCKETS_GASTO = [
-      { rango: "$0 - $50.000", min: 0, max: 50000 },
-      { rango: "$50.000 - $100.000", min: 50000, max: 100000 },
-      { rango: "$100.000 - $300.000", min: 100000, max: 300000 },
+      { rango: "Hasta $50.000", min: 0, max: 50000 },
+      { rango: "$50.001 - $100.000", min: 50000, max: 100000 },
+      { rango: "$100.001 - $300.000", min: 100000, max: 300000 },
       { rango: "Más de $300.000", min: 300000, max: Infinity },
     ];
     const distribucionGasto = BUCKETS_GASTO.map((b) => ({
@@ -3322,18 +3397,82 @@ export async function getClientesDashboard(): Promise<ClientesDashboard> {
       }).length,
     }));
 
+    // 11. Distribución por cantidad de compras: 0 compras, 1 compra, 2-3 compras, 4-5 compras, 6 o más
+    const BUCKETS_CANTIDAD_COMPRAS = [
+      { rango: "0 compras", min: 0, max: 0 },
+      { rango: "1 compra", min: 1, max: 1 },
+      { rango: "2-3 compras", min: 2, max: 3 },
+      { rango: "4-5 compras", min: 4, max: 5 },
+      { rango: "6 o más compras", min: 6, max: Infinity },
+    ];
+    const distribucionCompras = BUCKETS_CANTIDAD_COMPRAS.map((b) => ({
+      rango: b.rango,
+      clientes: clientes.filter((c) => {
+        const cant = aggMap.get(c.id)?.cantidad ?? 0;
+        return cant >= b.min && cant <= b.max;
+      }).length,
+    }));
+
+    // 12. Clientes nuevos vs. recurrentes por mes
+    // Primera compra histórica de cada cliente:
+    const primerMesPorCliente = new Map<number, string>();
+    for (const [cId, agg] of aggMap.entries()) {
+      if (agg.primera) {
+        const y = agg.primera.getFullYear();
+        const m = String(agg.primera.getMonth() + 1).padStart(2, "0");
+        primerMesPorCliente.set(cId, `${y}-${m}`);
+      }
+    }
+
+    // Ventas agrupadas por mes -> clientes únicos que compraron en ese mes
+    const clientesPorMesVenta = new Map<string, Set<number>>();
+    for (const v of ventasFechas) {
+      const mesKey = `${v.fecha.getFullYear()}-${String(v.fecha.getMonth() + 1).padStart(2, "0")}`;
+      let set = clientesPorMesVenta.get(mesKey);
+      if (!set) {
+        set = new Set<number>();
+        clientesPorMesVenta.set(mesKey, set);
+      }
+      set.add(v.clienteId);
+    }
+
+    const nuevosVsRecurrentes = Array.from(clientesPorMesVenta.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([mesKey, clientesSet]) => {
+        let nuevos = 0;
+        let recurrentes = 0;
+        for (const cId of clientesSet) {
+          if (primerMesPorCliente.get(cId) === mesKey) {
+            nuevos++;
+          } else {
+            recurrentes++;
+          }
+        }
+        const anio = Number(mesKey.slice(0, 4));
+        const mesNum = Number(mesKey.slice(5, 7)) - 1;
+        return {
+          mes: mesKey,
+          label: `${MESES_ES[mesNum].slice(0, 3)} ${anio}`,
+          nuevos,
+          recurrentes,
+        };
+      });
+
     return {
       resumen: {
         total,
         activos,
         inactivos,
         nuevos30d,
+        conCompras: ventasGroup.length,
         topCliente: top10[0] ? { nombre: top10[0].nombre, total: top10[0].total } : null,
         totalFacturado: totalFacturadoDb._sum.total ?? 0,
       },
       activosInactivos,
       nuevosPorMes,
       distribucionGasto,
+      distribucionCompras,
+      nuevosVsRecurrentes,
       top10,
       frecuencia,
       sinComprar90d,
@@ -3485,6 +3624,7 @@ export async function getProveedoresDashboard(
       select: {
         id: true,
         nombre: true,
+        activo: true,
         codigo: true,
         cantidad: true,
         stockMinimo: true,
@@ -3542,7 +3682,8 @@ export async function getProveedoresDashboard(
       });
       productosPorProveedorId.set(prod.proveedorId, detalleArr);
 
-      // Reposición: sin stock (cantidad 0) o stock bajo (0 < cantidad <= mínimo)
+      // Reposición: solo para productos activos con stock crítico (0 o <= mínimo)
+      if (!prod.activo) continue;
       const sinStock = prod.cantidad === 0;
       const stockBajo = prod.cantidad > 0 && prod.cantidad <= (prod.stockMinimo ?? 0);
       if (!sinStock && !stockBajo) continue;
@@ -3799,5 +3940,175 @@ export async function getDashboardChartData(
   } catch (error) {
     console.error("Error en getDashboardChartData:", error);
     return { evolutionData: [], pieData: [], period, chartType };
+  }
+}
+
+
+export async function getProductosSinMovimientoStats(
+  dias: number = 90
+): Promise<ProductosSinMovimientoStats> {
+  try {
+    await requirePermission("informes.ver");
+    const ahora = new Date();
+    const cutoff = new Date(ahora.getTime() - dias * 24 * 60 * 60 * 1000);
+
+    const productos = await prisma.producto.findMany({
+      where: { activo: true },
+      include: {
+        categoria: { select: { nombre: true } },
+        proveedor: { select: { nombre: true } },
+        detalleVentas: {
+          where: {
+            venta: {
+              estado: "COMPLETADA",
+            },
+          },
+          include: {
+            venta: { select: { fecha: true } },
+          },
+          orderBy: {
+            venta: { fecha: "desc" },
+          },
+          take: 1,
+        },
+        movimientosProducto: {
+          orderBy: { createdAt: "asc" },
+          take: 1,
+          select: { createdAt: true },
+        },
+      },
+    });
+
+    let nuncaVendidos = 0;
+    let sinVentasRecientes = 0;
+    let conVentasRecientes = 0;
+    let creadosRecientemente = 0;
+
+    const productosSinVentas: ProductoSinVentaRow[] = [];
+    const productosNuncaVendidos: ProductoNuncaVendidoRow[] = [];
+
+    const porCategoriaMap = new Map<string, { sinVentasRecientes: number; nuncaVendidos: number }>();
+
+    for (const p of productos) {
+      const catNombre = p.categoria?.nombre || "Sin categoría";
+      const provNombre = p.proveedor?.nombre || "-";
+      if (!porCategoriaMap.has(catNombre)) {
+        porCategoriaMap.set(catNombre, { sinVentasRecientes: 0, nuncaVendidos: 0 });
+      }
+      const catStats = porCategoriaMap.get(catNombre)!;
+
+      const ultimaVenta = p.detalleVentas[0]?.venta?.fecha;
+      const primerMovimiento = p.movimientosProducto[0]?.createdAt;
+
+      if (ultimaVenta) {
+        if (ultimaVenta >= cutoff) {
+          conVentasRecientes++;
+        } else {
+          sinVentasRecientes++;
+          catStats.sinVentasRecientes++;
+          const diasSinVenta = Math.floor((ahora.getTime() - new Date(ultimaVenta).getTime()) / (1000 * 60 * 60 * 24));
+          productosSinVentas.push({
+            id: p.id,
+            nombre: p.nombre,
+            codigo: p.codigo ?? null,
+            categoria: catNombre,
+            proveedor: provNombre,
+            stockActual: p.cantidad,
+            precioVenta: p.precioVenta,
+            ultimaVentaIso: ultimaVenta.toISOString(),
+            ultimaVentaFormateada: ultimaVenta.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" }),
+            diasSinVenta,
+          });
+        }
+      } else {
+        if (primerMovimiento && primerMovimiento >= cutoff) {
+          creadosRecientemente++;
+        } else {
+          nuncaVendidos++;
+          catStats.nuncaVendidos++;
+          productosNuncaVendidos.push({
+            id: p.id,
+            nombre: p.nombre,
+            codigo: p.codigo ?? null,
+            categoria: catNombre,
+            proveedor: provNombre,
+            stockActual: p.cantidad,
+            precioVenta: p.precioVenta,
+            primerMovimientoIso: primerMovimiento ? primerMovimiento.toISOString() : null,
+            primerMovimientoFormateado: primerMovimiento
+              ? primerMovimiento.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" })
+              : "Sin movimientos",
+          });
+        }
+      }
+    }
+
+    productosSinVentas.sort((a, b) => b.diasSinVenta - a.diasSinVenta);
+    productosNuncaVendidos.sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+    const sinMovimientoTotal = nuncaVendidos + sinVentasRecientes;
+
+    const dataGrafico = Array.from(porCategoriaMap.entries())
+      .map(([categoria, counts]) => ({
+        categoria,
+        sinVentasRecientes: counts.sinVentasRecientes,
+        nuncaVendidos: counts.nuncaVendidos,
+        totalSinMovimiento: counts.sinVentasRecientes + counts.nuncaVendidos,
+      }))
+      .filter((c) => c.totalSinMovimiento > 0)
+      .sort((a, b) => b.totalSinMovimiento - a.totalSinMovimiento);
+
+    return {
+      dias,
+      totalActivos: productos.length,
+      sinMovimientoTotal,
+      nuncaVendidos,
+      sinVentasRecientes,
+      conVentasRecientes,
+      creadosRecientemente,
+      productosSinVentas,
+      productosNuncaVendidos,
+      dataGrafico,
+      advertenciaAlta:
+        "Cálculo sobre ventas completadas. Se toman los artículos con más de " +
+        dias +
+        " días de registro en el sistema según su primer movimiento registrado.",
+    };
+  } catch (error) {
+    console.error("Error en getProductosSinMovimientoStats:", error);
+    return {
+      dias,
+      totalActivos: 0,
+      sinMovimientoTotal: 0,
+      nuncaVendidos: 0,
+      sinVentasRecientes: 0,
+      conVentasRecientes: 0,
+      creadosRecientemente: 0,
+      productosSinVentas: [],
+      productosNuncaVendidos: [],
+      dataGrafico: [],
+      advertenciaAlta: "",
+    };
+  }
+}
+
+export async function getReposicionProductosData(): Promise<ReposicionProductosData> {
+  try {
+    await requirePermission("informes.ver");
+    const proveedoresDash = await getProveedoresDashboard();
+    return {
+      resumenProveedores: proveedoresDash.reposicionResumen,
+      productos: proveedoresDash.reposicionDetalle,
+      totalProductosAReponer: proveedoresDash.reposicionDetalle.length,
+      totalProveedoresPendientes: proveedoresDash.reposicionResumen.length,
+    };
+  } catch (error) {
+    console.error("Error en getReposicionProductosData:", error);
+    return {
+      resumenProveedores: [],
+      productos: [],
+      totalProductosAReponer: 0,
+      totalProveedoresPendientes: 0,
+    };
   }
 }

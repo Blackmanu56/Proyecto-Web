@@ -1,11 +1,18 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import type { ProveedorTablaRow, ProveedorProductoRow } from "@/actions/informes";
 import { formatCurrency, formatDateShort } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import {
-  X,
   Building,
   Phone,
   Mail,
@@ -13,9 +20,7 @@ import {
   User,
   Package,
   Search,
-  DollarSign,
   AlertCircle,
-  Truck,
   Layers,
 } from "lucide-react";
 
@@ -67,36 +72,32 @@ export default function DetalleProveedorModal({
   }, [proveedor.productos, search]);
 
   return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4 print:hidden">
-      <div className="bg-[var(--panel)] border border-[var(--border)] w-full max-w-3xl rounded-2xl shadow-2xl relative animate-in zoom-in-95 duration-200 overflow-hidden flex flex-col max-h-[90dvh]">
+    <Dialog open={true} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-3xl w-full max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border)] bg-[var(--card)] shrink-0">
+        <DialogHeader className="p-5 pb-3 border-b border-[var(--border)] bg-[var(--card)] shrink-0 pr-12">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-full bg-[var(--brand-light)] text-[var(--brand)] flex items-center justify-center font-bold text-base uppercase shrink-0">
+            <div className="w-10 h-10 rounded-full bg-[var(--brand-light)] text-[var(--brand)] flex items-center justify-center font-bold text-base uppercase shrink-0 ring-1 ring-[var(--brand)]/20">
               <Building size={18} />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-base font-bold text-[var(--text)] truncate">
+                <DialogTitle className="text-base font-bold text-[var(--text)] truncate">
                   {proveedor.nombre}
-                </h2>
+                </DialogTitle>
                 <Badge variant={proveedor.activo ? "success" : "danger"}>
                   {proveedor.activo ? "Activo" : "Inactivo"}
                 </Badge>
               </div>
-              <p className="text-xs text-[var(--text-muted)]">CUIT: {proveedor.cuit}</p>
+              <DialogDescription className="text-xs text-[var(--text-muted)] font-mono">
+                CUIT: {proveedor.cuit}
+              </DialogDescription>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg bg-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--border-hover)] transition"
-          >
-            <X size={16} />
-          </button>
-        </div>
+        </DialogHeader>
 
-        {/* Body */}
-        <div className="p-6 space-y-5 overflow-y-auto">
+        {/* Body scrollable con barra de desplazamiento */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-5 scrollbar-thin">
           {/* Ficha de Información de Contacto */}
           <div>
             <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-3 flex items-center gap-1.5">
@@ -104,7 +105,7 @@ export default function DetalleProveedorModal({
               Información de Contacto
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3">
+              <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3 min-w-0">
                 <span className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
                   <Phone size={12} /> Teléfono
                 </span>
@@ -113,29 +114,29 @@ export default function DetalleProveedorModal({
                 </span>
               </div>
 
-              <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3">
+              <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3 min-w-0">
                 <span className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
                   <Mail size={12} /> Email
                 </span>
-                <span className="text-xs font-bold text-[var(--text)] truncate block">
+                <span className="text-xs font-bold text-[var(--text)] truncate block" title={proveedor.email || ""}>
                   {proveedor.email || "—"}
                 </span>
               </div>
 
-              <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3">
+              <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3 min-w-0">
                 <span className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
                   <MapPin size={12} /> Dirección
                 </span>
-                <span className="text-xs font-bold text-[var(--text)] truncate block">
+                <span className="text-xs font-bold text-[var(--text)] truncate block" title={proveedor.direccion || ""}>
                   {proveedor.direccion || "—"}
                 </span>
               </div>
 
-              <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3">
+              <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3 min-w-0">
                 <span className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1 mb-1">
                   <User size={12} /> Contacto
                 </span>
-                <span className="text-xs font-bold text-[var(--text)] truncate block">
+                <span className="text-xs font-bold text-[var(--text)] truncate block" title={proveedor.contactoResponsable || ""}>
                   {proveedor.contactoResponsable || "—"}
                 </span>
               </div>
@@ -195,7 +196,7 @@ export default function DetalleProveedorModal({
                   <span className="text-xs font-semibold text-[var(--text-muted)] block">Valor Inventario a Costo</span>
                   <span className="text-xs text-[var(--text-secondary)]">Stock actual valuado a costo</span>
                 </div>
-                <span className="text-sm font-bold text-[var(--text)]">{formatCurrency(valorCosto)}</span>
+                <span className="text-sm font-bold text-[var(--text)] font-mono">{formatCurrency(valorCosto)}</span>
               </div>
               <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3 flex items-center justify-between">
                 <div>
@@ -204,7 +205,7 @@ export default function DetalleProveedorModal({
                     Última compra: {proveedor.ultimaCompra ? formatDateShort(new Date(proveedor.ultimaCompra)) : "—"}
                   </span>
                 </div>
-                <span className="text-sm font-bold text-[var(--success)]">{formatCurrency(proveedor.totalGastado)}</span>
+                <span className="text-sm font-bold text-[var(--success)] font-mono">{formatCurrency(proveedor.totalGastado)}</span>
               </div>
             </div>
           </div>
@@ -243,7 +244,6 @@ export default function DetalleProveedorModal({
                     <thead className="sticky top-0 bg-[var(--panel)] border-b border-[var(--border)] z-10">
                       <tr className="whitespace-nowrap">
                         <th className="px-3 py-2 text-left font-bold text-[var(--text-muted)] uppercase tracking-wider">Producto</th>
-                        <th className="px-3 py-2 text-left font-bold text-[var(--text-muted)] uppercase tracking-wider">Código</th>
                         <th className="px-3 py-2 text-left font-bold text-[var(--text-muted)] uppercase tracking-wider">Categoría</th>
                         <th className="px-3 py-2 text-left font-bold text-[var(--text-muted)] uppercase tracking-wider">Marca</th>
                         <th className="px-3 py-2 text-right font-bold text-[var(--text-muted)] uppercase tracking-wider">Stock Actual</th>
@@ -257,11 +257,10 @@ export default function DetalleProveedorModal({
                         return (
                           <tr key={p.nombre + p.codigo} className="hover:bg-[var(--border)]/30 transition-colors">
                             <td className="px-3 py-2 font-medium text-[var(--text)]">{p.nombre}</td>
-                            <td className="px-3 py-2 text-[var(--text-secondary)]">{p.codigo}</td>
                             <td className="px-3 py-2 text-[var(--text-secondary)]">{p.categoria}</td>
                             <td className="px-3 py-2 text-[var(--text-secondary)]">{p.marca}</td>
-                            <td className="px-3 py-2 text-right font-bold text-[var(--text)]">{p.cantidad}</td>
-                            <td className="px-3 py-2 text-right text-[var(--text-muted)]">{p.stockMinimo}</td>
+                            <td className="px-3 py-2 text-right font-bold text-[var(--text)] font-mono">{p.cantidad}</td>
+                            <td className="px-3 py-2 text-right text-[var(--text-muted)] font-mono">{p.stockMinimo}</td>
                             <td className="px-3 py-2 text-center">
                               <Badge variant={es.variant}>{es.label}</Badge>
                             </td>
@@ -276,16 +275,17 @@ export default function DetalleProveedorModal({
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-3 border-t border-[var(--border)] bg-[var(--card)] flex justify-end shrink-0">
-          <button
+        {/* Footer fijo abajo */}
+        <div className="px-6 py-4 border-t border-[var(--border)] bg-[var(--panel)] flex justify-end shrink-0">
+          <Button
+            type="button"
+            variant="secondary"
             onClick={onClose}
-            className="px-4 py-2 bg-[var(--border)] hover:bg-[var(--border-hover)] text-[var(--text)] text-xs font-bold rounded-lg transition"
           >
             Cerrar
-          </button>
+          </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

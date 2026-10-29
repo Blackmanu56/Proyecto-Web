@@ -14,6 +14,7 @@ import {
   Search, Calendar, RefreshCw, Eye, ChevronUp, Loader2,
   CheckCircle, Printer,
   ChevronDown, History,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -52,69 +53,155 @@ function CierresTable({
   rows,
   onViewDetail,
   emptyMessage = "Sin cierres en el período.",
+  isPrint = false,
 }: {
   rows: CierreRow[];
   onViewDetail: (id: number) => void;
   emptyMessage?: string;
+  isPrint?: boolean;
 }) {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const paginatedRows = isPrint ? rows : rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm min-w-[850px]">
-        <thead>
-          <tr className="border-b border-border print:border-gray-300 bg-panel print:bg-gray-100 whitespace-nowrap">
-            <th className="text-left px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider">#</th>
-            <th className="text-left px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider">Apertura</th>
-            <th className="text-left px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider">Cierre</th>
-            <th className="text-left px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider">Usuario</th>
-            <th className="text-right px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider">Inicial</th>
-            <th className="text-right px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider">Ventas</th>
-            <th className="text-right px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider">Total</th>
-            <th className="text-center px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider">Estado</th>
-            <th className="text-center px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider print:hidden">Resultado</th>
-            <th className="text-center px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider print:hidden">Det.</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border print:divide-gray-300">
-          {rows.length === 0 ? (
-            <tr>
-              <td colSpan={10} className="px-4 py-8 text-center text-text-secondary">
-                {emptyMessage}
-              </td>
+    <div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[850px]">
+          <thead>
+            <tr className="border-b border-border print:border-gray-300 bg-panel print:bg-gray-100 whitespace-nowrap">
+              <th className="text-left px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider">#</th>
+              <th className="text-left px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider">Apertura</th>
+              <th className="text-left px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider">Cierre</th>
+              <th className="text-left px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider">Usuario</th>
+              <th className="text-right px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider">Inicial</th>
+              <th className="text-right px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider">Ventas</th>
+              <th className="text-right px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider">Total</th>
+              <th className="text-center px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider">Estado</th>
+              <th className="text-center px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider print:hidden">Resultado</th>
+              <th className="text-center px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider print:hidden">Det.</th>
             </tr>
-          ) : rows.map((c) => (
-            <tr key={c.id} className="hover:bg-border/40 transition-colors">
-              <td className="px-4 py-3 font-bold text-text">#{c.id}</td>
-              <td className="px-4 py-3 text-xs text-text-muted">{c.fechaApertura}</td>
-              <td className="px-4 py-3 text-xs text-text-muted">{c.fechaCierre || "\u2014"}</td>
-              <td className="px-4 py-3 text-text-muted">{c.usuario}</td>
-              <td className="px-4 py-3 text-right text-text-muted">{formatCurrency(c.montoInicial)}</td>
-              <td className="px-4 py-3 text-right font-bold text-success">{formatCurrency(c.totalVentas)}</td>
-              <td className="px-4 py-3 text-right text-text-muted">{formatCurrency(c.totalEsperado)}</td>
-              <td className="px-4 py-3 text-center">
-                {c.estado === "ABIERTA" ? (
-                  <span className="text-amber-400 font-bold">ABIERTA</span>
-                ) : (
-                  <span className="text-success font-bold">CERRADA</span>
-                )}
-              </td>
-              <td className="px-4 py-3 text-center print:hidden">
-                  <ResultadoLabel totalContado={c.totalContado} totalEsperado={c.totalEsperado} />
-              </td>
-              <td className="px-4 py-3 text-center print:hidden">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onViewDetail(c.id)}
-                  className="h-8 w-8 p-0"
-                  title="Ver detalle"
-                >
-                  <Eye size={14} />
-                </Button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-border print:divide-gray-300">
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={10} className="px-4 py-8 text-center text-text-secondary">
+                  {emptyMessage}
+                </td>
+              </tr>
+            ) : paginatedRows.map((c) => (
+              <tr key={c.id} className="hover:bg-border/40 transition-colors">
+                <td className="px-4 py-3 font-bold text-text">#{c.id}</td>
+                <td className="px-4 py-3 text-xs text-text-muted">{c.fechaApertura}</td>
+                <td className="px-4 py-3 text-xs text-text-muted">{c.fechaCierre || "\u2014"}</td>
+                <td className="px-4 py-3 text-text-muted">{c.usuario}</td>
+                <td className="px-4 py-3 text-right text-text-muted">{formatCurrency(c.montoInicial)}</td>
+                <td className="px-4 py-3 text-right font-bold text-success">{formatCurrency(c.totalVentas)}</td>
+                <td className="px-4 py-3 text-right text-text-muted">{formatCurrency(c.totalEsperado)}</td>
+                <td className="px-4 py-3 text-center">
+                  {c.estado === "ABIERTA" ? (
+                    <span className="text-amber-400 font-bold">ABIERTA</span>
+                  ) : (
+                    <span className="text-success font-bold">CERRADA</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-center print:hidden">
+                    <ResultadoLabel totalContado={c.totalContado} totalEsperado={c.totalEsperado} />
+                </td>
+                <td className="px-4 py-3 text-center print:hidden">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onViewDetail(c.id)}
+                    className="h-8 w-8 p-0"
+                    title="Ver detalle"
+                  >
+                    <Eye size={14} />
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Barra de Paginación */}
+      {!isPrint && rows.length > 0 && (
+        <div className="print:hidden flex items-center justify-between px-4 py-3 border-t border-[var(--border)] bg-[var(--card)]/50 gap-4 flex-wrap text-xs text-[var(--text-muted)]">
+          <div className="flex items-center gap-2">
+            <span>
+              Mostrando{" "}
+              <strong className="text-[var(--text)]">
+                {Math.min((currentPage - 1) * pageSize + 1, rows.length)}
+              </strong>{" "}
+              a{" "}
+              <strong className="text-[var(--text)]">
+                {Math.min(currentPage * pageSize, rows.length)}
+              </strong>{" "}
+              de <strong className="text-[var(--text)]">{rows.length}</strong> arqueos
+            </span>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span>Filas por página:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setPage(1);
+                }}
+                className="bg-[var(--card)] border border-[var(--border)] rounded px-2 py-1 text-xs text-[var(--text)] focus:outline-none"
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPage(1)}
+                disabled={currentPage <= 1}
+                className="p-1.5 rounded bg-[var(--card)] border border-[var(--border)] text-[var(--text)] hover:bg-[var(--panel)] disabled:opacity-40 disabled:cursor-not-allowed transition"
+                title="Primera página"
+              >
+                <ChevronsLeft size={14} />
+              </button>
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1}
+                className="p-1.5 rounded bg-[var(--card)] border border-[var(--border)] text-[var(--text)] hover:bg-[var(--panel)] disabled:opacity-40 disabled:cursor-not-allowed transition"
+                title="Página anterior"
+              >
+                <ChevronLeft size={14} />
+              </button>
+              <span className="px-2">
+                Página <strong>{currentPage}</strong> de <strong>{totalPages}</strong>
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages}
+                className="p-1.5 rounded bg-[var(--card)] border border-[var(--border)] text-[var(--text)] hover:bg-[var(--panel)] disabled:opacity-40 disabled:cursor-not-allowed transition"
+                title="Página siguiente"
+              >
+                <ChevronRight size={14} />
+              </button>
+              <button
+                onClick={() => setPage(totalPages)}
+                disabled={currentPage >= totalPages}
+                className="p-1.5 rounded bg-[var(--card)] border border-[var(--border)] text-[var(--text)] hover:bg-[var(--panel)] disabled:opacity-40 disabled:cursor-not-allowed transition"
+                title="Última página"
+              >
+                <ChevronsRight size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -441,6 +528,7 @@ export default function CierresReport({ initialData, usuarios }: Props) {
                 <CierresTable
                   rows={cierresFiltrados}
                   onViewDetail={setDetalleCierreId}
+                  isPrint={printSection === "table"}
                 />
               </div>
             </div>

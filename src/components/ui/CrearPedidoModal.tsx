@@ -184,8 +184,8 @@ export default function CrearPedidoModal({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md w-full overflow-hidden">
-        <DialogHeader>
+      <DialogContent className="max-w-md w-full max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
+        <DialogHeader className="p-5 pb-3 border-b border-[var(--border)] shrink-0 pr-12">
           <DialogTitle className="flex items-center gap-2">
             <div className="p-2 rounded-[var(--radius-md)] bg-[var(--brand-light)] text-[var(--brand)] ring-1 ring-[var(--brand)]/20">
               <ShoppingCart size={18} />
@@ -199,15 +199,19 @@ export default function CrearPedidoModal({
         </DialogHeader>
 
         {success ? (
-          <div className="p-4 bg-[var(--success-light)] border border-[var(--success)]/20 rounded-[var(--radius-md)] text-center">
+          <div className="p-6 text-center">
+            <div className="p-4 bg-[var(--success-light)] border border-[var(--success)]/20 rounded-[var(--radius-md)] text-center">
             <CheckCircle size={32} className="mx-auto text-[var(--success)] mb-2" />
             <p className="text-sm font-semibold text-[var(--success)]">
               {successMessage}
             </p>
+            </div>
           </div>
         ) : (
           <>
-            {/* ── Resumen del producto ── */}
+            {/* ── Contenedor scrollable con barra de desplazamiento ── */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-4 scrollbar-thin">
+              {/* ── Resumen del producto ── */}
             <div className="flex items-start gap-3 p-3 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] min-w-0 w-full overflow-hidden">
               <div className="relative h-12 w-12 shrink-0 rounded-lg border border-[var(--border)] bg-[var(--panel)] flex items-center justify-center overflow-hidden">
                 {producto.imagen ? (
@@ -390,8 +394,10 @@ export default function CrearPedidoModal({
               </div>
             )}
 
-            {/* ── Botones ── */}
-            <div className="flex justify-end gap-3 pt-2">
+            </div>
+
+            {/* ── Botones fijos en pie del modal ── */}
+            <div className="p-4 border-t border-[var(--border)] bg-[var(--panel)] shrink-0 flex justify-end gap-3">
               <Button
                 type="button"
                 variant="secondary"

@@ -18,10 +18,12 @@ import { BarChart3 } from "lucide-react";
 
 // Shape vacía para roles sin acceso a la pestaña de clientes
 const EMPTY_CLIENTES_DASHBOARD: ClientesDashboard = {
-  resumen: { total: 0, activos: 0, inactivos: 0, nuevos30d: 0, topCliente: null, totalFacturado: 0 },
+  resumen: { total: 0, activos: 0, inactivos: 0, nuevos30d: 0, conCompras: 0, topCliente: null, totalFacturado: 0 },
   activosInactivos: [],
   nuevosPorMes: [],
   distribucionGasto: [],
+  distribucionCompras: [],
+  nuevosVsRecurrentes: [],
   top10: [],
   frecuencia: [],
   sinComprar90d: [],
@@ -65,7 +67,7 @@ export default async function InformesPage() {
     <div className="module-shell bg-[var(--bg)]">
       <div className="flex-1 flex flex-col min-h-0 overflow-y-auto p-2 lg:p-3 space-y-3">
         {/* Encabezado */}
-        <div className="flex items-center justify-center gap-3 shrink-0 mb-2 text-center">
+        <div className="flex items-center justify-center gap-3 shrink-0 mb-2 text-center print:hidden">
           <div className="p-2.5 bg-[var(--brand-light)] rounded-xl text-[var(--brand)] ring-1 ring-[var(--brand)]/20">
             <BarChart3 size={24} />
           </div>

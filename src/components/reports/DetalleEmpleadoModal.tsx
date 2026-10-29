@@ -1,12 +1,16 @@
 "use client";
 
 import React from "react";
-import type { EmpleadoDashboardRow } from "@/actions/informes";
 import {
-  X,
-  Layers,
-  Clock,
-} from "lucide-react";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import type { EmpleadoDashboardRow } from "@/actions/informes";
+import { Layers, Clock } from "lucide-react";
 
 interface Props {
   emp: EmpleadoDashboardRow;
@@ -51,41 +55,37 @@ export default function DetalleEmpleadoModal({ emp, onClose }: Props) {
   const maxModulo = Math.max(...modulos.map((m) => m.value), 1);
 
   return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4 print:hidden">
-      <div className="bg-[var(--panel)] border border-[var(--border)] w-full max-w-2xl rounded-2xl shadow-2xl relative animate-in zoom-in-95 duration-200 overflow-hidden flex flex-col max-h-[90dvh]">
+    <Dialog open={true} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-2xl w-full max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border)] bg-[var(--card)]">
+        <DialogHeader className="p-5 pb-3 border-b border-[var(--border)] bg-[var(--card)] shrink-0 pr-12">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-[var(--brand-light)] text-[var(--brand)] flex items-center justify-center font-bold text-base uppercase shrink-0">
+            <div className="w-10 h-10 rounded-full bg-[var(--brand-light)] text-[var(--brand)] flex items-center justify-center font-bold text-base uppercase shrink-0 ring-1 ring-[var(--brand)]/20">
               {emp.nombreCompleto.charAt(0)}
             </div>
-            <div>
-              <h2 className="text-base font-bold text-[var(--text)] flex items-center gap-2">
+            <div className="min-w-0">
+              <DialogTitle className="text-base font-bold text-[var(--text)] truncate">
                 {emp.nombreCompleto}
-              </h2>
-              <p className="text-xs text-[var(--text-muted)]">@{emp.username}</p>
+              </DialogTitle>
+              <DialogDescription className="text-xs text-[var(--text-muted)] font-mono truncate">
+                @{emp.username}
+              </DialogDescription>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg bg-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--border-hover)] transition"
-          >
-            <X size={16} />
-          </button>
-        </div>
+        </DialogHeader>
 
-        {/* Body */}
-        <div className="p-6 space-y-5 overflow-y-auto">
+        {/* Body scrollable con barra de desplazamiento */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-5 scrollbar-thin">
           {/* Ficha de Información General */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3">
+            <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3 min-w-0">
               <span className="text-xs font-semibold text-[var(--text-muted)] block mb-1">Rol</span>
-              <span className="text-xs font-bold text-[var(--text)]">
+              <span className="text-xs font-bold text-[var(--text)] truncate block">
                 {ROL_LABEL[emp.rol] || emp.rol}
               </span>
             </div>
 
-            <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3">
+            <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3 min-w-0">
               <span className="text-xs font-semibold text-[var(--text-muted)] block mb-1">Estado</span>
               {emp.activo ? (
                 <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[var(--success)]">
@@ -98,20 +98,18 @@ export default function DetalleEmpleadoModal({ emp, onClose }: Props) {
               )}
             </div>
 
-            <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3">
+            <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3 min-w-0">
               <span className="text-xs font-semibold text-[var(--text-muted)] block mb-1">Acciones en el período</span>
               <span className="text-sm font-bold text-[var(--brand)]">{emp.acciones}</span>
             </div>
 
-            <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3">
+            <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3 min-w-0">
               <span className="text-xs font-semibold text-[var(--text-muted)] block mb-1">Última actividad</span>
-              <span className="text-xs font-semibold text-[var(--text)]">
+              <span className="text-xs font-semibold text-[var(--text)] truncate block">
                 {emp.ultimaActividadLabel || "—"}
               </span>
             </div>
           </div>
-
-
 
           {/* Distribución por Módulo */}
           <div>
@@ -164,7 +162,7 @@ export default function DetalleEmpleadoModal({ emp, onClose }: Props) {
                           <p className="font-semibold text-[var(--text)] truncate">
                             {a.tipo}
                           </p>
-                          <span className="text-[var(--text-muted)] shrink-0 text-xs">{a.fechaLabel}</span>
+                          <span className="text-[var(--text-muted)] shrink-0 text-xs font-mono">{a.fechaLabel}</span>
                         </div>
                         <p className="text-[var(--text-muted)] mt-0.5">{a.descripcion}</p>
                       </div>
@@ -176,16 +174,17 @@ export default function DetalleEmpleadoModal({ emp, onClose }: Props) {
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-3 border-t border-[var(--border)] bg-[var(--card)] flex justify-end">
-          <button
+        {/* Footer fijo abajo */}
+        <div className="px-6 py-4 border-t border-[var(--border)] bg-[var(--panel)] shrink-0 flex items-center justify-end">
+          <Button
+            type="button"
+            variant="secondary"
             onClick={onClose}
-            className="px-4 py-2 bg-[var(--border)] hover:bg-[var(--border-hover)] text-[var(--text)] text-xs font-bold rounded-lg transition"
           >
             Cerrar
-          </button>
+          </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -1,10 +1,17 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import type { ProveedorReposicionRow } from "@/actions/informes";
 import { Badge } from "@/components/ui/badge";
 import {
-  X,
   Truck,
   Package,
   Search,
@@ -45,33 +52,27 @@ export default function DetalleReposicionModal({
   }, [productos, search]);
 
   return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4 print:hidden">
-      <div className="bg-[var(--panel)] border border-[var(--border)] w-full max-w-3xl rounded-2xl shadow-2xl relative animate-in zoom-in-95 duration-200 overflow-hidden flex flex-col max-h-[90dvh]">
+    <Dialog open={true} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-3xl w-full max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border)] bg-[var(--card)] shrink-0">
+        <DialogHeader className="p-5 pb-3 border-b border-[var(--border)] bg-[var(--card)] shrink-0 pr-12">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center font-bold text-base uppercase shrink-0">
+            <div className="w-10 h-10 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center font-bold text-base uppercase shrink-0 ring-1 ring-amber-500/20">
               <Truck size={18} />
             </div>
             <div className="min-w-0">
-              <h2 className="text-base font-bold text-[var(--text)] truncate">
+              <DialogTitle className="text-base font-bold text-[var(--text)] truncate">
                 Reposición — {proveedorNombre}
-              </h2>
-              <p className="text-xs text-[var(--text-muted)]">
+              </DialogTitle>
+              <DialogDescription className="text-xs text-[var(--text-muted)] font-mono">
                 {aReponer} producto(s) por debajo del stock mínimo
-              </p>
+              </DialogDescription>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg bg-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--border-hover)] transition"
-          >
-            <X size={16} />
-          </button>
-        </div>
+        </DialogHeader>
 
-        {/* Body */}
-        <div className="p-6 space-y-5 overflow-y-auto">
+        {/* Body scrollable con barra de desplazamiento */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-5 scrollbar-thin">
           {/* Ficha KPI de Reposición */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3.5 text-center">
@@ -133,7 +134,6 @@ export default function DetalleReposicionModal({
                     <thead className="sticky top-0 bg-[var(--panel)] border-b border-[var(--border)] z-10">
                       <tr className="whitespace-nowrap">
                         <th className="px-3 py-2.5 text-left font-bold text-[var(--text-muted)] uppercase tracking-wider">Producto</th>
-                        <th className="px-3 py-2.5 text-left font-bold text-[var(--text-muted)] uppercase tracking-wider">Código</th>
                         <th className="px-3 py-2.5 text-left font-bold text-[var(--text-muted)] uppercase tracking-wider">Categoría</th>
                         <th className="px-3 py-2.5 text-left font-bold text-[var(--text-muted)] uppercase tracking-wider">Marca</th>
                         <th className="px-3 py-2.5 text-right font-bold text-[var(--text-muted)] uppercase tracking-wider">Stock Actual</th>
@@ -144,14 +144,16 @@ export default function DetalleReposicionModal({
                     </thead>
                     <tbody className="divide-y divide-[var(--border)]/60">
                       {productosFiltrados.map((d) => (
-                        <tr key={d.proveedorId + d.codigo + d.producto} className="hover:bg-[var(--border)]/30 transition-colors">
-                          <td className="px-3 py-2.5 font-medium text-[var(--text)]">{d.producto}</td>
-                          <td className="px-3 py-2.5 text-[var(--text-secondary)]">{d.codigo}</td>
+                        <tr key={d.proveedorId + (d.codigo || "") + d.producto} className="hover:bg-[var(--border)]/30 transition-colors">
+                          <td className="px-3 py-2.5 font-medium text-[var(--text)]">
+                            <p className="font-medium text-[var(--text)]">{d.producto}</p>
+                            {d.codigo && <p className="text-[10px] text-[var(--text-muted)] font-mono">{d.codigo}</p>}
+                          </td>
                           <td className="px-3 py-2.5 text-[var(--text-secondary)]">{d.categoria}</td>
                           <td className="px-3 py-2.5 text-[var(--text-secondary)]">{d.marca}</td>
-                          <td className="px-3 py-2.5 text-right font-bold text-[var(--text)]">{d.stockActual}</td>
-                          <td className="px-3 py-2.5 text-right text-[var(--text-muted)]">{d.stockMinimo}</td>
-                          <td className="px-3 py-2.5 text-right font-bold text-amber-400">+{d.deficit}</td>
+                          <td className="px-3 py-2.5 text-right font-bold text-[var(--text)] font-mono">{d.stockActual}</td>
+                          <td className="px-3 py-2.5 text-right text-[var(--text-muted)] font-mono">{d.stockMinimo}</td>
+                          <td className="px-3 py-2.5 text-right font-bold text-amber-400 font-mono">+{d.deficit}</td>
                           <td className="px-3 py-2.5 text-center">
                             <Badge variant={d.estado === "Sin stock" ? "danger" : "warning"}>{d.estado}</Badge>
                           </td>
@@ -165,16 +167,17 @@ export default function DetalleReposicionModal({
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-3 border-t border-[var(--border)] bg-[var(--card)] flex justify-end shrink-0">
-          <button
+        {/* Footer fijo abajo */}
+        <div className="px-6 py-4 border-t border-[var(--border)] bg-[var(--panel)] flex justify-end shrink-0">
+          <Button
+            type="button"
+            variant="secondary"
             onClick={onClose}
-            className="px-4 py-2 bg-[var(--border)] hover:bg-[var(--border-hover)] text-[var(--text)] text-xs font-bold rounded-lg transition"
           >
             Cerrar
-          </button>
+          </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
