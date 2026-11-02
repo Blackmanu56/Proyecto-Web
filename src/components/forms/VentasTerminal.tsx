@@ -4,6 +4,7 @@ import { crearClienteRapido,createVenta,toggleFavorito } from "@/actions/ventas"
 import { ToolbarSelect } from "@/components/ui/toolbar-select";
 import Image from "next/image";
 import { getCatalogImageUrl } from "@/lib/storage-catalog";
+import { getDisplayDescription, parseProductMetadata } from "@/lib/productMetadata";
 import Link from "next/link";
 import { formatCurrency,formatDate,formatDateShort,formatTime24 } from "@/lib/utils";
 import {
@@ -17,6 +18,7 @@ CreditCard,
 Eraser,
 Eye,
 Flame,
+Info,
 Layers,
 Minus,
 Package,
@@ -169,6 +171,7 @@ export default function VentasTerminal({
   // Modales
   const [showNewClientModal, setShowNewClientModal] = useState(false);
   const [showReceiptPreview, setShowReceiptPreview] = useState(false);
+  const [selectedComboDetail, setSelectedComboDetail] = useState<Combo | null>(null);
 
   // Nuevo cliente (modal)
   const [newClientNombre, setNewClientNombre] = useState("");
@@ -829,24 +832,65 @@ export default function VentasTerminal({
                           {combo.nombre}
                         </p>
 
-                        {combo.descripcion && (
+                        {getDisplayDescription(combo.descripcion) ? (
                           <p className="text-[10px] text-[var(--text-secondary)] line-clamp-2 mt-0.5 leading-snug">
-                            {combo.descripcion}
+                            {getDisplayDescription(combo.descripcion)}
                           </p>
-                        )}
+                        ) : null}
 
-                        {/* Lista resumida de componentes */}
-                        <div className="mt-2 space-y-1 bg-[var(--card)] p-1.5 rounded border border-[var(--border)]">
-                          <span className="text-[10px] font-semibold text-[var(--text-muted)] block uppercase tracking-wider">
-                            Incluye ({combo.items.length}):
-                          </span>
-                          <ul className="text-[10px] space-y-0.5 text-[var(--text-secondary)]">
+                        {/* Lista resumida de componentes enriquecida */}
+                        <div className="mt-2 space-y-1 bg-[var(--card)] p-2 rounded border border-[var(--border)]">
+                          <div className="flex items-center justify-between gap-1 mb-1">
+                            <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+                              Componentes ({combo.items.length}):
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedComboDetail(combo);
+                              }}
+                              className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-400 hover:text-amber-300 transition-colors px-1 py-0.5 rounded hover:bg-amber-500/10"
+                              title="Ver detalle de repuestos y compatibilidad"
+                            >
+                              <Eye size={11} />
+                              <span>Detalle</span>
+                            </button>
+                          </div>
+                          <ul className="text-[10px] space-y-1 text-[var(--text-secondary)]">
                             {combo.items.map(it => {
                               const prod = productos.find(p => p.id === it.productoId) || it.producto;
+                              const prodStock = prod?.cantidad ?? 0;
+                              const isBottleneck = prodStock < it.cantidad;
                               return (
-                                <li key={it.id} className="flex justify-between items-center gap-1">
-                                  <span className="truncate">• {prod?.nombre || "Repuesto"}</span>
-                                  <span className="font-mono shrink-0 font-semibold text-[var(--text)]">x{it.cantidad}</span>
+                                <li key={it.id} className="flex justify-between items-center gap-1.5 py-0.5 border-b border-[var(--border)]/30 last:border-b-0">
+                                  <div className="flex flex-col min-w-0 pr-1">
+                                    <span className="truncate font-medium text-[var(--text)]">
+                                      • {prod?.nombre || "Repuesto"}
+                                    </span>
+                                    {prod?.codigo && (
+                                      <span className="text-[9px] text-[var(--text-muted)] font-mono">
+                                        Cód: {prod.codigo}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <span className="font-mono text-[10px] font-bold text-[var(--text)]">
+                                      x{it.cantidad}
+                                    </span>
+                                    <span
+                                      className={`text-[9px] font-mono px-1 py-0.5 rounded ${
+                                        isBottleneck
+                                          ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                                          : prodStock <= it.cantidad * 2
+                                          ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                                          : "bg-[var(--panel)] text-[var(--text-secondary)] border border-[var(--border)]"
+                                      }`}
+                                      title={`Stock en local: ${prodStock} unidades`}
+                                    >
+                                      ${prodStock} u.
+                                    </span>
+                                  </div>
                                 </li>
                               );
                             })}
@@ -1728,6 +1772,273 @@ export default function VentasTerminal({
           </div>
         </div>
       )}
+{/* ── MODAL DETALLE DE COMBO ── */}
+      {selectedComboDetail && (() => {
+        const combo = selectedComboDetail;
+        const meta = parseProductMetadata(combo.descripcion);
+        const stocks = combo.items.map(it => {
+          const prod = productos.find(p => p.id === it.productoId) || it.producto;
+          if (!prod || prod.cantidad <= 0 || it.cantidad <= 0) return 0;
+          return Math.floor(prod.cantidad / it.cantidad);
+        });
+        const maxAvailable = stocks.length > 0 ? Math.min(...stocks) : 0;
+        const hasNoStock = maxAvailable <= 0;
+
+        // Calcular suma de precios regulares
+        let regularSum = 0;
+        for (const item of combo.items) {
+          const prod = productos.find(p => p.id === item.productoId) || item.producto;
+          const itemPrice = (prod?.ecommerce?.enOferta && prod.ecommerce.precioOferta != null && prod.ecommerce.precioOferta > 0)
+            ? prod.ecommerce.precioOferta
+            : (prod?.precioVenta ?? 0);
+          regularSum += itemPrice * item.cantidad;
+        }
+        const savings = Math.max(0, regularSum - combo.precio);
+        const savingsPct = regularSum > 0 && savings > 0 ? Math.round((savings / regularSum) * 100) : 0;
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-[var(--panel)] border border-[var(--border)] rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+              {/* Header */}
+              <div className="px-5 py-4 border-b border-[var(--border)] flex items-center justify-between bg-[var(--bg)]">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                    <Boxes size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-[var(--text)] flex items-center gap-2">
+                      <span>{combo.nombre}</span>
+                      {combo.badge && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                          {combo.badge}
+                        </span>
+                      )}
+                    </h3>
+                    <p className="text-xs text-[var(--text-secondary)]">
+                      Componentes, stock físico en SGI y compatibilidad técnica
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedComboDetail(null)}
+                  className="p-1.5 text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--panel)] rounded-lg transition"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="p-5 overflow-y-auto space-y-5 flex-1">
+                {/* Resumen Visual & Descripción */}
+                <div className="flex flex-col sm:flex-row gap-4 items-start bg-[var(--card)] p-3.5 rounded-lg border border-[var(--border)]">
+                  <div className="relative w-28 h-28 shrink-0 bg-[var(--panel)] rounded-md flex items-center justify-center overflow-hidden border border-[var(--border)]">
+                    {combo.imagen ? (
+                      <Image
+                        src={getCatalogImageUrl(combo.imagen)}
+                        alt={combo.nombre}
+                        fill
+                        sizes="112px"
+                        className="object-contain"
+                      />
+                    ) : (
+                      <Boxes size={40} className="text-[var(--text-secondary)] opacity-40" />
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div className="flex flex-wrap items-baseline gap-2">
+                      <span className="text-2xl font-bold font-mono text-amber-400">
+                        {formatCurrency(combo.precio)}
+                      </span>
+                      {regularSum > combo.precio && (
+                        <span className="text-sm font-mono text-[var(--text-secondary)] line-through">
+                          {formatCurrency(regularSum)}
+                        </span>
+                      )}
+                      {savings > 0 && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                          Ahorro: {formatCurrency(savings)} ({savingsPct}% OFF)
+                        </span>
+                      )}
+                    </div>
+
+                    {meta.texto ? (
+                      <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                        {meta.texto}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-[var(--text-muted)] italic">
+                        Combo comercial configurado desde el e-commerce.
+                      </p>
+                    )}
+
+                    {/* Motos Compatibles */}
+                    {(meta.motosCompatibles.length > 0 || meta.universal) && (
+                      <div className="pt-2 border-t border-[var(--border)]/50">
+                        <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block mb-1">
+                          Compatibilidad de Motos:
+                        </span>
+                        <div className="flex flex-wrap gap-1">
+                          {meta.universal && (
+                            <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 font-medium">
+                              Universal
+                            </span>
+                          )}
+                          {meta.motosCompatibles.map((moto, i) => (
+                            <span
+                              key={i}
+                              className="text-[10px] px-2 py-0.5 rounded bg-[var(--panel)] text-[var(--text)] border border-[var(--border)] font-medium"
+                            >
+                              {moto}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Tabla de Componentes */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text)] flex items-center gap-1.5">
+                      <Package size={14} className="text-amber-400" />
+                      <span>Repuestos que integran este combo ({combo.items.length})</span>
+                    </h4>
+                    <span
+                      className={`text-xs font-mono font-semibold px-2 py-0.5 rounded ${
+                        hasNoStock
+                          ? "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                          : maxAvailable <= 2
+                          ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                          : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                      }`}
+                    >
+                      {hasNoStock ? "Sin stock disponible" : `Disponible para armar: ${maxAvailable} combos`}
+                    </span>
+                  </div>
+
+                  <div className="border border-[var(--border)] rounded-lg overflow-hidden bg-[var(--bg)]">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-[var(--card)] text-[var(--text-muted)] text-[10px] uppercase border-b border-[var(--border)]">
+                        <tr>
+                          <th className="py-2 px-3">Cód.</th>
+                          <th className="py-2 px-3">Repuesto</th>
+                          <th className="py-2 px-3">Marca</th>
+                          <th className="py-2 px-3 text-center">Req.</th>
+                          <th className="py-2 px-3 text-center">Stock SGI</th>
+                          <th className="py-2 px-3 text-right">P. Lista</th>
+                          <th className="py-2 px-3 text-right">Subtotal</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--border)]">
+                        {combo.items.map((it) => {
+                          const prod = productos.find(p => p.id === it.productoId) || it.producto;
+                          const prodStock = prod?.cantidad ?? 0;
+                          const isBottleneck = prodStock < it.cantidad;
+                          const unitPrice = (prod?.ecommerce?.enOferta && prod.ecommerce.precioOferta != null && prod.ecommerce.precioOferta > 0)
+                            ? prod.ecommerce.precioOferta
+                            : (prod?.precioVenta ?? 0);
+                          const subtotal = unitPrice * it.cantidad;
+
+                          return (
+                            <tr key={it.id} className={isBottleneck ? "bg-rose-500/5" : "hover:bg-[var(--card)]/50"}>
+                              <td className="py-2.5 px-3 font-mono text-[11px] text-[var(--text-muted)]">
+                                {prod?.codigo || "-"}
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <p className="font-semibold text-[var(--text)]">{prod?.nombre || "Repuesto desconocido"}</p>
+                                <p className="text-[10px] text-[var(--text-muted)]">{prod?.categoria?.nombre || "Repuestos"}</p>
+                              </td>
+                              <td className="py-2.5 px-3 text-[11px] text-[var(--text-secondary)]">
+                                {prod?.marca || "-"}
+                              </td>
+                              <td className="py-2.5 px-3 text-center font-mono font-bold text-[var(--text)]">
+                                x{it.cantidad}
+                              </td>
+                              <td className="py-2.5 px-3 text-center">
+                                <span
+                                  className={`inline-block font-mono font-semibold px-2 py-0.5 rounded text-[10px] ${
+                                    isBottleneck
+                                      ? "bg-rose-500/20 text-rose-400 border border-rose-500/30"
+                                      : prodStock <= it.cantidad * 2
+                                      ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                                      : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                                  }`}
+                                >
+                                  {prodStock} u.
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-mono text-[11px] text-[var(--text-secondary)]">
+                                {formatCurrency(unitPrice)}
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-mono font-semibold text-[var(--text)]">
+                                {formatCurrency(subtotal)}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Especificaciones técnicas si existen */}
+                {meta.especificaciones.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text)] mb-2">
+                      Especificaciones Técnicas
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {meta.especificaciones.map((spec, i) => (
+                        <div
+                          key={i}
+                          className="bg-[var(--card)] p-2 rounded border border-[var(--border)] flex justify-between text-xs"
+                        >
+                          <span className="text-[var(--text-muted)]">{spec.caracteristica}:</span>
+                          <span className="font-medium text-[var(--text)]">{spec.valor}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="px-5 py-3.5 border-t border-[var(--border)] bg-[var(--bg)] flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSelectedComboDetail(null)}
+                  className="px-4 py-2 border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text)] rounded-lg text-xs font-semibold hover:bg-[var(--card)] transition"
+                >
+                  Cerrar
+                </button>
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <span className="text-[10px] text-[var(--text-muted)] block">Precio Combo:</span>
+                    <span className="text-sm font-bold font-mono text-amber-400">{formatCurrency(combo.precio)}</span>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={hasNoStock}
+                    onClick={() => {
+                      addComboToCart(combo);
+                      setSelectedComboDetail(null);
+                    }}
+                    className={`px-5 py-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition ${
+                      hasNoStock
+                        ? "bg-[var(--card)] text-[var(--text-muted)] cursor-not-allowed border border-[var(--border)]"
+                        : "bg-amber-500 hover:bg-amber-400 text-black shadow-lg shadow-amber-500/20"
+                    }`}
+                  >
+                    <ShoppingCart size={14} />
+                    <span>{hasNoStock ? "Sin stock suficiente" : "Agregar Combo al Carrito"}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
