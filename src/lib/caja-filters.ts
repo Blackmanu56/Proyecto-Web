@@ -94,6 +94,8 @@ export interface MovimientoInput {
   esNoEfectivo?: boolean;
   /** false cuando la fila no debe modificar el saldo físico acumulado */
   impactaCaja?: boolean;
+  esAjusteBanco?: boolean;
+  esAjusteEfectivo?: boolean;
 }
 
 export interface MovimientoEnriched {
@@ -109,6 +111,8 @@ export interface MovimientoEnriched {
   compra?: MovimientoCompra | null;
   esNoEfectivo?: boolean;
   impactaCaja?: boolean;
+  esAjusteBanco?: boolean;
+  esAjusteEfectivo?: boolean;
   itemNumber: number;
   saldoAcumulado: number;
   saldoBanco: number;
@@ -176,26 +180,38 @@ export function getMetodoPago(mov: MovimientoInput): "EFECTIVO" | "BANCO" {
 export function getConcepto(mov: MovimientoInput): string {
   if (!mov) return "VENTA";
 
-  // Ventas no efectivas proyectadas siempre son VENTA
-  if (mov.esNoEfectivo) return "VENTA";
+  // Ventas no efectivas proyectadas siempre son VENTA si tienen venta asociada
+  if (mov.esNoEfectivo && (mov.ventaId != null || mov.venta != null)) return "VENTA";
 
   const desc = (mov.descripcion || "").toLowerCase().trim();
   const tipo = mov.tipo || "";
 
   // Apertura
-  if (desc.startsWith("saldo inicial de apertura")) return "APERTURA";
+  if (desc.startsWith("saldo inicial de apertura") || desc.startsWith("saldo inicial")) return "APERTURA";
 
   // Gasto manual
   if (desc.startsWith("gasto:")) return "GASTO";
 
-  // Ajuste de efectivo (nuevo concepto)
-  if (desc.startsWith("[ajuste_efectivo]")) return "AJUSTE";
+  // Ajuste de efectivo o banco
+  if (
+    mov.esAjusteBanco ||
+    mov.esAjusteEfectivo ||
+    desc.startsWith("[ajuste_efectivo]") ||
+    desc.startsWith("[ajuste_banco]") ||
+    desc.includes("ajuste") ||
+    (!desc.includes("acreditac") &&
+      !desc.startsWith("saldo inicial") &&
+      mov.impactaCaja === false &&
+      mov.ventaId == null &&
+      mov.venta == null &&
+      mov.compraId == null &&
+      mov.compra == null)
+  ) {
+    return "AJUSTE";
+  }
 
   // Acreditación de fondos
   if (desc.includes("acreditación") || desc.includes("acreditacion")) return "AJUSTE";
-
-  // Ajuste histórico (p. ej. reposiciones pagadas por banco) — antes que "reposici"
-  if (desc.includes("ajuste")) return "AJUSTE";
 
   // Reposición (por descripción o por tener compraId)
   if (
@@ -205,6 +221,9 @@ export function getConcepto(mov: MovimientoInput): string {
   ) {
     return "REPOSICION";
   }
+
+  // Si tiene venta asociada
+  if (mov.ventaId != null || mov.venta != null) return "VENTA";
 
   // Todo ingreso que no es apertura → VENTA
   if (tipo === "INGRESO") return "VENTA";
@@ -220,13 +239,15 @@ export function getConcepto(mov: MovimientoInput): string {
 export function getTipoVisual(mov: MovimientoInput): ConceptoVisual {
   if (!mov) return { label: "MOVIMIENTO", variant: "default" };
 
-  // Ventas no efectivas proyectadas
-  if (mov.esNoEfectivo) return { label: "VENTA", variant: "success" };
+  // Ventas no efectivas proyectadas con venta asociada
+  if (mov.esNoEfectivo && (mov.ventaId != null || mov.venta != null)) {
+    return { label: "VENTA", variant: "success" };
+  }
 
   const desc = (mov.descripcion || "").toLowerCase().trim();
   const tipo = mov.tipo || "";
 
-  if (desc.startsWith("saldo inicial de apertura"))
+  if (desc.startsWith("saldo inicial de apertura") || desc.startsWith("saldo inicial"))
     return { label: "APERTURA", variant: "info" };
   if (desc.includes("cierre"))
     return { label: "CIERRE", variant: "default" };
@@ -234,13 +255,23 @@ export function getTipoVisual(mov: MovimientoInput): ConceptoVisual {
     return { label: "GASTO", variant: "warning" };
   if (desc.includes("acreditación") || desc.includes("acreditacion"))
     return { label: "ACREDITACIÓN", variant: "info" };
-  if (desc.startsWith("[ajuste_efectivo]"))
+  if (
+    mov.esAjusteBanco ||
+    mov.esAjusteEfectivo ||
+    desc.startsWith("[ajuste_efectivo]") ||
+    desc.startsWith("[ajuste_banco]") ||
+    desc.includes("ajuste") ||
+    (!desc.includes("acreditac") &&
+      !desc.startsWith("saldo inicial") &&
+      mov.impactaCaja === false &&
+      mov.ventaId == null &&
+      mov.venta == null &&
+      mov.compraId == null &&
+      mov.compra == null)
+  ) {
     return { label: "AJUSTE", variant: "default" };
-  if (desc.includes("ajuste"))
-    return { label: "AJUSTE", variant: "default" };
-  if (desc.includes("stock inicial") || desc.includes("reposici"))
-    return { label: "REPOSICIÓN", variant: "warning" };
-  if (mov.compraId)
+  }
+  if (desc.includes("stock inicial") || desc.includes("reposici") || mov.compraId)
     return { label: "REPOSICIÓN", variant: "warning" };
   if (tipo === "EGRESO")
     return { label: "GASTO", variant: "warning" };

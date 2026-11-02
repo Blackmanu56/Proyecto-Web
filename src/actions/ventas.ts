@@ -170,6 +170,7 @@ export async function createVenta(
       for (const item of ventaInput.items) {
         const prod = await tx.producto.findUnique({
           where: { id: item.productoId },
+          include: { ecommerce: true },
         });
 
         if (!prod) {
@@ -177,16 +178,18 @@ export async function createVenta(
         }
 
         if (!prod.activo) {
-          throw new Error(`El producto '${prod.nombre}' est? dado de baja.`);
+          throw new Error(`El producto '${prod.nombre}' está dado de baja.`);
         }
 
         if (!Number.isInteger(prod.cantidad) || prod.cantidad < item.cantidad) {
           throw new Error(`Stock insuficiente para '${prod.nombre}'. Disponible: ${prod.cantidad} u.`);
         }
 
-        const precioVenta = Number(prod.precioVenta);
+        const precioVenta = (prod.ecommerce?.enOferta && prod.ecommerce.precioOferta != null && prod.ecommerce.precioOferta > 0)
+          ? Number(prod.ecommerce.precioOferta)
+          : Number(prod.precioVenta);
         if (!Number.isFinite(precioVenta) || precioVenta < 0) {
-          throw new Error(`El producto '${prod.nombre}' tiene un precio inv?lido.`);
+          throw new Error(`El producto '${prod.nombre}' tiene un precio inválido.`);
         }
 
         await tx.producto.update({

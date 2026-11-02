@@ -394,30 +394,32 @@ input::-webkit-credentials-autofill-button {
   #print-overlay .cj-financial-value { font-size: 11px; font-weight: 800; margin-top: 2px; color: #000; white-space: nowrap; font-variant-numeric: tabular-nums; }
   #print-overlay .cj-closing-row { margin-top: 6px; padding-top: 6px; border-top: 1px dashed #ccc; }
 
-  #print-overlay .cj-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 8pt; }
+  #print-overlay .cj-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 7.5pt; }
   #print-overlay .cj-table thead { display: table-header-group; }
-  #print-overlay .cj-table thead th { background: #d62828; color: #fff; font-weight: 700; padding: 4px 3px; text-align: left; text-transform: uppercase; font-size: 7pt; letter-spacing: 0; border: 1px solid #b01e1e; white-space: nowrap; }
-  #print-overlay .cj-table tbody td { padding: 3px 3px; border-bottom: 1px solid #e0e0e0; vertical-align: middle; color: #000; overflow-wrap: anywhere; }
+  #print-overlay .cj-table thead th { background: #d62828; color: #fff; font-weight: 700; padding: 3px 2px; text-align: left; text-transform: uppercase; font-size: 6.5pt; letter-spacing: 0; border: 1px solid #b01e1e; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; box-sizing: border-box; }
+  #print-overlay .cj-table thead th.text-right { text-align: right; }
+  #print-overlay .cj-table thead th.text-center { text-align: center; }
+  #print-overlay .cj-table tbody td { padding: 2px 2px; border-bottom: 1px solid #e0e0e0; vertical-align: middle; color: #000; overflow-wrap: break-word; font-size: 7pt; box-sizing: border-box; }
   #print-overlay .cj-table tbody tr:nth-child(even) { background: #f9f9f9; }
   #print-overlay .cj-table tbody { page-break-inside: auto; }
   #print-overlay .cj-table tr { break-inside: avoid; page-break-inside: avoid; }
-  #print-overlay .cj-table .col-num { width: 2%; text-align: center; white-space: nowrap; }
+  #print-overlay .cj-table .col-num { width: 2.5%; text-align: center; white-space: nowrap; }
   #print-overlay .cj-table .col-fecha { width: 6.5%; white-space: nowrap; }
   #print-overlay .cj-table .col-hora { width: 4.5%; white-space: nowrap; }
-  #print-overlay .cj-table .col-desc { width: 16.5%; word-wrap: break-word; }
-  #print-overlay .cj-table .col-tipo { width: 6%; text-align: center; white-space: nowrap; }
-  #print-overlay .cj-table .col-pago { width: 7%; text-align: center; white-space: nowrap; }
+  #print-overlay .cj-table .col-desc { width: 18%; word-wrap: break-word; }
+  #print-overlay .cj-table .col-tipo { width: 5.5%; text-align: center; white-space: nowrap; }
+  #print-overlay .cj-table .col-pago { width: 6%; text-align: center; white-space: nowrap; }
   #print-overlay .cj-table .col-importe { width: 8%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  #print-overlay .cj-table .col-user { width: 7.5%; }
+  #print-overlay .cj-table .col-user { width: 7%; }
   #print-overlay .cj-table .col-ing { width: 8%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
   #print-overlay .cj-table .col-egr { width: 8%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
   #print-overlay .cj-table .col-saldo { width: 8%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  #print-overlay .cj-table .col-ing-caja { width: 7%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  #print-overlay .cj-table .col-egr-caja { width: 7%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  #print-overlay .cj-table .col-saldo-caja { width: 7%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  #print-overlay .cj-table .col-ing-banco { width: 7%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  #print-overlay .cj-table .col-egr-banco { width: 7%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  #print-overlay .cj-table .col-saldo-banco { width: 7%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #print-overlay .cj-table .col-ing-caja { width: 6.5%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #print-overlay .cj-table .col-egr-caja { width: 6.5%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #print-overlay .cj-table .col-saldo-caja { width: 7.5%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #print-overlay .cj-table .col-ing-banco { width: 6.5%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #print-overlay .cj-table .col-egr-banco { width: 6.5%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #print-overlay .cj-table .col-saldo-banco { width: 8%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
   #print-overlay .cj-table .text-right { text-align: right; }
   #print-overlay .cj-table .text-center { text-align: center; }
   #print-overlay .cj-table .font-bold { font-weight: 700; }
