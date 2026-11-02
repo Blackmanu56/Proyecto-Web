@@ -15,6 +15,7 @@ export default function TicketModal({ ventaId, onClose }: Props) {
   const [data, setData] = useState<DetalleVentaCompleto | null>(null);
   const [loading, setLoading] = useState(true);
   const ticketRef = useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     getDetalleVenta(ventaId).then((res) => {
@@ -22,6 +23,23 @@ export default function TicketModal({ ventaId, onClose }: Props) {
       setLoading(false);
     });
   }, [ventaId]);
+
+  // Bloquear scroll de fondo, enfocar y cerrar con Escape
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    modalRef.current?.focus();
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onClose]);
 
   const handlePrint = () => {
     const content = ticketRef.current;
@@ -51,12 +69,21 @@ export default function TicketModal({ ventaId, onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white text-slate-900 border border-slate-300 w-full max-w-sm rounded-3xl p-6 shadow-2xl relative animate-in zoom-in-95 duration-200 font-mono text-xs">
+    <div
+      className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[110] p-4 print:hidden"
+      onClick={onClose}
+    >
+      <div
+        ref={modalRef}
+        tabIndex={-1}
+        className="bg-white text-slate-900 border border-slate-300 w-full max-w-sm max-h-[90dvh] overflow-y-auto scrollbar-thin rounded-3xl p-6 shadow-2xl relative animate-in zoom-in-95 duration-200 font-mono text-xs outline-none"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Cerrar */}
         <button
           onClick={onClose}
           className="absolute right-4 top-4 p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:text-slate-900 hover:bg-slate-200 transition"
+          title="Cerrar ticket"
         >
           <X size={16} />
         </button>

@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useCallback } from "react";
 import Image from "next/image";
+import { getCatalogImageUrl } from "@/lib/storage-catalog";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, cn } from "@/lib/utils";
@@ -446,7 +447,7 @@ export default function PedidosTable({
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="relative h-9 w-9 shrink-0 rounded-lg border border-[var(--border)] bg-[var(--panel)] flex items-center justify-center overflow-hidden">
                         {product.imagen ? (
-                          <Image src={product.imagen} alt={product.nombre} fill sizes="36px" className="object-contain p-1" />
+                          <Image src={getCatalogImageUrl(product.imagen)} alt={product.nombre} fill sizes="36px" className="object-contain p-1" />
                         ) : (
                           <Package size={16} className="text-[var(--text-secondary)] opacity-40" />
                         )}

@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { formatCurrency } from "@/lib/utils";
 import DetalleVentaModal from "./DetalleVentaModal";
 import TicketModal from "./TicketModal";
-import { ArrowDown, ArrowUp, ArrowUpDown, Printer, Eye } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Printer, Eye } from "lucide-react";
 import {
   ReportPrintHeader,
   type ReporteVentaRow,
@@ -40,6 +40,15 @@ export default function DetalleView({
   // Modales locales a esta vista: se cierran solos al cambiar de sub-vista (unmount)
   const [detalleVentaId, setDetalleVentaId] = useState<number | null>(null);
   const [ticketVentaId, setTicketVentaId] = useState<number | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
+  const totalPages = Math.max(1, Math.ceil(sortedVentas.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const paginatedVentas =
+    printSection === "detalle"
+      ? sortedVentas
+      : sortedVentas.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const renderSortIndicator = (key: SortKey) => {
     if (sortKey !== key) {
@@ -129,7 +138,7 @@ export default function DetalleView({
                   </td>
                 </tr>
               ) : (
-                sortedVentas.map((venta) => (
+                paginatedVentas.map((venta) => (
                   <tr key={venta.id} className="hover:bg-[var(--card)] transition-colors">
                     <td className="px-4 py-3 font-bold text-[var(--text)] print:text-black">
                       #{String(venta.id).padStart(4, "0")}
@@ -169,6 +178,81 @@ export default function DetalleView({
             </tbody>
           </table>
         </div>
+
+        {/* Barra de Paginación */}
+        {sortedVentas.length > 0 && (
+          <div className="print:hidden flex items-center justify-between px-4 py-3 border-t border-[var(--border)] bg-[var(--card)]/50 gap-4 flex-wrap text-xs text-[var(--text-muted)]">
+            <div className="flex items-center gap-2">
+              <span>
+                Mostrando{" "}
+                <strong className="text-[var(--text)]">
+                  {Math.min((currentPage - 1) * pageSize + 1, sortedVentas.length)}
+                </strong>{" "}
+                a{" "}
+                <strong className="text-[var(--text)]">
+                  {Math.min(currentPage * pageSize, sortedVentas.length)}
+                </strong>{" "}
+                de <strong className="text-[var(--text)]">{sortedVentas.length}</strong> ventas
+              </span>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span>Filas por página:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setPage(1);
+                  }}
+                  className="bg-[var(--card)] border border-[var(--border)] rounded px-2 py-1 text-xs text-[var(--text)] focus:outline-none"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setPage(1)}
+                  disabled={currentPage <= 1}
+                  className="p-1.5 rounded bg-[var(--card)] border border-[var(--border)] text-[var(--text)] hover:bg-[var(--panel)] disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  title="Primera página"
+                >
+                  <ChevronsLeft size={14} />
+                </button>
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage <= 1}
+                  className="p-1.5 rounded bg-[var(--card)] border border-[var(--border)] text-[var(--text)] hover:bg-[var(--panel)] disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  title="Página anterior"
+                >
+                  <ChevronLeft size={14} />
+                </button>
+                <span className="px-2">
+                  Página <strong>{currentPage}</strong> de <strong>{totalPages}</strong>
+                </span>
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage >= totalPages}
+                  className="p-1.5 rounded bg-[var(--card)] border border-[var(--border)] text-[var(--text)] hover:bg-[var(--panel)] disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  title="Página siguiente"
+                >
+                  <ChevronRight size={14} />
+                </button>
+                <button
+                  onClick={() => setPage(totalPages)}
+                  disabled={currentPage >= totalPages}
+                  className="p-1.5 rounded bg-[var(--card)] border border-[var(--border)] text-[var(--text)] hover:bg-[var(--panel)] disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  title="Última página"
+                >
+                  <ChevronsRight size={14} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modales */}
