@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Image from "next/image";
+import { getCatalogImageUrl } from "@/lib/storage-catalog";
 import {
   Dialog,
   DialogContent,
@@ -216,7 +217,7 @@ export default function CrearPedidoModal({
               <div className="relative h-12 w-12 shrink-0 rounded-lg border border-[var(--border)] bg-[var(--panel)] flex items-center justify-center overflow-hidden">
                 {producto.imagen ? (
                   <Image
-                    src={producto.imagen}
+                    src={getCatalogImageUrl(producto.imagen)}
                     alt={producto.nombre}
                     fill
                     sizes="48px"

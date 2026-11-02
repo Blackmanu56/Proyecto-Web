@@ -274,9 +274,7 @@ export async function updateProducto(id: number, formData: FormData) {
     const file = formData.get("imagenFile") as File | null;
     if (file && file.size > 0) {
       // Delete old image if exists
-      if (rawData.imagen) {
-        await deleteFile(rawData.imagen);
-      }
+      // Reemplazo seguro: conservar imagen previa para no afectar compartidos
       const imageUrl = await saveFile(file);
       rawData.imagen = imageUrl;
     }

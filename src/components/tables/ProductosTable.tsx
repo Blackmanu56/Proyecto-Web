@@ -3,6 +3,7 @@
 import { createCategoria,createMarca,getCategorias,getCategoriasWithCount,getMarcasActivas,getMarcasWithCount,toggleCategoriaActivo,toggleMarcaActivo,updateCategoria,updateMarca } from "@/actions/auxiliares";
 import { getCajaActiva } from "@/actions/caja";
 import Image from "next/image";
+import { getCatalogImageUrl } from "@/lib/storage-catalog";
 import {
 createProducto,
 restarStock,
@@ -592,7 +593,7 @@ export default function ProductosTable({
     setEditingProduct(product);
     setErrorMsg("");
     setSuccessMsg("");
-    setImagePreview(product.imagen || null);
+    setImagePreview(getCatalogImageUrl(product.imagen) || null);
     setMarcaValue(product.marca || "");
     setCategoriaValue(product.categoria.nombre);
     setPayments([]);
@@ -1243,7 +1244,7 @@ export default function ProductosTable({
                           <div className="relative w-9 h-9 flex-shrink-0 rounded-lg overflow-hidden bg-[var(--border)] flex items-center justify-center">
                             {p.imagen ? (
                               <Image
-                                src={p.imagen}
+                                src={getCatalogImageUrl(p.imagen)}
                                 alt={p.nombre}
                                 fill
                                 sizes="36px"
@@ -1366,7 +1367,7 @@ export default function ProductosTable({
                   <div className="relative h-full w-[42%] shrink-0 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--panel)]">
                     {selectedProduct.imagen ? (
                       <Image
-                        src={selectedProduct.imagen}
+                        src={getCatalogImageUrl(selectedProduct.imagen)}
                         alt={selectedProduct.nombre}
                         fill
                         sizes="190px"

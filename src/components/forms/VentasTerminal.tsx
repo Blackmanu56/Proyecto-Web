@@ -3,6 +3,7 @@
 import { crearClienteRapido,createVenta,toggleFavorito } from "@/actions/ventas";
 import { ToolbarSelect } from "@/components/ui/toolbar-select";
 import Image from "next/image";
+import { getCatalogImageUrl } from "@/lib/storage-catalog";
 import Link from "next/link";
 import { formatCurrency,formatDate,formatDateShort,formatTime24 } from "@/lib/utils";
 import {
@@ -813,7 +814,7 @@ export default function VentasTerminal({
                         <div className="relative w-full h-32 bg-[var(--panel)] rounded flex items-center justify-center mb-1.5 overflow-hidden">
                           {combo.imagen ? (
                             <Image
-                              src={combo.imagen}
+                              src={getCatalogImageUrl(combo.imagen)}
                               alt={combo.nombre}
                               fill
                               sizes="(max-width: 1024px) 25vw, 12vw"
@@ -947,7 +948,7 @@ export default function VentasTerminal({
                   <div className="relative w-full h-36 bg-[var(--panel)] rounded flex items-center justify-center mb-1.5 overflow-hidden">
                     {p.imagen ? (
                       <Image
-                        src={p.imagen}
+                        src={getCatalogImageUrl(p.imagen)}
                         alt={p.nombre}
                         fill
                         sizes="(max-width: 1024px) 25vw, 12vw"
@@ -1017,7 +1018,7 @@ export default function VentasTerminal({
                   <div className="relative w-9 h-9 bg-[var(--panel)] rounded flex items-center justify-center shrink-0 overflow-hidden">
                     {item.imagen ? (
                       <Image
-                        src={item.imagen}
+                        src={getCatalogImageUrl(item.imagen)}
                         alt={item.nombre}
                         fill
                         sizes="36px"
