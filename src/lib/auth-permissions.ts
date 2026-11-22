@@ -1,7 +1,37 @@
+import { cache } from "react";
 import { getSession } from "./auth.server";
 import { TokenPayload } from "./jwt";
 import { prisma } from "./prisma";
 import { parseRoleData } from "./permissions";
+
+/**
+ * Per-request deduplicated user + role lookup via React.cache.
+ * Ensures RootLayout and multiple concurrent server actions only hit DB once per request,
+ * while still reading fresh state on every new HTTP request.
+ */
+export const getCachedRequestUser = cache(async (userId: number) => {
+  return prisma.usuario.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      username: true,
+      activo: true,
+      fotoUrl: true,
+      nombreCompleto: true,
+      dni: true,
+      correo: true,
+      telefono: true,
+      creadoEn: true,
+      rol: {
+        select: {
+          id: true,
+          nombre: true,
+          permisos: true,
+        },
+      },
+    },
+  });
+});
 
 /**
  * Validates that the current session can execute a sensitive server operation.
@@ -22,21 +52,7 @@ export async function requirePermission(
     throw new Error("No autenticado.");
   }
 
-  const user = await prisma.usuario.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      username: true,
-      activo: true,
-      fotoUrl: true,
-      rol: {
-        select: {
-          nombre: true,
-          permisos: true,
-        },
-      },
-    },
-  });
+  const user = await getCachedRequestUser(userId);
 
   if (!user || !user.activo) {
     throw new Error("Usuario inactivo o no encontrado.");
