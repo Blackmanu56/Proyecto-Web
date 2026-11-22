@@ -237,5 +237,19 @@ describe("Parte 5 — Separación Efectivo / Banco en Apertura-Cierre-Arqueo", (
       const diff = totalContado - totalEsperado;
       expect(diff).toBe(-2_000);
     });
+
+    it("7. Caja sin arqueo (totalContado null): no debe forzarse como balance correcto", () => {
+      const totalContado: number | null = null;
+      const totalEsperado = 55_000;
+      const diff = totalContado !== null ? totalContado - totalEsperado : null;
+      expect(diff).toBeNull();
+    });
+
+    it("8. Caja con totalEsperado negativo y arqueo contado en 0: diff es sobrante positivo", () => {
+      const totalEsperado = -5_000;
+      const totalContado = 0;
+      const diff = totalContado - totalEsperado;
+      expect(diff).toBe(5_000);
+    });
   });
 });

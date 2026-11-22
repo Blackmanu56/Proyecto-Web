@@ -34,7 +34,7 @@ function movimiento(
 }
 
 describe("Parte 7.5 — resumen inferior Caja/Banco", () => {
-  it("mantiene separadas operación económica, Caja, Banco, pendiente y total", () => {
+  it("mantiene separadas operación económica, Caja y Banco", () => {
     const source = readFileSync(
       resolve(process.cwd(), "src/components/forms/CajaTerminal.tsx"),
       "utf8"
@@ -50,11 +50,12 @@ describe("Parte 7.5 — resumen inferior Caja/Banco", () => {
       "Ingresos Banco",
       "Egresos Banco",
       "Saldo Banco",
-      "Por acreditar",
       "Total disponible",
     ]) {
       expect(source).toContain(label);
     }
+
+    expect(source).not.toContain("Por acreditar");
   });
 
   it("reproduce el ejemplo esperado del usuario sin mezclar Caja y Banco", () => {

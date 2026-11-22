@@ -1,32 +1,25 @@
-import { promises as fs } from "fs";
-import path from "path";
+import { uploadCatalogImage, rollbackStorageUpload, CatalogFolder } from "./storage-service";
 
-const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads");
-
-export async function saveFile(file: File): Promise<string> {
-  // Ensure upload directory exists
-  await fs.mkdir(UPLOAD_DIR, { recursive: true });
-
-  // Generate unique filename
-  const ext = path.extname(file.name) || ".jpg";
-  const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
-  const filepath = path.join(UPLOAD_DIR, filename);
-
-  // Convert File to Buffer and save
-  const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
-  await fs.writeFile(filepath, buffer);
-
-  // Return relative URL path
-  return `/uploads/${filename}`;
-}
-
-export async function deleteFile(url: string): Promise<void> {
-  if (!url.startsWith("/uploads/")) return;
-  const filepath = path.join(process.cwd(), "public", url);
-  try {
-    await fs.unlink(filepath);
-  } catch {
-    // File may not exist, ignore
+/**
+ * Guarda o sube un archivo de catálogo directamente a Supabase Storage (catalogo-chopper).
+ * Valida magic bytes, tamaño de archivo, destino seguro y credenciales del servidor.
+ * Si falta SUPABASE_SERVICE_ROLE_KEY, lanza un error claro impidiendo escrituras locales silenciosas.
+ */
+export async function saveFile(file: File, folder: CatalogFolder = "productos"): Promise<string> {
+  const res = await uploadCatalogImage(file, folder);
+  if (!res.success || !res.url) {
+    throw new Error(res.error || "Error al subir imagen a Supabase Storage.");
   }
+  return res.url;
 }
+
+/**
+ * En Etapa 4, por política de reemplazo seguro no se eliminan físicamente imágenes
+ * para evitar dejar sin imagen a otros productos o combos que compartan la referencia.
+ */
+export async function deleteFile(_url: string): Promise<void> {
+  // No-op intencional por seguridad
+  return;
+}
+
+export { rollbackStorageUpload, uploadCatalogImage };

@@ -6,7 +6,6 @@ import {
   getHistorialCajas,
   getSolicitudesCajaPendientes,
   getSolicitudesCajaUsuario,
-  getMovimientosPorAcreditarPendientes,
 } from "@/actions/caja";
 import CajaTerminal from "@/components/forms/CajaTerminal";
 import { Coins, Bell } from "lucide-react";
@@ -28,9 +27,7 @@ export default async function CajaPage() {
     cajaPendiente,
     solicitudesPendientes,
     solicitudesUsuario,
-    movimientosPorAcreditar,
     cuentasBanco,
-    cuentasPorAcreditar,
   ] = await Promise.all([
     session?.userId
       ? prisma.usuario.findUnique({
@@ -53,8 +50,7 @@ export default async function CajaPage() {
     }),
     getSolicitudesCajaPendientes(),
     getSolicitudesCajaUsuario(),
-    getMovimientosPorAcreditarPendientes(),
-    // Saldos financieros (Banco, Por acreditar)
+    // Saldos financieros (Banco)
     prisma.cuentaFinanciera.findMany({
       where: { tipo: "BANCO", esPrincipal: true, activa: true },
       include: {
@@ -129,10 +125,6 @@ export default async function CajaPage() {
         },
       },
     }),
-    prisma.cuentaFinanciera.findMany({
-      where: { tipo: "POR_ACREDITAR", activa: true },
-      include: { movimientos: { select: { tipo: true, monto: true } } },
-    }),
   ]);
 
   const efectivoFisico = cajaActiva
@@ -141,7 +133,7 @@ export default async function CajaPage() {
 
   const saldosFinancieros = calcularSaldosFinancieros(
     cuentasBanco,
-    cuentasPorAcreditar,
+    [],
     efectivoFisico
   );
   const resumenBancoPeriodo = calcularResumenBancoPeriodo(
@@ -188,7 +180,6 @@ export default async function CajaPage() {
               saldosFinancieros={saldosFinancieros}
               resumenBancoPeriodo={resumenBancoPeriodo}
               movimientosBanco={movimientosBanco}
-              movimientosPorAcreditar={movimientosPorAcreditar as React.ComponentProps<typeof CajaTerminal>["movimientosPorAcreditar"]}
               cajaPendiente={cajaPendiente as React.ComponentProps<typeof CajaTerminal>["cajaPendiente"]}
               solicitudesPendientes={solicitudesPendientes as React.ComponentProps<typeof CajaTerminal>["solicitudesPendientes"]}
               solicitudesUsuario={solicitudesUsuario as React.ComponentProps<typeof CajaTerminal>["solicitudesUsuario"]}

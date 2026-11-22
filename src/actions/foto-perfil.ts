@@ -2,24 +2,8 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import fs from "fs/promises";
-import path from "path";
 import { requirePermission } from "@/lib/auth-permissions";
-
-const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "avatars");
-const ECOMMERCE_UPLOAD_DIR = path.resolve(process.cwd(), "..", "ecommerce", "public", "uploads", "avatars");
-const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
-const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"];
-
-function sanitizeExtension(filename: string): string | null {
-  const ext = path.extname(filename).toLowerCase();
-  return ALLOWED_EXTENSIONS.includes(ext) ? ext : null;
-}
-
-function publicUrl(filename: string): string {
-  return `/uploads/avatars/${filename}`;
-}
+import { uploadProfileImage, rollbackProfileUpload } from "@/lib/storage-service";
 
 // ─── Upload or replace profile photo ───────────────────────────────
 export async function subirFotoPerfil(
@@ -27,85 +11,48 @@ export async function subirFotoPerfil(
   formData: FormData
 ): Promise<{ success?: boolean; fotoUrl?: string; error?: string }> {
   try {
-    // Auth check
+    // 1. Auth check
     await requirePermission("usuarios.foto");
 
-    // Validate user exists
+    // 2. Validate user exists
     const usuario = await prisma.usuario.findUnique({ where: { id: userId } });
     if (!usuario) {
       return { error: "Usuario no encontrado." };
     }
 
-    // Get file from form
+    // 3. Get file from form
     const file = formData.get("foto") as File | null;
     if (!file) {
       return { error: "No se proporcionó ningún archivo." };
     }
 
-    // Validate file size
-    if (file.size > MAX_SIZE) {
-      return { error: "La imagen no puede superar los 5 MB." };
+    // 4. Subir directamente a Supabase Storage (bucket perfiles-chopper)
+    const uploadRes = await uploadProfileImage(file, "empleados", userId);
+    if (!uploadRes.success || !uploadRes.url || !uploadRes.objectPath) {
+      return { error: uploadRes.error || "Error al subir la imagen a Supabase Storage." };
     }
 
-    // Validate file type
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      return {
-        error: "Formato no permitido. Solo JPG, PNG y WEBP.",
-      };
-    }
-
-    // Validate extension
-    const ext = sanitizeExtension(file.name);
-    if (!ext) {
-      return { error: "Extensión de archivo no válida." };
-    }
-
-    // Generate unique filename
-    const timestamp = Date.now();
-    const filename = `avatar-${userId}-${timestamp}${ext}`;
-
-    // Ensure upload directory exists
-    await fs.mkdir(UPLOAD_DIR, { recursive: true });
-
-    // Save new file
-    const buffer = Buffer.from(await file.arrayBuffer());
-    await fs.writeFile(path.join(UPLOAD_DIR, filename), buffer);
-
-    // Also mirror to ecommerce if available
+    // 5. Actualizar registro en PostgreSQL
     try {
-      await fs.mkdir(ECOMMERCE_UPLOAD_DIR, { recursive: true });
-      await fs.writeFile(path.join(ECOMMERCE_UPLOAD_DIR, filename), buffer);
-    } catch {}
-
-    // Delete old photo file if exists (before updating DB so we keep it if save fails)
-    const oldUrl = usuario.fotoUrl;
-    if (oldUrl) {
-      const oldFilename = path.basename(oldUrl);
-      const oldPath = path.join(UPLOAD_DIR, oldFilename);
-      try {
-        await fs.unlink(oldPath);
-      } catch {
-        // Old file might not exist — ignore
-      }
-      try {
-        await fs.unlink(path.join(ECOMMERCE_UPLOAD_DIR, oldFilename));
-      } catch {}
+      await prisma.usuario.update({
+        where: { id: userId },
+        data: {
+          fotoUrl: uploadRes.url,
+          fotoActualizadaEn: new Date(),
+        },
+      });
+    } catch (dbError) {
+      // Compensating rollback: retirar objeto subido si falló la base de datos
+      await rollbackProfileUpload(uploadRes.objectPath);
+      throw dbError;
     }
-
-    // Update user record
-    await prisma.usuario.update({
-      where: { id: userId },
-      data: {
-        fotoUrl: publicUrl(filename),
-        fotoActualizadaEn: new Date(),
-      },
-    });
 
     revalidatePath("/empleados");
-    return { success: true, fotoUrl: publicUrl(filename) };
+    revalidatePath("/informes");
+    return { success: true, fotoUrl: uploadRes.url };
   } catch (error: unknown) {
     console.error("Error al subir foto de perfil:", error);
-    return { error: "Error interno al subir la foto." };
+    return { error: "Error interno al subir la foto de perfil." };
   }
 }
 
@@ -125,19 +72,7 @@ export async function eliminarFotoPerfil(
       return { error: "El usuario no tiene foto de perfil." };
     }
 
-    // Delete file from disk
-    const filename = path.basename(usuario.fotoUrl);
-    const filePath = path.join(UPLOAD_DIR, filename);
-    try {
-      await fs.unlink(filePath);
-    } catch {
-      // File might not exist — proceed with DB cleanup
-    }
-    try {
-      await fs.unlink(path.join(ECOMMERCE_UPLOAD_DIR, filename));
-    } catch {}
-
-    // Clear DB fields
+    // Limpiar en base de datos sin borrar archivos compartidos ni de respaldo
     await prisma.usuario.update({
       where: { id: userId },
       data: {
@@ -147,6 +82,7 @@ export async function eliminarFotoPerfil(
     });
 
     revalidatePath("/empleados");
+    revalidatePath("/informes");
     return { success: true };
   } catch (error: unknown) {
     console.error("Error al eliminar foto de perfil:", error);

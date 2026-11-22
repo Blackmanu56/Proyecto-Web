@@ -2,6 +2,7 @@
 
 import React, { useState, useTransition } from "react";
 import Image from "next/image";
+import { getCatalogImageUrl } from "@/lib/storage-catalog";
 import {
   Dialog,
   DialogContent,
@@ -253,7 +254,7 @@ export default function SolicitudPrecioDetail({
           {solicitud.producto?.imagen ? (
             <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-[#2a2f40] bg-[#12141a]">
               <Image
-                src={solicitud.producto.imagen}
+                src={getCatalogImageUrl(solicitud.producto.imagen)}
                 alt={solicitud.producto.nombre}
                 fill
                 className="object-cover"

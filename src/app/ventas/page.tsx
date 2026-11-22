@@ -11,11 +11,52 @@ export default async function VentasPage() {
   const session = await getSession();
 
   // Carga de datos del servidor
-  const [productos, clientes, usuario, favoritos, ventasPorProducto, cajaActiva] = await Promise.all([
+  const [productos, combos, clientes, usuario, favoritos, ventasPorProducto, cajaActiva] = await Promise.all([
     prisma.producto.findMany({
       where: { activo: true },
-      include: { categoria: true },
+      include: {
+        categoria: true,
+        ecommerce: {
+          select: {
+            enOferta: true,
+            precioOferta: true,
+            badgePromo: true,
+            ordenOferta: true,
+          },
+        },
+      },
       orderBy: { nombre: "asc" },
+    }),
+    prisma.comboEcommerce.findMany({
+      where: { activo: true },
+      include: {
+        items: {
+          include: {
+            producto: {
+              select: {
+                id: true,
+                nombre: true,
+                precioVenta: true,
+                cantidad: true,
+                imagen: true,
+                activo: true,
+                marca: true,
+                codigo: true,
+                categoria: { select: { nombre: true } },
+                ecommerce: {
+                  select: {
+                    enOferta: true,
+                    precioOferta: true,
+                    badgePromo: true,
+                    ordenOferta: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: [{ orden: "asc" }, { id: "asc" }],
     }),
     prisma.cliente.findMany({
       where: { activo: true },
@@ -70,8 +111,9 @@ export default async function VentasPage() {
         {/* Terminal Interactivo (Client Component) */}
         <div className="flex-1 min-h-0">
           <VentasTerminal
-            productos={productos as React.ComponentProps<typeof VentasTerminal>["productos"]}
-            clientes={clientes as React.ComponentProps<typeof VentasTerminal>["clientes"]}
+            productos={productos as unknown as React.ComponentProps<typeof VentasTerminal>["productos"]}
+            combos={combos as unknown as React.ComponentProps<typeof VentasTerminal>["combos"]}
+            clientes={clientes as unknown as React.ComponentProps<typeof VentasTerminal>["clientes"]}
             usuario={usuario}
             favoritoIds={favoritoIds}
             ventasPorProducto={Object.fromEntries(ventasMap)}

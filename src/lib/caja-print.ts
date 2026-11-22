@@ -41,8 +41,13 @@ function obtenerPago(mov: MovimientoEnriched): string {
     return "Banco";
   }
 
-  if (concepto === "APERTURA" || descripcion.includes("cierre") || (concepto === "AJUSTE" && !descripcion.includes("acreditac"))) {
+  if (concepto === "APERTURA" || descripcion.includes("cierre")) {
     return "—";
+  }
+
+  if (concepto === "AJUSTE") {
+    const mp = getMetodoPago(mov);
+    return mp === "BANCO" ? "Banco" : "Efectivo";
   }
 
   if (mov.venta?.metodoPago) return labelPago(mov.venta.metodoPago);
@@ -130,6 +135,8 @@ function impactoParaImpresion(mov: MovimientoEnriched): ImpactoFinanciero {
       monto: efectivo + transferencia,
       impactaCaja: mov.impactaCaja,
       esNoEfectivo: mov.esNoEfectivo,
+      esAjusteBanco: mov.esAjusteBanco,
+      esAjusteEfectivo: mov.esAjusteEfectivo,
       venta: mov.venta,
       compra: {
         ...mov.compra,
@@ -144,6 +151,8 @@ function impactoParaImpresion(mov: MovimientoEnriched): ImpactoFinanciero {
     monto: mov.compra?.total ?? mov.monto,
     impactaCaja: mov.impactaCaja,
     esNoEfectivo: mov.esNoEfectivo,
+    esAjusteBanco: mov.esAjusteBanco,
+    esAjusteEfectivo: mov.esAjusteEfectivo,
     venta: mov.venta,
     compra: mov.compra,
     descripcion: mov.descripcion,
@@ -192,6 +201,15 @@ export function crearModeloImpresionLibroDiario(
     const fecha = new Date(mov.fecha);
     if (desde !== null && fecha.getTime() < desde) continue;
 
+    const descLower = (mov.descripcion || "").toLowerCase();
+    const esAjusteBanco =
+      mov.ventaId == null &&
+      mov.venta == null &&
+      mov.compraId == null &&
+      mov.compra == null &&
+      !descLower.includes("acreditac") &&
+      !descLower.startsWith("saldo inicial");
+
     const candidato: MovimientoEnriched = {
       id: -(2_000_000 + mov.id),
       tipo: mov.tipo,
@@ -208,6 +226,7 @@ export function crearModeloImpresionLibroDiario(
       compra: mov.compra ?? null,
       esNoEfectivo: mov.venta != null,
       impactaCaja: false,
+      esAjusteBanco,
       itemNumber: 0,
       saldoAcumulado: 0,
       saldoBanco: 0,

@@ -3,6 +3,8 @@
 import { crearClienteRapido,createVenta,toggleFavorito } from "@/actions/ventas";
 import { ToolbarSelect } from "@/components/ui/toolbar-select";
 import Image from "next/image";
+import { getCatalogImageUrl } from "@/lib/storage-catalog";
+import { getDisplayDescription, parseProductMetadata } from "@/lib/productMetadata";
 import Link from "next/link";
 import { formatCurrency,formatDate,formatDateShort,formatTime24 } from "@/lib/utils";
 import {
@@ -10,10 +12,13 @@ AlertTriangle,
 ArrowLeftRight,
 ArrowRight,
 Banknote,
+Boxes,
 CheckCircle,
 CreditCard,
 Eraser,
 Eye,
+Flame,
+Info,
 Layers,
 Minus,
 Package,
@@ -21,6 +26,7 @@ Plus,
 Printer,
 Search,
 ShoppingCart,
+Sparkles,
 Star,
 Tag,
 Trash2,
@@ -41,6 +47,35 @@ interface Product {
   marca: string | null;
   categoria: { nombre: string };
   codigo?: string | null;
+  ecommerce?: {
+    enOferta: boolean;
+    precioOferta: number | null;
+    badgePromo: string | null;
+    ordenOferta?: number | null;
+  } | null;
+}
+
+interface ComboItem {
+  id: number;
+  comboId: number;
+  productoId: number;
+  cantidad: number;
+  producto: Product;
+}
+
+interface Combo {
+  id: number;
+  nombre: string;
+  slug?: string | null;
+  descripcion: string | null;
+  badge: string | null;
+  precio: number;
+  precioRegular: number | null;
+  imagen: string | null;
+  activo: boolean;
+  destacado?: boolean;
+  orden?: number;
+  items: ComboItem[];
 }
 
 interface Client {
@@ -61,10 +96,12 @@ interface CartItem {
   precioVenta: number;
   stockDisponible: number;
   cantidad: number;
+  enOferta?: boolean;
 }
 
 interface VentasTerminalProps {
   productos: Product[];
+  combos?: Combo[];
   clientes: Client[];
   usuario?: { id: number; username: string; nombreCompleto: string } | null;
   favoritoIds: number[];
@@ -77,7 +114,7 @@ interface VentasTerminalProps {
   };
 }
 
-type ProductFilter = "todos" | "favoritos" | "mas-vendidos";
+type ProductFilter = "todos" | "favoritos" | "mas-vendidos" | "combos" | "ofertas";
 
 type DiscountType = "PORCENTAJE" | "MONTO";
 type PaymentMethod = "EFECTIVO" | "TRANSFERENCIA" | "TARJETA_DEBITO" | "TARJETA_CREDITO";
@@ -98,6 +135,7 @@ const COMPROBANTES: { value: ComprobanteType; label: string; desc: string }[] = 
 
 export default function VentasTerminal({
   productos,
+  combos = [],
   clientes,
   usuario,
   favoritoIds: initialFavoritoIds,
@@ -133,6 +171,7 @@ export default function VentasTerminal({
   // Modales
   const [showNewClientModal, setShowNewClientModal] = useState(false);
   const [showReceiptPreview, setShowReceiptPreview] = useState(false);
+  const [selectedComboDetail, setSelectedComboDetail] = useState<Combo | null>(null);
 
   // Nuevo cliente (modal)
   const [newClientNombre, setNewClientNombre] = useState("");
@@ -170,6 +209,9 @@ export default function VentasTerminal({
   const categories = Array.from(new Set(productos.map(p => p.categoria.nombre))).sort((a, b) => a.localeCompare(b));
   const brands = Array.from(new Set(productos.map(p => p.marca).filter((m): m is string => Boolean(m)))).sort((a, b) => a.localeCompare(b));
   const hasCatalogFilters = prodSearch.trim().length > 0 || selectedCategory !== null || selectedBrand !== null || activeFilter !== "todos";
+
+  const ofertasCount = productos.filter(p => p.activo && p.ecommerce?.enOferta).length;
+  const combosCount = combos.filter(c => c.activo).length;
 
   const handleClearCatalogFilters = () => {
     setProdSearch("");
@@ -226,6 +268,10 @@ export default function VentasTerminal({
       setErrorMsg("El producto no posee stock disponible.");
       return;
     }
+    const precio = (product.ecommerce?.enOferta && product.ecommerce.precioOferta != null && product.ecommerce.precioOferta > 0)
+      ? product.ecommerce.precioOferta
+      : product.precioVenta;
+
     const existing = cart.find(item => item.id === product.id);
     if (existing) {
       if (existing.cantidad >= product.cantidad) {
@@ -234,7 +280,88 @@ export default function VentasTerminal({
       }
       setCart(cart.map(item => item.id === product.id ? { ...item, cantidad: item.cantidad + 1 } : item));
     } else {
-      setCart([...cart, { id: product.id, nombre: product.nombre, imagen: product.imagen, categoria: product.categoria.nombre, precioVenta: product.precioVenta, stockDisponible: product.cantidad, cantidad: 1 }]);
+      setCart([
+        ...cart,
+        {
+          id: product.id,
+          nombre: product.nombre,
+          imagen: product.imagen,
+          categoria: product.categoria.nombre,
+          precioVenta: precio,
+          stockDisponible: product.cantidad,
+          cantidad: 1,
+          enOferta: Boolean(product.ecommerce?.enOferta),
+        },
+      ]);
+    }
+  };
+
+  // ─── AGREGAR COMBO AL CARRITO ───
+  const addComboToCart = (combo: Combo) => {
+    setErrorMsg("");
+    if (!combo.items || combo.items.length === 0) {
+      setErrorMsg("El combo no tiene repuestos asociados.");
+      return;
+    }
+
+    // Validar stock de todos los items
+    for (const item of combo.items) {
+      const prod = productos.find(p => p.id === item.productoId) || item.producto;
+      if (!prod || !prod.activo) {
+        setErrorMsg(`El repuesto '${item.producto?.nombre || item.productoId}' no está disponible.`);
+        return;
+      }
+      const existingInCart = cart.find(ci => ci.id === prod.id)?.cantidad ?? 0;
+      const requestedTotal = existingInCart + item.cantidad;
+      if (requestedTotal > prod.cantidad) {
+        setErrorMsg(`Stock insuficiente de '${prod.nombre}' para agregar el combo (requiere ${requestedTotal} u., disponible ${prod.cantidad} u.).`);
+        return;
+      }
+    }
+
+    // Calcular ahorro del combo respecto a precios regulares de lista
+    let regularSum = 0;
+    for (const item of combo.items) {
+      const prod = productos.find(p => p.id === item.productoId) || item.producto;
+      const itemPrice = (prod.ecommerce?.enOferta && prod.ecommerce.precioOferta != null && prod.ecommerce.precioOferta > 0)
+        ? prod.ecommerce.precioOferta
+        : prod.precioVenta;
+      regularSum += itemPrice * item.cantidad;
+    }
+    const comboSavings = Math.max(0, regularSum - combo.precio);
+
+    // Agregar repuestos del combo al carrito
+    let newCart = [...cart];
+    for (const item of combo.items) {
+      const prod = productos.find(p => p.id === item.productoId) || item.producto;
+      const itemPrice = (prod.ecommerce?.enOferta && prod.ecommerce.precioOferta != null && prod.ecommerce.precioOferta > 0)
+        ? prod.ecommerce.precioOferta
+        : prod.precioVenta;
+      const existingIdx = newCart.findIndex(ci => ci.id === prod.id);
+      if (existingIdx >= 0) {
+        newCart[existingIdx] = {
+          ...newCart[existingIdx],
+          cantidad: newCart[existingIdx].cantidad + item.cantidad,
+        };
+      } else {
+        newCart.push({
+          id: prod.id,
+          nombre: prod.nombre,
+          imagen: prod.imagen,
+          categoria: prod.categoria?.nombre || "Repuestos",
+          precioVenta: itemPrice,
+          stockDisponible: prod.cantidad,
+          cantidad: item.cantidad,
+          enOferta: Boolean(prod.ecommerce?.enOferta),
+        });
+      }
+    }
+    setCart(newCart);
+
+    if (comboSavings > 0) {
+      const currentDiscount = discountType === "MONTO" ? (parseFloat(discountValue) || 0) : 0;
+      setDiscountType("MONTO");
+      setDiscountValue(String(currentDiscount + comboSavings));
     }
   };
 
@@ -315,22 +442,43 @@ export default function VentasTerminal({
   let filteredProducts = productos.filter(p => {
     if (!p.activo) return false; // No mostrar productos inactivos en ventas
     const matchesSearch = p.nombre.toLowerCase().includes(prodSearch.toLowerCase()) ||
-      p.categoria.nombre.toLowerCase().includes(prodSearch.toLowerCase());
+      p.categoria.nombre.toLowerCase().includes(prodSearch.toLowerCase()) ||
+      (p.codigo && p.codigo.toLowerCase().includes(prodSearch.toLowerCase()));
     const matchesCategory = !selectedCategory || p.categoria.nombre === selectedCategory;
     const matchesBrand = !selectedBrand || p.marca === selectedBrand;
     const matchesFilter =
       activeFilter === "todos" ||
       (activeFilter === "favoritos" && favoritoIds.has(p.id)) ||
+      (activeFilter === "ofertas" && Boolean(p.ecommerce?.enOferta)) ||
       activeFilter === "mas-vendidos"; // se ordena después
     return matchesSearch && matchesCategory && matchesBrand && matchesFilter;
   });
 
-  // Ordenar por "más vendidos" si corresponde
+  // Ordenar por "más vendidos" u "ofertas" si corresponde
   if (activeFilter === "mas-vendidos") {
     filteredProducts = [...filteredProducts].sort(
       (a, b) => (ventasMap[b.id] ?? 0) - (ventasMap[a.id] ?? 0)
     );
+  } else if (activeFilter === "ofertas") {
+    filteredProducts = [...filteredProducts].sort(
+      (a, b) => (a.ecommerce?.ordenOferta ?? 999) - (b.ecommerce?.ordenOferta ?? 999)
+    );
   }
+
+  // ─── FILTRAR COMBOS ───
+  const filteredCombos = (combos || []).filter(c => {
+    if (!c.activo) return false;
+    if (!prodSearch.trim()) return true;
+    const term = prodSearch.toLowerCase();
+    const matchesName = c.nombre.toLowerCase().includes(term);
+    const matchesDesc = c.descripcion?.toLowerCase().includes(term) ?? false;
+    const matchesBadge = c.badge?.toLowerCase().includes(term) ?? false;
+    const matchesItem = c.items?.some(it =>
+      it.producto?.nombre?.toLowerCase().includes(term) ||
+      (it.producto?.codigo && it.producto.codigo.toLowerCase().includes(term))
+    ) ?? false;
+    return matchesName || matchesDesc || matchesBadge || matchesItem;
+  });
 
   // ─── FILTRAR CLIENTES ───
   const filteredClients = clientes.filter(c =>
@@ -598,12 +746,14 @@ export default function VentasTerminal({
             </div>
           </div>
 
-          {/* Filtros rápidos: Todos / Favoritos / Más vendidos */}
+          {/* Filtros rápidos: Todos / Favoritos / Más vendidos / Combos / Ofertas */}
           <div className="flex gap-1 p-0.5 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)]">
             {([
               { key: "todos" as ProductFilter, label: "Todos", icon: <Package size={12} /> },
               { key: "favoritos" as ProductFilter, label: "Favoritos", icon: <Star size={12} />, count: favoritoIds.size },
               { key: "mas-vendidos" as ProductFilter, label: "Más vendidos", icon: <TrendingUp size={12} /> },
+              { key: "combos" as ProductFilter, label: "Combos", icon: <Boxes size={12} />, count: combosCount },
+              { key: "ofertas" as ProductFilter, label: "Ofertas", icon: <Flame size={12} />, count: ofertasCount },
             ]).map(tab => (
               <button
                 key={tab.key}
@@ -627,9 +777,155 @@ export default function VentasTerminal({
             ))}
           </div>
 
-          {/* Product Grid — 2 filas visibles, scroll interno */}
-          <div className={`grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 flex-1 overflow-y-auto pr-1 max-h-[520px] desk:max-h-none ${filteredProducts.length > 0 ? "content-start" : ""}`}>
-            {filteredProducts.length === 0 ? (
+          {/* Grid — Productos o Combos con scroll interno */}
+          <div className={`grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 flex-1 overflow-y-auto pr-1 max-h-[520px] desk:max-h-none ${
+            (activeFilter === "combos" ? filteredCombos.length > 0 : filteredProducts.length > 0) ? "content-start" : ""
+          }`}>
+            {activeFilter === "combos" ? (
+              filteredCombos.length === 0 ? (
+                <div className="col-span-2 sm:col-span-3 xl:col-span-4 h-full flex flex-col items-center justify-center text-[var(--text-secondary)] py-8">
+                  <Boxes size={24} className="opacity-30 mb-1.5" />
+                  <p className="text-xs font-semibold">No se encontraron combos</p>
+                  <p className="text-[10px] opacity-60">No hay combos activos que coincidan con la búsqueda</p>
+                </div>
+              ) : (
+                filteredCombos.map(combo => {
+                  const stocks = combo.items.map(it => {
+                    const prod = productos.find(p => p.id === it.productoId) || it.producto;
+                    if (!prod || prod.cantidad <= 0 || it.cantidad <= 0) return 0;
+                    return Math.floor(prod.cantidad / it.cantidad);
+                  });
+                  const maxAvailable = stocks.length > 0 ? Math.min(...stocks) : 0;
+                  const hasNoStock = maxAvailable <= 0;
+
+                  return (
+                    <div
+                      key={combo.id}
+                      onClick={() => !hasNoStock && addComboToCart(combo)}
+                      className={`relative bg-[var(--bg)] border border-[var(--border)] rounded-lg p-2.5 cursor-pointer transition-all hover:border-[var(--border-hover)] hover:shadow-[var(--shadow-md)] flex flex-col justify-between ${
+                        hasNoStock ? "opacity-40 cursor-not-allowed" : "hover:scale-[1.02]"
+                      }`}
+                    >
+                      {/* Badge del Combo */}
+                      {combo.badge && (
+                        <span className="absolute top-1.5 left-1.5 z-10 text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                          {combo.badge}
+                        </span>
+                      )}
+
+                      <div>
+                        <div className="relative w-full h-32 bg-[var(--panel)] rounded flex items-center justify-center mb-1.5 overflow-hidden">
+                          {combo.imagen ? (
+                            <Image
+                              src={getCatalogImageUrl(combo.imagen)}
+                              alt={combo.nombre}
+                              fill
+                              sizes="(max-width: 1024px) 25vw, 12vw"
+                              className="object-contain"
+                            />
+                          ) : (
+                            <Boxes size={32} className="text-[var(--text-secondary)]" />
+                          )}
+                        </div>
+
+                        <p className="text-xs font-bold text-[var(--text)] leading-tight line-clamp-2 min-h-[2rem]">
+                          {combo.nombre}
+                        </p>
+
+                        {getDisplayDescription(combo.descripcion) ? (
+                          <p className="text-[10px] text-[var(--text-secondary)] line-clamp-2 mt-0.5 leading-snug">
+                            {getDisplayDescription(combo.descripcion)}
+                          </p>
+                        ) : null}
+
+                        {/* Lista resumida de componentes enriquecida */}
+                        <div className="mt-2 space-y-1 bg-[var(--card)] p-2 rounded border border-[var(--border)]">
+                          <div className="flex items-center justify-between gap-1 mb-1">
+                            <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+                              Componentes ({combo.items.length}):
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedComboDetail(combo);
+                              }}
+                              className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-400 hover:text-amber-300 transition-colors px-1 py-0.5 rounded hover:bg-amber-500/10"
+                              title="Ver detalle de repuestos y compatibilidad"
+                            >
+                              <Eye size={11} />
+                              <span>Detalle</span>
+                            </button>
+                          </div>
+                          <ul className="text-[10px] space-y-1 text-[var(--text-secondary)]">
+                            {combo.items.map(it => {
+                              const prod = productos.find(p => p.id === it.productoId) || it.producto;
+                              const prodStock = prod?.cantidad ?? 0;
+                              const isBottleneck = prodStock < it.cantidad;
+                              return (
+                                <li key={it.id} className="flex justify-between items-center gap-1.5 py-0.5 border-b border-[var(--border)]/30 last:border-b-0">
+                                  <div className="flex flex-col min-w-0 pr-1">
+                                    <span className="truncate font-medium text-[var(--text)]">
+                                      • {prod?.nombre || "Repuesto"}
+                                    </span>
+                                    {prod?.codigo && (
+                                      <span className="text-[9px] text-[var(--text-muted)] font-mono">
+                                        Cód: {prod.codigo}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <span className="font-mono text-[10px] font-bold text-[var(--text)]">
+                                      x{it.cantidad}
+                                    </span>
+                                    <span
+                                      className={`text-[9px] font-mono px-1 py-0.5 rounded ${
+                                        isBottleneck
+                                          ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                                          : prodStock <= it.cantidad * 2
+                                          ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                                          : "bg-[var(--panel)] text-[var(--text-secondary)] border border-[var(--border)]"
+                                      }`}
+                                      title={`Stock en local: ${prodStock} unidades`}
+                                    >
+                                      ${prodStock} u.
+                                    </span>
+                                  </div>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      </div>
+
+                      <div className="mt-2.5 pt-2 border-t border-[var(--border)] flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-bold text-amber-400 font-mono">
+                            {formatCurrency(combo.precio)}
+                          </p>
+                          {combo.precioRegular && combo.precioRegular > combo.precio && (
+                            <span className="text-[10px] text-[var(--text-secondary)] line-through font-mono block -mt-0.5">
+                              {formatCurrency(combo.precioRegular)}
+                            </span>
+                          )}
+                        </div>
+                        <span
+                          className={`text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded ${
+                            hasNoStock
+                              ? "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                              : maxAvailable <= 2
+                              ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                              : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                          }`}
+                        >
+                          {hasNoStock ? "Sin stock" : `${maxAvailable} combos`}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              )
+            ) : filteredProducts.length === 0 ? (
               <div className="col-span-2 sm:col-span-3 xl:col-span-4 h-full flex flex-col items-center justify-center text-[var(--text-secondary)] py-8">
                 {activeFilter === "favoritos" ? (
                   <>
@@ -642,6 +938,12 @@ export default function VentasTerminal({
                     <TrendingUp size={24} className="opacity-30 mb-1.5" />
                     <p className="text-xs font-semibold">Sin ventas registradas</p>
                     <p className="text-[10px] opacity-60">Aún no se registraron ventas en el sistema</p>
+                  </>
+                ) : activeFilter === "ofertas" ? (
+                  <>
+                    <Flame size={24} className="opacity-30 mb-1.5" />
+                    <p className="text-xs font-semibold">No hay ofertas activas</p>
+                    <p className="text-[10px] opacity-60">Los productos en oferta del e-commerce aparecerán aquí</p>
                   </>
                 ) : (
                   <>
@@ -656,6 +958,8 @@ export default function VentasTerminal({
               const isLowStock = p.cantidad <= 5;
               const hasNoStock = p.cantidad <= 0;
               const isFavorito = favoritoIds.has(p.id);
+              const isOferta = Boolean(p.ecommerce?.enOferta && p.ecommerce?.precioOferta != null && p.ecommerce.precioOferta > 0);
+              const precioEfectivo = isOferta ? p.ecommerce!.precioOferta! : p.precioVenta;
               const vendidos = ventasMap[p.id] ?? 0;
               return (
                 <div
@@ -665,6 +969,13 @@ export default function VentasTerminal({
                     hasNoStock ? "opacity-40 cursor-not-allowed" : "hover:scale-[1.02]"
                   }`}
                 >
+                  {/* Badge de Oferta */}
+                  {isOferta && (
+                    <span className="absolute top-1.5 left-1.5 z-10 text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                      {p.ecommerce?.badgePromo || "Oferta"}
+                    </span>
+                  )}
+
                   {/* Botón Favorito */}
                   <button
                     onClick={(e) => handleToggleFavorito(e, p.id)}
@@ -681,7 +992,7 @@ export default function VentasTerminal({
                   <div className="relative w-full h-36 bg-[var(--panel)] rounded flex items-center justify-center mb-1.5 overflow-hidden">
                     {p.imagen ? (
                       <Image
-                        src={p.imagen}
+                        src={getCatalogImageUrl(p.imagen)}
                         alt={p.nombre}
                         fill
                         sizes="(max-width: 1024px) 25vw, 12vw"
@@ -694,7 +1005,16 @@ export default function VentasTerminal({
                   <p className="text-xs font-semibold text-[var(--text)] leading-tight line-clamp-2 min-h-[2rem]">{p.nombre}</p>
                   <p className="text-[10px] text-[var(--text-secondary)] truncate">{p.categoria.nombre}</p>
                   <div className="flex items-center justify-between mt-1">
-                    <p className="text-sm font-bold text-[#22D3EE] font-mono">{formatCurrency(p.precioVenta)}</p>
+                    <div>
+                      <p className={`text-sm font-bold font-mono ${isOferta ? "text-rose-400" : "text-[#22D3EE]"}`}>
+                        {formatCurrency(precioEfectivo)}
+                      </p>
+                      {isOferta && (
+                        <span className="text-[10px] text-[var(--text-secondary)] line-through font-mono block -mt-0.5">
+                          {formatCurrency(p.precioVenta)}
+                        </span>
+                      )}
+                    </div>
                     <span className={`text-[10px] font-mono font-semibold ${hasNoStock ? "text-[var(--danger)]" : isLowStock ? "text-[var(--warning)]" : "text-[var(--success)]"}`}>
                       {p.cantidad}u
                     </span>
@@ -742,7 +1062,7 @@ export default function VentasTerminal({
                   <div className="relative w-9 h-9 bg-[var(--panel)] rounded flex items-center justify-center shrink-0 overflow-hidden">
                     {item.imagen ? (
                       <Image
-                        src={item.imagen}
+                        src={getCatalogImageUrl(item.imagen)}
                         alt={item.nombre}
                         fill
                         sizes="36px"
@@ -755,7 +1075,14 @@ export default function VentasTerminal({
 
                   {/* Nombre + Categoría */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-[var(--text)] truncate leading-tight">{item.nombre}</p>
+                    <div className="flex items-center gap-1">
+                      <p className="text-xs font-semibold text-[var(--text)] truncate leading-tight">{item.nombre}</p>
+                      {item.enOferta && (
+                        <span className="shrink-0 text-[8px] font-bold px-1 py-0.2 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                          Oferta
+                        </span>
+                      )}
+                    </div>
                     <p className="text-[10px] text-[var(--text-secondary)] truncate leading-tight">{item.categoria}</p>
                   </div>
 
@@ -1445,6 +1772,273 @@ export default function VentasTerminal({
           </div>
         </div>
       )}
+{/* ── MODAL DETALLE DE COMBO ── */}
+      {selectedComboDetail && (() => {
+        const combo = selectedComboDetail;
+        const meta = parseProductMetadata(combo.descripcion);
+        const stocks = combo.items.map(it => {
+          const prod = productos.find(p => p.id === it.productoId) || it.producto;
+          if (!prod || prod.cantidad <= 0 || it.cantidad <= 0) return 0;
+          return Math.floor(prod.cantidad / it.cantidad);
+        });
+        const maxAvailable = stocks.length > 0 ? Math.min(...stocks) : 0;
+        const hasNoStock = maxAvailable <= 0;
+
+        // Calcular suma de precios regulares
+        let regularSum = 0;
+        for (const item of combo.items) {
+          const prod = productos.find(p => p.id === item.productoId) || item.producto;
+          const itemPrice = (prod?.ecommerce?.enOferta && prod.ecommerce.precioOferta != null && prod.ecommerce.precioOferta > 0)
+            ? prod.ecommerce.precioOferta
+            : (prod?.precioVenta ?? 0);
+          regularSum += itemPrice * item.cantidad;
+        }
+        const savings = Math.max(0, regularSum - combo.precio);
+        const savingsPct = regularSum > 0 && savings > 0 ? Math.round((savings / regularSum) * 100) : 0;
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-[var(--panel)] border border-[var(--border)] rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+              {/* Header */}
+              <div className="px-5 py-4 border-b border-[var(--border)] flex items-center justify-between bg-[var(--bg)]">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                    <Boxes size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-[var(--text)] flex items-center gap-2">
+                      <span>{combo.nombre}</span>
+                      {combo.badge && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                          {combo.badge}
+                        </span>
+                      )}
+                    </h3>
+                    <p className="text-xs text-[var(--text-secondary)]">
+                      Componentes, stock físico en SGI y compatibilidad técnica
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedComboDetail(null)}
+                  className="p-1.5 text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--panel)] rounded-lg transition"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="p-5 overflow-y-auto space-y-5 flex-1">
+                {/* Resumen Visual & Descripción */}
+                <div className="flex flex-col sm:flex-row gap-4 items-start bg-[var(--card)] p-3.5 rounded-lg border border-[var(--border)]">
+                  <div className="relative w-28 h-28 shrink-0 bg-[var(--panel)] rounded-md flex items-center justify-center overflow-hidden border border-[var(--border)]">
+                    {combo.imagen ? (
+                      <Image
+                        src={getCatalogImageUrl(combo.imagen)}
+                        alt={combo.nombre}
+                        fill
+                        sizes="112px"
+                        className="object-contain"
+                      />
+                    ) : (
+                      <Boxes size={40} className="text-[var(--text-secondary)] opacity-40" />
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div className="flex flex-wrap items-baseline gap-2">
+                      <span className="text-2xl font-bold font-mono text-amber-400">
+                        {formatCurrency(combo.precio)}
+                      </span>
+                      {regularSum > combo.precio && (
+                        <span className="text-sm font-mono text-[var(--text-secondary)] line-through">
+                          {formatCurrency(regularSum)}
+                        </span>
+                      )}
+                      {savings > 0 && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                          Ahorro: {formatCurrency(savings)} ({savingsPct}% OFF)
+                        </span>
+                      )}
+                    </div>
+
+                    {meta.texto ? (
+                      <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                        {meta.texto}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-[var(--text-muted)] italic">
+                        Combo comercial configurado desde el e-commerce.
+                      </p>
+                    )}
+
+                    {/* Motos Compatibles */}
+                    {(meta.motosCompatibles.length > 0 || meta.universal) && (
+                      <div className="pt-2 border-t border-[var(--border)]/50">
+                        <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block mb-1">
+                          Compatibilidad de Motos:
+                        </span>
+                        <div className="flex flex-wrap gap-1">
+                          {meta.universal && (
+                            <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 font-medium">
+                              Universal
+                            </span>
+                          )}
+                          {meta.motosCompatibles.map((moto, i) => (
+                            <span
+                              key={i}
+                              className="text-[10px] px-2 py-0.5 rounded bg-[var(--panel)] text-[var(--text)] border border-[var(--border)] font-medium"
+                            >
+                              {moto}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Tabla de Componentes */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text)] flex items-center gap-1.5">
+                      <Package size={14} className="text-amber-400" />
+                      <span>Repuestos que integran este combo ({combo.items.length})</span>
+                    </h4>
+                    <span
+                      className={`text-xs font-mono font-semibold px-2 py-0.5 rounded ${
+                        hasNoStock
+                          ? "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                          : maxAvailable <= 2
+                          ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                          : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                      }`}
+                    >
+                      {hasNoStock ? "Sin stock disponible" : `Disponible para armar: ${maxAvailable} combos`}
+                    </span>
+                  </div>
+
+                  <div className="border border-[var(--border)] rounded-lg overflow-hidden bg-[var(--bg)]">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-[var(--card)] text-[var(--text-muted)] text-[10px] uppercase border-b border-[var(--border)]">
+                        <tr>
+                          <th className="py-2 px-3">Cód.</th>
+                          <th className="py-2 px-3">Repuesto</th>
+                          <th className="py-2 px-3">Marca</th>
+                          <th className="py-2 px-3 text-center">Req.</th>
+                          <th className="py-2 px-3 text-center">Stock SGI</th>
+                          <th className="py-2 px-3 text-right">P. Lista</th>
+                          <th className="py-2 px-3 text-right">Subtotal</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--border)]">
+                        {combo.items.map((it) => {
+                          const prod = productos.find(p => p.id === it.productoId) || it.producto;
+                          const prodStock = prod?.cantidad ?? 0;
+                          const isBottleneck = prodStock < it.cantidad;
+                          const unitPrice = (prod?.ecommerce?.enOferta && prod.ecommerce.precioOferta != null && prod.ecommerce.precioOferta > 0)
+                            ? prod.ecommerce.precioOferta
+                            : (prod?.precioVenta ?? 0);
+                          const subtotal = unitPrice * it.cantidad;
+
+                          return (
+                            <tr key={it.id} className={isBottleneck ? "bg-rose-500/5" : "hover:bg-[var(--card)]/50"}>
+                              <td className="py-2.5 px-3 font-mono text-[11px] text-[var(--text-muted)]">
+                                {prod?.codigo || "-"}
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <p className="font-semibold text-[var(--text)]">{prod?.nombre || "Repuesto desconocido"}</p>
+                                <p className="text-[10px] text-[var(--text-muted)]">{prod?.categoria?.nombre || "Repuestos"}</p>
+                              </td>
+                              <td className="py-2.5 px-3 text-[11px] text-[var(--text-secondary)]">
+                                {prod?.marca || "-"}
+                              </td>
+                              <td className="py-2.5 px-3 text-center font-mono font-bold text-[var(--text)]">
+                                x{it.cantidad}
+                              </td>
+                              <td className="py-2.5 px-3 text-center">
+                                <span
+                                  className={`inline-block font-mono font-semibold px-2 py-0.5 rounded text-[10px] ${
+                                    isBottleneck
+                                      ? "bg-rose-500/20 text-rose-400 border border-rose-500/30"
+                                      : prodStock <= it.cantidad * 2
+                                      ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                                      : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                                  }`}
+                                >
+                                  {prodStock} u.
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-mono text-[11px] text-[var(--text-secondary)]">
+                                {formatCurrency(unitPrice)}
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-mono font-semibold text-[var(--text)]">
+                                {formatCurrency(subtotal)}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Especificaciones técnicas si existen */}
+                {meta.especificaciones.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text)] mb-2">
+                      Especificaciones Técnicas
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {meta.especificaciones.map((spec, i) => (
+                        <div
+                          key={i}
+                          className="bg-[var(--card)] p-2 rounded border border-[var(--border)] flex justify-between text-xs"
+                        >
+                          <span className="text-[var(--text-muted)]">{spec.caracteristica}:</span>
+                          <span className="font-medium text-[var(--text)]">{spec.valor}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="px-5 py-3.5 border-t border-[var(--border)] bg-[var(--bg)] flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSelectedComboDetail(null)}
+                  className="px-4 py-2 border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text)] rounded-lg text-xs font-semibold hover:bg-[var(--card)] transition"
+                >
+                  Cerrar
+                </button>
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <span className="text-[10px] text-[var(--text-muted)] block">Precio Combo:</span>
+                    <span className="text-sm font-bold font-mono text-amber-400">{formatCurrency(combo.precio)}</span>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={hasNoStock}
+                    onClick={() => {
+                      addComboToCart(combo);
+                      setSelectedComboDetail(null);
+                    }}
+                    className={`px-5 py-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition ${
+                      hasNoStock
+                        ? "bg-[var(--card)] text-[var(--text-muted)] cursor-not-allowed border border-[var(--border)]"
+                        : "bg-amber-500 hover:bg-amber-400 text-black shadow-lg shadow-amber-500/20"
+                    }`}
+                  >
+                    <ShoppingCart size={14} />
+                    <span>{hasNoStock ? "Sin stock suficiente" : "Agregar Combo al Carrito"}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

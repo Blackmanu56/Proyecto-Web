@@ -7,8 +7,11 @@ interface ResultadoLabelProps {
   totalEsperado: number;
 }
 
-function getResultado(totalContado: number | null, totalEsperado: number) {
-  const diff = (totalContado ?? totalEsperado) - totalEsperado;
+export function getResultado(totalContado: number | null, totalEsperado: number) {
+  if (totalContado === null || totalContado === undefined) {
+    return { label: "Sin arqueo", colorClass: "text-text-muted" };
+  }
+  const diff = totalContado - totalEsperado;
   if (diff === 0) return { label: "Balance Correcto", colorClass: "text-success" };
   if (diff > 0) return { label: "Sobrante", colorClass: "text-info" };
   return { label: "Faltante", colorClass: "text-danger" };
