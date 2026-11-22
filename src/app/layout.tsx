@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { getSession } from "@/lib/auth.server";
-import { prisma } from "@/lib/prisma";
+import { getCachedRequestUser } from "@/lib/auth-permissions";
 import AppShell from "@/components/layout/AppShell";
 import "./globals.css";
 import { ChopperToaster } from "@/components/ui/toast";
@@ -26,10 +26,7 @@ export default async function RootLayout({
   // Fetch fresh user data from DB for latest fotoUrl (JWT may be stale)
   let shellUser: React.ComponentProps<typeof AppShell>["user"] = null;
   if (session) {
-    const userFromDb = await prisma.usuario.findUnique({
-      where: { id: session.userId },
-      select: { username: true, fotoUrl: true, nombreCompleto: true, dni: true, correo: true, telefono: true, activo: true, creadoEn: true, rol: true },
-    });
+    const userFromDb = await getCachedRequestUser(session.userId);
     shellUser = {
       userId: session.userId,
       username: userFromDb?.username ?? session.username,
