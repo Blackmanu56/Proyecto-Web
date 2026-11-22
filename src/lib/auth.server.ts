@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { verifyJWT, TokenPayload } from "./jwt";
 import { prisma } from "./prisma";
@@ -34,16 +35,16 @@ export async function getUserActivo(userId: number): Promise<boolean> {
 }
 
 /**
- * Obtiene la sesión actual desde las cookies del navegador
+ * Obtiene la sesión actual desde las cookies del navegador (deduplicado por request)
  */
-export async function getSession(): Promise<TokenPayload | null> {
+export const getSession = cache(async (): Promise<TokenPayload | null> => {
   const cookieStore = await cookies();
   const token = cookieStore.get("session")?.value;
-  
+
   if (!token) return null;
-  
+
   return await verifyJWT(token);
-}
+});
 
 /**
  * Elimina la cookie de sesión (Cerrar sesión)
