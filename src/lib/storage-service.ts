@@ -1,8 +1,8 @@
 import crypto from "crypto";
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 
-export const SUPABASE_STORAGE_URL = "https://feecgedfxtmtmdaakxgy.supabase.co";
-export const SUPABASE_CATALOG_BUCKET = "catalogo-chopper";
-export const SUPABASE_PROFILES_BUCKET = "perfiles-chopper";
+export const R2_CATALOG_PREFIX = "catalogo-chopper";
+export const R2_PROFILES_PREFIX = "perfiles-chopper";
 export const MAX_CATALOG_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 
 export type CatalogFolder = "productos" | "combos";
@@ -13,6 +13,49 @@ export interface FileValidationResult {
   ext?: "jpg" | "png" | "webp";
   mime?: string;
   error?: string;
+}
+
+export interface UploadCatalogResult {
+  success: boolean;
+  url?: string;
+  objectPath?: string;
+  error?: string;
+}
+
+function getR2Config(): { client: S3Client; bucket: string; publicUrl: string } | null {
+  const endpoint = process.env.R2_ENDPOINT?.trim();
+  const accessKeyId = process.env.R2_ACCESS_KEY_ID?.trim();
+  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY?.trim();
+  const bucket = process.env.R2_BUCKET_NAME?.trim() || "chopper-storage";
+  const publicUrl = (
+    process.env.R2_PUBLIC_URL?.trim() || "https://pub-aa3a753d242c4c41a86a0dfb2dc02a28.r2.dev"
+  ).replace(/\/+$/, "");
+
+  if (!endpoint || !accessKeyId || !secretAccessKey) {
+    return null;
+  }
+
+  const client = new S3Client({
+    region: "auto",
+    endpoint,
+    credentials: {
+      accessKeyId,
+      secretAccessKey,
+    },
+  });
+
+  return { client, bucket, publicUrl };
+}
+
+async function toBuffer(fileOrBuffer: File | Buffer): Promise<Buffer | null> {
+  if (Buffer.isBuffer(fileOrBuffer)) {
+    return fileOrBuffer;
+  }
+  if (fileOrBuffer && typeof (fileOrBuffer as File).arrayBuffer === "function") {
+    const arrayBuf = await (fileOrBuffer as File).arrayBuffer();
+    return Buffer.from(arrayBuf);
+  }
+  return null;
 }
 
 /**
@@ -67,23 +110,73 @@ export function detectImageMagicBytes(buffer: Buffer): FileValidationResult {
   };
 }
 
-export interface UploadCatalogResult {
-  success: boolean;
-  url?: string;
-  objectPath?: string;
-  error?: string;
+async function uploadImageToR2(
+  fileOrBuffer: File | Buffer,
+  prefix: string,
+  objectPath: string,
+  mime: string,
+  buffer: Buffer
+): Promise<UploadCatalogResult> {
+  const r2 = getR2Config();
+  if (!r2) {
+    return {
+      success: false,
+      error:
+        "Falta la configuración de Cloudflare R2 en el servidor (R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY).",
+    };
+  }
+
+  const key = `${prefix}/${objectPath}`;
+  try {
+    await r2.client.send(
+      new PutObjectCommand({
+        Bucket: r2.bucket,
+        Key: key,
+        Body: buffer,
+        ContentType: mime,
+      })
+    );
+
+    return {
+      success: true,
+      url: `${r2.publicUrl}/${key}`,
+      objectPath,
+    };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Desconocido";
+    return {
+      success: false,
+      error: `Error al subir imagen a Cloudflare R2: ${message}`,
+    };
+  }
+}
+
+async function deleteObjectFromR2(key: string): Promise<boolean> {
+  const r2 = getR2Config();
+  if (!r2) return false;
+
+  try {
+    await r2.client.send(
+      new DeleteObjectCommand({
+        Bucket: r2.bucket,
+        Key: key,
+      })
+    );
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
- * Sube una imagen directamente al bucket catalogo-chopper de Supabase Storage
+ * Sube una imagen directamente al prefijo catalogo-chopper en Cloudflare R2
  * ejecutándose estrictamente en el entorno del servidor.
  */
 export async function uploadCatalogImage(
   fileOrBuffer: File | Buffer,
   folder: CatalogFolder,
-  originalFilename?: string
+  _originalFilename?: string
 ): Promise<UploadCatalogResult> {
-  // Validación estricta de carpeta de destino
   if (folder !== "productos" && folder !== "combos") {
     return {
       success: false,
@@ -91,17 +184,11 @@ export async function uploadCatalogImage(
     };
   }
 
-  let buffer: Buffer;
-  if (Buffer.isBuffer(fileOrBuffer)) {
-    buffer = fileOrBuffer;
-  } else if (fileOrBuffer && typeof (fileOrBuffer as File).arrayBuffer === "function") {
-    const arrayBuf = await (fileOrBuffer as File).arrayBuffer();
-    buffer = Buffer.from(arrayBuf);
-  } else {
+  const buffer = await toBuffer(fileOrBuffer);
+  if (!buffer) {
     return { success: false, error: "El archivo proporcionado no es válido." };
   }
 
-  // Validación de tamaño máximo (5 MB)
   if (buffer.length > MAX_CATALOG_FILE_SIZE) {
     return {
       success: false,
@@ -113,7 +200,6 @@ export async function uploadCatalogImage(
     return { success: false, error: "El archivo está vacío (0 bytes)." };
   }
 
-  // Validación de magic bytes
   const formatValidation = detectImageMagicBytes(buffer);
   if (!formatValidation.valid || !formatValidation.ext || !formatValidation.mime) {
     return {
@@ -122,87 +208,26 @@ export async function uploadCatalogImage(
     };
   }
 
-  // Comprobar credencial de administración en variables de entorno del servidor
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceKey || serviceKey.trim() === "") {
-    return {
-      success: false,
-      error:
-        "Falta la configuración del servidor: la variable SUPABASE_SERVICE_ROLE_KEY no está definida en el entorno. La subida a Supabase Storage se detuvo por seguridad.",
-    };
-  }
-
-  // Generar nombre de archivo único para evitar colisiones y sobrescrituras accidentales
   const uniqueId = `${Date.now()}-${crypto.randomBytes(6).toString("hex")}.${formatValidation.ext}`;
   const objectPath = `${folder}/${uniqueId}`;
 
-  const uploadEndpoint = `${SUPABASE_STORAGE_URL}/storage/v1/object/${SUPABASE_CATALOG_BUCKET}/${objectPath}`;
-
-  try {
-    const response = await fetch(uploadEndpoint, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${serviceKey.trim()}`,
-        "Content-Type": formatValidation.mime,
-        "x-upsert": "false", // Prohibir sobrescritura
-      },
-      body: buffer,
-    });
-
-    if (!response.ok) {
-      const errText = await response.text().catch(() => "");
-      return {
-        success: false,
-        error: `Error al subir imagen a Supabase Storage (HTTP ${response.status}): ${errText || response.statusText}`,
-      };
-    }
-
-    const publicUrl = `${SUPABASE_STORAGE_URL}/storage/v1/object/public/${SUPABASE_CATALOG_BUCKET}/${objectPath}`;
-    return {
-      success: true,
-      url: publicUrl,
-      objectPath,
-    };
-  } catch (err: any) {
-    return {
-      success: false,
-      error: `Error de conexión con Supabase Storage: ${err?.message || "Desconocido"}`,
-    };
-  }
+  return uploadImageToR2(fileOrBuffer, R2_CATALOG_PREFIX, objectPath, formatValidation.mime, buffer);
 }
 
 /**
  * Elimina de forma segura un objeto recién subido en caso de que la transacción
- * posterior en la base de datos falle. Solo debe invocarse sobre el archivo nuevo
- * creado por la operación en curso, nunca sobre imágenes previas ni compartidas.
+ * posterior en la base de datos falle.
  */
 export async function rollbackStorageUpload(objectPath: string): Promise<boolean> {
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceKey || !objectPath) return false;
-
-  // Sanitización de path: debe comenzar con productos/ o combos/
+  if (!objectPath) return false;
   if (!objectPath.startsWith("productos/") && !objectPath.startsWith("combos/")) {
     return false;
   }
-
-  try {
-    const deleteEndpoint = `${SUPABASE_STORAGE_URL}/storage/v1/object/${SUPABASE_CATALOG_BUCKET}`;
-    const response = await fetch(deleteEndpoint, {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${serviceKey.trim()}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ prefixes: [objectPath] }),
-    });
-    return response.ok;
-  } catch {
-    return false;
-  }
+  return deleteObjectFromR2(`${R2_CATALOG_PREFIX}/${objectPath}`);
 }
 
 /**
- * Sube una fotografía de perfil directamente al bucket perfiles-chopper de Supabase Storage.
+ * Sube una fotografía de perfil directamente al prefijo perfiles-chopper en Cloudflare R2.
  * Compatible tanto con empleados (folder "empleados") como con clientes (folder "clientes").
  */
 export async function uploadProfileImage(
@@ -217,13 +242,8 @@ export async function uploadProfileImage(
     };
   }
 
-  let buffer: Buffer;
-  if (Buffer.isBuffer(fileOrBuffer)) {
-    buffer = fileOrBuffer;
-  } else if (fileOrBuffer && typeof (fileOrBuffer as File).arrayBuffer === "function") {
-    const arrayBuf = await (fileOrBuffer as File).arrayBuffer();
-    buffer = Buffer.from(arrayBuf);
-  } else {
+  const buffer = await toBuffer(fileOrBuffer);
+  if (!buffer) {
     return { success: false, error: "El archivo proporcionado no es válido." };
   }
 
@@ -246,78 +266,22 @@ export async function uploadProfileImage(
     };
   }
 
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceKey || serviceKey.trim() === "") {
-    return {
-      success: false,
-      error: "Falta la configuración del servidor: SUPABASE_SERVICE_ROLE_KEY no está definida en el entorno.",
-    };
-  }
-
   const prefix = folder === "empleados" ? "avatar" : "avatar-cliente";
   const idPart = identifier !== undefined && identifier !== null ? `-${identifier}` : "";
   const uniqueName = `${prefix}${idPart}-${Date.now()}-${crypto.randomBytes(4).toString("hex")}.${formatValidation.ext}`;
   const objectPath = `${folder}/${uniqueName}`;
 
-  const uploadEndpoint = `${SUPABASE_STORAGE_URL}/storage/v1/object/${SUPABASE_PROFILES_BUCKET}/${objectPath}`;
-
-  try {
-    const response = await fetch(uploadEndpoint, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${serviceKey.trim()}`,
-        "Content-Type": formatValidation.mime,
-        "x-upsert": "false",
-      },
-      body: buffer,
-    });
-
-    if (!response.ok) {
-      const errText = await response.text().catch(() => "");
-      return {
-        success: false,
-        error: `Error al subir perfil a Supabase Storage (HTTP ${response.status}): ${errText || response.statusText}`,
-      };
-    }
-
-    const publicUrl = `${SUPABASE_STORAGE_URL}/storage/v1/object/public/${SUPABASE_PROFILES_BUCKET}/${objectPath}`;
-    return {
-      success: true,
-      url: publicUrl,
-      objectPath,
-    };
-  } catch (err: any) {
-    return {
-      success: false,
-      error: `Error de conexión con Supabase Storage: ${err?.message || "Desconocido"}`,
-    };
-  }
+  return uploadImageToR2(fileOrBuffer, R2_PROFILES_PREFIX, objectPath, formatValidation.mime, buffer);
 }
 
 /**
- * Elimina de forma segura un objeto recién subido al bucket perfiles-chopper
+ * Elimina de forma segura un objeto recién subido al prefijo perfiles-chopper
  * si la transacción posterior de base de datos fallase.
  */
 export async function rollbackProfileUpload(objectPath: string): Promise<boolean> {
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceKey || !objectPath) return false;
-
+  if (!objectPath) return false;
   if (!objectPath.startsWith("empleados/") && !objectPath.startsWith("clientes/")) {
     return false;
   }
-
-  try {
-    const deleteEndpoint = `${SUPABASE_STORAGE_URL}/storage/v1/object/${SUPABASE_PROFILES_BUCKET}`;
-    const response = await fetch(deleteEndpoint, {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${serviceKey.trim()}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ prefixes: [objectPath] }),
-    });
-    return response.ok;
-  } catch {
-    return false;
-  }
+  return deleteObjectFromR2(`${R2_PROFILES_PREFIX}/${objectPath}`);
 }

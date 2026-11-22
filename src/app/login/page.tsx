@@ -81,10 +81,12 @@ export default function LoginPage() {
   return (
     <>
       <div
-        className="relative min-h-screen flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
+        className="relative min-h-screen w-full flex items-center justify-center p-4 sm:p-6 overflow-x-hidden overflow-y-auto"
         style={{ background: "#101114", colorScheme: "dark" }}
       >
-        {/* ── Background: Subtle Grid ── */}
+        {/* ── Background: Glows, Grid & Vignette (clipped to eliminate horizontal scroll) ── */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {/* Subtle Grid */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
@@ -149,6 +151,7 @@ export default function LoginPage() {
               "radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.5) 100%)",
           }}
         />
+        </div>
 
         {/* ═══════════════════════════════════════
             MAIN CARD
