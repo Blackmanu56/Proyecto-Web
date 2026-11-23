@@ -4,7 +4,7 @@
  */
 
 export const SUPABASE_STORAGE_CATALOG_BASE =
-  "https://feecgedfxtmtmdaakxgy.supabase.co/storage/v1/object/public/catalogo-chopper";
+  "https://pub-aa3a753d242c4c41a86a0dfb2dc02a28.r2.dev/catalogo-chopper";
 
 // Archivos verificados de productos presentes en el bucket catalogo-chopper/productos/ (Etapa 2)
 export const MIGRATED_PRODUCT_FILES = new Set<string>([

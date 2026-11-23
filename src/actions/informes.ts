@@ -165,14 +165,21 @@ export async function getDashboardData(): Promise<DashboardData> {
             gte: sieteDiasAtras,
           },
         },
+        select: { fecha: true, total: true },
         orderBy: { fecha: "asc" },
       }),
 
       // 12. Productos más vendidos / categorías
       prisma.detalleVenta.findMany({
-        include: {
+        select: {
+          productoId: true,
+          cantidad: true,
+          subtotal: true,
           producto: {
-            include: { categoria: true },
+            select: {
+              nombre: true,
+              categoria: { select: { nombre: true } },
+            },
           },
         },
       }),
@@ -181,15 +188,25 @@ export async function getDashboardData(): Promise<DashboardData> {
       prisma.movimientoCaja.findMany({
         take: 5,
         orderBy: { fecha: "desc" },
-        include: {
-          usuario: true,
+        select: {
+          id: true,
+          descripcion: true,
+          monto: true,
+          tipo: true,
+          fecha: true,
+          usuario: { select: { username: true } },
         },
       }),
 
       // 14. Motor predictivo de demanda
       prisma.producto.findMany({
         where: { activo: true },
-        include: { proveedor: true },
+        select: {
+          id: true,
+          nombre: true,
+          cantidad: true,
+          proveedor: { select: { nombre: true } },
+        },
       }),
     ]);
 
