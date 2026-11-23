@@ -21,7 +21,9 @@ import {
   Package,
   Search,
   AlertCircle,
-  Layers,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
 } from "lucide-react";
 
 interface Props {
@@ -30,6 +32,18 @@ interface Props {
   valorCosto: number;
   onClose: () => void;
 }
+
+type SortKeyModal = "nombre" | "categoria" | "marca" | "cantidad" | "stockMinimo" | "estado";
+type SortDir = "asc" | "desc";
+
+const DEFAULT_SORT_DIR_MODAL: Record<SortKeyModal, SortDir> = {
+  nombre: "asc",
+  categoria: "asc",
+  marca: "asc",
+  cantidad: "desc",
+  stockMinimo: "desc",
+  estado: "asc",
+};
 
 // Helper para determinar el estado de stock
 function estadoStock(cantidad: number, stockMinimo: number): { label: string; variant: "success" | "warning" | "danger" } {
@@ -45,19 +59,34 @@ export default function DetalleProveedorModal({
   onClose,
 }: Props) {
   const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<SortKeyModal | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
-  const sinStockP = useMemo(
-    () => proveedor.productos.filter((p) => p.cantidad === 0).length,
-    [proveedor.productos]
-  );
-  const stockBajoP = useMemo(
-    () => proveedor.productos.filter((p) => p.cantidad > 0 && p.cantidad <= p.stockMinimo).length,
-    [proveedor.productos]
-  );
-  const normalesP = useMemo(
-    () => proveedor.productos.filter((p) => p.cantidad > p.stockMinimo).length,
-    [proveedor.productos]
-  );
+  const handleSort = (key: SortKeyModal) => {
+    if (sortKey !== key) {
+      setSortKey(key);
+      setSortDir(DEFAULT_SORT_DIR_MODAL[key]);
+    } else {
+      const defaultDir = DEFAULT_SORT_DIR_MODAL[key];
+      if (sortDir === defaultDir) {
+        setSortDir(defaultDir === "desc" ? "asc" : "desc");
+      } else {
+        setSortKey(null);
+        setSortDir(defaultDir);
+      }
+    }
+  };
+
+  const renderSortIndicator = (key: SortKeyModal) => {
+    if (sortKey !== key) {
+      return <ArrowUpDown size={12} className="text-[var(--text-muted)] opacity-50" />;
+    }
+    return sortDir === "asc" ? (
+      <ArrowUp size={12} className="text-[var(--brand)]" />
+    ) : (
+      <ArrowDown size={12} className="text-[var(--brand)]" />
+    );
+  };
 
   const productosFiltrados = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -70,6 +99,37 @@ export default function DetalleProveedorModal({
         p.marca.toLowerCase().includes(q)
     );
   }, [proveedor.productos, search]);
+
+  const productosOrdenados = useMemo(() => {
+    if (!sortKey) return productosFiltrados;
+    return [...productosFiltrados].sort((a, b) => {
+      let cmp = 0;
+      switch (sortKey) {
+        case "nombre":
+          cmp = a.nombre.localeCompare(b.nombre);
+          break;
+        case "categoria":
+          cmp = a.categoria.localeCompare(b.categoria);
+          break;
+        case "marca":
+          cmp = a.marca.localeCompare(b.marca);
+          break;
+        case "cantidad":
+          cmp = a.cantidad - b.cantidad;
+          break;
+        case "stockMinimo":
+          cmp = a.stockMinimo - b.stockMinimo;
+          break;
+        case "estado": {
+          const estadoA = estadoStock(a.cantidad, a.stockMinimo).label;
+          const estadoB = estadoStock(b.cantidad, b.stockMinimo).label;
+          cmp = estadoA.localeCompare(estadoB);
+          break;
+        }
+      }
+      return sortDir === "desc" ? -cmp : cmp;
+    });
+  }, [productosFiltrados, sortKey, sortDir]);
 
   return (
     <Dialog open={true} onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -157,59 +217,6 @@ export default function DetalleProveedorModal({
             )}
           </div>
 
-          {/* Resumen de Stock y Compras */}
-          <div>
-            <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-3 flex items-center gap-1.5">
-              <Layers size={14} className="text-[var(--brand)]" />
-              Resumen de Stock y Compras
-            </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-              <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3 text-center">
-                <p className="text-[11px] text-[var(--text-muted)] font-medium mb-0.5">Suministrados</p>
-                <p className="text-sm font-bold text-[var(--text)]">{proveedor.productos.length}</p>
-              </div>
-              <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3 text-center">
-                <p className="text-[11px] text-[var(--text-muted)] font-medium mb-0.5">Stock Normal</p>
-                <p className="text-sm font-bold text-[var(--success)]">{normalesP}</p>
-              </div>
-              <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3 text-center">
-                <p className="text-[11px] text-[var(--text-muted)] font-medium mb-0.5">Stock Bajo</p>
-                <p className="text-sm font-bold text-amber-400">{stockBajoP}</p>
-              </div>
-              <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3 text-center">
-                <p className="text-[11px] text-[var(--text-muted)] font-medium mb-0.5">Sin Stock</p>
-                <p className="text-sm font-bold text-[var(--danger)]">{sinStockP}</p>
-              </div>
-              <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3 text-center">
-                <p className="text-[11px] text-[var(--text-muted)] font-medium mb-0.5">A Reponer</p>
-                <p className="text-sm font-bold text-[var(--brand)]">{repoInfo?.aReponer ?? 0}</p>
-              </div>
-              <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3 text-center">
-                <p className="text-[11px] text-[var(--text-muted)] font-medium mb-0.5">Total Compras</p>
-                <p className="text-sm font-bold text-[var(--text)]">{proveedor.totalCompras}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-              <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3 flex items-center justify-between">
-                <div>
-                  <span className="text-xs font-semibold text-[var(--text-muted)] block">Valor Inventario a Costo</span>
-                  <span className="text-xs text-[var(--text-secondary)]">Stock actual valuado a costo</span>
-                </div>
-                <span className="text-sm font-bold text-[var(--text)] font-mono">{formatCurrency(valorCosto)}</span>
-              </div>
-              <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3 flex items-center justify-between">
-                <div>
-                  <span className="text-xs font-semibold text-[var(--text-muted)] block">Total Gastado en Compras</span>
-                  <span className="text-xs text-[var(--text-secondary)]">
-                    Última compra: {proveedor.ultimaCompra ? formatDateShort(new Date(proveedor.ultimaCompra)) : "—"}
-                  </span>
-                </div>
-                <span className="text-sm font-bold text-[var(--success)] font-mono">{formatCurrency(proveedor.totalGastado)}</span>
-              </div>
-            </div>
-          </div>
-
           {/* Tabla de Productos Suministrados */}
           <div>
             <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
@@ -243,16 +250,46 @@ export default function DetalleProveedorModal({
                   <table className="w-full text-xs">
                     <thead className="sticky top-0 bg-[var(--panel)] border-b border-[var(--border)] z-10">
                       <tr className="whitespace-nowrap">
-                        <th className="px-3 py-2 text-left font-bold text-[var(--text-muted)] uppercase tracking-wider">Producto</th>
-                        <th className="px-3 py-2 text-left font-bold text-[var(--text-muted)] uppercase tracking-wider">Categoría</th>
-                        <th className="px-3 py-2 text-left font-bold text-[var(--text-muted)] uppercase tracking-wider">Marca</th>
-                        <th className="px-3 py-2 text-right font-bold text-[var(--text-muted)] uppercase tracking-wider">Stock Actual</th>
-                        <th className="px-3 py-2 text-right font-bold text-[var(--text-muted)] uppercase tracking-wider">Mínimo</th>
-                        <th className="px-3 py-2 text-center font-bold text-[var(--text-muted)] uppercase tracking-wider">Estado</th>
+                        <th onClick={() => handleSort("nombre")} className="px-3 py-2 text-left font-bold text-[var(--text-muted)] uppercase tracking-wider cursor-pointer select-none hover:text-[var(--text)] transition-colors">
+                          <span className="inline-flex items-center gap-1">
+                            Producto
+                            {renderSortIndicator("nombre")}
+                          </span>
+                        </th>
+                        <th onClick={() => handleSort("categoria")} className="px-3 py-2 text-left font-bold text-[var(--text-muted)] uppercase tracking-wider cursor-pointer select-none hover:text-[var(--text)] transition-colors">
+                          <span className="inline-flex items-center gap-1">
+                            Categoría
+                            {renderSortIndicator("categoria")}
+                          </span>
+                        </th>
+                        <th onClick={() => handleSort("marca")} className="px-3 py-2 text-left font-bold text-[var(--text-muted)] uppercase tracking-wider cursor-pointer select-none hover:text-[var(--text)] transition-colors">
+                          <span className="inline-flex items-center gap-1">
+                            Marca
+                            {renderSortIndicator("marca")}
+                          </span>
+                        </th>
+                        <th onClick={() => handleSort("cantidad")} className="px-3 py-2 text-right font-bold text-[var(--text-muted)] uppercase tracking-wider cursor-pointer select-none hover:text-[var(--text)] transition-colors">
+                          <span className="inline-flex items-center justify-end gap-1">
+                            Stock Actual
+                            {renderSortIndicator("cantidad")}
+                          </span>
+                        </th>
+                        <th onClick={() => handleSort("stockMinimo")} className="px-3 py-2 text-right font-bold text-[var(--text-muted)] uppercase tracking-wider cursor-pointer select-none hover:text-[var(--text)] transition-colors">
+                          <span className="inline-flex items-center justify-end gap-1">
+                            Mínimo
+                            {renderSortIndicator("stockMinimo")}
+                          </span>
+                        </th>
+                        <th onClick={() => handleSort("estado")} className="px-3 py-2 text-center font-bold text-[var(--text-muted)] uppercase tracking-wider cursor-pointer select-none hover:text-[var(--text)] transition-colors">
+                          <span className="inline-flex items-center justify-center gap-1">
+                            Estado
+                            {renderSortIndicator("estado")}
+                          </span>
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--border)]/60">
-                      {productosFiltrados.map((p: ProveedorProductoRow) => {
+                      {productosOrdenados.map((p: ProveedorProductoRow) => {
                         const es = estadoStock(p.cantidad, p.stockMinimo);
                         return (
                           <tr key={p.nombre + p.codigo} className="hover:bg-[var(--border)]/30 transition-colors">

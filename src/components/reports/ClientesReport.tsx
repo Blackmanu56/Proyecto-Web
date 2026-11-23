@@ -53,7 +53,7 @@ const tooltipStyle = {
 
 type SubViewId = "analisis" | "detalle" | "sin_comprar";
 
-type SortKey = "nombre" | "estado" | "compras" | "total" | "ultima";
+type SortKey = "nombre" | "dni" | "estado" | "compras" | "total" | "ultima";
 type SortDir = "asc" | "desc";
 
 // Nombres cortos de meses en español para los selectores de año
@@ -68,6 +68,7 @@ const MESES_COMPLETOS = [
 // Dirección por defecto al hacer clic por primera vez en cada columna
 const DEFAULT_SORT_DIR: Record<SortKey, SortDir> = {
   nombre: "asc",
+  dni: "asc",
   estado: "asc",
   compras: "desc",
   total: "desc",
@@ -210,11 +211,17 @@ export default function ClientesReport({ initialData }: Props) {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   const handleSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
+    if (sortKey !== key) {
       setSortKey(key);
       setSortDir(DEFAULT_SORT_DIR[key]);
+    } else {
+      const defaultDir = DEFAULT_SORT_DIR[key];
+      if (sortDir === defaultDir) {
+        setSortDir(defaultDir === "desc" ? "asc" : "desc");
+      } else {
+        setSortKey(null);
+        setSortDir(defaultDir);
+      }
     }
   };
 
@@ -223,6 +230,10 @@ export default function ClientesReport({ initialData }: Props) {
     return [...filteredClientes].sort((a, b) => {
       if (sortKey === "nombre") {
         const cmp = a.nombre.localeCompare(b.nombre);
+        return sortDir === "desc" ? -cmp : cmp;
+      }
+      if (sortKey === "dni") {
+        const cmp = a.dni.localeCompare(b.dni);
         return sortDir === "desc" ? -cmp : cmp;
       }
       if (sortKey === "ultima") {
@@ -642,7 +653,20 @@ export default function ClientesReport({ initialData }: Props) {
                           {renderSortIndicator("nombre")}
                         </span>
                       </th>
-                      <th className={"text-left " + tableCellHeader}>DNI</th>
+                      <th
+                        onClick={() => handleSort("dni")}
+                        aria-label="Ordenar por DNI"
+                        title="Ordenar por DNI"
+                        className={
+                          "text-left cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors " +
+                          tableCellHeader
+                        }
+                      >
+                        <span className="inline-flex items-center gap-1">
+                          DNI
+                          {renderSortIndicator("dni")}
+                        </span>
+                      </th>
                       <th
                         onClick={() => handleSort("estado")}
                         aria-label="Ordenar por Estado"

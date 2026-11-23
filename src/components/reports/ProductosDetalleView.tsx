@@ -28,7 +28,17 @@ interface Props {
   proveedores: { id: number; nombre: string }[];
 }
 
-type SortField = "nombre" | "precioVenta" | "precioCompra" | "cantidad";
+type SortField = "nombre" | "categoria" | "proveedor" | "precioCompra" | "precioVenta" | "cantidad" | "activo";
+
+const DEFAULT_SORT_DIR_PROD: Record<SortField, SortOrder> = {
+  nombre: "asc",
+  categoria: "asc",
+  proveedor: "asc",
+  precioCompra: "desc",
+  precioVenta: "desc",
+  cantidad: "desc",
+  activo: "asc",
+};
 type SortOrder = "asc" | "desc";
 type StockFilter = "todos" | "normal" | "bajo" | "sinStock";
 type EstadoFilter = "todos" | "activos" | "inactivos";
@@ -58,7 +68,7 @@ export default function ProductosDetalleView({
   const [stockFilter, setStockFilter] = useState<StockFilter>("todos");
 
   // Ordenamiento
-  const [sortField, setSortField] = useState<SortField>("nombre");
+  const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
 
   // Paginación
@@ -66,11 +76,17 @@ export default function ProductosDetalleView({
   const [pageSize, setPageSize] = useState(20);
 
   const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-    } else {
+    if (sortField !== field) {
       setSortField(field);
-      setSortOrder("asc");
+      setSortOrder(DEFAULT_SORT_DIR_PROD[field]);
+    } else {
+      const defaultDir = DEFAULT_SORT_DIR_PROD[field];
+      if (sortOrder === defaultDir) {
+        setSortOrder(defaultDir === "desc" ? "asc" : "desc");
+      } else {
+        setSortField(null);
+        setSortOrder(defaultDir);
+      }
     }
     setPage(1);
   };
@@ -121,23 +137,36 @@ export default function ProductosDetalleView({
 
   // Ordenación
   const sorted = useMemo(() => {
+    if (!sortField) return filtered;
     return [...filtered].sort((a, b) => {
       let cmp = 0;
       switch (sortField) {
         case "nombre":
           cmp = a.nombre.localeCompare(b.nombre);
           break;
-        case "precioVenta":
-          cmp = a.precioVenta - b.precioVenta;
+        case "categoria":
+          cmp = a.categoria.localeCompare(b.categoria);
           break;
+        case "proveedor": {
+          const provA = a.proveedor || "—";
+          const provB = b.proveedor || "—";
+          cmp = provA.localeCompare(provB);
+          break;
+        }
         case "precioCompra":
           cmp = a.precioCompra - b.precioCompra;
+          break;
+        case "precioVenta":
+          cmp = a.precioVenta - b.precioVenta;
           break;
         case "cantidad":
           cmp = a.cantidad - b.cantidad;
           break;
+        case "activo":
+          cmp = (a.activo ? 0 : 1) - (b.activo ? 0 : 1);
+          break;
       }
-      return sortOrder === "asc" ? cmp : -cmp;
+      return sortOrder === "desc" ? -cmp : cmp;
     });
   }, [filtered, sortField, sortOrder]);
 
@@ -344,8 +373,34 @@ export default function ProductosDetalleView({
                     {renderSortIndicator("nombre")}
                   </span>
                 </th>
-                <th className={"text-left " + tableCellHeader}>Categoría</th>
-                <th className={"text-left " + tableCellHeader}>Proveedor</th>
+                <th
+                  onClick={() => handleSort("categoria")}
+                  aria-label="Ordenar por Categoría"
+                  title="Ordenar por Categoría"
+                  className={
+                    "text-left cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors " +
+                    tableCellHeader
+                  }
+                >
+                  <span className="inline-flex items-center gap-1">
+                    Categoría
+                    {renderSortIndicator("categoria")}
+                  </span>
+                </th>
+                <th
+                  onClick={() => handleSort("proveedor")}
+                  aria-label="Ordenar por Proveedor"
+                  title="Ordenar por Proveedor"
+                  className={
+                    "text-left cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors " +
+                    tableCellHeader
+                  }
+                >
+                  <span className="inline-flex items-center gap-1">
+                    Proveedor
+                    {renderSortIndicator("proveedor")}
+                  </span>
+                </th>
                 <th
                   onClick={() => handleSort("precioCompra")}
                   aria-label="Ordenar por Costo Unitario"
@@ -388,7 +443,20 @@ export default function ProductosDetalleView({
                     {renderSortIndicator("cantidad")}
                   </span>
                 </th>
-                <th className={"text-center " + tableCellHeader}>Estado</th>
+                <th
+                  onClick={() => handleSort("activo")}
+                  aria-label="Ordenar por Estado"
+                  title="Ordenar por Estado"
+                  className={
+                    "text-center cursor-pointer select-none hover:text-[var(--text)] hover:bg-[var(--border)]/30 transition-colors " +
+                    tableCellHeader
+                  }
+                >
+                  <span className="inline-flex items-center justify-center gap-1">
+                    Estado
+                    {renderSortIndicator("activo")}
+                  </span>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border)] print:divide-gray-300">

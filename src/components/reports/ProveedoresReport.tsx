@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select";
 import { formatCurrency, formatDate, formatDateShort } from "@/lib/utils";
 import {
-  ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronUp, Eye, Printer, RefreshCw, Search,
+  ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronUp, Eye, Printer, RefreshCw, Search,
 } from "lucide-react";
 import {
   Bar,
@@ -107,6 +107,27 @@ function PieTooltip({ active, payload }: any) {
 }
 
 
+type SortKeyProveedor =
+  | "nombre"
+  | "contacto"
+  | "totalProductos"
+  | "aReponer"
+  | "sinStock"
+  | "totalGastado"
+  | "ultimaCompra"
+  | "activo";
+
+const DEFAULT_SORT_DIR_PROV: Record<SortKeyProveedor, "asc" | "desc"> = {
+  nombre: "asc",
+  contacto: "asc",
+  totalProductos: "desc",
+  aReponer: "desc",
+  sinStock: "desc",
+  totalGastado: "desc",
+  ultimaCompra: "desc",
+  activo: "asc",
+};
+
 // ── Vista: tabla de proveedores con detalle en modal ───────────────────
 function TablaProveedoresSection({
   data,
@@ -121,6 +142,34 @@ function TablaProveedoresSection({
 }) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+  const [sortKey, setSortKey] = useState<SortKeyProveedor | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  const handleSort = (key: SortKeyProveedor) => {
+    if (sortKey !== key) {
+      setSortKey(key);
+      setSortDir(DEFAULT_SORT_DIR_PROV[key]);
+    } else {
+      const defaultDir = DEFAULT_SORT_DIR_PROV[key];
+      if (sortDir === defaultDir) {
+        setSortDir(defaultDir === "desc" ? "asc" : "desc");
+      } else {
+        setSortKey(null);
+        setSortDir(defaultDir);
+      }
+    }
+  };
+
+  const renderSortIndicator = (key: SortKeyProveedor) => {
+    if (sortKey !== key) {
+      return <ArrowUpDown size={12} className="text-[var(--text-muted)] opacity-50" />;
+    }
+    return sortDir === "asc" ? (
+      <ArrowUp size={12} className="text-[var(--brand)]" />
+    ) : (
+      <ArrowDown size={12} className="text-[var(--brand)]" />
+    );
+  };
 
   // Búsqueda client-side adicional (nombre, CUIT o email); el estado y la
   // búsqueda principal ya vienen filtrados server-side.
@@ -145,9 +194,56 @@ function TablaProveedoresSection({
     [data]
   );
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const sorted = useMemo(() => {
+    if (!sortKey) return filtered;
+    return [...filtered].sort((a, b) => {
+      let cmp = 0;
+      switch (sortKey) {
+        case "nombre":
+          cmp = a.nombre.localeCompare(b.nombre);
+          break;
+        case "contacto": {
+          const contactoA = a.email === "—" ? a.telefono : a.email;
+          const contactoB = b.email === "—" ? b.telefono : b.email;
+          cmp = contactoA.localeCompare(contactoB);
+          break;
+        }
+        case "totalProductos":
+          cmp = a.totalProductos - b.totalProductos;
+          break;
+        case "aReponer": {
+          const repA = repoMap.get(a.proveedorId)?.aReponer ?? 0;
+          const repB = repoMap.get(b.proveedorId)?.aReponer ?? 0;
+          cmp = repA - repB;
+          break;
+        }
+        case "sinStock": {
+          const sinA = repoMap.get(a.proveedorId)?.sinStock ?? 0;
+          const sinB = repoMap.get(b.proveedorId)?.sinStock ?? 0;
+          cmp = sinA - sinB;
+          break;
+        }
+        case "totalGastado":
+          cmp = a.totalGastado - b.totalGastado;
+          break;
+        case "ultimaCompra": {
+          if (!a.ultimaCompra && !b.ultimaCompra) return 0;
+          if (!a.ultimaCompra) return 1;
+          if (!b.ultimaCompra) return -1;
+          cmp = new Date(a.ultimaCompra).getTime() - new Date(b.ultimaCompra).getTime();
+          break;
+        }
+        case "activo":
+          cmp = (a.activo ? 0 : 1) - (b.activo ? 0 : 1);
+          break;
+      }
+      return sortDir === "desc" ? -cmp : cmp;
+    });
+  }, [filtered, sortKey, sortDir, repoMap]);
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
   const paginaActual = Math.min(page, totalPages);
-  const filas = filtered.slice((paginaActual - 1) * pageSize, paginaActual * pageSize);
+  const filas = sorted.slice((paginaActual - 1) * pageSize, paginaActual * pageSize);
 
   if (data.proveedores.length === 0) {
     return (
@@ -178,14 +274,54 @@ function TablaProveedoresSection({
         <table className="w-full text-sm min-w-[780px]">
           <thead>
             <tr className="border-b border-[var(--border)] whitespace-nowrap bg-[var(--card)]">
-              <th className={tableCellHeader + " text-left"}>Proveedor</th>
-              <th className={tableCellHeader + " text-left"}>Contacto</th>
-              <th className={tableCellHeader + " text-right"}>Productos</th>
-              <th className={tableCellHeader + " text-right"}>A reponer</th>
-              <th className={tableCellHeader + " text-right"}>Sin stock</th>
-              <th className={tableCellHeader + " text-right"}>Total Gastado</th>
-              <th className={tableCellHeader + " text-left"}>Última Compra</th>
-              <th className={tableCellHeader + " text-center"}>Estado</th>
+              <th onClick={() => handleSort("nombre")} className={tableCellHeader + " text-left cursor-pointer select-none hover:text-[var(--text)] transition-colors"}>
+                <span className="inline-flex items-center gap-1">
+                  Proveedor
+                  {renderSortIndicator("nombre")}
+                </span>
+              </th>
+              <th onClick={() => handleSort("contacto")} className={tableCellHeader + " text-left cursor-pointer select-none hover:text-[var(--text)] transition-colors"}>
+                <span className="inline-flex items-center gap-1">
+                  Contacto
+                  {renderSortIndicator("contacto")}
+                </span>
+              </th>
+              <th onClick={() => handleSort("totalProductos")} className={tableCellHeader + " text-right cursor-pointer select-none hover:text-[var(--text)] transition-colors"}>
+                <span className="inline-flex items-center justify-end gap-1">
+                  Productos
+                  {renderSortIndicator("totalProductos")}
+                </span>
+              </th>
+              <th onClick={() => handleSort("aReponer")} className={tableCellHeader + " text-right cursor-pointer select-none hover:text-[var(--text)] transition-colors"}>
+                <span className="inline-flex items-center justify-end gap-1">
+                  A reponer
+                  {renderSortIndicator("aReponer")}
+                </span>
+              </th>
+              <th onClick={() => handleSort("sinStock")} className={tableCellHeader + " text-right cursor-pointer select-none hover:text-[var(--text)] transition-colors"}>
+                <span className="inline-flex items-center justify-end gap-1">
+                  Sin stock
+                  {renderSortIndicator("sinStock")}
+                </span>
+              </th>
+              <th onClick={() => handleSort("totalGastado")} className={tableCellHeader + " text-right cursor-pointer select-none hover:text-[var(--text)] transition-colors"}>
+                <span className="inline-flex items-center justify-end gap-1">
+                  Total Gastado
+                  {renderSortIndicator("totalGastado")}
+                </span>
+              </th>
+              <th onClick={() => handleSort("ultimaCompra")} className={tableCellHeader + " text-left cursor-pointer select-none hover:text-[var(--text)] transition-colors"}>
+                <span className="inline-flex items-center gap-1">
+                  Última Compra
+                  {renderSortIndicator("ultimaCompra")}
+                </span>
+              </th>
+              <th onClick={() => handleSort("activo")} className={tableCellHeader + " text-center cursor-pointer select-none hover:text-[var(--text)] transition-colors"}>
+                <span className="inline-flex items-center justify-center gap-1">
+                  Estado
+                  {renderSortIndicator("activo")}
+                </span>
+              </th>
               <th className={tableCellHeader + " text-center print:hidden"}>Det.</th>
             </tr>
           </thead>
