@@ -508,6 +508,22 @@ export type ReporteEmpleado = {
   cierresCount: number;
 };
 
+/**
+ * Normaliza strings de fecha que ingresan al servidor para evitar que strings date-only
+ * ("yyyy-MM-dd") sean interpretadas como medianoche UTC, lo que en husos horarios negativos
+ * como Argentina (UTC-3) corta las operaciones del día actual.
+ */
+function parseServerDate(dateStr: string, isEnd: boolean = false): Date {
+  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(dateStr)
+    ? (isEnd ? `${dateStr}T23:59:59.999` : `${dateStr}T00:00:00.000`)
+    : dateStr;
+  const d = new Date(normalized);
+  if (isEnd) {
+    d.setHours(23, 59, 59, 999);
+  }
+  return d;
+}
+
 // ─── 1. REPORTE DE VENTAS ──────────────────────────────────────────
 
 export async function getReporteVentas(
@@ -522,12 +538,8 @@ export async function getReporteVentas(
 
     if (fechaDesde || fechaHasta) {
       where.fecha = {};
-      if (fechaDesde) where.fecha.gte = new Date(fechaDesde);
-      if (fechaHasta) {
-        const hasta = new Date(fechaHasta);
-        hasta.setHours(23, 59, 59, 999);
-        where.fecha.lte = hasta;
-      }
+      if (fechaDesde) where.fecha.gte = parseServerDate(fechaDesde, false);
+      if (fechaHasta) where.fecha.lte = parseServerDate(fechaHasta, true);
     }
     if (usuarioId) where.usuarioId = usuarioId;
     if (clienteId) where.clienteId = clienteId;
@@ -621,12 +633,8 @@ export async function getReporteCierres(
 
     if (fechaDesde || fechaHasta) {
       where.fechaApertura = {};
-      if (fechaDesde) where.fechaApertura.gte = new Date(fechaDesde);
-      if (fechaHasta) {
-        const hasta = new Date(fechaHasta);
-        hasta.setHours(23, 59, 59, 999);
-        where.fechaApertura.lte = hasta;
-      }
+      if (fechaDesde) where.fechaApertura.gte = parseServerDate(fechaDesde, false);
+      if (fechaHasta) where.fechaApertura.lte = parseServerDate(fechaHasta, true);
     }
     if (usuarioId) where.usuarioId = usuarioId;
     if (estado) where.estado = estado;
@@ -698,12 +706,12 @@ export async function getCierresMensuales(
       const rangoCierre: Prisma.DateTimeNullableFilter = {};
       const rangoApertura: Prisma.DateTimeFilter = {};
       if (fechaDesde) {
-        rangoCierre.gte = new Date(fechaDesde);
-        rangoApertura.gte = new Date(fechaDesde);
+        const desde = parseServerDate(fechaDesde, false);
+        rangoCierre.gte = desde;
+        rangoApertura.gte = desde;
       }
       if (fechaHasta) {
-        const hasta = new Date(fechaHasta);
-        hasta.setHours(23, 59, 59, 999);
+        const hasta = parseServerDate(fechaHasta, true);
         rangoCierre.lte = hasta;
         rangoApertura.lte = hasta;
       }
@@ -1016,12 +1024,8 @@ export async function getReporteEmpleados(
     const whereVentas: Prisma.VentaWhereInput = {};
     if (fechaDesde || fechaHasta) {
       whereVentas.fecha = {};
-      if (fechaDesde) whereVentas.fecha.gte = new Date(fechaDesde);
-      if (fechaHasta) {
-        const hasta = new Date(fechaHasta);
-        hasta.setHours(23, 59, 59, 999);
-        whereVentas.fecha.lte = hasta;
-      }
+      if (fechaDesde) whereVentas.fecha.gte = parseServerDate(fechaDesde, false);
+      if (fechaHasta) whereVentas.fecha.lte = parseServerDate(fechaHasta, true);
     }
 
     const usuarios = await prisma.usuario.findMany({
@@ -1038,12 +1042,8 @@ export async function getReporteEmpleados(
     const whereCierres: Prisma.CajaWhereInput = {};
     if (fechaDesde || fechaHasta) {
       whereCierres.fechaApertura = {};
-      if (fechaDesde) whereCierres.fechaApertura.gte = new Date(fechaDesde);
-      if (fechaHasta) {
-        const hasta = new Date(fechaHasta);
-        hasta.setHours(23, 59, 59, 999);
-        whereCierres.fechaApertura.lte = hasta;
-      }
+      if (fechaDesde) whereCierres.fechaApertura.gte = parseServerDate(fechaDesde, false);
+      if (fechaHasta) whereCierres.fechaApertura.lte = parseServerDate(fechaHasta, true);
     }
 
     const cierresPorUsuario: { [key: number]: number } = {};
@@ -1695,12 +1695,8 @@ function buildDateFilter(
   if (!fechaDesde && !fechaHasta) return {};
 
   const range: DateRangeFilter = {};
-  if (fechaDesde) range.gte = new Date(fechaDesde);
-  if (fechaHasta) {
-    const hasta = new Date(fechaHasta);
-    hasta.setHours(23, 59, 59, 999);
-    range.lte = hasta;
-  }
+  if (fechaDesde) range.gte = parseServerDate(fechaDesde, false);
+  if (fechaHasta) range.lte = parseServerDate(fechaHasta, true);
 
   return { [field]: range };
 }
@@ -1709,12 +1705,8 @@ function buildMovimientoCajaDateFilter(fechaDesde?: string, fechaHasta?: string)
   if (!fechaDesde && !fechaHasta) return {};
 
   const range: DateRangeFilter = {};
-  if (fechaDesde) range.gte = new Date(fechaDesde);
-  if (fechaHasta) {
-    const hasta = new Date(fechaHasta);
-    hasta.setHours(23, 59, 59, 999);
-    range.lte = hasta;
-  }
+  if (fechaDesde) range.gte = parseServerDate(fechaDesde, false);
+  if (fechaHasta) range.lte = parseServerDate(fechaHasta, true);
 
   return { fecha: range };
 }

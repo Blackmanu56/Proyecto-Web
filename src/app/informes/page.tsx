@@ -12,7 +12,7 @@ import {
 } from "@/actions/informes";
 import { EMPTY_EMPLEADOS_DASHBOARD, EMPTY_PROVEEDORES_DASHBOARD } from "@/lib/report-constants";
 import { getCategorias, getProveedores, getClientesDistinct, getMetodosPago } from "@/actions/auxiliares";
-import { formatLocalDateTimeStart } from "@/lib/reportPeriods";
+import { formatLocalDateTimeStart, getVentasDateRange, toApiDate } from "@/lib/reportPeriods";
 import InformesTabs from "@/components/reports/InformesTabs";
 import { BarChart3 } from "lucide-react";
 
@@ -34,8 +34,11 @@ export default async function InformesPage() {
   const session = await getSession();
   const userRole = session?.role || "";
 
-  // Carga inicial de datos (hoy) — F1: datetime local completo sin Z
+  // Carga inicial de datos: Cierres y Empleados inician en Hoy ("dia"); Ventas inicia en preset 7 días ("7d")
   const hoyStr = formatLocalDateTimeStart(new Date());
+  const range7dVentas = getVentasDateRange("7d");
+  const ventasDesde = toApiDate(range7dVentas.desde);
+  const ventasHasta = toApiDate(range7dVentas.hasta);
 
   // Filtrar datos según el rol para evitar cargar datos innecesarios
   const canSeeVentas = ["ADMINISTRADOR", "ENCARGADO_VENTAS"].includes(userRole);
@@ -50,7 +53,7 @@ export default async function InformesPage() {
     clientesData, proveedoresData,
     usuarios, categorias, proveedores, clientesDistinct, metodosPago,
   ] = await Promise.all([
-    canSeeVentas ? getReporteVentas(hoyStr, hoyStr) : Promise.resolve({ ventas: [], totales: { cantidad: 0, total: 0, promedio: 0 } }),
+    canSeeVentas ? getReporteVentas(ventasDesde, ventasHasta) : Promise.resolve({ ventas: [], totales: { cantidad: 0, total: 0, promedio: 0 } }),
     canSeeCierres ? getReporteCierres(hoyStr, hoyStr) : Promise.resolve([]),
     canSeeProductos ? getReporteProductos() : Promise.resolve([]),
     canSeeEmpleados ? getEmpleadosDashboard(hoyStr, hoyStr) : Promise.resolve(EMPTY_EMPLEADOS_DASHBOARD),

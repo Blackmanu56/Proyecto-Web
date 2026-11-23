@@ -27,6 +27,7 @@ import {
 } from "./ventasShared";
 import {
   getVentasDateRange,
+  toApiDate,
   type ReporteVentasPeriodKey,
 } from "@/lib/reportPeriods";
 
@@ -87,8 +88,8 @@ export default function VentasReport({ initialData, usuarios }: Props) {
   const loadAnalisisData = useCallback(async (): Promise<AnalisisCache> => {
     const filters = { fechaDesde: fechaDesde || undefined, fechaHasta: fechaHasta || undefined };
     return getVentasAnalisisBatch({
-      fechaDesde: filters.fechaDesde,
-      fechaHasta: filters.fechaHasta,
+      fechaDesde: toApiDate(filters.fechaDesde),
+      fechaHasta: toApiDate(filters.fechaHasta),
       usuarioId,
       agruparPor: granularityRef.current,
     });
@@ -128,7 +129,7 @@ export default function VentasReport({ initialData, usuarios }: Props) {
     if (activeSubView === "analisis" && analisisCache && fechaDesde && fechaHasta) {
       (async () => {
         try {
-          const r = await getEvolucionVentas(fechaDesde, fechaHasta, chartGranularity);
+          const r = await getEvolucionVentas(toApiDate(fechaDesde), toApiDate(fechaHasta), chartGranularity);
           setAnalisisCache((prev) => (prev ? { ...prev, evolucion: r.data } : prev));
         } catch {
           // la cache queda como estaba
@@ -148,7 +149,7 @@ export default function VentasReport({ initialData, usuarios }: Props) {
         const d = opts?.desde !== undefined ? opts.desde : fechaDesde;
         const h = opts?.hasta !== undefined ? opts.hasta : fechaHasta;
         const u = opts?.uid !== undefined ? (opts.uid === null ? undefined : opts.uid) : usuarioId;
-        const r = await getReporteVentas(d || undefined, h || undefined, u);
+        const r = await getReporteVentas(toApiDate(d), toApiDate(h), u);
         setData(r);
       } finally {
         setIsPending(false);
