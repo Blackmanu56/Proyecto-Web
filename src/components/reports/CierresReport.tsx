@@ -502,16 +502,16 @@ export default function CierresReport({ initialData, usuarios }: Props) {
 
         {vista === "diario" ? (
           <>
-            <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl p-4">
-              <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-3">Resumen</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 text-center">
-                  <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Arqueos</div>
-                  <div className="text-sm font-bold text-[var(--text)]">{kpis[0].value}</div>
+            <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl p-2 desk:p-4">
+              <h3 className="text-[11px] desk:text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5 desk:mb-3">Resumen</h3>
+              <div className="grid grid-cols-2 gap-1.5 desk:gap-3">
+                <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 desk:p-3 flex items-center justify-between gap-2 desk:block desk:text-center">
+                  <div className="text-[11px] desk:text-xs font-semibold text-[var(--text-muted)] desk:mb-1">Arqueos</div>
+                  <div className="text-xs desk:text-sm font-bold text-[var(--text)]">{kpis[0].value}</div>
                 </div>
-                <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 text-center">
-                  <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Cerrados</div>
-                  <div className="text-sm font-bold text-[var(--text)]">{kpis[1].value}</div>
+                <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 desk:p-3 flex items-center justify-between gap-2 desk:block desk:text-center">
+                  <div className="text-[11px] desk:text-xs font-semibold text-[var(--text-muted)] desk:mb-1">Cerrados</div>
+                  <div className="text-xs desk:text-sm font-bold text-[var(--text)]">{kpis[1].value}</div>
                 </div>
               </div>
             </div>

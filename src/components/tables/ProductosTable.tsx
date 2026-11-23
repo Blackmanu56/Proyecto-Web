@@ -875,55 +875,55 @@ export default function ProductosTable({
   return (
     <div className="flex flex-col h-auto desk:h-full min-h-0">
       {/* ═══════════════ Header: stat cards ═══════════════ */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 shrink-0 mb-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 desk:gap-3 shrink-0 mb-2 desk:mb-3">
         {/* Total Productos */}
-        <div className="bg-[linear-gradient(135deg,rgba(59,130,246,0.10),rgba(59,130,246,0.03))] border border-[#3B82F6]/35 p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(59,130,246,0.12)]">
-          <div>
-            <p className="text-xs text-[#3B82F6] font-extrabold uppercase tracking-wider">Total de Productos</p>
-            <p className="text-3xl font-black text-[var(--text)] leading-none mt-1">{totalProductos}</p>
-            <p className="text-xs text-[var(--text-secondary)] mt-2">Productos registrados</p>
+        <div className="bg-[linear-gradient(135deg,rgba(59,130,246,0.10),rgba(59,130,246,0.03))] border border-[#3B82F6]/35 p-2.5 desk:p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(59,130,246,0.12)]">
+          <div className="min-w-0">
+            <p className="text-[11px] desk:text-xs text-[#3B82F6] font-extrabold uppercase tracking-wider truncate">Total de Productos</p>
+            <p className="text-xl desk:text-3xl font-black text-[var(--text)] leading-none mt-1">{totalProductos}</p>
+            <p className="hidden desk:block text-xs text-[var(--text-secondary)] mt-2">Productos registrados</p>
           </div>
-          <div className="p-3 bg-[#3B82F6]/15 rounded-full text-[#3B82F6] ring-1 ring-[#3B82F6]/20">
+          <div className="p-2 desk:p-3 bg-[#3B82F6]/15 rounded-full text-[#3B82F6] ring-1 ring-[#3B82F6]/20 shrink-0 [&>svg]:w-5 [&>svg]:h-5 desk:[&>svg]:w-7 desk:[&>svg]:h-7">
             <Package size={28} />
           </div>
         </div>
 
         {/* Stock Critico */}
-        <div className="bg-[linear-gradient(135deg,rgba(245,158,11,0.10),rgba(245,158,11,0.03))] border border-[#F59E0B]/35 p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(245,158,11,0.12)]">
-          <div>
-            <p className="text-xs text-[#F59E0B] font-extrabold uppercase tracking-wider">Stock Critico</p>
-            <p className="text-3xl font-black text-[var(--text)] leading-none mt-1">
+        <div className="bg-[linear-gradient(135deg,rgba(245,158,11,0.10),rgba(245,158,11,0.03))] border border-[#F59E0B]/35 p-2.5 desk:p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(245,158,11,0.12)]">
+          <div className="min-w-0">
+            <p className="text-[11px] desk:text-xs text-[#F59E0B] font-extrabold uppercase tracking-wider truncate">Stock Critico</p>
+            <p className="text-xl desk:text-3xl font-black text-[var(--text)] leading-none mt-1">
               {stockCritico}
             </p>
-            <p className="text-xs text-[var(--text-secondary)] mt-2">Productos con stock bajo</p>
+            <p className="hidden desk:block text-xs text-[var(--text-secondary)] mt-2">Productos con stock bajo</p>
           </div>
-          <div className="p-3 bg-[#F59E0B]/15 rounded-full text-[#F59E0B] ring-1 ring-[#F59E0B]/20">
+          <div className="p-2 desk:p-3 bg-[#F59E0B]/15 rounded-full text-[#F59E0B] ring-1 ring-[#F59E0B]/20 shrink-0 [&>svg]:w-5 [&>svg]:h-5 desk:[&>svg]:w-7 desk:[&>svg]:h-7">
             <AlertTriangle size={28} />
           </div>
         </div>
 
         {/* Inactivos */}
-        <div className="bg-[linear-gradient(135deg,rgba(148,163,184,0.10),rgba(148,163,184,0.03))] border border-[#94A3B8]/30 p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(148,163,184,0.10)]">
-          <div>
-            <p className="text-xs text-[#94A3B8] font-extrabold uppercase tracking-wider">Inactivos</p>
-            <p className="text-3xl font-black text-[var(--text)] leading-none mt-1">{inactivos}</p>
-            <p className="text-xs text-[var(--text-secondary)] mt-2">Productos deshabilitados</p>
+        <div className="bg-[linear-gradient(135deg,rgba(148,163,184,0.10),rgba(148,163,184,0.03))] border border-[#94A3B8]/30 p-2.5 desk:p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(148,163,184,0.10)]">
+          <div className="min-w-0">
+            <p className="text-[11px] desk:text-xs text-[#94A3B8] font-extrabold uppercase tracking-wider truncate">Inactivos</p>
+            <p className="text-xl desk:text-3xl font-black text-[var(--text)] leading-none mt-1">{inactivos}</p>
+            <p className="hidden desk:block text-xs text-[var(--text-secondary)] mt-2">Productos deshabilitados</p>
           </div>
-          <div className="p-3 bg-[#94A3B8]/15 rounded-full text-[#94A3B8] ring-1 ring-[#94A3B8]/20">
+          <div className="p-2 desk:p-3 bg-[#94A3B8]/15 rounded-full text-[#94A3B8] ring-1 ring-[#94A3B8]/20 shrink-0 [&>svg]:w-5 [&>svg]:h-5 desk:[&>svg]:w-7 desk:[&>svg]:h-7">
             <FolderOpen size={28} />
           </div>
         </div>
 
         {/* Sin Stock */}
-        <div className="bg-[linear-gradient(135deg,rgba(239,68,68,0.10),rgba(239,68,68,0.03))] border border-[#EF4444]/35 p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(239,68,68,0.12)]">
-          <div>
-            <p className="text-xs text-[#EF4444] font-extrabold uppercase tracking-wider">Sin Stock</p>
-            <p className="text-3xl font-black text-[var(--text)] leading-none mt-1">
+        <div className="bg-[linear-gradient(135deg,rgba(239,68,68,0.10),rgba(239,68,68,0.03))] border border-[#EF4444]/35 p-2.5 desk:p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(239,68,68,0.12)]">
+          <div className="min-w-0">
+            <p className="text-[11px] desk:text-xs text-[#EF4444] font-extrabold uppercase tracking-wider truncate">Sin Stock</p>
+            <p className="text-xl desk:text-3xl font-black text-[var(--text)] leading-none mt-1">
               {sinStock}
             </p>
-            <p className="text-xs text-[var(--text-secondary)] mt-2">Productos agotados</p>
+            <p className="hidden desk:block text-xs text-[var(--text-secondary)] mt-2">Productos agotados</p>
           </div>
-          <div className="p-3 bg-[#EF4444]/15 rounded-full text-[#EF4444] ring-1 ring-[#EF4444]/20">
+          <div className="p-2 desk:p-3 bg-[#EF4444]/15 rounded-full text-[#EF4444] ring-1 ring-[#EF4444]/20 shrink-0 [&>svg]:w-5 [&>svg]:h-5 desk:[&>svg]:w-7 desk:[&>svg]:h-7">
             <Package size={28} />
           </div>
         </div>
@@ -1554,7 +1554,7 @@ export default function ProductosTable({
                 )
               );
             }}
-            className="flex-1 overflow-y-auto md:overflow-y-hidden px-4 py-3 space-y-2.5"
+            className="flex-1 overflow-y-auto px-4 py-3 space-y-2.5"
           >
 
             {/* ── Nombre del Producto (full width) ── */}

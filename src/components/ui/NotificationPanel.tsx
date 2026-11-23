@@ -407,7 +407,7 @@ export default function NotificationPanel({
   };
 
   return (
-    <div className="absolute right-0 top-full mt-2 w-[400px] max-h-[520px] bg-[var(--panel)] border border-[var(--border)]/50 rounded-2xl shadow-[0_16px_48px_-12px_rgba(0,0,0,0.6)] z-50 flex flex-col overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200">
+    <div className="absolute right-0 top-full mt-2 w-[min(400px,calc(100vw-1.5rem))] max-h-[520px] bg-[var(--panel)] border border-[var(--border)]/50 rounded-2xl shadow-[0_16px_48px_-12px_rgba(0,0,0,0.6)] z-50 flex flex-col overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200">
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-3.5 border-b border-[var(--border)]/30">
         <div className="flex items-center gap-2.5">

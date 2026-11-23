@@ -600,25 +600,25 @@ export default function VentasTerminal({
   const getPaymentLabel = (m: string) => PAYMENT_METHODS.find(p => p.value === m)?.label || m;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch min-h-0 h-auto desk:h-full">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 desk:gap-3 items-stretch min-h-0 h-auto desk:h-full">
       {/* ═══ SECCIÓN IZQUIERDA: Productos (7/12 cols) ═══ */}
       <div className="lg:col-span-7 flex flex-col gap-1 min-h-0 h-auto desk:h-full">
         {/* 1. Panel de Selección de Clientes */}
-        <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-2 py-2 space-y-1 shadow-[var(--shadow-sm)] shrink-0">
-          <div className="flex items-center justify-between gap-2">
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-2 py-1.5 desk:py-2 space-y-1 shadow-[var(--shadow-sm)] shrink-0">
+          <div className="flex flex-wrap items-center justify-between gap-1.5 desk:gap-2">
             <div className="flex items-center space-x-1.5 text-[var(--brand)] min-w-0">
-              <Users size={17} className="shrink-0" />
-              <h2 className="shrink-0 text-base font-bold text-[var(--text)]">Selección de Cliente</h2>
+              <Users size={15} className="shrink-0 desk:w-[17px] desk:h-[17px]" />
+              <h2 className="shrink-0 text-sm desk:text-base font-bold text-[var(--text)]">Selección de Cliente</h2>
             </div>
-            <span className="ml-auto min-w-0 truncate text-[11px] font-semibold text-[var(--text-secondary)]">
+            <span className="ml-auto min-w-0 truncate text-[10px] desk:text-[11px] font-semibold text-[var(--text-secondary)]">
               Haz clic sobre un cliente para agregarlo al carrito.
             </span>
             <button
               type="button"
               onClick={() => setShowNewClientModal(true)}
-              className="group ml-1 flex h-8 items-center justify-center gap-1.5 rounded-lg border border-[var(--brand)]/40 bg-[rgba(214,40,40,0.08)] px-3 text-xs font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] transition-all duration-200 hover:border-[var(--brand)]/60 hover:bg-[rgba(214,40,40,0.16)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]/30 active:bg-[rgba(214,40,40,0.22)]"
+              className="group ml-1 flex h-7 desk:h-8 items-center justify-center gap-1.5 rounded-lg border border-[var(--brand)]/40 bg-[rgba(214,40,40,0.08)] px-2.5 desk:px-3 text-[11px] desk:text-xs font-semibold text-[var(--text)] shadow-[var(--shadow-sm)] transition-all duration-200 hover:border-[var(--brand)]/60 hover:bg-[rgba(214,40,40,0.16)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]/30 active:bg-[rgba(214,40,40,0.22)]"
             >
-              <UserPlus size={15} className="shrink-0 text-[#E56B6B] group-hover:text-[#EF8B8B]" />
+              <UserPlus size={14} className="shrink-0 text-[#E56B6B] group-hover:text-[#EF8B8B]" />
               <span className="whitespace-nowrap">Nuevo cliente</span>
             </button>
           </div>
@@ -630,12 +630,12 @@ export default function VentasTerminal({
               placeholder="Buscar cliente..."
               value={clientSearch}
               onChange={e => setClientSearch(e.target.value)}
-              className="h-10 w-full rounded-full border border-[var(--border)] bg-[var(--bg)] pl-9 pr-4 text-sm text-[var(--text)] placeholder-[var(--text-secondary)] transition-colors focus:border-[var(--brand)] focus:outline-none"
+              className="h-8 desk:h-10 w-full rounded-full border border-[var(--border)] bg-[var(--bg)] pl-9 pr-4 text-xs desk:text-sm text-[var(--text)] placeholder-[var(--text-secondary)] transition-colors focus:border-[var(--brand)] focus:outline-none"
             />
           </div>
 
           {/* Grilla Clientes */}
-          <div className="max-h-32 overflow-y-auto border border-[var(--border)] rounded divide-y divide-[var(--border)]">
+          <div className="max-h-20 desk:max-h-32 min-[2200px]:max-h-48 overflow-y-auto border border-[var(--border)] rounded divide-y divide-[var(--border)]">
             {filteredClients.length === 0 && (
               <div className="px-3 py-4 text-xs text-[var(--text-secondary)] text-center">No se encontraron clientes</div>
             )}
@@ -665,28 +665,28 @@ export default function VentasTerminal({
         </div>
 
         {/* 2. Panel de Búsqueda de Repuestos */}
-        <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-2 py-2 space-y-0.5 shadow-[var(--shadow-sm)] flex-1 flex flex-col min-h-[460px] desk:min-h-0">
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-2 py-1.5 desk:py-2 space-y-0.5 shadow-[var(--shadow-sm)] flex-1 flex flex-col min-h-[320px] desk:min-h-0">
           {/* Encabezado, buscador y filtros del catalogo */}
-          <div className="grid grid-cols-1 gap-x-2 gap-y-0.5 xl:grid-cols-[minmax(260px,1fr)_150px_150px]">
-            <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-0.5 xl:col-start-1 xl:row-start-1">
+          <div className="grid grid-cols-2 gap-x-2 gap-y-1 desk:gap-y-1.5 2xl:grid-cols-[minmax(260px,1fr)_150px_150px]">
+            <div className="col-span-2 2xl:col-span-1 flex min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-0.5 2xl:col-start-1 2xl:row-start-1">
               <div className="flex shrink-0 items-center space-x-1.5 text-[var(--brand)]">
-                <ShoppingCart size={17} />
-                <h2 className="text-base font-bold text-[var(--text)]">Catálogo de Venta</h2>
+                <ShoppingCart size={15} className="desk:w-[17px] desk:h-[17px]" />
+                <h2 className="text-sm desk:text-base font-bold text-[var(--text)]">Catálogo de Venta</h2>
               </div>
-              <span className="min-w-0 truncate text-[11px] font-semibold text-[var(--text-secondary)]">
+              <span className="min-w-0 truncate text-[10px] desk:text-[11px] font-semibold text-[var(--text-secondary)]">
                 Haz clic sobre un producto para agregarlo al carrito.
               </span>
             </div>
 
-            <div className="flex min-w-0 flex-wrap items-center gap-2 xl:col-start-1 xl:row-start-2">
-              <div className="relative min-w-[220px] flex-1">
+            <div className="col-span-2 2xl:col-span-1 flex min-w-0 flex-wrap items-center gap-2 2xl:col-start-1 2xl:row-start-2">
+              <div className="relative min-w-0 flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" size={14} />
                 <input
                   type="text"
                   placeholder="Buscar producto por nombre o categoría..."
                   value={prodSearch}
                   onChange={e => setProdSearch(e.target.value)}
-                  className="h-10 w-full rounded-full border border-[var(--border)] bg-[var(--bg)] pl-9 pr-4 text-sm text-[var(--text)] placeholder-[var(--text-secondary)] transition-colors focus:border-[var(--brand)] focus:outline-none"
+                  className="h-8 desk:h-10 w-full rounded-full border border-[var(--border)] bg-[var(--bg)] pl-9 pr-4 text-xs desk:text-sm text-[var(--text)] placeholder-[var(--text-secondary)] transition-colors focus:border-[var(--brand)] focus:outline-none"
                 />
               </div>
 
@@ -708,13 +708,13 @@ export default function VentasTerminal({
               )}
             </div>
 
-            <div className="[&_label]:text-[11px] [&_label]:font-semibold [&_label]:text-[var(--text-secondary)] [&_label]:uppercase [&_label]:tracking-wider xl:col-start-2 xl:row-span-2 xl:row-start-1 xl:self-end">
+            <div className="[&_label]:text-[10px] desk:[&_label]:text-[11px] [&_label]:font-semibold [&_label]:text-[var(--text-secondary)] [&_label]:uppercase [&_label]:tracking-wider 2xl:col-start-2 2xl:row-span-2 2xl:row-start-1 2xl:self-end">
               <ToolbarSelect
                 label="Categoría"
                 value={selectedCategory ?? "all"}
                 onValueChange={value => setSelectedCategory(value === "all" ? null : value)}
                 triggerIcon={Layers}
-                minWidth="min-w-[150px]"
+                minWidth="min-w-0 w-full 2xl:min-w-[150px]"
                 options={[
                   { value: "all", label: "Todas", icon: Layers },
                   ...categories.map(cat => ({ value: cat, label: cat, icon: Layers })),
@@ -722,13 +722,13 @@ export default function VentasTerminal({
               />
             </div>
 
-            <div className="[&_label]:text-[11px] [&_label]:font-semibold [&_label]:text-[var(--text-secondary)] [&_label]:uppercase [&_label]:tracking-wider xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:self-end">
+            <div className="[&_label]:text-[10px] desk:[&_label]:text-[11px] [&_label]:font-semibold [&_label]:text-[var(--text-secondary)] [&_label]:uppercase [&_label]:tracking-wider 2xl:col-start-3 2xl:row-span-2 2xl:row-start-1 2xl:self-end">
               <ToolbarSelect
                 label="Marca"
                 value={selectedBrand ?? "all"}
                 onValueChange={value => setSelectedBrand(value === "all" ? null : value)}
                 triggerIcon={Tag}
-                minWidth="min-w-[150px]"
+                minWidth="min-w-0 w-full 2xl:min-w-[150px]"
                 tone={{
                   trigger: "border-violet-500/25 hover:border-violet-400/60 focus-visible:border-violet-400 focus-visible:ring-violet-500/20 data-[state=open]:border-violet-400/70 data-[state=open]:ring-violet-500/20",
                   icon: "bg-violet-500/15 text-violet-300 ring-violet-500/20",
@@ -747,7 +747,7 @@ export default function VentasTerminal({
           </div>
 
           {/* Filtros rápidos: Todos / Favoritos / Más vendidos / Combos / Ofertas */}
-          <div className="flex gap-1 p-0.5 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)]">
+          <div className="flex flex-wrap sm:flex-nowrap gap-1 p-0.5 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-md)] overflow-x-auto scrollbar-hide">
             {([
               { key: "todos" as ProductFilter, label: "Todos", icon: <Package size={12} /> },
               { key: "favoritos" as ProductFilter, label: "Favoritos", icon: <Star size={12} />, count: favoritoIds.size },
@@ -758,7 +758,7 @@ export default function VentasTerminal({
               <button
                 key={tab.key}
                 onClick={() => setActiveFilter(tab.key)}
-                className={`flex-1 flex items-center justify-center gap-1 py-1 px-2 rounded text-xs font-semibold transition-all ${
+                className={`flex-1 min-w-fit shrink-0 whitespace-nowrap flex items-center justify-center gap-1 py-0.5 desk:py-1 px-1.5 desk:px-2 rounded text-[11px] desk:text-xs font-semibold transition-all ${
                   activeFilter === tab.key
                     ? "bg-[var(--brand)] text-white shadow-sm"
                     : "text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--panel)]"
@@ -778,12 +778,12 @@ export default function VentasTerminal({
           </div>
 
           {/* Grid — Productos o Combos con scroll interno */}
-          <div className={`grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 flex-1 overflow-y-auto pr-1 max-h-[520px] desk:max-h-none ${
+          <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 min-[1800px]:grid-cols-5 min-[2200px]:grid-cols-6 gap-1.5 desk:gap-2 flex-1 overflow-y-auto pr-1 max-h-[380px] desk:max-h-none ${
             (activeFilter === "combos" ? filteredCombos.length > 0 : filteredProducts.length > 0) ? "content-start" : ""
           }`}>
             {activeFilter === "combos" ? (
               filteredCombos.length === 0 ? (
-                <div className="col-span-2 sm:col-span-3 xl:col-span-4 h-full flex flex-col items-center justify-center text-[var(--text-secondary)] py-8">
+                <div className="col-span-full h-full flex flex-col items-center justify-center text-[var(--text-secondary)] py-8">
                   <Boxes size={24} className="opacity-30 mb-1.5" />
                   <p className="text-xs font-semibold">No se encontraron combos</p>
                   <p className="text-[10px] opacity-60">No hay combos activos que coincidan con la búsqueda</p>
@@ -802,7 +802,7 @@ export default function VentasTerminal({
                     <div
                       key={combo.id}
                       onClick={() => !hasNoStock && addComboToCart(combo)}
-                      className={`relative bg-[var(--bg)] border border-[var(--border)] rounded-lg p-2.5 cursor-pointer transition-all hover:border-[var(--border-hover)] hover:shadow-[var(--shadow-md)] flex flex-col justify-between ${
+                      className={`relative bg-[var(--bg)] border border-[var(--border)] rounded-lg p-1.5 desk:p-2.5 cursor-pointer transition-all hover:border-[var(--border-hover)] hover:shadow-[var(--shadow-md)] flex flex-col justify-between ${
                         hasNoStock ? "opacity-40 cursor-not-allowed" : "hover:scale-[1.02]"
                       }`}
                     >
@@ -814,7 +814,7 @@ export default function VentasTerminal({
                       )}
 
                       <div>
-                        <div className="relative w-full h-32 bg-[var(--panel)] rounded flex items-center justify-center mb-1.5 overflow-hidden">
+                        <div className="relative w-full h-14 sm:h-16 desk:h-32 bg-[var(--panel)] rounded flex items-center justify-center mb-1 desk:mb-1.5 overflow-hidden">
                           {combo.imagen ? (
                             <Image
                               src={getCatalogImageUrl(combo.imagen)}
@@ -824,11 +824,11 @@ export default function VentasTerminal({
                               className="object-contain"
                             />
                           ) : (
-                            <Boxes size={32} className="text-[var(--text-secondary)]" />
+                            <Boxes size={32} className="text-[var(--text-secondary)] w-5 h-5 desk:w-8 desk:h-8" />
                           )}
                         </div>
 
-                        <p className="text-xs font-bold text-[var(--text)] leading-tight line-clamp-2 min-h-[2rem]">
+                        <p className="text-[11px] desk:text-xs font-bold text-[var(--text)] leading-tight line-clamp-2 min-h-[1.6rem] desk:min-h-[2rem]">
                           {combo.nombre}
                         </p>
 
@@ -926,7 +926,7 @@ export default function VentasTerminal({
                 })
               )
             ) : filteredProducts.length === 0 ? (
-              <div className="col-span-2 sm:col-span-3 xl:col-span-4 h-full flex flex-col items-center justify-center text-[var(--text-secondary)] py-8">
+              <div className="col-span-full h-full flex flex-col items-center justify-center text-[var(--text-secondary)] py-8">
                 {activeFilter === "favoritos" ? (
                   <>
                     <Star size={24} className="opacity-30 mb-1.5" />
@@ -965,7 +965,7 @@ export default function VentasTerminal({
                 <div
                   key={p.id}
                   onClick={() => !hasNoStock && addToCart(p)}
-                  className={`relative bg-[var(--bg)] border border-[var(--border)] rounded-lg p-2 cursor-pointer transition-all hover:border-[var(--border-hover)] hover:shadow-[var(--shadow-md)] ${
+                  className={`relative bg-[var(--bg)] border border-[var(--border)] rounded-lg p-1 desk:p-2 cursor-pointer transition-all hover:border-[var(--border-hover)] hover:shadow-[var(--shadow-md)] ${
                     hasNoStock ? "opacity-40 cursor-not-allowed" : "hover:scale-[1.02]"
                   }`}
                 >
@@ -986,10 +986,10 @@ export default function VentasTerminal({
                     }`}
                     title={isFavorito ? "Quitar de favoritos" : "Agregar a favoritos"}
                   >
-                    <Star size={16} fill={isFavorito ? "currentColor" : "none"} />
+                    <Star size={14} className="desk:w-4 desk:h-4" fill={isFavorito ? "currentColor" : "none"} />
                   </button>
 
-                  <div className="relative w-full h-36 bg-[var(--panel)] rounded flex items-center justify-center mb-1.5 overflow-hidden">
+                  <div className="relative w-full h-14 sm:h-16 desk:h-36 bg-[var(--panel)] rounded flex items-center justify-center mb-1 desk:mb-1.5 overflow-hidden">
                     {p.imagen ? (
                       <Image
                         src={getCatalogImageUrl(p.imagen)}
@@ -999,14 +999,14 @@ export default function VentasTerminal({
                         className="object-contain"
                       />
                     ) : (
-                      <Package size={32} className="text-[var(--text-secondary)]" />
+                      <Package size={32} className="text-[var(--text-secondary)] w-5 h-5 desk:w-8 desk:h-8" />
                     )}
                   </div>
-                  <p className="text-xs font-semibold text-[var(--text)] leading-tight line-clamp-2 min-h-[2rem]">{p.nombre}</p>
+                  <p className="text-[11px] desk:text-xs font-semibold text-[var(--text)] leading-tight line-clamp-2 min-h-[1.6rem] desk:min-h-[2rem]">{p.nombre}</p>
                   <p className="text-[10px] text-[var(--text-secondary)] truncate">{p.categoria.nombre}</p>
-                  <div className="flex items-center justify-between mt-1">
+                  <div className="flex items-center justify-between mt-0.5 desk:mt-1">
                     <div>
-                      <p className={`text-sm font-bold font-mono ${isOferta ? "text-rose-400" : "text-[#22D3EE]"}`}>
+                      <p className={`text-xs desk:text-sm font-bold font-mono ${isOferta ? "text-rose-400" : "text-[#22D3EE]"}`}>
                         {formatCurrency(precioEfectivo)}
                       </p>
                       {isOferta && (
@@ -1038,18 +1038,18 @@ export default function VentasTerminal({
       <div className="lg:col-span-5 h-auto desk:h-full flex flex-col min-h-0">
         <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-2 space-y-1.5 flex flex-col flex-1 min-h-0 shadow-[var(--shadow-sm)]">
           {/* Header Carrito */}
-          <div className="flex items-center justify-between border-b border-[var(--border)] pb-1.5">
+          <div className="flex items-center justify-between border-b border-[var(--border)] pb-1 desk:pb-1.5">
             <div className="flex items-center space-x-1.5 text-[var(--brand)]">
-              <ShoppingCart size={17} />
-              <h2 className="text-base font-bold text-[var(--text)]">Carrito de compras</h2>
+              <ShoppingCart size={15} className="desk:w-[17px] desk:h-[17px]" />
+              <h2 className="text-sm desk:text-base font-bold text-[var(--text)]">Carrito de compras</h2>
             </div>
-            <span className="rounded-lg border border-[var(--brand)]/25 bg-[var(--brand-light)] px-2.5 py-1 text-sm font-bold text-[var(--brand)] font-mono shadow-[var(--shadow-sm)]">
+            <span className="rounded-lg border border-[var(--brand)]/25 bg-[var(--brand-light)] px-2 desk:px-2.5 py-0.5 desk:py-1 text-xs desk:text-sm font-bold text-[var(--brand)] font-mono shadow-[var(--shadow-sm)]">
               {cartItemCount} {cartItemCount === 1 ? 'artículo' : 'artículos'}
             </span>
           </div>
 
           {/* Listado de ítems del Carrito — fill remaining space, scroll interno */}
-          <div className="flex-1 min-h-0 overflow-y-auto space-y-1 pr-1 max-h-[360px] desk:max-h-none">
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-1 pr-1 max-h-[240px] desk:max-h-none">
             {cart.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-[var(--text-secondary)] py-6 space-y-1.5">
                 <ShoppingCart size={24} className="opacity-40" />
@@ -1211,7 +1211,7 @@ export default function VentasTerminal({
             </div>
 
             {/* ═══ DESCUENTO + SUBTOTAL/TOTAL (2 columnas) ═══ */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2 items-center">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 2xl:grid-cols-2 gap-x-3 gap-y-1.5 desk:gap-y-2 items-center">
               {/* Columna izquierda: Descuento */}
               <div>
                 <div className="flex items-center justify-between gap-2 mb-1">
@@ -1306,7 +1306,7 @@ export default function VentasTerminal({
                   ? estadoCaja.mensaje
                   : undefined
               }
-              className="w-full py-3 bg-gradient-to-r from-[var(--danger)] to-[var(--brand)] hover:from-[var(--brand)] hover:to-[var(--danger)] text-white font-bold rounded shadow-lg shadow-[var(--danger)]/20 focus:outline-none transition duration-150 flex items-center justify-center text-base disabled:opacity-40 hover:shadow-xl hover:shadow-[var(--danger)]/30"
+              className="w-full py-2 desk:py-3 bg-gradient-to-r from-[var(--danger)] to-[var(--brand)] hover:from-[var(--brand)] hover:to-[var(--danger)] text-white font-bold rounded shadow-lg shadow-[var(--danger)]/20 focus:outline-none transition duration-150 flex items-center justify-center text-sm desk:text-base disabled:opacity-40 hover:shadow-xl hover:shadow-[var(--danger)]/30"
             >
               {isPending ? "Procesando..." : (
                 <>

@@ -40,12 +40,15 @@ export default function ChartWrapper({
     typeof children.type !== "string";
 
   return (
-    <div className="bg-card rounded-xl p-4 border border-border min-w-0 w-full">
-      <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
-        <h3 className="text-sm font-semibold text-text-muted">{title}</h3>
+    <div className="bg-card rounded-xl p-2.5 desk:p-4 border border-border min-w-0 w-full">
+      <div className="flex items-center justify-between flex-wrap gap-2 mb-2 desk:mb-4">
+        <h3 className="text-xs desk:text-sm font-semibold text-text-muted">{title}</h3>
         {action}
       </div>
-      <div style={{ width: "100%", height, position: "relative" }} className="min-w-0">
+      <div
+        style={{ width: "100%", "--chart-h": `${height}px` } as React.CSSProperties}
+        className="min-w-0 relative h-[calc(var(--chart-h)*0.68)] desk:h-[var(--chart-h)]"
+      >
         {mounted && (
           isRechartsChild ? (
             <ResponsiveContainer width="100%" height="100%">

@@ -370,29 +370,29 @@ export default function ClientesReport({ initialData }: Props) {
         {activeSubView === "analisis" && (
           <>
             {/* Resumen KPI */}
-            <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl p-4">
-              <h3 className={sectionHeaderClass + " mb-3"}>Resumen</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 text-center flex flex-col items-center justify-center">
-                  <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Total de Clientes</div>
-                  <div className="text-sm font-bold text-[var(--text)]">{data.resumen.total}</div>
+            <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl p-2 desk:p-4">
+              <h3 className={sectionHeaderClass + " mb-1.5 desk:mb-3"}>Resumen</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1.5 desk:gap-3">
+                <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-2 py-1.5 desk:p-3 text-center flex flex-col items-center justify-center">
+                  <div className="text-[11px] desk:text-xs font-semibold text-[var(--text-muted)] mb-0.5 desk:mb-1">Total de Clientes</div>
+                  <div className="text-xs desk:text-sm font-bold text-[var(--text)]">{data.resumen.total}</div>
                 </div>
-                <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 text-center flex flex-col items-center justify-center">
-                  <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Clientes Activos</div>
-                  <div className="text-sm font-bold text-[var(--text)]">{data.resumen.activos}</div>
+                <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-2 py-1.5 desk:p-3 text-center flex flex-col items-center justify-center">
+                  <div className="text-[11px] desk:text-xs font-semibold text-[var(--text-muted)] mb-0.5 desk:mb-1">Clientes Activos</div>
+                  <div className="text-xs desk:text-sm font-bold text-[var(--text)]">{data.resumen.activos}</div>
                 </div>
-                <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 text-center flex flex-col items-center justify-center">
-                  <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Clientes Inactivos</div>
-                  <div className="text-sm font-bold text-[var(--text)]">{data.resumen.inactivos}</div>
+                <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-2 py-1.5 desk:p-3 text-center flex flex-col items-center justify-center">
+                  <div className="text-[11px] desk:text-xs font-semibold text-[var(--text-muted)] mb-0.5 desk:mb-1">Clientes Inactivos</div>
+                  <div className="text-xs desk:text-sm font-bold text-[var(--text)]">{data.resumen.inactivos}</div>
                 </div>
-                <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 text-center flex flex-col items-center justify-center">
-                  <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Clientes Nuevos</div>
-                  <div className="text-sm font-bold text-[var(--text)]">{data.resumen.nuevos30d}</div>
+                <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-2 py-1.5 desk:p-3 text-center flex flex-col items-center justify-center">
+                  <div className="text-[11px] desk:text-xs font-semibold text-[var(--text-muted)] mb-0.5 desk:mb-1">Clientes Nuevos</div>
+                  <div className="text-xs desk:text-sm font-bold text-[var(--text)]">{data.resumen.nuevos30d}</div>
                   <div className="text-[10px] text-[var(--text-secondary)]">últimos 30 días</div>
                 </div>
-                <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 text-center flex flex-col items-center justify-center">
-                  <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Clientes con compras</div>
-                  <div className="text-sm font-bold text-[var(--brand)]">{data.resumen.conCompras}</div>
+                <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-2 py-1.5 desk:p-3 text-center flex flex-col items-center justify-center">
+                  <div className="text-[11px] desk:text-xs font-semibold text-[var(--text-muted)] mb-0.5 desk:mb-1">Clientes con compras</div>
+                  <div className="text-xs desk:text-sm font-bold text-[var(--brand)]">{data.resumen.conCompras}</div>
                   <div className="text-[10px] text-[var(--text-secondary)]">
                     {data.resumen.total > 0
                       ? `${Math.round((data.resumen.conCompras / data.resumen.total) * 100)}% del total`

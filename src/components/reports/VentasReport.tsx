@@ -258,14 +258,14 @@ export default function VentasReport({ initialData, usuarios }: Props) {
     "w-full bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/40 focus:border-[var(--brand)] transition";
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2 desk:space-y-4">
       {/* Selector de sub-vista */}
-      <div className="print:hidden flex flex-wrap gap-1 bg-[var(--panel)] border border-[var(--border)] rounded-xl p-1">
+      <div className="print:hidden flex flex-wrap gap-1 bg-[var(--panel)] border border-[var(--border)] rounded-xl p-0.5 desk:p-1">
         {(["analisis", "detalle"] as SubViewId[]).map((v) => (
           <button
             key={v}
             onClick={() => handleSubViewChange(v)}
-            className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
+            className={`px-2.5 desk:px-3 py-0.5 desk:py-1 text-[11px] desk:text-xs font-semibold rounded-lg transition-all ${
               activeSubView === v
                 ? "bg-[var(--brand)] text-white"
                 : "bg-[var(--card)] text-[var(--text-muted)] hover:text-[var(--text)] border border-[var(--border)]"
@@ -283,29 +283,29 @@ export default function VentasReport({ initialData, usuarios }: Props) {
 
       {/* Filtros + Período */}
       <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl overflow-hidden">
-        <div className="flex flex-wrap items-center gap-3 sm:gap-4 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 desk:gap-4 px-2.5 desk:px-4 py-1.5 desk:py-3">
           <button
             onClick={() => setFiltersOpen(!filtersOpen)}
-            className="flex items-center gap-2 hover:text-[var(--text)] transition-colors shrink-0"
+            className="flex items-center gap-1.5 desk:gap-2 hover:text-[var(--text)] transition-colors shrink-0"
           >
-            <Search size={14} className="text-[var(--text-muted)]" />
-            <span className="text-sm font-semibold text-[var(--text-muted)]">
+            <Search size={13} className="text-[var(--text-muted)] desk:w-3.5 desk:h-3.5" />
+            <span className="text-xs desk:text-sm font-semibold text-[var(--text-muted)]">
               {filtersOpen ? "Ocultar filtros" : "Filtros"}
             </span>
             {filtersOpen ? (
-              <ChevronUp size={14} className="text-[var(--text-muted)]" />
+              <ChevronUp size={13} className="text-[var(--text-muted)] desk:w-3.5 desk:h-3.5" />
             ) : (
-              <ChevronDown size={14} className="text-[var(--text-muted)]" />
+              <ChevronDown size={13} className="text-[var(--text-muted)] desk:w-3.5 desk:h-3.5" />
             )}
           </button>
 
           <div className="h-4 w-px bg-[var(--border)] shrink-0" />
 
-          <div className="flex items-center gap-2 shrink-0">
-            <Calendar size={14} className="text-[var(--text-muted)]" />
-            <span className="text-xs font-semibold text-[var(--text-muted)]">Período:</span>
+          <div className="flex items-center gap-1.5 desk:gap-2 shrink-0">
+            <Calendar size={13} className="text-[var(--text-muted)] desk:w-3.5 desk:h-3.5" />
+            <span className="text-[11px] desk:text-xs font-semibold text-[var(--text-muted)]">Período:</span>
             <Select value={activePeriod} onValueChange={(v) => handlePeriodChange(v as ReporteVentasPeriodKey)}>
-              <SelectTrigger className="w-44 h-9">
+              <SelectTrigger className="w-40 desk:w-44 h-8 desk:h-9 text-xs desk:text-sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

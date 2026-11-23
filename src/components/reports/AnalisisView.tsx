@@ -273,31 +273,31 @@ export default function AnalisisView({
 
   return (
     <section
-      className="report-section space-y-5"
+      className="report-section space-y-2.5 desk:space-y-5"
       data-section-id="analisis"
       data-print-active={printSection === "analisis" || null}
     >
       <ReportPrintHeader desde={fechaDesde} hasta={fechaHasta} />
 
       {/* Resumen compacto (mismo estilo que la barra de Detalle) */}
-      <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl p-4">
-        <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-3">Resumen</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3">
-            <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Ventas Totales</div>
-            <div className="text-sm font-bold text-[var(--success)]">{formatCurrency(resumen?.total ?? 0)}</div>
+      <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl p-2 desk:p-4">
+        <h3 className="text-[11px] desk:text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5 desk:mb-3">Resumen</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 desk:gap-3">
+          <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 desk:p-3 flex items-center justify-between gap-2 desk:block">
+            <div className="text-[11px] desk:text-xs font-semibold text-[var(--text-muted)] desk:mb-1">Ventas Totales</div>
+            <div className="text-xs desk:text-sm font-bold text-[var(--success)]">{formatCurrency(resumen?.total ?? 0)}</div>
           </div>
-          <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3">
-            <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Cantidad de Ventas</div>
-            <div className="text-sm font-bold text-[var(--text)]">{resumen?.cantidad ?? 0}</div>
+          <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 desk:p-3 flex items-center justify-between gap-2 desk:block">
+            <div className="text-[11px] desk:text-xs font-semibold text-[var(--text-muted)] desk:mb-1">Cantidad de Ventas</div>
+            <div className="text-xs desk:text-sm font-bold text-[var(--text)]">{resumen?.cantidad ?? 0}</div>
           </div>
-          <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3">
-            <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Productos Vendidos</div>
-            <div className="text-sm font-bold text-[var(--text)]">{resumen?.productosVendidos ?? 0}</div>
+          <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 desk:p-3 flex items-center justify-between gap-2 desk:block">
+            <div className="text-[11px] desk:text-xs font-semibold text-[var(--text-muted)] desk:mb-1">Productos Vendidos</div>
+            <div className="text-xs desk:text-sm font-bold text-[var(--text)]">{resumen?.productosVendidos ?? 0}</div>
           </div>
-          <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3">
-            <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Clientes Atendidos</div>
-            <div className="text-sm font-bold text-[var(--text)]">{resumen?.clientesAtendidos ?? 0}</div>
+          <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 desk:p-3 flex items-center justify-between gap-2 desk:block">
+            <div className="text-[11px] desk:text-xs font-semibold text-[var(--text-muted)] desk:mb-1">Clientes Atendidos</div>
+            <div className="text-xs desk:text-sm font-bold text-[var(--text)]">{resumen?.clientesAtendidos ?? 0}</div>
           </div>
         </div>
       </div>

@@ -216,7 +216,7 @@ export default function ProductosDetalleView({
       <div className="bg-[var(--card)] print:bg-white border border-[var(--border)] print:border-gray-300 rounded-xl overflow-hidden">
         {/* Barra de filtros */}
         <div className="print:hidden p-4 border-b border-[var(--border)] print:border-gray-300 bg-[var(--panel)]/40 space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-3">
             {/* Buscador */}
             <div>
               <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">

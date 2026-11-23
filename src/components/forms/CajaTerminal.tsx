@@ -1028,13 +1028,13 @@ export default function CajaTerminal({
   return (
     <>
     <style>{`#print-overlay .cj-summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }`}</style>
-    <div className="flex flex-col gap-2 h-auto desk:h-full min-h-0">
+    <div className="flex flex-col gap-1.5 desk:gap-2 h-auto desk:h-full min-h-0">
       {/* ═══ SECCIÓN PRINCIPAL ═══ */}
-      <div className="flex flex-1 flex-col min-h-0 desk:overflow-hidden">
+      <div className="flex desk:flex-1 flex-col min-h-0 desk:overflow-hidden">
 
         {/* ── CASO A: Caja Cerrada ── */}
         {!cajaActiva ? (
-          <div className="bg-[var(--card)] border border-[var(--border)] rounded-[var(--radius-xl)] p-8 max-w-xl mx-auto text-center space-y-6 shadow-[var(--shadow-lg)]">
+          <div className="bg-[var(--card)] border border-[var(--border)] rounded-[var(--radius-xl)] p-8 max-w-xl mx-auto my-auto text-center space-y-6 shadow-[var(--shadow-lg)]">
             <div className="inline-flex p-4 rounded-full bg-[var(--danger-light)] text-[var(--danger)] border border-[var(--danger)]/20">
               <Lock size={32} />
             </div>
@@ -1174,15 +1174,15 @@ export default function CajaTerminal({
 
         /* ── CASO B: Caja Abierta ── */
         ) : (
-          <div className="animate-in fade-in duration-200 flex flex-1 flex-col min-h-0 h-auto desk:h-full gap-2">
+          <div className="animate-in fade-in duration-200 flex desk:flex-1 flex-col min-h-0 h-auto desk:h-full gap-1.5 desk:gap-2">
 
             {/* Day-change warning */}
             {dayChanged && (
-              <div className="bg-[var(--warning-light)] border border-[var(--warning)]/30 rounded-lg px-4 py-3 flex items-center gap-3 shrink-0">
-                <AlertCircle size={20} className="text-[var(--warning)] shrink-0" />
-                <div className="flex-1">
-                  <p className="text-sm font-bold text-[var(--warning)]">Caja abierta de un día anterior</p>
-                  <p className="text-xs text-[var(--text-muted)]">
+              <div className="bg-[var(--warning-light)] border border-[var(--warning)]/30 rounded-lg px-2.5 desk:px-4 py-1.5 desk:py-3 flex items-center gap-2 desk:gap-3 shrink-0">
+                <AlertCircle size={18} className="text-[var(--warning)] shrink-0 desk:w-5 desk:h-5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs desk:text-sm font-bold text-[var(--warning)] leading-tight">Caja abierta de un día anterior</p>
+                  <p className="text-[11px] desk:text-xs text-[var(--text-muted)] leading-snug">
                     La caja fue abierta el {formatDate(cajaActiva.fechaApertura)} y aún no se ha cerrado. Debe cerrar antes de registrar nuevas operaciones.
                   </p>
                 </div>
@@ -1193,23 +1193,23 @@ export default function CajaTerminal({
             )}
 
             {/* ═══ BARRA DE ESTADO REORGANIZADA ═══ */}
-            <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-sm shadow-[var(--shadow-sm)] shrink-0">
-              <div className="flex items-center gap-3 flex-wrap">
-                <span className="flex items-center gap-1.5 text-[var(--text-muted)]">
-                  <Calendar size={14} className="text-[var(--info)]" />
+            <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-2.5 desk:px-4 py-1.5 desk:py-2.5 flex flex-wrap items-center justify-between gap-1.5 desk:gap-2 text-xs desk:text-sm shadow-[var(--shadow-sm)] shrink-0">
+              <div className="flex items-center gap-2 desk:gap-3 flex-wrap">
+                <span className="flex items-center gap-1 text-[var(--text-muted)]">
+                  <Calendar size={13} className="text-[var(--info)] desk:w-3.5 desk:h-3.5" />
                   <span className="font-medium">Apertura: <strong className="text-[var(--text)]">{formatDate(cajaActiva.fechaApertura)}</strong></span>
                 </span>
-                <span className="flex items-center gap-1.5 text-[var(--text-muted)]">
-                  <User size={14} className="text-[var(--info)]" />
+                <span className="flex items-center gap-1 text-[var(--text-muted)]">
+                  <User size={13} className="text-[var(--info)] desk:w-3.5 desk:h-3.5" />
                   <span className="font-medium">Caja abierta por <strong className="text-[var(--text)]">{cajaActiva.usuario.nombreCompleto || cajaActiva.usuario.username}</strong></span>
                 </span>
-                <span className="flex items-center gap-1.5 text-[var(--text-muted)]">
-                  <Clock size={14} className="text-[var(--warning)]" />
+                <span className="flex items-center gap-1 text-[var(--text-muted)]">
+                  <Clock size={13} className="text-[var(--warning)] desk:w-3.5 desk:h-3.5" />
                   <span className="font-medium">{aperturaDesdeStr} <span className="text-[var(--text-secondary)]">({duracionStr})</span></span>
                 </span>
                 <Badge variant="success" size="sm" className="uppercase font-black tracking-wider">Abierta</Badge>
               </div>
-              <div className="flex items-center gap-1.5 flex-wrap">
+              <div className="flex items-center gap-1 desk:gap-1.5 flex-wrap [&_button]:h-7 desk:[&_button]:h-8 [&_button]:px-2 desk:[&_button]:px-3 [&_button]:text-[11px] desk:[&_button]:text-xs">
                 {saldosFinancieros && (
                   <Button
                     variant="outline"
@@ -1277,27 +1277,27 @@ export default function CajaTerminal({
 
             {/* ═══ RESUMEN FINANCIERO ═══ */}
             {saldosFinancieros && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 shrink-0">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 desk:gap-2 shrink-0">
                 {/* Efectivo disponible */}
-                <div className="bg-[var(--card)] border border-[var(--border)] hover:border-[#22c55e]/40 rounded-lg px-3 py-2 shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(34,197,94,0.12)]">
+                <div className="bg-[var(--card)] border border-[var(--border)] hover:border-[#22c55e]/40 rounded-lg px-2.5 desk:px-3 py-1.5 desk:py-2 flex items-center justify-between gap-2 desk:block shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(34,197,94,0.12)]">
                   <div className="text-[10px] font-semibold text-[#22c55e] uppercase tracking-wider">Efectivo disponible</div>
-                  <div className="text-sm font-black font-mono text-[var(--text)] mt-0.5">
+                  <div className="text-xs desk:text-sm font-black font-mono text-[var(--text)] desk:mt-0.5">
                     {formatCurrency(saldosFinancieros.efectivoFisico)}
                   </div>
                 </div>
 
                 {/* Banco disponible */}
-                <div className="bg-[var(--card)] border border-[var(--border)] hover:border-[#38bdf8]/40 rounded-lg px-3 py-2 shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(56,189,248,0.12)]">
+                <div className="bg-[var(--card)] border border-[var(--border)] hover:border-[#38bdf8]/40 rounded-lg px-2.5 desk:px-3 py-1.5 desk:py-2 flex items-center justify-between gap-2 desk:block shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(56,189,248,0.12)]">
                   <div className="text-[10px] font-semibold text-[#38bdf8] uppercase tracking-wider">Banco disponible</div>
-                  <div className="text-sm font-black font-mono text-[var(--text)] mt-0.5">
+                  <div className="text-xs desk:text-sm font-black font-mono text-[var(--text)] desk:mt-0.5">
                     {formatCurrency(saldosFinancieros.banco)}
                   </div>
                 </div>
 
                 {/* Total disponible */}
-                <div className="bg-[var(--card)] border border-[var(--border)] hover:border-[var(--brand)]/50 rounded-lg px-3 py-2 shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(214,40,40,0.15)]">
+                <div className="bg-[var(--card)] border border-[var(--border)] hover:border-[var(--brand)]/50 rounded-lg px-2.5 desk:px-3 py-1.5 desk:py-2 flex items-center justify-between gap-2 desk:block shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(214,40,40,0.15)]">
                   <div className="text-[10px] font-semibold text-[var(--brand)] uppercase tracking-wider">Total disponible</div>
-                  <div className="text-sm font-black font-mono text-[var(--text)] mt-0.5">
+                  <div className="text-xs desk:text-sm font-black font-mono text-[var(--text)] desk:mt-0.5">
                     {formatCurrency(saldosFinancieros.totalDisponible)}
                   </div>
                 </div>
@@ -1305,33 +1305,35 @@ export default function CajaTerminal({
             )}
 
             {/* ═══ BUSCADOR + FILTROS ═══ */}
-            <div className="shrink-0 rounded-lg border border-[#2B303B] bg-[#1E2129]/90 p-2 shadow-[var(--shadow-sm)]">
-              <div className="flex flex-col gap-2 xl:flex-row xl:items-end xl:justify-between">
-                <div className="relative flex-1 xl:pr-2">
-                    <label className={`${cajaSelectClassName.label} mb-1 block text-[10px] uppercase tracking-[0.14em]`}>
+            <div className="shrink-0 rounded-lg border border-[#2B303B] bg-[#1E2129]/90 p-1.5 desk:p-2 shadow-[var(--shadow-sm)]">
+              <div className="flex flex-col gap-1.5 desk:gap-2 lg:flex-row lg:items-end lg:justify-between">
+                <div className="flex-1 min-w-0 lg:pr-1">
+                    <label className={`${cajaSelectClassName.label} mb-0.5 desk:mb-1 block text-[10px] uppercase tracking-[0.14em]`}>
                       Búsqueda
                     </label>
-                    <Input
-                      placeholder="Buscar por descripción, factura, usuario o referencia..."
-                      value={filtroBusqueda}
-                      onChange={(e) => setFiltroBusqueda(e.target.value)}
-                      leftIcon={<Search size={14} />}
-                      className="h-[36px] rounded-[10px] border-[#2B303B] bg-[#101114] pr-3 text-[13px] text-[#F8FAFC] placeholder:text-[#64748B] hover:border-[#3A414F] hover:bg-[#17191F] focus-visible:outline-brand"
-                    />
-                    {filtroBusqueda && (
-                      <button
-                        onClick={() => setFiltroBusqueda("")}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] hover:text-[var(--text)] transition-colors"
-                      >
-                        <X size={12} />
-                      </button>
-                    )}
+                    <div className="relative">
+                      <Input
+                        placeholder="Buscar por descripción, factura, usuario o referencia..."
+                        value={filtroBusqueda}
+                        onChange={(e) => setFiltroBusqueda(e.target.value)}
+                        leftIcon={<Search size={14} />}
+                        className="h-8 desk:h-[36px] rounded-[10px] border-[#2B303B] bg-[#101114] pr-7 text-xs desk:text-[13px] text-[#F8FAFC] placeholder:text-[#64748B] hover:border-[#3A414F] hover:bg-[#17191F] focus-visible:outline-brand"
+                      />
+                      {filtroBusqueda && (
+                        <button
+                          onClick={() => setFiltroBusqueda("")}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] hover:text-[var(--text)] transition-colors"
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
+                    </div>
                 </div>
-                <div className="flex flex-wrap items-end gap-1.5 xl:flex-nowrap xl:justify-end">
+                <div className="flex flex-wrap items-end gap-1.5 lg:flex-nowrap lg:justify-end">
                   <button
                     onClick={limpiarFiltros}
                     disabled={!hayFiltrosActivos}
-                    className={`flex h-[36px] items-center justify-center gap-1.5 rounded-[10px] border px-2.5 text-[11px] font-semibold transition xl:min-w-[96px] ${
+                    className={`flex h-8 desk:h-[36px] items-center justify-center gap-1 rounded-[10px] border px-2 desk:px-2.5 text-[11px] font-semibold transition 2xl:min-w-[96px] ${
                       hayFiltrosActivos
                         ? "border-[var(--danger)]/30 bg-[var(--danger-light)] text-[var(--danger)] hover:bg-[var(--danger)]/10"
                         : "cursor-not-allowed border-[#2B303B] bg-[#101114] text-[#64748B]"
@@ -1345,7 +1347,7 @@ export default function CajaTerminal({
                       value={filtroMetodoPago || "all"}
                       onValueChange={(v) => setFiltroMetodoPago(v === "all" ? "" : v)}
                       triggerIcon={Wallet}
-                      minWidth="w-full sm:min-w-[155px]"
+                      minWidth="w-full sm:min-w-[125px] desk:min-w-[155px]"
                       tone={cajaSelectToneMetodoPago}
                       triggerClassName={cajaSelectClassName.trigger}
                       iconClassName={cajaSelectClassName.icon}
@@ -1363,7 +1365,7 @@ export default function CajaTerminal({
                       value={filtroConcepto || "all"}
                       onValueChange={(v) => setFiltroConcepto(v === "all" ? "" : v)}
                       triggerIcon={Tags}
-                      minWidth="w-full sm:min-w-[172px]"
+                      minWidth="w-full sm:min-w-[135px] desk:min-w-[172px]"
                       tone={cajaSelectToneConcepto}
                       triggerClassName={cajaSelectClassName.trigger}
                       iconClassName={cajaSelectClassName.icon}
@@ -1384,7 +1386,7 @@ export default function CajaTerminal({
                       value={filtroUsuario || "all"}
                       onValueChange={(v) => setFiltroUsuario(v === "all" ? "" : v)}
                       triggerIcon={UserRound}
-                      minWidth="w-full sm:min-w-[160px]"
+                      minWidth="w-full sm:min-w-[125px] desk:min-w-[160px]"
                       tone={cajaSelectToneUsuario}
                       triggerClassName={cajaSelectClassName.trigger}
                       iconClassName={cajaSelectClassName.icon}
@@ -1405,30 +1407,30 @@ export default function CajaTerminal({
             </div>
 
             {/* ═══ LIBRO DIARIO ═══ */}
-            <div className="flex flex-1 desk:basis-0 flex-col min-h-[420px] desk:min-h-0">
+            <div className="flex desk:flex-1 desk:basis-0 flex-col min-h-0">
               <TableShell
                 title="Libro Diario"
                 isEmpty={movimientosLibroDiarioFiltrados.length === 0}
                 emptyMessage={hayFiltrosActivos ? "No se encontraron movimientos con estos filtros." : "No se registran movimientos en este turno."}
                 emptyIcon={<Activity size={32} className="opacity-40" />}
               >
-                <table className="w-full min-w-[1400px] border-collapse text-sm text-left">
-                    <thead className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--panel)] text-[11px] font-semibold uppercase tracking-wider text-[var(--text-secondary)] shadow-[0_1px_0_var(--border)]">
+                <table className="w-full min-w-[1400px] border-collapse text-xs desk:text-sm text-left">
+                    <thead className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--panel)] text-[10px] desk:text-[11px] font-semibold uppercase tracking-wider text-[var(--text-secondary)] shadow-[0_1px_0_var(--border)]">
                       <tr className="whitespace-nowrap">
-                        <th className="w-[4%] bg-[var(--panel)] px-3 py-3 text-center whitespace-nowrap">#</th>
-                        <th className="w-[7%] bg-[var(--panel)] px-3 py-3 whitespace-nowrap">Fecha</th>
-                        <th className="w-[6%] bg-[var(--panel)] px-3 py-3 whitespace-nowrap">Hora</th>
-                        <th className="w-[25%] bg-[var(--panel)] px-3 py-3 whitespace-nowrap min-w-[200px]">Descripción</th>
-                        <th className="w-[8%] bg-[var(--panel)] px-2 py-3 text-center whitespace-nowrap">Tipo</th>
-                        <th className="w-[8%] bg-[var(--panel)] px-2 py-3 whitespace-nowrap">Pago</th>
-                        <th className="w-[8%] bg-[var(--panel)] px-3 py-3 text-right whitespace-nowrap">Importe</th>
-                        <th className="w-[8%] bg-[var(--panel)] px-2 py-3 whitespace-nowrap">Usuario</th>
-                        <th className="w-[6%] bg-[var(--panel)] px-3 py-3 text-right whitespace-nowrap">Ing. Caja</th>
-                        <th className="w-[6%] bg-[var(--panel)] px-3 py-3 text-right whitespace-nowrap">Egr. Caja</th>
-                        <th className="w-[6%] bg-[var(--panel)] px-3 py-3 text-right whitespace-nowrap">Saldo Caja</th>
-                        <th className="w-[6%] bg-[var(--panel)] px-3 py-3 text-right whitespace-nowrap">Ing. Banco</th>
-                        <th className="w-[6%] bg-[var(--panel)] px-3 py-3 text-right whitespace-nowrap">Egr. Banco</th>
-                        <th className="w-[6%] bg-[var(--panel)] px-3 py-3 text-right whitespace-nowrap">Saldo Banco</th>
+                        <th className="w-[4%] bg-[var(--panel)] px-2 desk:px-3 py-2 desk:py-3 text-center whitespace-nowrap">#</th>
+                        <th className="w-[7%] bg-[var(--panel)] px-2 desk:px-3 py-2 desk:py-3 whitespace-nowrap">Fecha</th>
+                        <th className="w-[6%] bg-[var(--panel)] px-2 desk:px-3 py-2 desk:py-3 whitespace-nowrap">Hora</th>
+                        <th className="w-[25%] bg-[var(--panel)] px-2 desk:px-3 py-2 desk:py-3 whitespace-nowrap min-w-[200px]">Descripción</th>
+                        <th className="w-[8%] bg-[var(--panel)] px-2 py-2 desk:py-3 text-center whitespace-nowrap">Tipo</th>
+                        <th className="w-[8%] bg-[var(--panel)] px-2 py-2 desk:py-3 whitespace-nowrap">Pago</th>
+                        <th className="w-[8%] bg-[var(--panel)] px-2 desk:px-3 py-2 desk:py-3 text-right whitespace-nowrap">Importe</th>
+                        <th className="w-[8%] bg-[var(--panel)] px-2 py-2 desk:py-3 whitespace-nowrap">Usuario</th>
+                        <th className="w-[6%] bg-[var(--panel)] px-2 desk:px-3 py-2 desk:py-3 text-right whitespace-nowrap">Ing. Caja</th>
+                        <th className="w-[6%] bg-[var(--panel)] px-2 desk:px-3 py-2 desk:py-3 text-right whitespace-nowrap">Egr. Caja</th>
+                        <th className="w-[6%] bg-[var(--panel)] px-2 desk:px-3 py-2 desk:py-3 text-right whitespace-nowrap">Saldo Caja</th>
+                        <th className="w-[6%] bg-[var(--panel)] px-2 desk:px-3 py-2 desk:py-3 text-right whitespace-nowrap">Ing. Banco</th>
+                        <th className="w-[6%] bg-[var(--panel)] px-2 desk:px-3 py-2 desk:py-3 text-right whitespace-nowrap">Egr. Banco</th>
+                        <th className="w-[6%] bg-[var(--panel)] px-2 desk:px-3 py-2 desk:py-3 text-right whitespace-nowrap">Saldo Banco</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--border)] font-mono text-xs">
@@ -1463,15 +1465,15 @@ export default function CajaTerminal({
                                 : "hover:bg-[var(--brand)]/[0.03]"
                             )}
                           >
-                            <td className="px-3 py-3.5 text-center font-semibold whitespace-nowrap text-[var(--text-secondary)] relative">
+                            <td className="px-2 desk:px-3 py-2 desk:py-3.5 text-center font-semibold whitespace-nowrap text-[var(--text-secondary)] relative">
                               {isHighlighted && (
                                 <span className="absolute left-0 top-0 bottom-0 w-[4px] bg-emerald-400 rounded-r-full shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
                               )}
                               {mov.itemNumber}
                             </td>
-                            <td className="px-3 py-3.5 whitespace-nowrap text-[var(--text-muted)]">{fechaStr}</td>
-                            <td className="px-3 py-3.5 whitespace-nowrap text-[var(--text-secondary)]">{horaStr}</td>
-                            <td className="px-3 py-3.5 pr-2 font-sans leading-tight text-[var(--text)]" title={descTitle}>
+                            <td className="px-2 desk:px-3 py-2 desk:py-3.5 whitespace-nowrap text-[var(--text-muted)]">{fechaStr}</td>
+                            <td className="px-2 desk:px-3 py-2 desk:py-3.5 whitespace-nowrap text-[var(--text-secondary)]">{horaStr}</td>
+                            <td className="px-2 desk:px-3 py-2 desk:py-3.5 pr-2 font-sans leading-tight text-[var(--text)]" title={descTitle}>
                               {mov.venta ? (
                                 <span className="block whitespace-normal break-words line-clamp-2">
                                   {getVentaDescripcionClean(mov)}
@@ -1486,30 +1488,30 @@ export default function CajaTerminal({
                                 </span>
                               )}
                             </td>
-                            <td className="px-2 py-3.5 text-center whitespace-nowrap">
+                            <td className="px-2 py-2 desk:py-3.5 text-center whitespace-nowrap">
                               {renderTipoBadge(visual.label)}
                             </td>
-                            <td className="px-2 py-3.5 whitespace-nowrap">{renderPagoBadge(fila.pago)}</td>
-                            <td className="px-3 py-3.5 text-right font-semibold text-[var(--text)] whitespace-nowrap">
+                            <td className="px-2 py-2 desk:py-3.5 whitespace-nowrap">{renderPagoBadge(fila.pago)}</td>
+                            <td className="px-2 desk:px-3 py-2 desk:py-3.5 text-right font-semibold text-[var(--text)] whitespace-nowrap">
                               {formatCurrency(fila.importe)}
                             </td>
-                            <td className="px-2 py-3.5 font-sans whitespace-nowrap text-[var(--text-muted)]" title={mov.usuario.nombreCompleto || undefined}>@{mov.usuario.username}</td>
-                            <td className="px-3 py-3.5 text-right font-semibold whitespace-nowrap">
+                            <td className="px-2 py-2 desk:py-3.5 font-sans whitespace-nowrap text-[var(--text-muted)]" title={mov.usuario.nombreCompleto || undefined}>@{mov.usuario.username}</td>
+                            <td className="px-2 desk:px-3 py-2 desk:py-3.5 text-right font-semibold whitespace-nowrap">
                               {renderMoneyOrDash(fila.ingresoCaja, "text-[var(--success)]")}
                             </td>
-                            <td className="px-3 py-3.5 text-right font-semibold whitespace-nowrap">
+                            <td className="px-2 desk:px-3 py-2 desk:py-3.5 text-right font-semibold whitespace-nowrap">
                               {renderMoneyOrDash(fila.egresoCaja, "text-[var(--danger)]")}
                             </td>
-                            <td className="px-3 py-3.5 text-right font-bold whitespace-nowrap text-[var(--text)]">
+                            <td className="px-2 desk:px-3 py-2 desk:py-3.5 text-right font-bold whitespace-nowrap text-[var(--text)]">
                               {formatCurrency(fila.saldoCaja)}
                             </td>
-                            <td className="px-3 py-3.5 text-right font-semibold whitespace-nowrap">
+                            <td className="px-2 desk:px-3 py-2 desk:py-3.5 text-right font-semibold whitespace-nowrap">
                               {renderMoneyOrDash(fila.ingresoBanco, "text-[var(--success)]")}
                             </td>
-                            <td className="px-3 py-3.5 text-right font-semibold whitespace-nowrap">
+                            <td className="px-2 desk:px-3 py-2 desk:py-3.5 text-right font-semibold whitespace-nowrap">
                               {renderMoneyOrDash(fila.egresoBanco, "text-[var(--danger)]")}
                             </td>
-                            <td className="px-3 py-3.5 text-right font-bold whitespace-nowrap text-[var(--text)]">
+                            <td className="px-2 desk:px-3 py-2 desk:py-3.5 text-right font-bold whitespace-nowrap text-[var(--text)]">
                               {formatCurrency(fila.saldoBanco)}
                             </td>
                           </tr>
@@ -1524,39 +1526,39 @@ export default function CajaTerminal({
       </div>
 
       {cajaActiva && (
-        <div className="pt-1">
+        <div>
           {/* ═══ RESUMEN INFERIOR ═══ */}
-          <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-2.5 shadow-[var(--shadow-sm)] flex flex-col justify-end">
+          <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-1.5 desk:p-2.5 shadow-[var(--shadow-sm)] flex flex-col justify-end">
             {hayFiltrosActivos && (
-              <p className="text-xs text-[var(--brand)] font-semibold uppercase tracking-wider mb-2 flex items-center gap-1">
+              <p className="text-[11px] desk:text-xs text-[var(--brand)] font-semibold uppercase tracking-wider mb-1.5 desk:mb-2 flex items-center gap-1">
                 <Filter size={12} />
                 Totales según filtros aplicados
               </p>
             )}
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2">
-              <div className="rounded-xl border border-[var(--border)] hover:border-[#f59e0b]/40 bg-[var(--card)] p-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(245,158,11,0.12)]">
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#f59e0b]">Operación económica</p>
-                <div className="mt-2 space-y-2">
-                  <div className="flex items-center justify-between gap-3 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1.5 desk:gap-2">
+              <div className="rounded-xl border border-[var(--border)] hover:border-[#f59e0b]/40 bg-[var(--card)] p-2 desk:p-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(245,158,11,0.12)]">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] desk:tracking-[0.18em] text-[#f59e0b]">Operación económica</p>
+                <div className="mt-1 desk:mt-2 space-y-1 desk:space-y-2">
+                  <div className="flex items-center justify-between gap-2 desk:gap-3 text-xs desk:text-sm">
                     <span className="text-[var(--text-secondary)]">Movimientos</span>
                     <span className="font-bold text-[var(--text)]">
                       {resumenInferior.movimientos}{hayFiltrosActivos ? `/${resumenInferior.totalMovimientosTurno}` : ""}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between gap-3 text-sm">
+                  <div className="flex items-center justify-between gap-2 desk:gap-3 text-xs desk:text-sm">
                     <span className="text-[var(--text-secondary)]">Ventas ({resumenInferior.cantVentas})</span>
                     <span className="font-mono font-bold text-[var(--success)]">{formatCurrency(resumenInferior.ventas)}</span>
                   </div>
-                  <div className="flex items-center justify-between gap-3 text-sm">
+                  <div className="flex items-center justify-between gap-2 desk:gap-3 text-xs desk:text-sm">
                     <span className="text-[var(--text-secondary)]">Reposiciones ({resumenInferior.cantReposiciones})</span>
                     <span className="font-mono font-bold text-[var(--danger)]">{formatCurrency(resumenInferior.reposiciones)}</span>
                   </div>
-                  <div className="flex items-center justify-between gap-3 text-sm">
+                  <div className="flex items-center justify-between gap-2 desk:gap-3 text-xs desk:text-sm">
                     <span className="text-[var(--text-secondary)]">Gastos ({resumenInferior.cantGastos})</span>
                     <span className="font-mono font-bold text-[var(--danger)]">{formatCurrency(resumenInferior.gastos)}</span>
                   </div>
                   {resumenInferior.cantAjustesEfectivo > 0 && (
-                    <div className="flex items-center justify-between gap-3 text-sm">
+                    <div className="flex items-center justify-between gap-2 desk:gap-3 text-xs desk:text-sm">
                       <span className="text-[var(--text-secondary)]">Aj. Efectivo ({resumenInferior.cantAjustesEfectivo})</span>
                       <div className="flex items-center gap-1.5 font-mono text-xs">
                         {resumenInferior.ajustesEfectivoIngreso > 0 && (
@@ -1569,7 +1571,7 @@ export default function CajaTerminal({
                     </div>
                   )}
                   {resumenInferior.cantAjustesBanco > 0 && (
-                    <div className="flex items-center justify-between gap-3 text-sm">
+                    <div className="flex items-center justify-between gap-2 desk:gap-3 text-xs desk:text-sm">
                       <span className="text-[var(--text-secondary)]">Aj. Banco ({resumenInferior.cantAjustesBanco})</span>
                       <div className="flex items-center gap-1.5 font-mono text-xs">
                         {resumenInferior.ajustesBancoIngreso > 0 && (
@@ -1582,7 +1584,7 @@ export default function CajaTerminal({
                     </div>
                   )}
                   {resumenInferior.cantAjustes === 0 && (
-                    <div className="flex items-center justify-between gap-3 text-sm">
+                    <div className="flex items-center justify-between gap-2 desk:gap-3 text-xs desk:text-sm">
                       <span className="text-[var(--text-secondary)]">Ajustes (0)</span>
                       <span className="font-mono font-bold text-[var(--text-secondary)]">{formatCurrency(0)}</span>
                     </div>
@@ -1590,34 +1592,34 @@ export default function CajaTerminal({
                 </div>
               </div>
 
-              <div className="rounded-xl border border-[var(--border)] hover:border-[#22c55e]/40 bg-[var(--card)] p-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(34,197,94,0.12)]">
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#22c55e]">Caja</p>
-                <div className="mt-2 space-y-2">
-                  <div className="flex items-center justify-between gap-3 text-sm">
+              <div className="rounded-xl border border-[var(--border)] hover:border-[#22c55e]/40 bg-[var(--card)] p-2 desk:p-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(34,197,94,0.12)]">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] desk:tracking-[0.18em] text-[#22c55e]">Caja</p>
+                <div className="mt-1 desk:mt-2 space-y-1 desk:space-y-2">
+                  <div className="flex items-center justify-between gap-2 desk:gap-3 text-xs desk:text-sm">
                     <span className="text-[var(--text-secondary)]">Inicial Caja</span>
                     <span className="font-mono font-bold text-[var(--text)]">{formatCurrency(resumenInferior.cajaInicial)}</span>
                   </div>
-                  <div className="flex items-center justify-between gap-3 text-sm">
+                  <div className="flex items-center justify-between gap-2 desk:gap-3 text-xs desk:text-sm">
                     <span className="text-[var(--text-secondary)]">Ingresos Caja</span>
                     <span className="font-mono font-bold text-[var(--success)]">{formatCurrency(resumenInferior.cajaIngresos)}</span>
                   </div>
-                  <div className="flex items-center justify-between gap-3 text-sm">
+                  <div className="flex items-center justify-between gap-2 desk:gap-3 text-xs desk:text-sm">
                     <span className="text-[var(--text-secondary)]">Egresos Caja</span>
                     <span className="font-mono font-bold text-[var(--danger)]">{formatCurrency(resumenInferior.cajaEgresos)}</span>
                   </div>
-                  <div className="flex items-center justify-between gap-3 text-sm">
+                  <div className="flex items-center justify-between gap-2 desk:gap-3 text-xs desk:text-sm">
                     <span className="text-[var(--text-secondary)]">Saldo Caja</span>
-                    <span className="font-mono text-base font-black text-[var(--text)]">
+                    <span className="font-mono text-sm desk:text-base font-black text-[var(--text)]">
                       {formatCurrency(resumenInferior.cajaSaldo)}
                     </span>
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-xl border border-[var(--border)] hover:border-[#38bdf8]/40 bg-[var(--card)] p-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(56,189,248,0.12)]">
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#38bdf8]">Banco</p>
-                <div className="mt-2 space-y-2">
-                  <div className="flex items-center justify-between gap-3 text-sm">
+              <div className="rounded-xl border border-[var(--border)] hover:border-[#38bdf8]/40 bg-[var(--card)] p-2 desk:p-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(56,189,248,0.12)]">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] desk:tracking-[0.18em] text-[#38bdf8]">Banco</p>
+                <div className="mt-1 desk:mt-2 space-y-1 desk:space-y-2">
+                  <div className="flex items-center justify-between gap-2 desk:gap-3 text-xs desk:text-sm">
                     <span className="text-[var(--text-secondary)] flex items-center gap-1">
                       Inicial Banco
                       <span
@@ -1629,37 +1631,37 @@ export default function CajaTerminal({
                     </span>
                     <span className="font-mono font-bold text-[var(--text)]">{formatCurrency(resumenInferior.bancoInicial)}</span>
                   </div>
-                  <div className="flex items-center justify-between gap-3 text-sm">
+                  <div className="flex items-center justify-between gap-2 desk:gap-3 text-xs desk:text-sm">
                     <span className="text-[var(--text-secondary)]">Ingresos Banco</span>
                     <span className="font-mono font-bold text-[var(--success)]">{formatCurrency(resumenInferior.bancoIngresos)}</span>
                   </div>
-                  <div className="flex items-center justify-between gap-3 text-sm">
+                  <div className="flex items-center justify-between gap-2 desk:gap-3 text-xs desk:text-sm">
                     <span className="text-[var(--text-secondary)]">Egresos Banco</span>
                     <span className="font-mono font-bold text-[var(--danger)]">{formatCurrency(resumenInferior.bancoEgresos)}</span>
                   </div>
-                  <div className="flex items-center justify-between gap-3 text-sm">
+                  <div className="flex items-center justify-between gap-2 desk:gap-3 text-xs desk:text-sm">
                     <span className="text-[var(--text-secondary)]">Saldo Banco</span>
-                    <span className="font-mono text-base font-black text-[var(--text)]">
+                    <span className="font-mono text-sm desk:text-base font-black text-[var(--text)]">
                       {formatCurrency(resumenInferior.bancoSaldo)}
                     </span>
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-xl border border-[var(--border)] hover:border-[var(--brand)]/60 bg-[var(--card)] p-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(214,40,40,0.12)] flex flex-col justify-center">
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--brand)]">Total Disponible</p>
-                <div className="mt-2 space-y-2">
-                  <div className="flex items-center justify-between gap-3 text-sm">
+              <div className="rounded-xl border border-[var(--border)] hover:border-[var(--brand)]/60 bg-[var(--card)] p-2 desk:p-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(214,40,40,0.12)] flex flex-col justify-center">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] desk:tracking-[0.18em] text-[var(--brand)]">Total Disponible</p>
+                <div className="mt-1 desk:mt-2 space-y-1 desk:space-y-2">
+                  <div className="flex items-center justify-between gap-2 desk:gap-3 text-xs desk:text-sm">
                     <span className="text-[var(--text-secondary)]">Efectivo Caja</span>
                     <span className="font-mono font-bold text-[var(--text)]">{formatCurrency(resumenInferior.cajaSaldo)}</span>
                   </div>
-                  <div className="flex items-center justify-between gap-3 text-sm">
+                  <div className="flex items-center justify-between gap-2 desk:gap-3 text-xs desk:text-sm">
                     <span className="text-[var(--text-secondary)]">Banco</span>
                     <span className="font-mono font-bold text-[var(--text)]">{formatCurrency(resumenInferior.bancoSaldo)}</span>
                   </div>
-                  <div className="flex items-center justify-between gap-3 text-sm pt-2 border-t border-[var(--brand)]/30">
+                  <div className="flex items-center justify-between gap-2 desk:gap-3 text-xs desk:text-sm pt-1.5 desk:pt-2 border-t border-[var(--brand)]/30">
                     <span className="text-[var(--text-secondary)] font-semibold">Total</span>
-                    <span className="font-mono text-base font-black text-[var(--brand)]">{formatCurrency(totalDisponibleResumen)}</span>
+                    <span className="font-mono text-sm desk:text-base font-black text-[var(--brand)]">{formatCurrency(totalDisponibleResumen)}</span>
                   </div>
                 </div>
               </div>

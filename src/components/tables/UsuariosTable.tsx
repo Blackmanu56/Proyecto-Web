@@ -463,36 +463,36 @@ export default function UsuariosTable({
   return (
     <div className="flex flex-col h-auto desk:h-full min-h-0">
       {/* 1. Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 shrink-0 mb-3">
-        <div className="bg-[linear-gradient(135deg,rgba(59,130,246,0.10),rgba(59,130,246,0.03))] border border-[#3B82F6]/35 p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(59,130,246,0.12)]">
-          <div>
-            <p className="text-xs text-[#3B82F6] font-extrabold uppercase tracking-wider">Total Usuarios</p>
-            <p className="text-3xl font-black text-[var(--text)] leading-none mt-1">{users.length}</p>
-            <p className="text-xs text-[var(--text-secondary)] mt-2">Usuarios registrados</p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 desk:gap-3 shrink-0 mb-2 desk:mb-3">
+        <div className="bg-[linear-gradient(135deg,rgba(59,130,246,0.10),rgba(59,130,246,0.03))] border border-[#3B82F6]/35 p-2.5 desk:p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(59,130,246,0.12)]">
+          <div className="min-w-0">
+            <p className="text-[11px] desk:text-xs text-[#3B82F6] font-extrabold uppercase tracking-wider truncate">Total Usuarios</p>
+            <p className="text-xl desk:text-3xl font-black text-[var(--text)] leading-none mt-1">{users.length}</p>
+            <p className="hidden desk:block text-xs text-[var(--text-secondary)] mt-2">Usuarios registrados</p>
           </div>
-          <div className="p-3 bg-[#3B82F6]/15 rounded-full text-[#3B82F6] ring-1 ring-[#3B82F6]/20">
+          <div className="p-2 desk:p-3 bg-[#3B82F6]/15 rounded-full text-[#3B82F6] ring-1 ring-[#3B82F6]/20 shrink-0 [&>svg]:w-5 [&>svg]:h-5 desk:[&>svg]:w-7 desk:[&>svg]:h-7">
             <Users size={28} />
           </div>
         </div>
 
-        <div className="bg-[linear-gradient(135deg,rgba(34,197,94,0.10),rgba(34,197,94,0.03))] border border-[#22C55E]/35 p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(34,197,94,0.12)]">
-          <div>
-            <p className="text-xs text-[#22C55E] font-extrabold uppercase tracking-wider">Activos</p>
-            <p className="text-3xl font-black text-[var(--text)] leading-none mt-1">{users.filter((u) => u.activo).length}</p>
-            <p className="text-xs text-[var(--text-secondary)] mt-2">Usuarios habilitados</p>
+        <div className="bg-[linear-gradient(135deg,rgba(34,197,94,0.10),rgba(34,197,94,0.03))] border border-[#22C55E]/35 p-2.5 desk:p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(34,197,94,0.12)]">
+          <div className="min-w-0">
+            <p className="text-[11px] desk:text-xs text-[#22C55E] font-extrabold uppercase tracking-wider truncate">Activos</p>
+            <p className="text-xl desk:text-3xl font-black text-[var(--text)] leading-none mt-1">{users.filter((u) => u.activo).length}</p>
+            <p className="hidden desk:block text-xs text-[var(--text-secondary)] mt-2">Usuarios habilitados</p>
           </div>
-          <div className="p-3 bg-[#22C55E]/15 rounded-full text-[#22C55E] ring-1 ring-[#22C55E]/20">
+          <div className="p-2 desk:p-3 bg-[#22C55E]/15 rounded-full text-[#22C55E] ring-1 ring-[#22C55E]/20 shrink-0 [&>svg]:w-5 [&>svg]:h-5 desk:[&>svg]:w-7 desk:[&>svg]:h-7">
             <UserCheck size={28} />
           </div>
         </div>
 
-        <div className="bg-[linear-gradient(135deg,rgba(148,163,184,0.10),rgba(148,163,184,0.03))] border border-[#94A3B8]/30 p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(148,163,184,0.10)]">
-          <div>
-            <p className="text-xs text-[#94A3B8] font-extrabold uppercase tracking-wider">Inactivos</p>
-            <p className="text-3xl font-black text-[var(--text)] leading-none mt-1">{users.filter((u) => !u.activo).length}</p>
-            <p className="text-xs text-[var(--text-secondary)] mt-2">Usuarios dados de baja</p>
+        <div className="bg-[linear-gradient(135deg,rgba(148,163,184,0.10),rgba(148,163,184,0.03))] border border-[#94A3B8]/30 p-2.5 desk:p-4 rounded-xl flex items-center justify-between shadow-[var(--shadow-sm)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(148,163,184,0.10)]">
+          <div className="min-w-0">
+            <p className="text-[11px] desk:text-xs text-[#94A3B8] font-extrabold uppercase tracking-wider truncate">Inactivos</p>
+            <p className="text-xl desk:text-3xl font-black text-[var(--text)] leading-none mt-1">{users.filter((u) => !u.activo).length}</p>
+            <p className="hidden desk:block text-xs text-[var(--text-secondary)] mt-2">Usuarios dados de baja</p>
           </div>
-          <div className="p-3 bg-[#94A3B8]/15 rounded-full text-[#94A3B8] ring-1 ring-[#94A3B8]/20">
+          <div className="p-2 desk:p-3 bg-[#94A3B8]/15 rounded-full text-[#94A3B8] ring-1 ring-[#94A3B8]/20 shrink-0 [&>svg]:w-5 [&>svg]:h-5 desk:[&>svg]:w-7 desk:[&>svg]:h-7">
             <UserX size={28} />
           </div>
         </div>

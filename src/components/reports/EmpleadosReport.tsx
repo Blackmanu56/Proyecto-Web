@@ -394,26 +394,26 @@ export default function EmpleadosReport({ initialData }: Props) {
         {activeSubView === "analisis" && (
           <>
             {/* Resumen */}
-            <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl p-4">
-              <h3 className={sectionHeaderClass + " mb-3"}>Resumen</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 text-center flex flex-col items-center justify-center">
-                  <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Total Empleados</div>
-                  <div className="text-base font-bold text-[var(--text)]">{data.resumen.total}</div>
+            <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl p-2 desk:p-4">
+              <h3 className={sectionHeaderClass + " mb-1.5 desk:mb-3"}>Resumen</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-1.5 desk:gap-3">
+                <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 desk:p-3 flex items-center justify-between gap-2 desk:flex-col desk:justify-center desk:text-center">
+                  <div className="text-[11px] desk:text-xs font-semibold text-[var(--text-muted)] desk:mb-1">Total Empleados</div>
+                  <div className="text-xs desk:text-base font-bold text-[var(--text)]">{data.resumen.total}</div>
                 </div>
-                <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 text-center flex flex-col items-center justify-center">
-                  <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Personal Activo</div>
-                  <div className="text-base font-bold text-[var(--success)]">{data.resumen.activos}</div>
+                <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 desk:p-3 flex items-center justify-between gap-2 desk:flex-col desk:justify-center desk:text-center">
+                  <div className="text-[11px] desk:text-xs font-semibold text-[var(--text-muted)] desk:mb-1">Personal Activo</div>
+                  <div className="text-xs desk:text-base font-bold text-[var(--success)]">{data.resumen.activos}</div>
                 </div>
-                <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 text-center flex flex-col items-center justify-center">
-                  <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Con Actividad en el Período</div>
-                  <div className="text-base font-bold text-[var(--brand)]">
+                <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 desk:p-3 flex items-center justify-between gap-2 desk:flex-col desk:justify-center desk:text-center">
+                  <div className="text-[11px] desk:text-xs font-semibold text-[var(--text-muted)] desk:mb-1">Con Actividad en el Período</div>
+                  <div className="text-xs desk:text-base font-bold text-[var(--brand)]">
                     {data.resumen.empleadosConActividad ?? empleadosRanking.length}
                   </div>
                 </div>
-                <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 text-center flex flex-col items-center justify-center">
-                  <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">Acciones del Período</div>
-                  <div className="text-base font-bold text-[var(--text)]">{data.resumen.actividadPeriodo}</div>
+                <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 desk:p-3 flex items-center justify-between gap-2 desk:flex-col desk:justify-center desk:text-center">
+                  <div className="text-[11px] desk:text-xs font-semibold text-[var(--text-muted)] desk:mb-1">Acciones del Período</div>
+                  <div className="text-xs desk:text-base font-bold text-[var(--text)]">{data.resumen.actividadPeriodo}</div>
                 </div>
               </div>
             </div>

@@ -68,13 +68,13 @@ export default async function InformesPage() {
 
   return (
     <div className="module-shell bg-[var(--bg)]">
-      <div className="flex-1 flex flex-col min-h-0 overflow-y-auto p-2 lg:p-3 space-y-3">
+      <div className="flex-1 flex flex-col min-h-0 overflow-y-auto p-1.5 desk:p-3 space-y-1.5 desk:space-y-3">
         {/* Encabezado */}
-        <div className="flex items-center justify-center gap-3 shrink-0 mb-2 text-center print:hidden">
-          <div className="p-2.5 bg-[var(--brand-light)] rounded-xl text-[var(--brand)] ring-1 ring-[var(--brand)]/20">
+        <div className="flex items-center justify-center gap-2 desk:gap-3 shrink-0 mb-0.5 desk:mb-2 text-center print:hidden">
+          <div className="p-1.5 desk:p-2.5 bg-[var(--brand-light)] rounded-lg desk:rounded-xl text-[var(--brand)] ring-1 ring-[var(--brand)]/20 [&>svg]:w-4 [&>svg]:h-4 desk:[&>svg]:w-6 desk:[&>svg]:h-6">
             <BarChart3 size={24} />
           </div>
-          <h1 className="text-2xl lg:text-3xl font-black text-[var(--text)] tracking-tight">
+          <h1 className="text-lg sm:text-xl desk:text-3xl font-black text-[var(--text)] tracking-tight">
             Informes
           </h1>
         </div>

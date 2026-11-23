@@ -24,8 +24,8 @@ export default async function DashboardPage() {
   const canAccessCaja = await hasPermission("caja.ver", session);
 
   return (
-    <div className="flex-1 bg-[var(--bg)] px-5 py-2">
-      <div className="w-full">
+    <div className="flex-1 bg-[var(--bg)] px-3 py-1 desk:px-5 desk:py-2">
+      <div className="w-full max-w-[2100px] mx-auto">
         <DashboardClient
           data={dashboardData}
           userName={session?.username ?? "Usuario"}

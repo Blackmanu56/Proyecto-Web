@@ -121,9 +121,9 @@ export default function InformesTabs({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-2 desk:space-y-6">
       {/* Tab Navigation (oculto al imprimir) */}
-      <div className="print:hidden relative bg-[var(--panel)] border border-[var(--border)] rounded-[var(--radius-lg)] p-1 w-full">
+      <div className="print:hidden relative bg-[var(--panel)] border border-[var(--border)] rounded-[var(--radius-lg)] p-0.5 desk:p-1 w-full">
         <div className="flex w-full overflow-x-auto scrollbar-hide gap-1">
           {availableTabs.map((tab) => {
             const isActive = activeTab === tab;
@@ -132,7 +132,7 @@ export default function InformesTabs({
                 key={tab}
                 data-tab={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`relative flex flex-1 items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm transition-all duration-150 whitespace-nowrap ${
+                className={`relative flex flex-1 items-center justify-center gap-1.5 desk:gap-2 px-2.5 desk:px-4 py-1.5 desk:py-2.5 rounded-lg text-xs desk:text-sm transition-all duration-150 whitespace-nowrap ${
                   isActive
                     ? "bg-[var(--card)] text-white font-bold border border-[var(--border)] shadow-sm"
                     : "text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--card)]/40 font-medium border border-transparent"

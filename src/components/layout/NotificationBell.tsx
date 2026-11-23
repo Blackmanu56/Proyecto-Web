@@ -51,7 +51,7 @@ export default function NotificationBell() {
           // Pre-warm query on hover for instant open on click
           getNotificaciones().catch(() => {});
         }}
-        className="relative flex items-center justify-center p-2.5 rounded-xl text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--card)]/80 border border-transparent hover:border-[var(--border)]/40 transition-all duration-300"
+        className="relative flex items-center justify-center p-1.5 desk:p-2.5 rounded-xl text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--card)]/80 border border-transparent hover:border-[var(--border)]/40 transition-all duration-300"
         title="Notificaciones"
       >
         <Bell size={18} />

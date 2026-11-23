@@ -83,9 +83,9 @@ function KpiCard({
   sub?: string;
 }) {
   return (
-    <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 text-center flex flex-col items-center justify-center">
-      <div className="text-xs font-semibold text-[var(--text-muted)] mb-1">{label}</div>
-      <div className="text-sm font-bold text-[var(--text)] break-words">{value}</div>
+    <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg px-2 py-1.5 desk:p-3 text-center flex flex-col items-center justify-center">
+      <div className="text-[11px] desk:text-xs font-semibold text-[var(--text-muted)] mb-0.5 desk:mb-1">{label}</div>
+      <div className="text-xs desk:text-sm font-bold text-[var(--text)] break-words">{value}</div>
       {sub && <div className="text-[10px] text-[var(--text-secondary)] mt-0.5">{sub}</div>}
     </div>
   );
@@ -617,9 +617,9 @@ export default function ProveedoresReport({ initialData, userRole }: Props) {
         {activeSubView === "analisis" && (
           <>
             {/* Resumen KPI */}
-            <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl p-4">
-              <h3 className={sectionHeaderClass + " mb-3"}>Resumen</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="print:hidden bg-[var(--panel)] border border-[var(--border)] rounded-xl p-2 desk:p-4">
+              <h3 className={sectionHeaderClass + " mb-1.5 desk:mb-3"}>Resumen</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5 desk:gap-3">
                 <KpiCard
                   label="Total de Proveedores"
                   value={resumen.totalProveedores}

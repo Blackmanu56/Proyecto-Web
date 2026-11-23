@@ -106,9 +106,9 @@ export default function Navbar({ user }: NavbarProps) {
 
   return (
     <>
-      <header className="sticky top-0 z-50 h-16 desk:h-[5.5rem] px-4 sm:px-6 bg-gradient-to-r from-[var(--panel)] via-[#1a1e27] to-[var(--panel)] border-b border-[var(--border)]/40 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.35)]">
-        <div className="flex h-full items-center justify-between gap-6">
-          <div className="flex min-w-0 items-center gap-5">
+      <header className="sticky top-0 z-50 h-12 desk:h-[5.5rem] px-3 sm:px-4 desk:px-6 bg-gradient-to-r from-[var(--panel)] via-[#1a1e27] to-[var(--panel)] border-b border-[var(--border)]/40 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.35)]">
+        <div className="flex h-full items-center justify-between gap-3 desk:gap-6 max-w-[2100px] mx-auto w-full">
+          <div className="flex min-w-0 items-center gap-3 desk:gap-5">
             <Link
               href="/dashboard"
               className="flex items-center shrink-0 group"
@@ -119,7 +119,7 @@ export default function Navbar({ user }: NavbarProps) {
                 width={148}
                 height={66}
                 priority
-                className="h-8 sm:h-10 2xl:h-[3.9rem] w-auto object-contain rounded-lg drop-shadow-[0_2px_12px_rgba(0,0,0,0.5)] transition-all duration-300 group-hover:scale-105 group-hover:brightness-110 group-hover:drop-shadow-[0_4px_16px_rgba(0,0,0,0.6)]"
+                className="h-10 sm:h-11 desk:h-12 2xl:h-[3.9rem] w-auto object-contain rounded-lg drop-shadow-[0_2px_12px_rgba(0,0,0,0.5)] transition-all duration-300 group-hover:scale-105 group-hover:brightness-110 group-hover:drop-shadow-[0_4px_16px_rgba(0,0,0,0.6)]"
               />
             </Link>
 
@@ -150,7 +150,7 @@ export default function Navbar({ user }: NavbarProps) {
             </nav>
           </div>
 
-          <div className="flex items-center gap-4 shrink-0">
+          <div className="flex items-center gap-2 desk:gap-4 shrink-0">
             <nav className="hidden 2xl:flex items-center gap-1 min-[1680px]:gap-1.5">
             {rightItems.map((item) => {
               const Icon = item.icon;
@@ -186,7 +186,7 @@ export default function Navbar({ user }: NavbarProps) {
               <>
                 <button
                   onClick={() => setShowProfile(true)}
-                  className="flex items-center gap-2 sm:gap-3 hover:bg-[var(--card)]/80 border border-[var(--border)]/20 hover:border-[var(--border)]/40 rounded-xl px-2.5 sm:px-3 py-1.5 sm:py-2 transition-all duration-300 cursor-pointer"
+                  className="flex items-center gap-2 desk:gap-3 hover:bg-[var(--card)]/80 border border-[var(--border)]/20 hover:border-[var(--border)]/40 rounded-xl px-2 py-1 desk:px-3 desk:py-2 transition-all duration-300 cursor-pointer"
                   title="Ver perfil de usuario"
                 >
                   <Avatar
@@ -217,7 +217,7 @@ export default function Navbar({ user }: NavbarProps) {
                 <button
                   onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                   aria-label={mobileMenuOpen ? "Cerrar menú" : "Abrir menú de navegación"}
-                  className="2xl:hidden p-2.5 rounded-xl text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--card)] transition-all duration-300 border border-transparent hover:border-[var(--border)]/40"
+                  className="2xl:hidden p-1.5 desk:p-2.5 rounded-xl text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--card)] transition-all duration-300 border border-transparent hover:border-[var(--border)]/40"
                 >
                   {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
                 </button>
@@ -227,11 +227,11 @@ export default function Navbar({ user }: NavbarProps) {
         </div>
       </header>
 
-      {/* Mobile menu dropdown */}
+      {/* Mobile / compact menu dropdown */}
       {mobileMenuOpen && (
-        <div className="2xl:hidden fixed inset-x-0 top-16 desk:top-[5.5rem] z-[70] max-h-[calc(100dvh-4rem)] desk:max-h-[calc(100dvh-5.5rem)] overflow-y-auto bg-[#13151b] border-b border-[var(--border)] shadow-[0_12px_40px_rgba(0,0,0,0.7)] animate-in fade-in slide-in-from-top-2 duration-200">
-          {/* Navigation items (mobile) */}
-          <nav className="p-3 space-y-1">
+        <div className="2xl:hidden fixed inset-x-0 sm:inset-x-auto sm:right-3 top-12 sm:mt-1.5 desk:top-[5.5rem] z-[70] w-full sm:w-[min(480px,calc(100vw-1.5rem))] max-h-[calc(100dvh-3.5rem)] desk:max-h-[calc(100dvh-6rem)] overflow-y-auto bg-[#13151b] border-b sm:border border-[var(--border)] sm:rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.7)] animate-in fade-in slide-in-from-top-2 duration-200">
+          {/* Navigation items */}
+          <nav className="p-2 grid grid-cols-2 sm:grid-cols-3 gap-1">
             {allowedItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname.startsWith(item.path);
@@ -241,26 +241,26 @@ export default function Navbar({ user }: NavbarProps) {
                   key={item.name}
                   href={item.path}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                  className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${
                     isActive
                       ? "bg-[var(--brand)]/10 text-white border border-[var(--brand)]/20 shadow-[0_2px_10px_rgba(214,40,40,0.12)]"
-                      : "text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--card)]/80"
+                      : "text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--card)]/80 border border-transparent"
                   }`}
                 >
-                  <Icon size={17} className="shrink-0" />
-                  <span>{item.name}</span>
+                  <Icon size={14} className="shrink-0" />
+                  <span className="truncate">{item.name}</span>
                 </Link>
               );
             })}
           </nav>
 
-          {/* Logout (mobile) */}
-          <div className="p-3 border-t border-[var(--border)]/40">
+          {/* Logout */}
+          <div className="px-2 py-1.5 border-t border-[var(--border)]/40">
             <button
               onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-[var(--danger)] hover:bg-[var(--danger-light)] border border-transparent hover:border-[var(--danger)]/10 transition-all duration-300"
+              className="w-full flex items-center justify-center sm:justify-start gap-2 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-[var(--danger)] hover:bg-[var(--danger-light)] border border-transparent hover:border-[var(--danger)]/10 transition-all duration-200"
             >
-              <LogOut size={17} />
+              <LogOut size={14} />
               <span>Cerrar sesión</span>
             </button>
           </div>

@@ -1204,7 +1204,7 @@ export default function SolicitudesTable({
       </div>
 
       {/* Table */}
-      <div className="flex-1 min-h-[400px] desk:min-h-0 overflow-x-auto overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--card)] scrollbar-thin">
+      <div className="flex-1 min-h-[300px] max-h-[65dvh] desk:min-h-0 desk:max-h-none overflow-x-auto overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--card)] scrollbar-thin">
         <table className="w-full text-sm border-collapse min-w-[960px] table-auto">
           <thead>
             <tr className="bg-[#17191f] whitespace-nowrap">

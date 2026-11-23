@@ -51,7 +51,7 @@ function TableShell({
   };
 
   const searchControl = onSearchChange !== undefined && (
-    <div className={centeredHeaderControls ? "w-full sm:w-[520px] xl:w-[620px] 2xl:w-[700px]" : "relative w-full md:max-w-[680px]"}>
+    <div className={centeredHeaderControls ? "w-full sm:w-[380px] md:w-[480px] xl:w-[620px] 2xl:w-[700px] min-[2200px]:w-[820px]" : "relative w-full md:max-w-[680px]"}>
       <Input
         ref={searchInputRef}
         placeholder={searchPlaceholder}
@@ -97,7 +97,7 @@ function TableShell({
   return (
     <div className="bg-card border border-border rounded-lg shadow-[var(--shadow-sm)] overflow-hidden flex flex-col h-auto desk:h-full min-h-0">
       {/* Header */}
-      <div className={`flex flex-col border-b border-border/60 shrink-0 ${centeredHeaderControls ? hideHeaderTitle ? "gap-2 px-4 py-3" : "gap-3 px-4 pb-4 pt-4" : "gap-2 p-3"}`}>
+      <div className={`flex flex-col border-b border-border/60 shrink-0 ${centeredHeaderControls ? hideHeaderTitle ? "gap-2 px-3 py-2.5 desk:px-4 desk:py-3" : "gap-2 px-3 py-3 desk:gap-3 desk:px-4 desk:pb-4 desk:pt-4" : "gap-2 p-2.5 desk:p-3"}`}>
         {centeredHeaderControls ? (
           <>
             {!hideHeaderTitle && (
@@ -108,7 +108,7 @@ function TableShell({
                 )}
               </div>
             )}
-            <div className={`${hideHeaderTitle ? "mt-0" : "mt-4"} flex flex-col gap-4 2xl:flex-row 2xl:items-end 2xl:justify-between`}>
+            <div className={`${hideHeaderTitle ? "mt-0" : "mt-2 desk:mt-4"} flex flex-col gap-3 desk:gap-4 2xl:flex-row 2xl:items-end 2xl:justify-between`}>
               <div className="flex flex-wrap items-end gap-2.5">
                 {searchControl && (
                   <div className="flex flex-col gap-1">
@@ -149,7 +149,7 @@ function TableShell({
       </div>
 
       {/* Content */}
-      <div className={`flex flex-1 min-h-[360px] desk:min-h-0 flex-col overflow-hidden ${centeredHeaderControls ? hideHeaderTitle ? "p-3 pt-2" : "p-4 pt-3" : "p-3"}`}>
+      <div className={`flex flex-1 min-h-0 flex-col overflow-hidden ${centeredHeaderControls ? hideHeaderTitle ? "p-2 desk:p-3 desk:pt-2" : "p-2 desk:p-4 desk:pt-3" : "p-2 desk:p-3"}`}>
         {isLoading ? (
           <LoadingSkeleton />
         ) : isEmpty ? (
@@ -158,7 +158,7 @@ function TableShell({
             <p>{emptyMessage}</p>
           </div>
         ) : (
-          <div className="flex-1 min-h-0 overflow-x-auto overflow-y-auto pr-1 w-full scrollbar-thin">
+          <div className="flex-1 min-h-0 max-h-[65dvh] desk:max-h-none overflow-x-auto overflow-y-auto pr-1 w-full scrollbar-thin">
             {children}
           </div>
         )}

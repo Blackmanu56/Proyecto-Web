@@ -194,16 +194,16 @@ interface StatCardProps {
 function StatCard({ title, value, sub, icon, colorClass, borderColor, valueColor, trend }: StatCardProps) {
   return (
     <div
-      className={`bg-[var(--card)] border border-[var(--border)] rounded-xl px-5 py-4 flex flex-col items-center text-center justify-center
+      className={`bg-[var(--card)] border border-[var(--border)] rounded-xl px-2.5 py-2 desk:px-5 desk:py-4 flex flex-col items-center text-center justify-center
         shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] transition-all duration-200 hover:scale-[1.02]
-        min-h-[150px] border-l-[5px] ${borderColor} min-w-0`}
+        min-h-0 desk:min-h-[150px] border-l-[4px] desk:border-l-[5px] ${borderColor} min-w-0`}
     >
-      <div className={`p-3 rounded-full ${colorClass} mb-2.5`}>{icon}</div>
-      <p className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider leading-tight">{title}</p>
-      <p className={`text-2xl font-extrabold font-mono tracking-tight leading-tight mt-1.5 ${valueColor || "text-[var(--text)]"}`}>
+      <div className={`p-1.5 desk:p-3 rounded-full ${colorClass} mb-1 desk:mb-2.5 [&>svg]:w-3.5 [&>svg]:h-3.5 desk:[&>svg]:w-5 desk:[&>svg]:h-5`}>{icon}</div>
+      <p className="text-[10px] desk:text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider leading-tight">{title}</p>
+      <p className={`text-base desk:text-2xl font-extrabold font-mono tracking-tight leading-tight mt-0.5 desk:mt-1.5 ${valueColor || "text-[var(--text)]"}`}>
         {value}
       </p>
-      <p className="text-xs text-[var(--text-secondary)] leading-tight mt-1">{sub}</p>
+      <p className="text-[10px] desk:text-xs text-[var(--text-secondary)] leading-tight mt-0.5 desk:mt-1">{sub}</p>
       {trend && (
         <div
           className={`flex items-center gap-1 mt-1.5 text-[11px] font-semibold ${
@@ -239,7 +239,7 @@ function PeriodFilter({
   ];
 
   const btnBase =
-    "font-semibold rounded-lg transition-all duration-200 whitespace-nowrap px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-[13px]";
+    "font-semibold rounded-lg transition-all duration-200 whitespace-nowrap px-2 py-1 text-[11px] desk:px-4 desk:py-2 desk:text-[13px]";
   const active = `${btnBase} bg-[#d62828] text-white shadow-[0_0_12px_rgba(214,40,40,0.35)]`;
   const inactive = `${btnBase} text-[#94a3b8] hover:text-white hover:bg-[#2a2e38]`;
 
@@ -278,7 +278,7 @@ function ChartTypeFilter({
           <button
             key={opt.value}
             onClick={() => onChange(opt.value)}
-            className={`font-semibold rounded-lg transition-all duration-200 whitespace-nowrap px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-[13px]
+            className={`font-semibold rounded-lg transition-all duration-200 whitespace-nowrap px-2 py-1 text-[11px] desk:px-4 desk:py-2 desk:text-[13px]
               ${
                 value === opt.value
                   ? "bg-[#d62828] text-white shadow-[0_0_12px_rgba(214,40,40,0.35)]"
@@ -437,21 +437,21 @@ export default function DashboardClient({ data, userName, role, formattedDate, c
   const pieTotal = pieData.reduce((sum, entry) => sum + entry.value, 0);
 
   return (
-    <div className="space-y-4" style={{ animation: "dashboard-fadeIn 0.3s ease-out" }}>
+    <div className="space-y-2.5 desk:space-y-4" style={{ animation: "dashboard-fadeIn 0.3s ease-out" }}>
       {/* ═══ HEADER ═══ */}
-      <div className="text-center py-2 sm:py-3 pt-1 scroll-mt-28">
-        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[var(--text)] tracking-tight">
+      <div className="text-center py-0.5 desk:py-3 pt-0.5 scroll-mt-20 desk:scroll-mt-28">
+        <h1 className="text-lg sm:text-xl desk:text-4xl font-extrabold text-[var(--text)] tracking-tight">
           {greeting}
         </h1>
-        <p className="text-[var(--text-muted)] text-xs sm:text-sm mt-1 capitalize">{formattedDate}</p>
+        <p className="text-[var(--text-muted)] text-[11px] desk:text-sm mt-0.5 desk:mt-1 capitalize">{formattedDate}</p>
       </div>
 
       {/* ═══ MAIN GRID ═══ */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start min-w-0">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 desk:gap-4 items-start min-w-0">
 
         {/* ═══ LEFT: Actividad Reciente (order-2 on mobile, order-1 on lg) ═══ */}
-        <div className="order-2 lg:order-1 lg:col-span-3 min-w-0 bg-[var(--card)] border border-[var(--border)] rounded-xl shadow-[var(--shadow-sm)] overflow-hidden flex flex-col max-h-[560px]">
-          <div className="flex items-center justify-between p-4 border-b border-[var(--border)]/60 shrink-0">
+        <div className="order-2 lg:order-1 lg:col-span-3 min-w-0 bg-[var(--card)] border border-[var(--border)] rounded-xl shadow-[var(--shadow-sm)] overflow-hidden flex flex-col max-h-[380px] desk:max-h-[560px] min-[2200px]:max-h-[760px]">
+          <div className="flex items-center justify-between p-3 desk:p-4 border-b border-[var(--border)]/60 shrink-0">
             <div className="flex items-center space-x-2.5">
               <div className="p-2 rounded-lg bg-[var(--brand-light)]">
                 <Activity size={16} className="text-[var(--brand)]" />
@@ -477,7 +477,7 @@ export default function DashboardClient({ data, userName, role, formattedDate, c
                 return (
                   <div
                     key={mov.id}
-                    className="px-4 py-3.5 flex items-center justify-between hover:bg-[var(--bg)] transition-colors duration-150"
+                    className="px-3 py-2 desk:px-4 desk:py-3.5 flex items-center justify-between hover:bg-[var(--bg)] transition-colors duration-150"
                   >
                     <div className="flex items-center space-x-3 min-w-0 flex-1">
                       <div
@@ -527,10 +527,10 @@ export default function DashboardClient({ data, userName, role, formattedDate, c
         </div>
 
         {/* ═══ RIGHT: Stats + Charts (order-1 on mobile, order-2 on lg) ═══ */}
-        <div className="order-1 lg:order-2 lg:col-span-9 flex flex-col gap-4 min-w-0">
+        <div className="order-1 lg:order-2 lg:col-span-9 flex flex-col gap-3 desk:gap-4 min-w-0">
 
           {/* ── Stat Cards ── */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 desk:gap-3">
             {statCards.map((stat) => (
               <StatCard
                 key={stat.title}
@@ -547,21 +547,21 @@ export default function DashboardClient({ data, userName, role, formattedDate, c
           </div>
 
           {/* ── Charts Row ── */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 min-w-0">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 desk:gap-4 min-w-0">
 
-            {/* ── EVOLUTION CHART (8 cols) ── */}
-            <div className="lg:col-span-8 min-w-0 bg-[var(--card)] border border-[var(--border)] p-4 sm:p-5 rounded-xl shadow-[var(--shadow-sm)]">
-              <div className="flex flex-col gap-3 mb-4 min-w-0">
-                <div className="flex items-center space-x-2.5">
-                  <div className="p-2 rounded-lg bg-[var(--brand-light)]">
-                    <TrendingUp size={16} className="text-[var(--brand)]" />
+            {/* ── EVOLUTION CHART (7/8 cols) ── */}
+            <div className="lg:col-span-7 xl:col-span-8 min-w-0 bg-[var(--card)] border border-[var(--border)] p-3 desk:p-5 rounded-xl shadow-[var(--shadow-sm)]">
+              <div className="flex flex-col gap-2 desk:gap-3 mb-2 desk:mb-4 min-w-0">
+                <div className="flex items-center space-x-2">
+                  <div className="p-1.5 desk:p-2 rounded-lg bg-[var(--brand-light)]">
+                    <TrendingUp size={15} className="text-[var(--brand)]" />
                   </div>
-                  <h3 className="text-sm font-bold text-[var(--text)]">{evolutionTitle}</h3>
+                  <h3 className="text-xs desk:text-sm font-bold text-[var(--text)]">{evolutionTitle}</h3>
                 </div>
                 <PeriodFilter value={period} onChange={handlePeriodChange} />
               </div>
 
-              <div className="h-80 w-full min-w-0 font-mono text-xs">
+              <div className="h-44 sm:h-48 desk:h-80 min-[2200px]:h-[420px] w-full min-w-0 font-mono text-xs">
                 {isPending ? (
                   <ChartSkeleton />
                 ) : evolutionData.length === 0 || evolutionData.every((d) => d.total === 0) ? (
@@ -610,27 +610,27 @@ export default function DashboardClient({ data, userName, role, formattedDate, c
               </div>
             </div>
 
-            {/* ── PIE CHART (4 cols) ── */}
-            <div className="lg:col-span-4 min-w-0 bg-[var(--card)] border border-[var(--border)] p-4 sm:p-5 rounded-xl shadow-[var(--shadow-sm)] flex flex-col">
+            {/* ── PIE CHART (5/4 cols) ── */}
+            <div className="lg:col-span-5 xl:col-span-4 min-w-0 bg-[var(--card)] border border-[var(--border)] p-3 desk:p-5 rounded-xl shadow-[var(--shadow-sm)] flex flex-col">
               {/* Header */}
-              <div className="mb-4 min-w-0">
-                <div className="flex items-center justify-center space-x-2.5 mb-3">
-                  <div className="p-2 rounded-lg bg-[var(--brand-light)]">
-                    <Package size={16} className="text-[var(--brand)]" />
+              <div className="mb-2 desk:mb-4 min-w-0">
+                <div className="flex items-center justify-center space-x-2 mb-2 desk:mb-3">
+                  <div className="p-1.5 desk:p-2 rounded-lg bg-[var(--brand-light)]">
+                    <Package size={15} className="text-[var(--brand)]" />
                   </div>
-                  <h3 className="text-sm font-bold text-[var(--text)]">{pieTitle}</h3>
+                  <h3 className="text-xs desk:text-sm font-bold text-[var(--text)]">{pieTitle}</h3>
                 </div>
                 <ChartTypeFilter options={CHART_TYPE_OPTIONS} value={chartType} onChange={handleChartTypeChange} />
               </div>
 
               {/* Chart area */}
-              <div className="flex-1 flex items-center justify-center min-h-[170px] min-w-0 w-full">
+              <div className="flex-1 flex items-center justify-center h-[130px] desk:h-auto desk:min-h-[170px] min-[2200px]:min-h-[250px] min-w-0 w-full">
                 {isPending ? (
                   <ChartSkeleton />
                 ) : pieData.length === 0 ? (
                   <EmptyState message="Sin datos para este período" />
                 ) : (
-                  <ResponsiveContainer width="100%" height={170}>
+                  <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
                         data={pieData}
